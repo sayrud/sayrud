@@ -1,0 +1,25 @@
+body {
+    margin: 0;
+    display: flex;
+    place-items: center;
+    min-height: 100vh;
+}
+
+#app {
+    min-width: 100vw;
+    min-height: 100vh;
+}
+
+
+#nprogress .bar {
+    background: #22219b !important;
+}
+
+#nprogress .peg {
+    box-shadow: 0 0 10px #22219b, 0 0 5px #22219b;
+}
+
+#nprogress .spinner-icon {
+    border-top-color: #22219b;
+    border-left-color: #22219b;
+}
