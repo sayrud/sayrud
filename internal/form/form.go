@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"reflect"
 
-	"github.com/charmbracelet/log"
 	"github.com/flamego/flamego"
+	"github.com/sirupsen/logrus"
 	"github.com/wuhan005/govalid"
 	"golang.org/x/text/language"
 )
@@ -81,6 +81,6 @@ func errorHandler(c flamego.Context, error Error) {
 	}
 	err := json.NewEncoder(c.ResponseWriter()).Encode(body)
 	if err != nil {
-		log.Error("Failed to encode response", "error", err)
+		logrus.WithError(err).Error("Failed to encode response")
 	}
 }

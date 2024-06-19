@@ -3,10 +3,10 @@ package main
 import (
 	"flag"
 
-	"github.com/charmbracelet/log"
+	"github.com/sirupsen/logrus"
 
-	"github.com/wuhan005/go-template/internal/db"
-	"github.com/wuhan005/go-template/internal/route"
+	"github.com/wuhan005/sayrud/internal/db"
+	"github.com/wuhan005/sayrud/internal/route"
 )
 
 func main() {
@@ -15,7 +15,7 @@ func main() {
 
 	db, err := db.Init()
 	if err != nil {
-		log.Fatal("Failed to initialize database", "error", err)
+		logrus.WithError(err).Fatal("Failed to initialize database")
 	}
 
 	f := route.New(db)

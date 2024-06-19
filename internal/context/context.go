@@ -5,76 +5,80 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/charmbracelet/log"
 	"github.com/flamego/flamego"
+	"github.com/flamego/session"
+	"github.com/sirupsen/logrus"
 	"gorm.io/gorm"
 
-	"github.com/wuhan005/go-template/internal/dbutil"
+	"github.com/wuhan005/sayrud/internal/dbutil"
+)
+
+const (
+	UserIDSessionID = "_user_id"
 )
 
 // Context represents context of a request.
 type Context struct {
 	flamego.Context
+	IsLogin bool
 }
 
-func (c *Context) Success(data ...interface{}) error {
+func (c *Context) ApiSuccess(data interface{}) error {
 	c.ResponseWriter().Header().Set("Content-Type", "application/json; charset=utf-8")
 	c.ResponseWriter().WriteHeader(http.StatusOK)
 
-	var d interface{}
-	if len(data) == 1 {
-		d = data[0]
-	}
-
 	err := json.NewEncoder(c.ResponseWriter()).Encode(
 		map[string]interface{}{
-			"data": d,
+			"msg":  "success",
+			"data": data,
 		},
 	)
 	if err != nil {
-		log.Error("Failed to encode", "error", err)
+		logrus.WithContext(c.Request().Context()).WithError(err).Error("Failed to encode error JSON")
 	}
 	return nil
 }
 
-func (c *Context) ServerError() error {
-	return c.Error(http.StatusInternalServerError, "internal server error")
-}
-
-func (c *Context) Error(statusCode int, message string, v ...interface{}) error {
+func (c *Context) ApiError(statusCode int, msg string, v ...interface{}) error {
 	c.ResponseWriter().Header().Set("Content-Type", "application/json; charset=utf-8")
 	c.ResponseWriter().WriteHeader(statusCode)
 
+	message := fmt.Sprintf(msg, v...)
 	err := json.NewEncoder(c.ResponseWriter()).Encode(
 		map[string]interface{}{
-			"msg": fmt.Sprintf(message, v...),
+			"msg": message,
 		},
 	)
 	if err != nil {
-		log.Error("Failed to encode", "error", err)
+		logrus.WithContext(c.Request().Context()).WithError(err).Error("Failed to encode error JSON")
 	}
 	return nil
+}
+
+func (c *Context) ApiServerError() error {
+	return c.ApiError(http.StatusInternalServerError, "服务器内部错误")
 }
 
 func (c *Context) Status(statusCode int) {
 	c.ResponseWriter().WriteHeader(statusCode)
 }
 
+func (c *Context) ServerError() {
+	// TODO
+	c.ResponseWriter().WriteHeader(http.StatusBadGateway)
+}
+
+func (c *Context) IP() string {
+	// TODO: from request header
+	return c.Request().RemoteAddr
+}
+
 // Contexter initializes a classic context for a request.
 func Contexter(gormDB *gorm.DB) flamego.Handler {
-	return func(ctx flamego.Context) {
+	return func(ctx flamego.Context, session session.Session) {
 		c := Context{
 			Context: ctx,
-		}
-
-		// Set CORS headers.
-		c.ResponseWriter().Header().Set("Access-Control-Allow-Origin", "*")
-		c.ResponseWriter().Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-		c.ResponseWriter().Header().Set("Access-Control-Allow-Headers", "*")
-		c.ResponseWriter().Header().Set("Access-Control-Expose-Headers", "*")
-		if ctx.Request().Method == http.MethodOptions {
-			ctx.ResponseWriter().WriteHeader(http.StatusOK)
-			return
+			IsLogin: false,
 		}
 
 		c.MapTo(gormDB, (*dbutil.Transactor)(nil))
