@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@types/nprogress": "^0.2.3",
     "axios": "^1.7.2",
     "lodash": "^4.17.21",
     "nprogress": "^0.2.0",

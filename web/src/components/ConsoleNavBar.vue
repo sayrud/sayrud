@@ -19,8 +19,8 @@
 <script setup lang="ts">
 import {useAppStore} from '@/store'
 import {useRoute, useRouter} from "vue-router";
-import logo from '@/assets/logo.svg?logo'
-import logoDark from '@/assets/logo-dark.svg?logo'
+import logo from '@/assets/logo.svg'
+import logoDark from '@/assets/logo-dark.svg'
 
 const route = useRoute()
 const router = useRouter()

@@ -30,7 +30,7 @@ const router = createRouter({
     }
 })
 
-router.beforeEach((to, _from, next) => {
+router.beforeEach((_to, _from, next) => {
     NProgress.start()
     next()
     NProgress.done()
