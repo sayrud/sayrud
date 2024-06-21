@@ -6,15 +6,23 @@ export default [
         children: [
             {
                 path: '',
-                component: () => import ('@/pages/Projects.vue'),
+                component: () => import ('@/pages/project/Projects.vue'),
                 name: 'Projects',
                 meta: {
                     auth: true,
                 }
             },
             {
-                path: '/:uid',
-                component: () => import ('@/pages/ProjectView.vue'),
+                path: 'create',
+                component: () => import ('@/pages/project/ProjectCreate.vue'),
+                name: 'ProjectCreate',
+                meta: {
+                    auth: true,
+                }
+            },
+            {
+                path: ':uid',
+                component: () => import ('@/pages/project/ProjectView.vue'),
                 name: 'ProjectView',
                 meta: {
                     auth: true,

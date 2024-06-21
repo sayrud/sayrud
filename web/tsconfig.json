@@ -48,5 +48,7 @@
     {
       "path": "./tsconfig.node.json"
     }
-  ]
+  ],
+  "esModuleInterop": true,
+  "allowSyntheticDefaultImports": true
 }

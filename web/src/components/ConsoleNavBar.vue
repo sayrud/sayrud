@@ -3,8 +3,27 @@
     <template #logo>
       <img height="30" :src="appStore.theme === 'dark' ? logoDark : logo" alt="logo"/>
     </template>
-    <t-menu-item value="Dashboard">仪表盘</t-menu-item>
-    <t-menu-item value="Projects"> 项目</t-menu-item>
+    <t-menu-item value="Dashboard">
+      <template #icon>
+        <t-icon name="dashboard"/>
+      </template>
+      仪表盘
+    </t-menu-item>
+    <t-menu-item value="Projects">
+      <template #icon>
+        <t-icon name="app"/>
+      </template>
+      项目
+    </t-menu-item>
+
+    <div class="divider"></div>
+
+    <!--    <t-menu-item value="Projects">-->
+    <!--      <template #icon>-->
+    <!--        <t-icon name="app"/>-->
+    <!--      </template>-->
+
+    <!--    </t-menu-item>-->
 
     <template #operations>
       <t-button variant="text" shape="square" @click="onSwitchTheme">
@@ -82,12 +101,20 @@ const getUserProfile = () => {
   })
 }
 
+const getProjects = () => {
+
+}
+
 onMounted(() => {
   getUserProfile()
 })
-
 </script>
 
 <style scoped>
-
+.divider {
+  height: 20px;
+  width: 2px;
+  background-color: var(--td-gray-color-3);
+  margin: 0px 14px;
+}
 </style>
