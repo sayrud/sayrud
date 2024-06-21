@@ -18,13 +18,6 @@
 
     <div class="divider"></div>
 
-    <!--    <t-menu-item value="Projects">-->
-    <!--      <template #icon>-->
-    <!--        <t-icon name="app"/>-->
-    <!--      </template>-->
-
-    <!--    </t-menu-item>-->
-
     <template #operations>
       <t-button variant="text" shape="square" @click="onSwitchTheme">
         <template #icon>
@@ -99,10 +92,6 @@ const getUserProfile = () => {
   userProfile().then(res => {
     profile.value = res
   })
-}
-
-const getProjects = () => {
-
 }
 
 onMounted(() => {
