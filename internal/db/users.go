@@ -6,8 +6,10 @@ package db
 
 import (
 	"context"
+	"strings"
 
 	"github.com/pkg/errors"
+	"github.com/wuhan005/gadget"
 	"gorm.io/gorm"
 
 	"github.com/wuhan005/sayrud/internal/dbutil"
@@ -34,6 +36,7 @@ func NewUsersStore(db *gorm.DB) UsersStore {
 type User struct {
 	dbutil.Model
 	Email       string `gorm:"uniqueIndex:idx_user_email" json:"email"`
+	EmailMd5    string `json:"emailMd5"`
 	UserName    string `json:"userName"`
 	GitHubID    string `gorm:"uniqueIndex:idx_user_github_id" json:"githubID"`
 	AccessToken string `json:"-"`
@@ -80,6 +83,7 @@ type UpsertUserOptions struct {
 func (db *users) Upsert(ctx context.Context, options UpsertUserOptions) (*User, error) {
 	u := &User{
 		Email:       options.Email,
+		EmailMd5:    gadget.Md5(strings.ToLower(options.Email)),
 		UserName:    options.UserName,
 		GitHubID:    options.GitHubID,
 		AccessToken: options.AccessToken,
@@ -111,6 +115,7 @@ type CreateUserOptions struct {
 func (db *users) Create(ctx context.Context, options CreateUserOptions) (*User, error) {
 	user := &User{
 		Email:       options.Email,
+		EmailMd5:    gadget.Md5(strings.ToLower(options.Email)),
 		UserName:    options.UserName,
 		GitHubID:    options.GitHubID,
 		AccessToken: options.AccessToken,

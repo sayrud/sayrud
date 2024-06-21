@@ -19,6 +19,10 @@ func New(db *gorm.DB) *flamego.Flame {
 	f.Group("/api", func() {
 		f.Get("/auth/github/callback", api.Auth.GitHubCallback)
 
+		f.Group("/auth", func() {
+			f.Get("/profile", api.Auth.Profile)
+		}, api.Auth.Authenticator)
+
 		f.Group("/projects", func() {
 			f.Combo("").
 				Get(api.Project.ListProjects).
@@ -70,7 +74,7 @@ func New(db *gorm.DB) *flamego.Flame {
 					}, api.Schemaless.Tabler)
 				})
 			}, api.Project.Projecter)
-		})
+		}, api.Auth.Authenticator)
 	})
 
 	f.Get("/healthz")

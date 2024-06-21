@@ -24,6 +24,17 @@ var Auth authRoute
 
 type authRoute struct{}
 
+func (authRoute) Authenticator(ctx context.Context) error {
+	if !ctx.IsLogin {
+		return ctx.ApiError(http.StatusUnauthorized, "请先登录账号")
+	}
+	return nil
+}
+
+func (authRoute) Profile(ctx context.Context, user *db.User) error {
+	return ctx.ApiSuccess(user)
+}
+
 func (authRoute) GitHubCallback(ctx context.Context) error {
 	code := ctx.Query("code")
 

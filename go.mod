@@ -12,6 +12,7 @@ require (
 	github.com/spf13/cast v1.6.0
 	github.com/thanhpk/randstr v1.0.6
 	github.com/tj/go-pg-escape v1.1.0
+	github.com/wuhan005/gadget v0.0.0-20221206194113-7619e407f1a0
 	github.com/wuhan005/govalid v0.0.0-20230225142102-9dd5e5a0d0fd
 	golang.org/x/text v0.14.0
 	gorm.io/datatypes v1.2.1
