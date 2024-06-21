@@ -3,7 +3,7 @@ import type {AxiosResponse} from 'axios';
 import {useAppStore} from "@/store";
 import {MessagePlugin} from "tdesign-vue-next";
 
-axios.defaults.baseURL = 'http://localhost:8080'
+axios.defaults.baseURL = import.meta.env.VITE_API_BASE_URL as string;
 
 axios.interceptors.request.use(
     (config) => {
@@ -18,14 +18,20 @@ axios.interceptors.request.use(
 
 axios.interceptors.response.use(
     (response: AxiosResponse) => {
-        const statusCode = response.status
-        if (Math.floor(statusCode / 100) !== 2) {
-            MessagePlugin.error(response.data || '未知错误')
-        }
-        return response.data;
+        return response.data.data;
     },
     (error) => {
-        MessagePlugin.error(error.response.data || '未知错误')
+        const statusCode = error.response.status
+        if (statusCode === 401) {
+            const appStore = useAppStore()
+            appStore.cleanToken()
+
+            MessagePlugin.error('登录过期，请重新登录').finally(() => {
+                window.location.href = '/'
+            })
+        }
+
+        MessagePlugin.error(error.response.data.msg || '未知错误')
         return Promise.reject(error);
     }
 );

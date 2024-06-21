@@ -17,6 +17,10 @@ const useAppStore = defineStore('odoc/app', {
 
         setToken(token: string) {
             this.token = token;
+        },
+
+        cleanToken() {
+            this.token = '';
         }
     }
 })

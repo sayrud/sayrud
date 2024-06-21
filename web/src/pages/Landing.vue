@@ -5,7 +5,7 @@
         <div class="banner-title">
           <img src="@/assets/logo.svg"/>
         </div>
-        <div class="banner-subtitle">Schemaless 数据中台</div>
+        <div class="banner-subtitle">我不想写 CRUD 了</div>
       </div>
     </div>
   </div>

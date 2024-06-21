@@ -8,11 +8,17 @@ export default [
                 path: '',
                 component: () => import ('@/pages/Projects.vue'),
                 name: 'Projects',
+                meta: {
+                    auth: true,
+                }
             },
             {
                 path: '/:uid',
                 component: () => import ('@/pages/ProjectView.vue'),
                 name: 'ProjectView',
+                meta: {
+                    auth: true,
+                }
             }
         ]
     }

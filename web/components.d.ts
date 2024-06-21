@@ -10,13 +10,5 @@ declare module 'vue' {
     ConsoleNavBar: typeof import('./src/components/ConsoleNavBar.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
-    SignIn: typeof import('./src/components/SignIn.vue')['default']
-    SignInForm: typeof import('./src/components/SignInForm.vue')['default']
-    TButton: typeof import('tdesign-vue-next')['Button']
-    TForm: typeof import('tdesign-vue-next')['Form']
-    TFormItem: typeof import('tdesign-vue-next')['FormItem']
-    TIcon: typeof import('tdesign-vue-next')['Icon']
-    TInput: typeof import('tdesign-vue-next')['Input']
-    TSpace: typeof import('tdesign-vue-next')['Space']
   }
 }

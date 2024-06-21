@@ -6,7 +6,10 @@ export default [
             {
                 path: '',
                 component: () => import ('@/pages/Dashboard.vue'),
-                name: 'Dashboard'
+                name: 'Dashboard',
+                meta: {
+                    auth: true,
+                }
             }
         ]
     }

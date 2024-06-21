@@ -7,13 +7,17 @@
     <div class="login-container">
       <div class="title-container">
         <h1 class="title">登录 Sayrud</h1>
-        <div class="sub-title">
-          <p class="tip">没有账号？</p>
-          <p class="tip">注册新账号</p>
-        </div>
       </div>
-
-      <SignInForm/>
+      <t-form ref="form" class="item-container" label-width="0">
+        <t-form-item class="btn-container">
+          <t-button block size="large" type="submit" @click="onSignIn">
+            <template #icon>
+              <LogoGithubIcon/>
+            </template>
+            GitHub 登录
+          </t-button>
+        </t-form-item>
+      </t-form>
     </div>
 
     <footer class="copyright">Copyright @ 2024 Sayrud. All Rights Reserved</footer>
@@ -22,7 +26,11 @@
 
 <script setup lang="ts">
 import Logo from '@/assets/logo.svg';
-import SignInForm from "@/components/SignInForm.vue";
+import {LogoGithubIcon} from 'tdesign-icons-vue-next';
+
+const onSignIn = () => {
+  window.location.href = `https://github.com/login/oauth/authorize?client_id=${import.meta.env.VITE_GITHUB_CLIENT_ID}&redirect_uri=${import.meta.env.VITE_GITHUB_REDIRECT_URI}`;
+}
 </script>
 
 <style lang="less" scoped>
@@ -69,25 +77,6 @@ import SignInForm from "@/components/SignInForm.vue";
 
     &.margin-no {
       margin-top: 0;
-    }
-  }
-
-  .sub-title {
-    margin-top: var(--td-comp-margin-xxl);
-
-    .tip {
-      display: inline-block;
-      margin-right: var(--td-comp-margin-s);
-      font: var(--td-font-body-medium);
-
-      &:first-child {
-        color: var(--td-text-color-secondary);
-      }
-
-      &:last-child {
-        color: var(--td-text-color-primary);
-        cursor: pointer;
-      }
     }
   }
 }
