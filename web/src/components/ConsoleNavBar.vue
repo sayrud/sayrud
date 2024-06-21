@@ -12,15 +12,42 @@
           <t-icon name="brightness-1"/>
         </template>
       </t-button>
+
+      <t-dropdown :min-column-width="120" trigger="click">
+        <template #dropdown>
+          <t-dropdown-menu>
+            <t-dropdown-item @click="onProfile">
+              <user-circle-icon/>
+              个人信息
+            </t-dropdown-item>
+            <t-dropdown-item @click="onLogOut">
+              <poweroff-icon/>
+              退出登录
+            </t-dropdown-item>
+          </t-dropdown-menu>
+        </template>
+        <t-button theme="default" variant="text">
+          <template #icon>
+            <t-icon name="user-circle"/>
+          </template>
+          <div>{{ profile.userName }}</div>
+          <template #suffix>
+            <chevron-down-icon/>
+          </template>
+        </t-button>
+      </t-dropdown>
     </template>
   </t-head-menu>
 </template>
 
 <script setup lang="ts">
+import {onMounted, ref} from "vue";
 import {useAppStore} from '@/store'
 import {useRoute, useRouter} from "vue-router";
 import logo from '@/assets/logo.svg'
 import logoDark from '@/assets/logo-dark.svg'
+import {userProfile, type UserProfileResp} from "@/api/auth.ts";
+import {ChevronDownIcon, PoweroffIcon, UserCircleIcon} from 'tdesign-icons-vue-next';
 
 const route = useRoute()
 const router = useRouter()
@@ -38,6 +65,27 @@ const onSwitchTheme = () => {
     appStore.setTheme('light')
   }
 }
+
+const onProfile = () => {
+  router.push({name: 'Profile'})
+}
+
+const onLogOut = () => {
+  appStore.cleanToken()
+  router.push({name: 'SignIn'})
+}
+
+const profile = ref<UserProfileResp>({} as UserProfileResp)
+const getUserProfile = () => {
+  userProfile().then(res => {
+    profile.value = res
+  })
+}
+
+onMounted(() => {
+  getUserProfile()
+})
+
 </script>
 
 <style scoped>

@@ -10,5 +10,17 @@ declare module 'vue' {
     ConsoleNavBar: typeof import('./src/components/ConsoleNavBar.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
+    TButton: typeof import('tdesign-vue-next')['Button']
+    TCard: typeof import('tdesign-vue-next')['Card']
+    TDropdown: typeof import('tdesign-vue-next')['Dropdown']
+    TDropdownItem: typeof import('tdesign-vue-next')['DropdownItem']
+    TDropdownMenu: typeof import('tdesign-vue-next')['DropdownMenu']
+    TFooter: typeof import('tdesign-vue-next')['Footer']
+    THeader: typeof import('tdesign-vue-next')['Header']
+    THeadMenu: typeof import('tdesign-vue-next')['HeadMenu']
+    TIcon: typeof import('tdesign-vue-next')['Icon']
+    TLayout: typeof import('tdesign-vue-next')['Layout']
+    TMenuItem: typeof import('tdesign-vue-next')['MenuItem']
+    TTooltip: typeof import('tdesign-vue-next')['Tooltip']
   }
 }
