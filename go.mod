@@ -4,7 +4,8 @@ go 1.21
 
 require (
 	github.com/flamego/flamego v1.9.4
-	github.com/flamego/session v1.6.5
+	github.com/golang-jwt/jwt/v5 v5.2.1
+	github.com/google/go-github/v62 v62.0.0
 	github.com/jackc/pgconn v1.14.0
 	github.com/pkg/errors v0.9.1
 	github.com/sirupsen/logrus v1.4.2
@@ -27,6 +28,7 @@ require (
 	github.com/charmbracelet/log v0.2.3 // indirect
 	github.com/go-logfmt/logfmt v0.6.0 // indirect
 	github.com/go-sql-driver/mysql v1.8.1 // indirect
+	github.com/google/go-querystring v1.1.0 // indirect
 	github.com/jackc/chunkreader/v2 v2.0.1 // indirect
 	github.com/jackc/pgio v1.0.0 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect
@@ -43,6 +45,7 @@ require (
 	github.com/muesli/reflow v0.3.0 // indirect
 	github.com/muesli/termenv v0.15.2 // indirect
 	github.com/rivo/uniseg v0.4.4 // indirect
+	github.com/stretchr/testify v1.9.0 // indirect
 	golang.org/x/crypto v0.22.0 // indirect
 	golang.org/x/sync v0.6.0 // indirect
 	golang.org/x/sys v0.19.0 // indirect

@@ -12,10 +12,12 @@ import (
 func New(db *gorm.DB) *flamego.Flame {
 	f := flamego.Classic()
 
-	f.Use(context.Contexter(db))
+	f.Use(
+		context.Contexter(db),
+	)
 
 	f.Group("/api", func() {
-		f.Get("/auth/github/callback")
+		f.Get("/auth/github/callback", api.Auth.GitHubCallback)
 
 		f.Group("/projects", func() {
 			f.Combo("").

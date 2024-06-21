@@ -21,6 +21,7 @@ type UsersStore interface {
 	GetByID(ctx context.Context, userID uint) (*User, error)
 	GetByUID(ctx context.Context, userUID string) (*User, error)
 	GetByEmail(ctx context.Context, email string) (*User, error)
+	Upsert(ctx context.Context, options UpsertUserOptions) (*User, error)
 	Create(ctx context.Context, options CreateUserOptions) (*User, error)
 	Update(ctx context.Context, id uint, options UpdateUserOptions) error
 	DeleteByID(ctx context.Context, id uint) error
@@ -33,6 +34,8 @@ func NewUsersStore(db *gorm.DB) UsersStore {
 type User struct {
 	dbutil.Model
 	Email       string `gorm:"uniqueIndex:idx_user_email" json:"email"`
+	UserName    string `json:"userName"`
+	GitHubID    string `gorm:"uniqueIndex:idx_user_github_id" json:"githubID"`
 	AccessToken string `json:"-"`
 }
 
@@ -65,20 +68,55 @@ func (db *users) getBy(ctx context.Context, where string, args ...interface{}) (
 	return &user, nil
 }
 
-type CreateUserOptions struct {
+var ErrUserAlreadyExisted = errors.New("user already existed")
+
+type UpsertUserOptions struct {
 	Email       string
+	UserName    string
+	GitHubID    string
 	AccessToken string
 }
 
-var ErrUserAlreadyExisted = errors.New("user already existed")
+func (db *users) Upsert(ctx context.Context, options UpsertUserOptions) (*User, error) {
+	u := &User{
+		Email:       options.Email,
+		UserName:    options.UserName,
+		GitHubID:    options.GitHubID,
+		AccessToken: options.AccessToken,
+	}
+
+	if err := db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.WithContext(ctx).FirstOrCreate(u, "email = ?", options.Email).Error; err != nil {
+			return errors.Wrap(err, "first or create")
+		}
+
+		u.AccessToken = options.AccessToken
+		if err := tx.WithContext(ctx).Save(u).Error; err != nil {
+			return errors.Wrap(err, "save")
+		}
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	return u, nil
+}
+
+type CreateUserOptions struct {
+	Email       string
+	UserName    string
+	GitHubID    string
+	AccessToken string
+}
 
 func (db *users) Create(ctx context.Context, options CreateUserOptions) (*User, error) {
 	user := &User{
 		Email:       options.Email,
+		UserName:    options.UserName,
+		GitHubID:    options.GitHubID,
 		AccessToken: options.AccessToken,
 	}
 	if err := db.WithContext(ctx).Create(user).Error; err != nil {
-		if dbutil.IsUniqueViolation(err, "idx_user_email") {
+		if dbutil.IsUniqueViolation(err, "idx_user_email") || dbutil.IsUniqueViolation(err, "idx_user_github_id") {
 			return nil, ErrUserAlreadyExisted
 		}
 		return nil, err
@@ -87,7 +125,7 @@ func (db *users) Create(ctx context.Context, options CreateUserOptions) (*User, 
 }
 
 type UpdateUserOptions struct {
-	AccessToken string
+	UserName string
 }
 
 func (db *users) Update(ctx context.Context, id uint, options UpdateUserOptions) error {
@@ -96,7 +134,7 @@ func (db *users) Update(ctx context.Context, id uint, options UpdateUserOptions)
 		return errors.Wrap(err, "get by ID")
 	}
 
-	user.AccessToken = options.AccessToken
+	user.UserName = options.UserName
 	return db.WithContext(ctx).Save(user).Error
 }
 

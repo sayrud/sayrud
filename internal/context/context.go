@@ -4,18 +4,17 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
+	"strings"
 
 	"github.com/flamego/flamego"
-	"github.com/flamego/session"
+	"github.com/golang-jwt/jwt/v5"
+	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"gorm.io/gorm"
 
 	"github.com/wuhan005/sayrud/internal/db"
 	"github.com/wuhan005/sayrud/internal/dbutil"
-)
-
-const (
-	UserIDSessionID = "_user_id"
 )
 
 // Context represents context of a request.
@@ -77,14 +76,44 @@ func (c *Context) IP() string {
 
 // Contexter initializes a classic context for a request.
 func Contexter(gormDB *gorm.DB) flamego.Handler {
-	return func(ctx flamego.Context, session session.Session) {
+	return func(ctx flamego.Context) {
 		c := Context{
 			Context: ctx,
 			IsLogin: false,
 		}
 
-		// TODO
-		c.Map(&db.User{Model: dbutil.Model{ID: 1}})
+		c.ResponseWriter().Header().Set("Access-Control-Allow-Origin", "*")
+		c.ResponseWriter().Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+		c.ResponseWriter().Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+
+		if ctx.Request().Method == http.MethodOptions {
+			ctx.ResponseWriter().WriteHeader(http.StatusOK)
+			return
+		}
+
+		authorizationHeader := ctx.Request().Header.Get("Authorization")
+		if authorizationHeader != "" && strings.HasPrefix(authorizationHeader, "Bearer ") {
+			tokenString := strings.TrimSpace(strings.TrimPrefix(authorizationHeader, "Bearer "))
+
+			token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+				if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+					return nil, errors.Errorf("unexpected signing method: %q", token.Header["alg"])
+				}
+
+				return []byte(os.Getenv("JWT_SECRET")), nil
+			})
+			if err == nil {
+				if claims, ok := token.Claims.(jwt.MapClaims); ok {
+					userID, _ := claims["userUID"].(string)
+
+					user, err := db.Users.GetByUID(ctx.Request().Context(), userID)
+					if err == nil {
+						c.IsLogin = true
+						c.Map(user)
+					}
+				}
+			}
+		}
 
 		c.MapTo(gormDB, (*dbutil.Transactor)(nil))
 		c.Map(c)
