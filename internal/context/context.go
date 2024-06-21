@@ -10,6 +10,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"gorm.io/gorm"
 
+	"github.com/wuhan005/sayrud/internal/db"
 	"github.com/wuhan005/sayrud/internal/dbutil"
 )
 
@@ -59,8 +60,9 @@ func (c *Context) ApiServerError() error {
 	return c.ApiError(http.StatusInternalServerError, "服务器内部错误")
 }
 
-func (c *Context) Status(statusCode int) {
+func (c *Context) Status(statusCode int) error {
 	c.ResponseWriter().WriteHeader(statusCode)
+	return nil
 }
 
 func (c *Context) ServerError() {
@@ -80,6 +82,9 @@ func Contexter(gormDB *gorm.DB) flamego.Handler {
 			Context: ctx,
 			IsLogin: false,
 		}
+
+		// TODO
+		c.Map(&db.User{Model: dbutil.Model{ID: 1}})
 
 		c.MapTo(gormDB, (*dbutil.Transactor)(nil))
 		c.Map(c)

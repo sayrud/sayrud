@@ -31,9 +31,9 @@ func NewSLFieldsStore(db *gorm.DB) SLFieldsStore {
 // SLField represents the table fields of schemaless tables.
 type SLField struct {
 	dbutil.Model
-	SLTableID uint           `gorm:"uniqueIndex:idx_id_sl_tables_id_name" json:"-"`
+	SLTableID uint           `gorm:"uniqueIndex:idx_sl_tables_id_name" json:"-"`
 	SLTable   SLTable        `gorm:"foreignKey:SLTableID" json:"-"`
-	Name      string         `gorm:"uniqueIndex:idx_id_sl_tables_id_name" json:"name"`
+	Name      string         `gorm:"uniqueIndex:idx_sl_tables_id_name" json:"name"`
 	Label     string         `json:"label"`
 	Type      SLFieldType    `json:"type"`
 	Options   dbutil.Options `json:"options"`
@@ -102,7 +102,7 @@ func (db *slFields) Create(ctx context.Context, opts CreateSLFieldOptions) (*SLF
 		Position:  opts.Position,
 	}
 	if err := db.WithContext(ctx).Create(slField).Error; err != nil {
-		if dbutil.IsUniqueViolation(err, "idx_id_sl_tables_id_name") {
+		if dbutil.IsUniqueViolation(err, "idx_sl_tables_id_name") {
 			return nil, ErrSLFieldExists
 		}
 		return nil, err
@@ -152,7 +152,7 @@ func (db *slFields) Update(ctx context.Context, fieldID uint, opts UpdateSLField
 		"options":  opts.Options,
 		"position": opts.Position,
 	}).Error; err != nil {
-		if dbutil.IsUniqueViolation(err, "idx_id_sl_tables_id_name") {
+		if dbutil.IsUniqueViolation(err, "idx_sl_tables_id_name") {
 			return ErrSLFieldExists
 		}
 		return err

@@ -2,7 +2,6 @@ package db
 
 import (
 	"context"
-	"fmt"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -19,11 +18,11 @@ var SLTables SLTablesStore
 
 type SLTablesStore interface {
 	All(ctx context.Context) ([]*SLTable, error)
-	List(ctx context.Context, opts ListSLTableOptions) ([]*SLTable, int64, error)
+	ListByProjectID(ctx context.Context, projectID uint, opts ListSLTableOptions) ([]*SLTable, int64, error)
 	GetByID(ctx context.Context, tableID uint) (*SLTable, error)
 	GetByUID(ctx context.Context, tableUID string) (*SLTable, error)
 	GetByName(ctx context.Context, tableName string) (*SLTable, error)
-	Create(ctx context.Context, opts CreateSLTableOptions) (*SLTable, error)
+	Create(ctx context.Context, projectID uint, opts CreateSLTableOptions) (*SLTable, error)
 	Update(ctx context.Context, tableID uint, opts UpdateSLTableOptions) error
 	DeleteByID(ctx context.Context, tableID uint) error
 	CreateView(ctx context.Context, table *SLTable) error
@@ -36,10 +35,12 @@ func NewSLTablesStore(db *gorm.DB) SLTablesStore {
 // SLTable represents the structure of the schemaless table.
 type SLTable struct {
 	dbutil.Model
-	Name           string `gorm:"uniqueIndex:idx_sl_table_name" json:"name"`
-	Label          string `json:"label"`
-	Desc           string `json:"desc"`
-	IncrementIndex int64  `json:"incrementIndex"`
+	ProjectID      uint    `gorm:"uniqueIndex:idx_sl_table_project_id_name" json:"-"`
+	Project        Project `gorm:"foreignKey:ProjectID" json:"-"`
+	Name           string  `gorm:"uniqueIndex:idx_sl_table_project_id_name" json:"name"`
+	Label          string  `json:"label"`
+	Desc           string  `json:"desc"`
+	IncrementIndex int64   `json:"incrementIndex"`
 }
 
 type slTables struct {
@@ -48,7 +49,7 @@ type slTables struct {
 
 func (db *slTables) All(ctx context.Context) ([]*SLTable, error) {
 	var slTables []*SLTable
-	return slTables, db.WithContext(ctx).Model(&SLTable{}).Find(&slTables).Error
+	return slTables, db.WithContext(ctx).Model(&SLTable{}).Preload("Project").Find(&slTables).Error
 }
 
 type ListSLTableOptions struct {
@@ -56,9 +57,9 @@ type ListSLTableOptions struct {
 	PageSize int
 }
 
-func (db *slTables) List(ctx context.Context, opts ListSLTableOptions) ([]*SLTable, int64, error) {
+func (db *slTables) ListByProjectID(ctx context.Context, projectID uint, opts ListSLTableOptions) ([]*SLTable, int64, error) {
 	var total int64
-	q := db.WithContext(ctx).Model(&SLTable{})
+	q := db.WithContext(ctx).Model(&SLTable{}).Preload("Project").Where("project_id = ?", projectID)
 	if err := q.Count(&total).Error; err != nil {
 		return nil, 0, errors.Wrap(err, "count")
 	}
@@ -75,7 +76,7 @@ var ErrSLTableNotFound = errors.New("sl_table dose not exist")
 
 func (db *slTables) getBy(ctx context.Context, where string, args ...interface{}) (*SLTable, error) {
 	var slTable SLTable
-	if err := db.WithContext(ctx).Model(&SLTable{}).Where(where, args...).First(&slTable).Error; err != nil {
+	if err := db.WithContext(ctx).Model(&SLTable{}).Preload("Project").Where(where, args...).First(&slTable).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, ErrSLTableNotFound
 		}
@@ -104,14 +105,15 @@ type CreateSLTableOptions struct {
 
 var ErrSLTableExists = errors.New("sl_tables exists")
 
-func (db *slTables) Create(ctx context.Context, opts CreateSLTableOptions) (*SLTable, error) {
+func (db *slTables) Create(ctx context.Context, projectID uint, opts CreateSLTableOptions) (*SLTable, error) {
 	slTable := &SLTable{
-		Name:  opts.Name,
-		Label: opts.Label,
-		Desc:  opts.Desc,
+		ProjectID: projectID,
+		Name:      opts.Name,
+		Label:     opts.Label,
+		Desc:      opts.Desc,
 	}
 	if err := db.WithContext(ctx).Create(slTable).Error; err != nil {
-		if dbutil.IsUniqueViolation(err, "idx_sl_table_name") {
+		if dbutil.IsUniqueViolation(err, "idx_sl_table_project_id_name") {
 			return nil, ErrSLTableExists
 		}
 		return nil, err
@@ -150,6 +152,7 @@ func (db *slTables) DeleteByID(ctx context.Context, tableID uint) error {
 
 func (db *slTables) CreateView(ctx context.Context, table *SLTable) error {
 	tableID := table.ID
+	schemaName := table.Project.SchemaName
 
 	return db.Transaction(func(tx *gorm.DB) error {
 		var fields []*SLField
@@ -178,17 +181,17 @@ func (db *slTables) CreateView(ctx context.Context, table *SLTable) error {
 		}
 
 		tableIDStr := cast.ToString(tableID)
-		viewName := fmt.Sprintf("schemaless-%s", table.Name)
-		q := escape.Escape(`DROP VIEW IF EXISTS %I`, viewName)
+		viewName := table.Name
+		q := escape.Escape(`DROP VIEW IF EXISTS %I.%I`, schemaName, viewName)
 		if err := tx.WithContext(ctx).Debug().Exec(q).Error; err != nil {
 			return errors.Wrap(err, "drop old view")
 		}
 
-		q = escape.Escape(`CREATE VIEW %I AS
+		q = escape.Escape(`CREATE VIEW %I.%I AS
 	SELECT
 	`+strings.Join(fieldsDefinition, ", ")+`
 	FROM public.sl_records
-	WHERE sl_records.sl_table_id = %L AND sl_records.deleted_at IS NULL`, viewName, tableIDStr)
+	WHERE sl_records.sl_table_id = %L AND sl_records.deleted_at IS NULL`, schemaName, viewName, tableIDStr)
 		if err := tx.WithContext(ctx).Debug().Exec(q).Error; err != nil {
 			return errors.Wrap(err, "create new view")
 		}

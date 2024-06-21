@@ -16,7 +16,9 @@ import (
 )
 
 var AllTables = []interface{}{
-	// Schemaless tables.
+	&User{},
+	&Project{},
+
 	&SLTable{},
 	&SLField{},
 	&SLRecord{},
@@ -53,17 +55,6 @@ func Init() (*gorm.DB, error) {
 		return nil, errors.Wrap(err, "auto migrate")
 	}
 
-	// Create sessions table.
-	q := `
-CREATE TABLE IF NOT EXISTS sessions (
-    key        TEXT PRIMARY KEY,
-    data       BYTEA NOT NULL,
-    expired_at TIMESTAMP WITH TIME ZONE NOT NULL
-);`
-	if err := db.Exec(q).Error; err != nil {
-		return nil, errors.Wrap(err, "create sessions table")
-	}
-
 	SetDatabaseStore(db)
 
 	return db, nil
@@ -71,7 +62,8 @@ CREATE TABLE IF NOT EXISTS sessions (
 
 // SetDatabaseStore sets the database table store.
 func SetDatabaseStore(db *gorm.DB) {
-	// Schemaless tables.
+	Users = NewUsersStore(db)
+	Projects = NewProjectsStore(db)
 	SLTables = NewSLTablesStore(db)
 	SLFields = NewSLFieldsStore(db)
 	SLRecords = NewSLRecordsStore(db)

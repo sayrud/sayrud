@@ -15,15 +15,19 @@ import (
 	"github.com/wuhan005/sayrud/internal/form"
 )
 
-func (schemalessRoute) Recorder(ctx context.Context) error {
+func (schemalessRoute) Recorder(ctx context.Context, table *db.SLTable) error {
 	recordUID := ctx.Param("recordUID")
 	slRecord, err := db.SLRecords.GetByUID(ctx.Request().Context(), recordUID)
 	if err != nil {
 		if errors.Is(err, db.ErrSLRecordNotFound) {
 			return ctx.ApiError(http.StatusNotFound, "数据表记录不存在")
 		}
-		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to get sl record by ID")
+		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to get sl record by UID")
 		return ctx.ApiServerError()
+	}
+
+	if slRecord.SLTableID != table.ID {
+		return ctx.ApiError(http.StatusNotFound, "数据表记录不存在")
 	}
 
 	ctx.Map(slRecord)
@@ -79,7 +83,7 @@ func (schemalessRoute) UpdateRecord(ctx context.Context, record *db.SLRecord, f 
 		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to update sl record")
 		return ctx.ApiServerError()
 	}
-	return ctx.ApiSuccess("更新数据表记录成功")
+	return ctx.Status(http.StatusNoContent)
 }
 
 func (schemalessRoute) DeleteRecord(ctx context.Context, record *db.SLRecord) error {
@@ -92,5 +96,5 @@ func (schemalessRoute) DeleteRecord(ctx context.Context, record *db.SLRecord) er
 		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to delete sl record")
 		return ctx.ApiServerError()
 	}
-	return ctx.ApiSuccess("删除数据表记录成功")
+	return ctx.Status(http.StatusNoContent)
 }

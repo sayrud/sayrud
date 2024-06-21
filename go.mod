@@ -14,7 +14,7 @@ require (
 	github.com/wuhan005/govalid v0.0.0-20230225142102-9dd5e5a0d0fd
 	golang.org/x/text v0.14.0
 	gorm.io/datatypes v1.2.1
-	gorm.io/driver/postgres v1.5.0
+	gorm.io/driver/postgres v1.5.7
 	gorm.io/gorm v1.25.9
 )
 

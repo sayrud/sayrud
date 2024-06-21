@@ -24,7 +24,7 @@ func (schemalessRoute) Fielder(ctx context.Context) error {
 		if errors.Is(err, db.ErrSLFieldNotFound) {
 			return ctx.ApiError(http.StatusNotFound, "数据表字段不存在")
 		}
-		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to get sl field by ID")
+		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to get sl field by UID")
 		return ctx.ApiServerError()
 	}
 
@@ -88,7 +88,7 @@ func (schemalessRoute) CreateFields(ctx context.Context, table *db.SLTable, tx d
 		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to create sl field")
 		return ctx.ApiServerError()
 	}
-	return ctx.ApiSuccess("创建字段成功")
+	return ctx.Status(http.StatusNoContent)
 }
 
 func (schemalessRoute) UpdateFields(ctx context.Context, table *db.SLTable, tx dbutil.Transactor, f form.UpdateFields) error {
@@ -127,7 +127,7 @@ func (schemalessRoute) UpdateFields(ctx context.Context, table *db.SLTable, tx d
 		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to update sl fields")
 		return ctx.ApiServerError()
 	}
-	return ctx.ApiSuccess("更新字段信息成功")
+	return ctx.Status(http.StatusNoContent)
 }
 
 func (schemalessRoute) UpdateField(ctx context.Context, field *db.SLField, tx dbutil.Transactor, f form.UpdateField) error {
@@ -158,7 +158,7 @@ func (schemalessRoute) UpdateField(ctx context.Context, field *db.SLField, tx db
 		return ctx.ApiServerError()
 	}
 
-	return ctx.ApiSuccess("更新字段信息成功")
+	return ctx.Status(http.StatusNoContent)
 }
 
 func (schemalessRoute) DeleteField(ctx context.Context, field *db.SLField, tx dbutil.Transactor) error {
@@ -181,7 +181,7 @@ func (schemalessRoute) DeleteField(ctx context.Context, field *db.SLField, tx db
 		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to delete sl field")
 		return ctx.ApiServerError()
 	}
-	return ctx.ApiSuccess("删除字段成功")
+	return ctx.Status(http.StatusNoContent)
 }
 
 func (schemalessRoute) FieldTypes(ctx context.Context) error {

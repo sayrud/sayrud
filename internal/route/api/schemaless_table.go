@@ -19,23 +19,27 @@ var Schemaless schemalessRoute
 
 type schemalessRoute struct{}
 
-func (schemalessRoute) Tabler(ctx context.Context) error {
+func (schemalessRoute) Tabler(ctx context.Context, project *db.Project) error {
 	tableUID := ctx.Param("tableUID")
 	slTable, err := db.SLTables.GetByUID(ctx.Request().Context(), tableUID)
 	if err != nil {
 		if errors.Is(err, db.ErrSLTableNotFound) {
 			return ctx.ApiError(http.StatusNotFound, "数据表不存在")
 		}
-		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to get sl table by ID")
+		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to get sl table by UID")
 		return ctx.ApiServerError()
+	}
+
+	if project.ID != slTable.ProjectID {
+		return ctx.ApiError(http.StatusNotFound, "数据表不存在")
 	}
 
 	ctx.Map(slTable)
 	return nil
 }
 
-func (schemalessRoute) ListTables(ctx context.Context) error {
-	slTables, total, err := db.SLTables.List(ctx.Request().Context(), db.ListSLTableOptions{
+func (schemalessRoute) ListTables(ctx context.Context, project *db.Project) error {
+	slTables, total, err := db.SLTables.ListByProjectID(ctx.Request().Context(), project.ID, db.ListSLTableOptions{
 		Page:     ctx.QueryInt("page"),
 		PageSize: ctx.QueryInt("pageSize"),
 	})
@@ -49,8 +53,8 @@ func (schemalessRoute) ListTables(ctx context.Context) error {
 	})
 }
 
-func (schemalessRoute) CreateTable(ctx context.Context, f form.CreateTable) error {
-	slTable, err := db.SLTables.Create(ctx.Request().Context(), db.CreateSLTableOptions{
+func (schemalessRoute) CreateTable(ctx context.Context, project *db.Project, f form.CreateTable) error {
+	slTable, err := db.SLTables.Create(ctx.Request().Context(), project.ID, db.CreateSLTableOptions{
 		Name:  f.Name,
 		Label: f.Label,
 		Desc:  f.Desc,
@@ -82,7 +86,7 @@ func (schemalessRoute) UpdateTable(ctx context.Context, table *db.SLTable, f for
 		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to update sl table")
 		return ctx.ApiServerError()
 	}
-	return ctx.ApiSuccess("更新数据表信息成功")
+	return ctx.Status(http.StatusNoContent)
 }
 
 func (schemalessRoute) DeleteTable(ctx context.Context, table *db.SLTable) error {
@@ -94,5 +98,5 @@ func (schemalessRoute) DeleteTable(ctx context.Context, table *db.SLTable) error
 		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to delete sl table")
 		return ctx.ApiServerError()
 	}
-	return ctx.ApiSuccess("删除数据表成功")
+	return ctx.Status(http.StatusNoContent)
 }
