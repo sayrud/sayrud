@@ -49,14 +49,14 @@ type GetByTableIDOptions struct {
 
 func (db *slRecords) GetByTableID(ctx context.Context, slTableID uint, opts GetByTableIDOptions) ([]*SLRecord, int64, error) {
 	var total int64
-	q := db.WithContext(ctx).Model(&SLTable{})
+	q := db.WithContext(ctx).Model(&SLTable{}).Where("sl_table_id = ?", slTableID)
 	if err := q.Count(&total).Error; err != nil {
 		return nil, 0, errors.Wrap(err, "count")
 	}
 
 	limit, offset := dbutil.LimitOffset(opts.Page, opts.PageSize)
 	var slRecords []*SLRecord
-	return slRecords, total, q.Where("sl_table_id = ?", slTableID).Limit(limit).Offset(offset).Find(&slRecords).Error
+	return slRecords, total, q.Limit(limit).Offset(offset).Find(&slRecords).Error
 }
 
 type GetViewOptions struct {

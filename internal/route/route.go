@@ -26,12 +26,12 @@ func New(db *gorm.DB) *flamego.Flame {
 		f.Group("/projects", func() {
 			f.Combo("").
 				Get(api.Project.ListProjects).
-				Post(api.Project.CreateProject)
+				Post(form.Bind(form.CreateProject{}), api.Project.CreateProject)
 
 			f.Group("/{projectUID}", func() {
 				f.Combo("").
 					Get(api.Project.GetProject).
-					Put(api.Project.UpdateProject).
+					Put(form.Bind(form.UpdateProject{}), api.Project.UpdateProject).
 					Delete(api.Project.DeleteProject)
 
 				f.Group("/tables", func() {

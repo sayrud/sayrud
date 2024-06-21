@@ -18,7 +18,7 @@ var _ ProjectsStore = (*projects)(nil)
 var Projects ProjectsStore
 
 type ProjectsStore interface {
-	ListByUserID(ctx context.Context, userID uint) ([]*Project, error)
+	ListByUserID(ctx context.Context, userID uint, options ListByUserIDOptions) ([]*Project, int64, error)
 	GetByID(ctx context.Context, projectID uint) (*Project, error)
 	GetByUID(ctx context.Context, projectUID string) (*Project, error)
 	Create(ctx context.Context, opts CreateProjectOptions) (*Project, error)
@@ -34,7 +34,7 @@ func NewProjectsStore(db *gorm.DB) ProjectsStore {
 
 type Project struct {
 	dbutil.Model
-	OwnerUserID uint   `json:"ownerUserID"`
+	OwnerUserID uint   `json:"-"`
 	Name        string `json:"name"`
 	SchemaName  string `gorm:"uniqueIndex:idx_projects_schema_name" json:"schemaName"`
 }
@@ -43,9 +43,20 @@ type projects struct {
 	*gorm.DB
 }
 
-func (db *projects) ListByUserID(ctx context.Context, userID uint) ([]*Project, error) {
+type ListByUserIDOptions struct {
+	dbutil.Pagination
+}
+
+func (db *projects) ListByUserID(ctx context.Context, userID uint, options ListByUserIDOptions) ([]*Project, int64, error) {
+	var total int64
+	q := db.WithContext(ctx).Model(&Project{}).Where("owner_user_id = ?", userID)
+	if err := q.Count(&total).Error; err != nil {
+		return nil, 0, errors.Wrap(err, "count")
+	}
+
+	limit, offset := dbutil.LimitOffset(options.Page, options.PageSize)
 	var projects []*Project
-	return projects, db.WithContext(ctx).Where("owner_user_id = ?", userID).Find(&projects).Error
+	return projects, total, q.Limit(limit).Offset(offset).Find(&projects).Error
 }
 
 func (db *projects) GetByID(ctx context.Context, projectID uint) (*Project, error) {

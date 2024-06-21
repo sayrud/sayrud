@@ -12,6 +12,7 @@ import (
 
 	"github.com/wuhan005/sayrud/internal/context"
 	"github.com/wuhan005/sayrud/internal/db"
+	"github.com/wuhan005/sayrud/internal/dbutil"
 	"github.com/wuhan005/sayrud/internal/form"
 )
 
@@ -39,12 +40,20 @@ func (projectRoute) Projecter(ctx context.Context, user *db.User) error {
 }
 
 func (projectRoute) ListProjects(ctx context.Context, user *db.User) error {
-	projects, err := db.Projects.ListByUserID(ctx.Request().Context(), user.ID)
+	projects, total, err := db.Projects.ListByUserID(ctx.Request().Context(), user.ID, db.ListByUserIDOptions{
+		Pagination: dbutil.Pagination{
+			Page:     ctx.QueryInt("page"),
+			PageSize: ctx.QueryInt("pageSize"),
+		},
+	})
 	if err != nil {
 		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to list projects")
 		return ctx.ApiServerError()
 	}
-	return ctx.ApiSuccess(projects)
+	return ctx.ApiSuccess(map[string]interface{}{
+		"projects": projects,
+		"total":    total,
+	})
 }
 
 func (projectRoute) CreateProject(ctx context.Context, user *db.User, f form.CreateProject) error {
