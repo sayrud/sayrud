@@ -9,6 +9,7 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
+	"gorm.io/gorm"
 
 	"github.com/wuhan005/sayrud/internal/context"
 	"github.com/wuhan005/sayrud/internal/db"
@@ -56,13 +57,26 @@ func (projectRoute) ListProjects(ctx context.Context, user *db.User) error {
 	})
 }
 
-func (projectRoute) CreateProject(ctx context.Context, user *db.User, f form.CreateProject) error {
-	project, err := db.Projects.Create(ctx.Request().Context(), db.CreateProjectOptions{
-		OwnerUserID: user.ID,
-		Name:        f.Name,
-		SchemaName:  f.SchemaName,
-	})
-	if err != nil {
+func (projectRoute) CreateProject(ctx context.Context, user *db.User, tx dbutil.Transactor, f form.CreateProject) error {
+	var project *db.Project
+	if err := tx.Transaction(func(tx *gorm.DB) error {
+		projectStore := db.NewProjectsStore(tx)
+
+		var err error
+		project, err = projectStore.Create(ctx.Request().Context(), db.CreateProjectOptions{
+			OwnerUserID: user.ID,
+			Name:        f.Name,
+			SchemaName:  f.SchemaName,
+		})
+		if err != nil {
+			return errors.Wrap(err, "create project")
+		}
+
+		if err := projectStore.CreateSchema(ctx.Request().Context(), project.ID); err != nil {
+			return errors.Wrap(err, "create schema")
+		}
+		return nil
+	}); err != nil {
 		if errors.Is(err, db.ErrProjectSchemaNameExists) {
 			return ctx.ApiError(http.StatusConflict, "项目表名已存在")
 		}

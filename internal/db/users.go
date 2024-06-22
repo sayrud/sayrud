@@ -35,10 +35,10 @@ func NewUsersStore(db *gorm.DB) UsersStore {
 
 type User struct {
 	dbutil.Model
-	Email       string `gorm:"uniqueIndex:idx_user_email" json:"email"`
+	Email       string `gorm:"uniqueIndex:idx_user_email, where:deleted_at IS NULL" json:"email"`
 	EmailMd5    string `json:"emailMd5"`
 	UserName    string `json:"userName"`
-	GitHubID    string `gorm:"uniqueIndex:idx_user_github_id" json:"githubID"`
+	GitHubID    string `gorm:"uniqueIndex:idx_user_github_id, where:deleted_at IS NULL" json:"githubID"`
 	AccessToken string `json:"-"`
 }
 

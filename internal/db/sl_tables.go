@@ -35,9 +35,9 @@ func NewSLTablesStore(db *gorm.DB) SLTablesStore {
 // SLTable represents the structure of the schemaless table.
 type SLTable struct {
 	dbutil.Model
-	ProjectID      uint    `gorm:"uniqueIndex:idx_sl_table_project_id_name" json:"-"`
+	ProjectID      uint    `gorm:"uniqueIndex:idx_sl_table_project_id_name, where:deleted_at IS NULL" json:"-"`
 	Project        Project `gorm:"foreignKey:ProjectID" json:"-"`
-	Name           string  `gorm:"uniqueIndex:idx_sl_table_project_id_name" json:"name"`
+	Name           string  `gorm:"uniqueIndex:idx_sl_table_project_id_name, where:deleted_at IS NULL" json:"name"`
 	Label          string  `json:"label"`
 	Desc           string  `json:"desc"`
 	IncrementIndex int64   `json:"incrementIndex"`

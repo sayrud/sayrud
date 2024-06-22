@@ -48,8 +48,8 @@ func (schemalessRoute) ListTables(ctx context.Context, project *db.Project) erro
 		return ctx.ApiServerError()
 	}
 	return ctx.ApiSuccess(map[string]interface{}{
-		"data":  slTables,
-		"total": total,
+		"tables": slTables,
+		"total":  total,
 	})
 }
 

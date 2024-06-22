@@ -31,9 +31,9 @@ func NewSLFieldsStore(db *gorm.DB) SLFieldsStore {
 // SLField represents the table fields of schemaless tables.
 type SLField struct {
 	dbutil.Model
-	SLTableID uint           `gorm:"uniqueIndex:idx_sl_tables_id_name" json:"-"`
+	SLTableID uint           `gorm:"uniqueIndex:idx_sl_tables_id_name, where:deleted_at IS NULL" json:"-"`
 	SLTable   SLTable        `gorm:"foreignKey:SLTableID" json:"-"`
-	Name      string         `gorm:"uniqueIndex:idx_sl_tables_id_name" json:"name"`
+	Name      string         `gorm:"uniqueIndex:idx_sl_tables_id_name, where:deleted_at IS NULL" json:"name"`
 	Label     string         `json:"label"`
 	Type      SLFieldType    `json:"type"`
 	Options   dbutil.Options `json:"options"`

@@ -6,8 +6,10 @@ package db
 
 import (
 	"context"
+	"strings"
 
 	"github.com/pkg/errors"
+	escape "github.com/tj/go-pg-escape"
 	"gorm.io/gorm"
 
 	"github.com/wuhan005/sayrud/internal/dbutil"
@@ -36,7 +38,7 @@ type Project struct {
 	dbutil.Model
 	OwnerUserID uint   `json:"-"`
 	Name        string `json:"name"`
-	SchemaName  string `gorm:"uniqueIndex:idx_projects_schema_name" json:"schemaName"`
+	SchemaName  string `gorm:"uniqueIndex:idx_projects_schema_name, where:deleted_at IS NULL" json:"schemaName"`
 }
 
 type projects struct {
@@ -134,7 +136,10 @@ func (db *projects) CreateSchema(ctx context.Context, projectID uint) error {
 	}
 
 	schemaName := project.SchemaName
-	if err := db.Exec("CREATE SCHEMA ?", schemaName).Error; err != nil {
+	if err := db.Exec(escape.Escape("CREATE SCHEMA %I", schemaName)).Error; err != nil {
+		if strings.Contains(err.Error(), "already exists") {
+			return ErrProjectSchemaNameExists
+		}
 		return err
 	}
 	return nil
@@ -147,7 +152,7 @@ func (db *projects) DeleteSchema(ctx context.Context, projectID uint) error {
 	}
 
 	schemaName := project.SchemaName
-	if err := db.Exec("DROP SCHEMA ?", schemaName).Error; err != nil {
+	if err := db.Exec(escape.Escape("DROP SCHEMA IF EXISTS %I", schemaName)).Error; err != nil {
 		return err
 	}
 	return nil
