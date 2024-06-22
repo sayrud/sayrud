@@ -25,7 +25,8 @@
     </template>
     <template #ops="{row}">
       <t-space>
-        <t-link theme="primary" @click="onViewTable(row)">查看</t-link>
+        <t-link theme="primary" @click="onViewRecord(row)">查看数据</t-link>
+        <t-link theme="primary" @click="onViewTable(row)">表结构</t-link>
       </t-space>
     </template>
   </t-table>
@@ -104,7 +105,7 @@ const getTables = () => {
 }
 
 const createTableDialogVisible = ref<boolean>(false)
-const form = ref(null)
+const form = ref()
 const formData = ref<CreateTableReq>({
   name: '',
   label: '',
@@ -126,6 +127,15 @@ const onCreateTable = (ctx: SubmitContext) => {
 
 const onConfirm = () => {
   form.value.submit()
+}
+
+const onViewRecord = (table: Table) => {
+  router.push({
+    name: 'SchemalessTableRecords', params: {
+      uid: route.params.uid,
+      tableUID: table.uid
+    }
+  })
 }
 
 const onViewTable = (table: Table) => {

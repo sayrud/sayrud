@@ -84,7 +84,7 @@
             @submit="onSubmitForm"
         >
           <div class="form-basic-item" v-if="formMode === 'create'">
-            <t-form-item v-for="(item, index) in fieldFormData.fields" :key="index" label="">
+            <t-form-item v-for="(_, index) in fieldFormData.fields" :key="index" label="">
               <t-space>
                 <t-input v-model="fieldFormData.fields[index].name" placeholder="字段名"></t-input>
                 <t-select v-model="fieldFormData.fields[index].type">
@@ -94,7 +94,7 @@
               </t-space>
 
               <template #statusIcon>
-                <t-button v-if="index === 0" variant="dashed" @click="() => {fieldFormData.fields.push({})}">
+                <t-button v-if="index === 0" variant="dashed" @click="() => {fieldFormData.fields.push({} as Field)}">
                   <t-icon name="add"/>
                 </t-button>
                 <t-button variant="dashed" @click="fieldFormData.fields.splice(index, 1)">
@@ -111,7 +111,7 @@
             <t-form-item label="标签" name="label">
               <t-input v-model="fieldFormData.fields[0].label" placeholder="标签"></t-input>
             </t-form-item>
-            <t-form-item v-for="(item, index) in fieldFormData.fields" :key="index" label="字段类型" name="type">
+            <t-form-item v-for="(_, index) in fieldFormData.fields" :key="index" label="字段类型" name="type">
               <t-select v-model="fieldFormData.fields[0].type">
                 <t-option v-for="type in Object.values(FieldType)" :key="type" :value="type">{{ type }}</t-option>
               </t-select>
@@ -130,7 +130,7 @@ import {onMounted, ref} from 'vue'
 import {useRoute} from "vue-router";
 import {getTable, Table, updateTable, UpdateTableReq} from "@/api/schemalessTable.ts";
 import NProgress from "nprogress";
-import {FormRule, MessagePlugin, PrimaryTableCol, TableRowData} from "tdesign-vue-next";
+import {FormRule, MessagePlugin, PrimaryTableCol, SubmitContext, TableRowData} from "tdesign-vue-next";
 import dayjs from "dayjs";
 import {
   type CreateFieldReq,
@@ -190,7 +190,7 @@ const refreshFields = () => {
   })
 }
 
-const onFieldsDrag = (params) => {
+const onFieldsDrag = (params: any) => {
   const current = params.current
   const target = params.target
 
@@ -206,7 +206,7 @@ const onFieldsDrag = (params) => {
   })
 }
 
-const form = ref(null)
+const form = ref()
 const formMode = ref<'create' | 'update'>('create')
 const fieldsDialogVisible = ref<boolean>(false)
 const fieldFormData = ref<CreateFieldReq | UpdateFieldReq>({
@@ -222,7 +222,7 @@ const onConfirm = () => {
   form.value.submit()
 }
 
-const onSubmitForm = (ctx) => {
+const onSubmitForm = (ctx: SubmitContext) => {
   if (ctx.validateResult === true) {
     if (formMode.value === 'create') {
       createFields(projectUID, tableUID, fieldFormData.value).then(() => {

@@ -22,8 +22,7 @@
       <template #title>
         <span>{{ projectStore.currentProject?.name }}</span>
       </template>
-      <t-menu-item value="SchemalessTable">数据表</t-menu-item>
-      <t-menu-item value="SchemalessRecord">记录</t-menu-item>
+      <t-menu-item value="SchemalessTable">数据</t-menu-item>
       <t-menu-item value="SchemalessApi">接口</t-menu-item>
       <t-menu-item value="ProjectSettings">项目设置</t-menu-item>
     </t-submenu>
@@ -80,7 +79,7 @@ const onSelectMenu = (selectedMenu: string) => {
 }
 
 const expendTab = computed(() => {
-  return route.name === 'ProjectSettings' || route.name.toString().startsWith('Schemaless') ? ['CurrentProject'] : []
+  return route.name === 'ProjectSettings' || route.name?.toString().startsWith('Schemaless') ? ['CurrentProject'] : []
 })
 const onExpendMenu = () => {
   router.push({name: 'SchemalessTable', params: {uid: projectStore.currentProject?.uid}})
