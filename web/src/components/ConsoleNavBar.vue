@@ -25,7 +25,7 @@
       <t-menu-item value="SchemalessTable">数据表</t-menu-item>
       <t-menu-item value="SchemalessRecord">记录</t-menu-item>
       <t-menu-item value="SchemalessApi">接口</t-menu-item>
-      <t-menu-item value="ProjectView">项目设置</t-menu-item>
+      <t-menu-item value="ProjectSettings">项目设置</t-menu-item>
     </t-submenu>
 
     <template #operations>
@@ -69,7 +69,7 @@ import {useRoute, useRouter} from "vue-router";
 import logo from '@/assets/logo.svg'
 import logoDark from '@/assets/logo-dark.svg'
 import {userProfile, type UserProfileResp} from "@/api/auth.ts";
-import {ChevronDownIcon, PoweroffIcon, UserCircleIcon, Table2Icon} from 'tdesign-icons-vue-next';
+import {ChevronDownIcon, PoweroffIcon, UserCircleIcon} from 'tdesign-icons-vue-next';
 
 const route = useRoute()
 const router = useRouter()
@@ -80,10 +80,10 @@ const onSelectMenu = (selectedMenu: string) => {
 }
 
 const expendTab = computed(() => {
-  return route.name === 'ProjectView' || route.name.toString().startsWith('Schemaless') ? ['CurrentProject'] : []
+  return route.name === 'ProjectSettings' || route.name.toString().startsWith('Schemaless') ? ['CurrentProject'] : []
 })
-const onExpendMenu = (expendMenus: string) => {
-  router.push({name: 'ProjectView', params: {uid: projectStore.currentProject?.uid}})
+const onExpendMenu = () => {
+  router.push({name: 'SchemalessTable', params: {uid: projectStore.currentProject?.uid}})
 }
 
 const currentTab = computed(() => {

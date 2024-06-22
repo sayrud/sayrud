@@ -32,3 +32,9 @@ body {
     margin: 0 !important;
     padding-left: 50px !important;
 }
+
+.operation-container {
+    display: flex;
+    align-items: center;
+    margin-bottom: var(--td-comp-margin-xxl);
+}

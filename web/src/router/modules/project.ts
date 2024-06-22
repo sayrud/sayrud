@@ -6,7 +6,15 @@ const schemaless = [
         meta: {
             auth: true,
         },
-    }
+    },
+    {
+        path: 'tables/:tableUID',
+        component: () => import ('@/pages/schemaless/TableSettings.vue'),
+        name: 'SchemalessTableSettings',
+        meta: {
+            auth: true,
+        },
+    },
 ]
 
 export default [
@@ -32,9 +40,16 @@ export default [
                 }
             },
             {
+                path: ':uid/settings',
+                component: () => import ('@/pages/project/ProjectSettings.vue'),
+                name: 'ProjectSettings',
+                meta: {
+                    auth: true,
+                },
+            },
+            {
                 path: ':uid',
-                component: () => import ('@/pages/project/ProjectView.vue'),
-                name: 'ProjectView',
+                component: () => import ('@/layouts/Project.vue'),
                 meta: {
                     auth: true,
                 },

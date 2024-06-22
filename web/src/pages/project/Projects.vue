@@ -1,7 +1,12 @@
 <template>
   <t-row justify="space-between">
     <div class="operation-container">
-      <t-button @click="onCreateProject"> 新建项目</t-button>
+      <t-button @click="onCreateProject">
+        <template #icon>
+          <add-icon/>
+        </template>
+        新建项目
+      </t-button>
     </div>
     <div class="search-input">
       <t-input placeholder="搜索项目" clearable>
@@ -40,6 +45,7 @@ import {listProjects, type Project} from "@/api/projects.ts";
 import {type PaginationProps, PrimaryTableCol, TableRowData} from 'tdesign-vue-next';
 import dayjs from 'dayjs'
 import {useProjectStore} from "@/store";
+import {AddIcon} from 'tdesign-icons-vue-next';
 
 const router = useRouter()
 const projectStore = useProjectStore()
@@ -80,12 +86,6 @@ onMounted(() => {
 </script>
 
 <style lang="less" scoped>
-.operation-container {
-  display: flex;
-  align-items: center;
-  margin-bottom: var(--td-comp-margin-xxl);
-}
-
 .search-input {
   width: 360px;
 }

@@ -12,6 +12,7 @@ declare module 'vue' {
     RouterView: typeof import('vue-router')['RouterView']
     TButton: typeof import('tdesign-vue-next')['Button']
     TCard: typeof import('tdesign-vue-next')['Card']
+    TDialog: typeof import('tdesign-vue-next')['Dialog']
     TDropdown: typeof import('tdesign-vue-next')['Dropdown']
     TDropdownItem: typeof import('tdesign-vue-next')['DropdownItem']
     TDropdownMenu: typeof import('tdesign-vue-next')['DropdownMenu']
@@ -31,5 +32,6 @@ declare module 'vue' {
     TSpace: typeof import('tdesign-vue-next')['Space']
     TSubmenu: typeof import('tdesign-vue-next')['Submenu']
     TTable: typeof import('tdesign-vue-next')['Table']
+    TTextarea: typeof import('tdesign-vue-next')['Textarea']
   }
 }
