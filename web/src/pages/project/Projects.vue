@@ -27,25 +27,22 @@
     </template>
     <template #ops="{row}">
       <t-space>
-        <t-link theme="primary" @click="onViewProject(row.uid)">进入项目</t-link>
-        <t-link theme="primary" @click="onViewProject(row.uid)">查看</t-link>
-        <t-popconfirm content="你确定要删除该项目吗？" @confirm="onDeleteProject">
-          <t-link theme="danger"> 删除</t-link>
-        </t-popconfirm>
+        <t-link theme="primary" @click="onEnterProject(row)">进入项目</t-link>
       </t-space>
     </template>
   </t-table>
-
 </template>
 
 <script setup lang="ts">
 import {onMounted, ref} from "vue";
 import {useRouter} from "vue-router";
-import {listProjects, deleteProject, type Project} from "@/api/projects.ts";
-import {MessagePlugin, type PaginationProps, PrimaryTableCol, TableRowData} from 'tdesign-vue-next';
+import {listProjects, type Project} from "@/api/projects.ts";
+import {type PaginationProps, PrimaryTableCol, TableRowData} from 'tdesign-vue-next';
 import dayjs from 'dayjs'
+import {useProjectStore} from "@/store";
 
 const router = useRouter()
+const projectStore = useProjectStore()
 
 const COLUMNS: PrimaryTableCol<TableRowData>[] = [
   {colKey: 'name', title: '项目名'},
@@ -72,16 +69,9 @@ const onCreateProject = () => {
   router.push({name: 'ProjectCreate'})
 }
 
-const onDeleteProject = (projectUID: string) => {
-  deleteProject(projectUID).then(() => {
-    MessagePlugin.success('删除项目成功')
-  }).finally(() => {
-    getProjects()
-  })
-}
-
-const onViewProject = (uid: string) => {
-  router.push({name: 'ProjectView', params: {uid}})
+const onEnterProject = (project: Project) => {
+  projectStore.setProject(project)
+  router.push({name: 'SchemalessTable', params: {uid: project.uid}})
 }
 
 onMounted(() => {

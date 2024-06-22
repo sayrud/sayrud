@@ -1,5 +1,5 @@
 <template>
-  <t-head-menu :value="route.name" @change="onSelectMenu">
+  <t-head-menu :value="currentTab" v-model:expanded="expendTab" @change="onSelectMenu" @expand="onExpendMenu">
     <template #logo>
       <img height="30" :src="appStore.theme === 'dark' ? logoDark : logo" alt="logo"/>
     </template>
@@ -16,7 +16,17 @@
       项目
     </t-menu-item>
 
-    <div class="divider"></div>
+    <div class="divider" v-if="projectStore.currentProject !== null"></div>
+
+    <t-submenu value="CurrentProject" v-if="projectStore.currentProject !== null">
+      <template #title>
+        <span>{{ projectStore.currentProject?.name }}</span>
+      </template>
+      <t-menu-item value="SchemalessTable">数据表</t-menu-item>
+      <t-menu-item value="SchemalessRecord">记录</t-menu-item>
+      <t-menu-item value="SchemalessApi">接口</t-menu-item>
+      <t-menu-item value="ProjectView">项目设置</t-menu-item>
+    </t-submenu>
 
     <template #operations>
       <t-button variant="text" shape="square" @click="onSwitchTheme">
@@ -53,20 +63,32 @@
 </template>
 
 <script setup lang="ts">
-import {onMounted, ref} from "vue";
-import {useAppStore} from '@/store'
+import {computed, onMounted, ref} from "vue";
+import {useAppStore, useProjectStore} from '@/store'
 import {useRoute, useRouter} from "vue-router";
 import logo from '@/assets/logo.svg'
 import logoDark from '@/assets/logo-dark.svg'
 import {userProfile, type UserProfileResp} from "@/api/auth.ts";
-import {ChevronDownIcon, PoweroffIcon, UserCircleIcon} from 'tdesign-icons-vue-next';
+import {ChevronDownIcon, PoweroffIcon, UserCircleIcon, Table2Icon} from 'tdesign-icons-vue-next';
 
 const route = useRoute()
 const router = useRouter()
 const appStore = useAppStore()
+const projectStore = useProjectStore()
 const onSelectMenu = (selectedMenu: string) => {
   router.push({name: selectedMenu})
 }
+
+const expendTab = computed(() => {
+  return route.name === 'ProjectView' || route.name.toString().startsWith('Schemaless') ? ['CurrentProject'] : []
+})
+const onExpendMenu = (expendMenus: string) => {
+  router.push({name: 'ProjectView', params: {uid: projectStore.currentProject?.uid}})
+}
+
+const currentTab = computed(() => {
+  return route.name
+})
 
 const onSwitchTheme = () => {
   if (!appStore.theme || appStore.theme === 'light') {

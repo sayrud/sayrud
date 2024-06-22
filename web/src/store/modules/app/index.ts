@@ -1,7 +1,7 @@
 import {defineStore} from 'pinia';
 import {AppState} from './types';
 
-const useAppStore = defineStore('odoc/app', {
+const useAppStore = defineStore('sayrud/app', {
     persist: true,
 
     state: (): AppState => ({

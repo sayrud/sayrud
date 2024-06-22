@@ -23,3 +23,12 @@ body {
     border-top-color: #22219b;
     border-left-color: #22219b;
 }
+
+.t-layout__header {
+    height: auto !important;
+}
+
+.t-head-menu__submenu {
+    margin: 0 !important;
+    padding-left: 50px !important;
+}

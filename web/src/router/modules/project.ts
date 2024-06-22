@@ -1,3 +1,14 @@
+const schemaless = [
+    {
+        path: 'tables',
+        component: () => import ('@/pages/schemaless/Tables.vue'),
+        name: 'SchemalessTable',
+        meta: {
+            auth: true,
+        },
+    }
+]
+
 export default [
     {
         path: '/projects',
@@ -26,7 +37,9 @@ export default [
                 name: 'ProjectView',
                 meta: {
                     auth: true,
-                }
+                },
+
+                children: schemaless,
             }
         ]
     }
