@@ -121,7 +121,6 @@ func (schemalessRoute) GetTable(ctx context.Context, table *db.SLTable) error {
 func (schemalessRoute) UpdateTable(ctx context.Context, table *db.SLTable, f form.UpdateTable) error {
 	tableID := table.ID
 	if err := db.SLTables.Update(ctx.Request().Context(), tableID, db.UpdateSLTableOptions{
-		Name:  f.Name,
 		Label: f.Label,
 		Desc:  f.Desc,
 	}); err != nil {

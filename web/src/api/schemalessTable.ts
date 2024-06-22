@@ -32,7 +32,6 @@ export function createTable(projectUID: string, data: CreateTableReq) {
 }
 
 export interface UpdateTableReq {
-    name: string;
     label: string;
     desc: string;
 }

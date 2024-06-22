@@ -68,34 +68,6 @@ const onCancel = () => {
 </script>
 
 <style scoped>
-.form-basic-container {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background-color: var(--td-bg-color-container);
-  border-radius: var(--td-radius-medium) var(--td-radius-medium) 0 0;
-  padding: 0 var(--td-comp-paddingLR-xxl) 80px var(--td-comp-paddingLR-xxl);
-
-  @media (max-width: @screen-sm-max) {
-    padding: var(--td-comp-paddingTB-xl) var(--td-comp-paddingLR-xl) 80px var(--td-comp-paddingLR-xl);
-
-    .form-basic-container-title {
-      margin: 0 0 var(--td-comp-margin-xxxl) 0;
-    }
-  }
-
-  .form-basic-item {
-    width: 676px;
-
-    .form-basic-container-title {
-      font: var(--td-font-title-large);
-      font-weight: 400;
-      color: var(--td-text-color-primary);
-      margin: var(--td-comp-margin-xxl) 0 var(--td-comp-margin-xl) 0;
-    }
-  }
-}
-
 .form-submit-container {
   width: 100%;
   display: flex;

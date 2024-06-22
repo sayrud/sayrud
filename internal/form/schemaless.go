@@ -11,7 +11,6 @@ type CreateTable struct {
 }
 
 type UpdateTable struct {
-	Name  string `json:"name" valid:"required" label:"数据表名"`
 	Label string `json:"label" valid:"required" label:"数据表标签"`
 	Desc  string `json:"desc" label:"数据表描述"`
 }

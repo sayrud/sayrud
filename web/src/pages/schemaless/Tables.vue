@@ -63,7 +63,7 @@
 <script setup lang="ts">
 import {onMounted, ref} from "vue";
 import {useRoute, useRouter} from "vue-router";
-import {listTables, createTable, type Table, CreateTableReq} from "@/api/schemaless";
+import {listTables, createTable, type Table, CreateTableReq} from "@/api/schemalessTable.ts";
 import {
   FormRule,
   MessagePlugin,

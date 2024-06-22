@@ -123,7 +123,6 @@ func (db *slTables) Create(ctx context.Context, projectID uint, opts CreateSLTab
 }
 
 type UpdateSLTableOptions struct {
-	Name  string
 	Label string
 	Desc  string
 }
@@ -137,7 +136,6 @@ func (db *slTables) Update(ctx context.Context, tableID uint, opts UpdateSLTable
 	return db.WithContext(ctx).Model(&SLTable{}).
 		Where("id = ?", tableID).
 		Updates(map[string]interface{}{
-			"name":  opts.Name,
 			"label": opts.Label,
 			"desc":  opts.Desc,
 		}).Error
