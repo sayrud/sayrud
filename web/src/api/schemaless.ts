@@ -5,7 +5,7 @@ export interface Table {
     name: string;
     label: string;
     desc: string;
-    incrementIndex: number;
+    count: number;
 }
 
 export interface ListTablesResp {

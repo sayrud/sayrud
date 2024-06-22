@@ -83,6 +83,7 @@ const COLUMNS: PrimaryTableCol<TableRowData>[] = [
   {colKey: 'name', title: '表名'},
   {colKey: 'label', title: '标签'},
   {colKey: 'desc', title: '描述'},
+  {colKey: 'count', title: '记录数'},
   {colKey: 'createdAt', title: '创建时间'},
   {colKey: 'ops', title: '操作'},
 ]

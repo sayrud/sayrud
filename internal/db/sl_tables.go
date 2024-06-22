@@ -26,6 +26,7 @@ type SLTablesStore interface {
 	Update(ctx context.Context, tableID uint, opts UpdateSLTableOptions) error
 	DeleteByID(ctx context.Context, tableID uint) error
 	CreateView(ctx context.Context, table *SLTable) error
+	ViewCount(ctx context.Context, schemaName, tableName string) (int64, error)
 }
 
 func NewSLTablesStore(db *gorm.DB) SLTablesStore {
@@ -198,4 +199,12 @@ func (db *slTables) CreateView(ctx context.Context, table *SLTable) error {
 
 		return nil
 	})
+}
+
+func (db *slTables) ViewCount(ctx context.Context, schemaName, tableName string) (int64, error) {
+	var count int64
+	if err := db.WithContext(ctx).Raw(escape.Escape("SELECT COUNT(*) FROM %I.%I", schemaName, tableName)).Scan(&count).Error; err != nil {
+		return 0, err
+	}
+	return count, nil
 }

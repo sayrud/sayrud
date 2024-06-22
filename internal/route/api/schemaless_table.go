@@ -9,9 +9,11 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
+	"gorm.io/gorm"
 
 	"github.com/wuhan005/sayrud/internal/context"
 	"github.com/wuhan005/sayrud/internal/db"
+	"github.com/wuhan005/sayrud/internal/dbutil"
 	"github.com/wuhan005/sayrud/internal/form"
 )
 
@@ -47,25 +49,68 @@ func (schemalessRoute) ListTables(ctx context.Context, project *db.Project) erro
 		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to list sl tables")
 		return ctx.ApiServerError()
 	}
+
+	type ListTableItem struct {
+		UID   string `json:"uid"`
+		Name  string `json:"name"`
+		Label string `json:"label"`
+		Desc  string `json:"desc"`
+		Count int64  `json:"count"`
+	}
+
+	tables := make([]ListTableItem, 0, len(slTables))
+	for _, table := range slTables {
+		count, err := db.SLTables.ViewCount(ctx.Request().Context(), table.Project.SchemaName, table.Name)
+		if err != nil {
+			logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to get view count")
+			return ctx.ApiServerError()
+		}
+
+		tables = append(tables, ListTableItem{
+			UID:   table.UID,
+			Name:  table.Name,
+			Label: table.Label,
+			Desc:  table.Desc,
+			Count: count,
+		})
+	}
+
 	return ctx.ApiSuccess(map[string]interface{}{
-		"tables": slTables,
+		"tables": tables,
 		"total":  total,
 	})
 }
 
-func (schemalessRoute) CreateTable(ctx context.Context, project *db.Project, f form.CreateTable) error {
-	slTable, err := db.SLTables.Create(ctx.Request().Context(), project.ID, db.CreateSLTableOptions{
-		Name:  f.Name,
-		Label: f.Label,
-		Desc:  f.Desc,
-	})
-	if err != nil {
+func (schemalessRoute) CreateTable(ctx context.Context, project *db.Project, tx dbutil.Transactor, f form.CreateTable) error {
+	var slTable *db.SLTable
+	if err := tx.Transaction(func(tx *gorm.DB) error {
+		sLTablesStore := db.NewSLTablesStore(tx)
+
+		var err error
+		slTable, err = sLTablesStore.Create(ctx.Request().Context(), project.ID, db.CreateSLTableOptions{
+			Name:  f.Name,
+			Label: f.Label,
+			Desc:  f.Desc,
+		})
+		if err != nil {
+			return errors.Wrap(err, "create sl table")
+		}
+
+		slTable.Project = *project
+
+		if err := sLTablesStore.CreateView(ctx.Request().Context(), slTable); err != nil {
+			return errors.Wrap(err, "create sl view")
+		}
+		return nil
+
+	}); err != nil {
 		if errors.Is(err, db.ErrSLTableExists) {
 			return ctx.ApiError(http.StatusConflict, "数据表已存在")
 		}
 		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to create sl table")
 		return ctx.ApiServerError()
 	}
+
 	return ctx.ApiSuccess(slTable)
 }
 
