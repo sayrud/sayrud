@@ -18,6 +18,7 @@ var SLTables SLTablesStore
 
 type SLTablesStore interface {
 	All(ctx context.Context) ([]*SLTable, error)
+	AllByProjectID(ctx context.Context, projectID uint) ([]*SLTable, error)
 	ListByProjectID(ctx context.Context, projectID uint, opts ListSLTableOptions) ([]*SLTable, int64, error)
 	GetByID(ctx context.Context, tableID uint) (*SLTable, error)
 	GetByUID(ctx context.Context, tableUID string) (*SLTable, error)
@@ -51,6 +52,11 @@ type slTables struct {
 func (db *slTables) All(ctx context.Context) ([]*SLTable, error) {
 	var slTables []*SLTable
 	return slTables, db.WithContext(ctx).Model(&SLTable{}).Preload("Project").Find(&slTables).Error
+}
+
+func (db *slTables) AllByProjectID(ctx context.Context, projectID uint) ([]*SLTable, error) {
+	var slTables []*SLTable
+	return slTables, db.WithContext(ctx).Model(&SLTable{}).Preload("Project").Where("project_id = ?", projectID).Find(&slTables).Error
 }
 
 type ListSLTableOptions struct {
@@ -160,11 +166,11 @@ func (db *slTables) CreateView(ctx context.Context, table *SLTable) error {
 		}
 
 		fieldsDefinition := []string{
-			escape.Escape(`sl_records.id AS _id`),
+			escape.Escape(`sl_records.uid AS _uid`),
 			escape.Escape(`sl_records.created_at AS _created_at`),
 		}
 		for _, field := range fields {
-			recordValueQuery := escape.Escape("(sl_records.data ->> %L::text)", cast.ToString(field.ID))
+			recordValueQuery := escape.Escape("(sl_records.data ->> %L::text)", field.UID)
 
 			switch field.Type {
 			case IntFieldType:

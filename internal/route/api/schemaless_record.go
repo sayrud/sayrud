@@ -44,8 +44,8 @@ func (schemalessRoute) ListRecords(ctx context.Context, table *db.SLTable) error
 		return ctx.ApiServerError()
 	}
 	return ctx.ApiSuccess(map[string]interface{}{
-		"total": total,
-		"data":  slRecords,
+		"total":   total,
+		"records": slRecords,
 	})
 }
 

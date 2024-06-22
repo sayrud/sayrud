@@ -38,6 +38,7 @@ func New(db *gorm.DB) *flamego.Flame {
 					f.Combo("").
 						Get(api.Schemaless.ListTables).
 						Post(form.Bind(form.CreateTable{}), api.Schemaless.CreateTable)
+					f.Get("/all", api.Schemaless.AllTables)
 					f.Get("/types", api.Schemaless.FieldTypes)
 
 					f.Group("/{tableUID}", func() {

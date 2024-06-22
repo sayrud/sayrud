@@ -81,6 +81,15 @@ func (schemalessRoute) ListTables(ctx context.Context, project *db.Project) erro
 	})
 }
 
+func (schemalessRoute) AllTables(ctx context.Context, project *db.Project) error {
+	slTables, err := db.SLTables.AllByProjectID(ctx.Request().Context(), project.ID)
+	if err != nil {
+		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to get all sl tables")
+		return ctx.ApiServerError()
+	}
+	return ctx.ApiSuccess(slTables)
+}
+
 func (schemalessRoute) CreateTable(ctx context.Context, project *db.Project, tx dbutil.Transactor, f form.CreateTable) error {
 	var slTable *db.SLTable
 	if err := tx.Transaction(func(tx *gorm.DB) error {

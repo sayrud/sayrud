@@ -41,9 +41,9 @@ type UpdateField struct {
 }
 
 type CreateRecord struct {
-	Data map[uint]interface{} `json:"data" label:"字段数据"`
+	Data map[string]interface{} `json:"data" label:"字段数据"`
 }
 
 type UpdateRecord struct {
-	Data map[uint]interface{} `json:"data" label:"字段数据"`
+	Data map[string]interface{} `json:"data" label:"字段数据"`
 }

@@ -3,9 +3,9 @@ package db
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 
 	"github.com/pkg/errors"
+	escape "github.com/tj/go-pg-escape"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
 
@@ -21,8 +21,8 @@ type SLRecordsStore interface {
 	GetView(ctx context.Context, table *SLTable, opts GetViewOptions) ([]map[string]interface{}, int64, error)
 	GetByID(ctx context.Context, slRecordID uint) (*SLRecord, error)
 	GetByUID(ctx context.Context, slRecordUID string) (*SLRecord, error)
-	Create(ctx context.Context, slTableID uint, data map[uint]interface{}) (*SLRecord, error)
-	Update(ctx context.Context, slRecordID uint, data map[uint]interface{}) error
+	Create(ctx context.Context, slTableID uint, data map[string]interface{}) (*SLRecord, error)
+	Update(ctx context.Context, slRecordID uint, data map[string]interface{}) error
 	DeleteByID(ctx context.Context, slRecordID uint) error
 }
 
@@ -65,7 +65,7 @@ type GetViewOptions struct {
 }
 
 func (db *slRecords) GetView(ctx context.Context, table *SLTable, opts GetViewOptions) ([]map[string]interface{}, int64, error) {
-	viewName := fmt.Sprintf("schemaless-%s", table.Name)
+	viewName := escape.Escape("%I.%I", table.Project.SchemaName, table.Name)
 
 	var total int64
 	q := db.WithContext(ctx).Table(viewName)
@@ -74,7 +74,7 @@ func (db *slRecords) GetView(ctx context.Context, table *SLTable, opts GetViewOp
 	}
 
 	limit, offset := dbutil.LimitOffset(opts.Page, opts.PageSize)
-	var records []map[string]interface{}
+	records := make([]map[string]interface{}, 0)
 	return records, total, q.Limit(limit).Offset(offset).Find(&records).Error
 }
 
@@ -97,7 +97,7 @@ func (db *slRecords) getBy(ctx context.Context, where string, args ...interface{
 	return &slRecord, nil
 }
 
-func (db *slRecords) Create(ctx context.Context, slTableID uint, data map[uint]interface{}) (*SLRecord, error) {
+func (db *slRecords) Create(ctx context.Context, slTableID uint, data map[string]interface{}) (*SLRecord, error) {
 	var slRecord *SLRecord
 
 	return slRecord, db.Transaction(func(tx *gorm.DB) error {
@@ -134,7 +134,7 @@ func (db *slRecords) Create(ctx context.Context, slTableID uint, data map[uint]i
 
 var ErrSLRecordNotFound = errors.New("sl_record does not exist")
 
-func (db *slRecords) Update(ctx context.Context, slRecordID uint, data map[uint]interface{}) error {
+func (db *slRecords) Update(ctx context.Context, slRecordID uint, data map[string]interface{}) error {
 	if _, err := db.GetByID(ctx, slRecordID); err != nil {
 		return err
 	}
@@ -161,7 +161,7 @@ var ErrMissingRequiredField = errors.New("missing required field")
 var ErrFieldTypeMismatch = errors.New("field type mismatch")
 
 // handleRecordData validate the data type, check if the required field exist, set default value to the field.
-func handleRecordData(ctx context.Context, db *gorm.DB, slTable SLTable, data map[uint]interface{}) (map[uint]interface{}, error) {
+func handleRecordData(ctx context.Context, db *gorm.DB, slTable SLTable, data map[string]interface{}) (map[string]interface{}, error) {
 	// Get table fields.
 	var slFields []*SLField
 	if err := db.WithContext(ctx).Model(&SLField{}).Where("sl_table_id = ?", slTable.ID).Find(&slFields).Error; err != nil {
@@ -174,7 +174,7 @@ func handleRecordData(ctx context.Context, db *gorm.DB, slTable SLTable, data ma
 	for _, field := range slFields {
 		field := field
 
-		val, ok := data[field.ID]
+		val, ok := data[field.UID]
 		if !ok {
 			// Check if the field is a required field.
 			if field.IsRequired() {
@@ -183,19 +183,26 @@ func handleRecordData(ctx context.Context, db *gorm.DB, slTable SLTable, data ma
 			// If the filed has default value, set it for this missing field.
 			defaultValue, ok := field.Options[OptionsDefaultValue]
 			if ok {
-				data[field.ID] = defaultValue
+				data[field.UID] = defaultValue
 			}
 			// Set auto increment field value,
 			// also set the incrementIndexFlag to ture, to make sure the increment index will be increased after the operation.
 			if field.Type == IntFieldType && field.IsIncrementIndex() {
-				data[field.ID] = slTable.IncrementIndex + 1
+				data[field.UID] = slTable.IncrementIndex + 1
 				incrementIndexFlag = true
 			}
 		} else {
-			// Check if the field type match with the value.
-			if !field.CheckValue(val) {
-				return nil, ErrFieldTypeMismatch
+			if val == nil {
+				if field.IsRequired() {
+					return nil, ErrMissingRequiredField
+				}
+			} else {
+				// Check if the field type match with the value.
+				if !field.CheckValue(val) {
+					return nil, ErrFieldTypeMismatch
+				}
 			}
+
 		}
 	}
 

@@ -16,9 +16,9 @@ const schemaless = [
         },
     },
     {
-        path: 'tables/:tableUID/records',
+        path: 'records',
         component: () => import ('@/pages/schemaless/Records.vue'),
-        name: 'SchemalessTableRecords',
+        name: 'SchemalessRecord',
         meta: {
             auth: true,
         },

@@ -17,6 +17,10 @@ export function listTables(projectUID: string) {
     return axios.get<ListTablesResp, ListTablesResp>(`/projects/${projectUID}/tables`);
 }
 
+export function allTables(projectUID: string) {
+    return axios.get<Table[], Table[]>(`/projects/${projectUID}/tables/all`);
+}
+
 export function getTable(projectUID: string, tableUID: string) {
     return axios.get<Table, Table>(`/projects/${projectUID}/tables/${tableUID}`);
 }

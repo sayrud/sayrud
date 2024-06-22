@@ -11,8 +11,8 @@ export interface ListProjectResp {
     total: number;
 }
 
-export function listProjects() {
-    return axios.get<ListProjectResp, ListProjectResp>('/projects');
+export function listProjects(params: { page?: number, pageSize?: number }) {
+    return axios.get<ListProjectResp, ListProjectResp>('/projects', {params});
 }
 
 export interface CreateProjectReq {

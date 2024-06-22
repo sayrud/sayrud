@@ -58,13 +58,18 @@ const COLUMNS: PrimaryTableCol<TableRowData>[] = [
 ]
 const isLoading = ref(false)
 const pagination = ref<PaginationProps>({
+  pageSize: 10,
   total: 0,
+  current: 1,
 })
 const projects = ref<Project[]>([])
 const getProjects = () => {
   isLoading.value = true
 
-  listProjects().then(res => {
+  listProjects({
+    page: pagination.value.current,
+    pageSize: pagination.value.pageSize,
+  }).then(res => {
     projects.value = res.projects
     pagination.value.total = res.total
   }).finally(() => {
