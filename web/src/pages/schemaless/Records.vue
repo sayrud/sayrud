@@ -2,7 +2,7 @@
   <div class="table-tree-container">
     <div class="list-tree-wrapper">
       <div class="list-tree-operator">
-        <t-list :split="true" :stripe="true">
+        <t-list :split="true">
           <t-list-item v-for="table in tables" v-bind:key="table.uid" @click="() => {
             currentTableUID = table.uid; getRecords()
           }" :class="['list-item', table.uid === currentTableUID ? 'active' : '']">
