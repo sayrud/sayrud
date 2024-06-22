@@ -104,7 +104,12 @@ const getTableFields = () => {
       }
     })
 
-    columns.value.push(...BASE_COLUMNS)
+    BASE_COLUMNS.forEach(column => {
+      columns.value.push({
+        colKey: column.colKey,
+        title: column.title as string,
+      })
+    })
   })
 }
 const getTables = () => {
@@ -119,7 +124,7 @@ const getTables = () => {
 }
 
 const isLoading = ref<boolean>(false)
-const columns = ref<PrimaryTableCol<TableRowData>[]>([])
+const columns = ref<{ colKey?: string; title?: string }[]>([])
 const records = ref<Record[]>([])
 const pagination = ref<PaginationProps>({
   pageSize: 10,
