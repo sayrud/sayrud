@@ -1,8 +1,10 @@
 import axios from "axios";
 
+export type MethodType = 'GET' | 'POST' | 'PUT' | 'DELETE'
+
 export interface Api {
     uid: string;
-    methods: string[];
+    methods: MethodType[];
     path: string;
     queryParams: QueryParams;
     bodyParams: BodyParams;

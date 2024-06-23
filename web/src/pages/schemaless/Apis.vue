@@ -20,6 +20,36 @@
       :loading="isLoading"
       @page-change="pagination = $event; getApis()"
   >
+    <template #kind="{row}">
+      <t-tag>
+        {{ row.kind.toUpperCase() }}
+      </t-tag>
+    </template>
+    <template #methods="{row}">
+      <t-space size="5px">
+        <t-tag v-for="method in row.methods" variant="light" :theme="{
+          'GET': 'success',
+          'POST': 'primary',
+          'PUT': 'warning',
+          'DELETE': 'danger',
+        }[method as MethodType]">
+          {{ method.toUpperCase() }}
+        </t-tag>
+      </t-space>
+    </template>
+    <template #path="{row}">
+      <code> {{ row.path }} </code>
+    </template>
+    <template #params="{row}">
+      <t-space>
+        <t-tag v-for="param in row.queryParams" variant="light">
+          GET: <code>{{ param.key }}</code>
+        </t-tag>
+        <t-tag v-for="param in row.bodyParams" variant="light">
+          POST: <code>{{ param.key }}</code>
+        </t-tag>
+      </t-space>
+    </template>
     <template #createdAt="{row}">
       {{ dayjs(row.createdAt).format('YYYY-MM-DD HH:mm:ss') }}
     </template>
@@ -34,7 +64,7 @@
 <script setup lang="ts">
 import {onMounted, ref} from "vue";
 import {useRoute, useRouter} from "vue-router";
-import {listApis, type Api} from "@/api/api";
+import {listApis, type Api, MethodType} from "@/api/api";
 import {
   type PaginationProps,
   PrimaryTableCol,
@@ -48,6 +78,10 @@ const router = useRouter()
 
 const projectUID = route.params.uid as string
 const COLUMNS: PrimaryTableCol<TableRowData>[] = [
+  {colKey: 'kind', title: '类型'},
+  {colKey: 'methods', title: '请求方法'},
+  {colKey: 'path', title: '路径'},
+  {colKey: 'params', title: '请求参数'},
   {colKey: 'createdAt', title: '创建时间'},
   {colKey: 'ops', title: '操作'},
 ]
