@@ -8,6 +8,7 @@ import (
 	"github.com/spf13/cast"
 	escape "github.com/tj/go-pg-escape"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 
 	"github.com/wuhan005/sayrud/internal/dbutil"
 )
@@ -28,6 +29,7 @@ type SLTablesStore interface {
 	DeleteByID(ctx context.Context, tableID uint) error
 	CreateView(ctx context.Context, table *SLTable) error
 	ViewCount(ctx context.Context, schemaName, tableName string) (int64, error)
+	Query(ctx context.Context, projectID uint, tableUID string, options QuerySLTableOptions) ([]map[string]interface{}, int64, error)
 }
 
 func NewSLTablesStore(db *gorm.DB) SLTablesStore {
@@ -211,4 +213,61 @@ func (db *slTables) ViewCount(ctx context.Context, schemaName, tableName string)
 		return 0, err
 	}
 	return count, nil
+}
+
+type QuerySLTableOptions struct {
+	Fields []string
+	Filter clause.Expression
+	Order  []string
+	Limit  int
+	Offset int
+}
+
+func (db *slTables) Query(ctx context.Context, projectID uint, tableUID string, options QuerySLTableOptions) ([]map[string]interface{}, int64, error) {
+	slTable, err := db.GetByUID(ctx, tableUID)
+	if err != nil {
+		return nil, 0, errors.Wrap(err, "get sl table by uid")
+	}
+	if slTable.ProjectID != projectID {
+		return nil, 0, ErrSLTableNotFound
+	}
+	schemaName := slTable.Project.SchemaName
+	tableName := slTable.Name
+
+	selectFields := make([]string, 0, len(options.Fields))
+	if len(options.Fields) == 1 && options.Fields[0] == "*" {
+		selectFields = []string{"*"}
+	} else {
+		for _, field := range options.Fields {
+			selectFields = append(selectFields, escape.Escape(`%I`, field))
+		}
+	}
+
+	q := db.WithContext(ctx).
+		Table(escape.Escape(`%I.%I`, schemaName, tableName)).
+		Select(selectFields).Debug()
+	if options.Filter != nil {
+		q = q.Where(options.Filter)
+	}
+	if len(options.Order) > 0 {
+		q = q.Order(strings.Join(options.Order, ", "))
+	}
+
+	var total int64
+	if err := q.Count(&total).Error; err != nil {
+		return nil, 0, errors.Wrap(err, "count")
+	}
+
+	if options.Limit > 0 {
+		q = q.Limit(options.Limit)
+	}
+	if options.Offset > 0 {
+		q = q.Offset(options.Offset)
+	}
+
+	result := make([]map[string]interface{}, 0)
+	if err := q.Find(&result).Error; err != nil {
+		return nil, 0, errors.Wrap(err, "scan")
+	}
+	return result, total, nil
 }

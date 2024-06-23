@@ -3,10 +3,12 @@ module github.com/wuhan005/sayrud
 go 1.21
 
 require (
+	github.com/dop251/goja v0.0.0-20240610225006-393f6d42497b
 	github.com/flamego/flamego v1.9.4
 	github.com/golang-jwt/jwt/v5 v5.2.1
 	github.com/google/go-github/v62 v62.0.0
 	github.com/jackc/pgconn v1.14.0
+	github.com/lib/pq v1.2.0
 	github.com/pkg/errors v0.9.1
 	github.com/sirupsen/logrus v1.4.2
 	github.com/spf13/cast v1.6.0
@@ -16,6 +18,7 @@ require (
 	github.com/wuhan005/govalid v0.0.0-20230225142102-9dd5e5a0d0fd
 	golang.org/x/text v0.14.0
 	gorm.io/datatypes v1.2.1
+	gorm.io/driver/mysql v1.5.6
 	gorm.io/driver/postgres v1.5.7
 	gorm.io/gorm v1.25.9
 )
@@ -27,9 +30,12 @@ require (
 	github.com/bmizerany/assert v0.0.0-20160611221934-b7ed37b82869 // indirect
 	github.com/charmbracelet/lipgloss v0.7.1 // indirect
 	github.com/charmbracelet/log v0.2.3 // indirect
+	github.com/dlclark/regexp2 v1.7.0 // indirect
 	github.com/go-logfmt/logfmt v0.6.0 // indirect
+	github.com/go-sourcemap/sourcemap v2.1.3+incompatible // indirect
 	github.com/go-sql-driver/mysql v1.8.1 // indirect
 	github.com/google/go-querystring v1.1.0 // indirect
+	github.com/google/pprof v0.0.0-20230207041349-798e818bf904 // indirect
 	github.com/jackc/chunkreader/v2 v2.0.1 // indirect
 	github.com/jackc/pgio v1.0.0 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect
@@ -50,5 +56,4 @@ require (
 	golang.org/x/crypto v0.22.0 // indirect
 	golang.org/x/sync v0.6.0 // indirect
 	golang.org/x/sys v0.19.0 // indirect
-	gorm.io/driver/mysql v1.5.6 // indirect
 )

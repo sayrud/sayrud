@@ -39,6 +39,9 @@ type Project struct {
 	OwnerUserID uint   `json:"-"`
 	Name        string `json:"name"`
 	SchemaName  string `gorm:"uniqueIndex:idx_projects_schema_name, where:deleted_at IS NULL" json:"schemaName"`
+
+	CustomDomain string `json:"customDomain"`
+	RoutePrefix  string `json:"routePrefix"`
 }
 
 type projects struct {

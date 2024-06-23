@@ -7,6 +7,7 @@ import (
 	"github.com/wuhan005/sayrud/internal/context"
 	"github.com/wuhan005/sayrud/internal/form"
 	"github.com/wuhan005/sayrud/internal/route/api"
+	"github.com/wuhan005/sayrud/internal/route/public"
 )
 
 func New(db *gorm.DB) *flamego.Flame {
@@ -17,6 +18,10 @@ func New(db *gorm.DB) *flamego.Flame {
 	)
 
 	f.Group("/api", func() {
+		f.Any("/{projectUID}/{**}", public.Project.Handler)
+	})
+
+	f.Group("/_", func() {
 		f.Get("/auth/github/callback", api.Auth.GitHubCallback)
 
 		f.Group("/auth", func() {
@@ -73,6 +78,19 @@ func New(db *gorm.DB) *flamego.Flame {
 							}, api.Schemaless.Recorder)
 						})
 					}, api.Schemaless.Tabler)
+				})
+
+				f.Group("/apis", func() {
+					f.Combo("").
+						Get(api.Api.List).
+						Post(form.Bind(form.CreateApi{}), api.Api.Create)
+
+					f.Group("/{apiUID}", func() {
+						f.Combo("").
+							Get(api.Api.Get).
+							Put(form.Bind(form.UpdateApi{}), api.Api.Update).
+							Delete(api.Api.Delete)
+					}, api.Api.Apier)
 				})
 			}, api.Project.Projecter)
 		}, api.Auth.Authenticator)
