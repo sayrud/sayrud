@@ -32,6 +32,7 @@ type SLTablesStore interface {
 
 	QueryList(ctx context.Context, projectID uint, tableUID string, options QueryListSLTableOptions) ([]map[string]interface{}, int64, error)
 	QueryFirst(ctx context.Context, projectID uint, tableUID string, options QueryFirstSLTableOptions) (map[string]interface{}, error)
+	QueryDelete(ctx context.Context, projectID uint, tableUID string, options QueryDeleteSLTableOptions) (int64, error)
 }
 
 func NewSLTablesStore(db *gorm.DB) SLTablesStore {
@@ -315,4 +316,32 @@ func (db *slTables) QueryFirst(ctx context.Context, projectID uint, tableUID str
 		return nil, gorm.ErrRecordNotFound
 	}
 	return result, nil
+}
+
+type QueryDeleteSLTableOptions struct {
+	Filter clause.Expression
+}
+
+func (db *slTables) QueryDelete(ctx context.Context, projectID uint, tableUID string, options QueryDeleteSLTableOptions) (int64, error) {
+	slTable, err := db.GetByUID(ctx, tableUID)
+	if err != nil {
+		return 0, errors.Wrap(err, "get sl table by uid")
+	}
+	if slTable.ProjectID != projectID {
+		return 0, ErrSLTableNotFound
+	}
+	schemaName := slTable.Project.SchemaName
+	tableName := slTable.Name
+
+	q := db.WithContext(ctx).
+		Table(escape.Escape(`%I.%I`, schemaName, tableName))
+	if options.Filter != nil {
+		q = q.Where(options.Filter)
+	}
+
+	result := q.Delete(nil)
+	if err := result.Error; err != nil {
+		return 0, errors.Wrap(err, "delete")
+	}
+	return result.RowsAffected, nil
 }

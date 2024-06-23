@@ -186,7 +186,17 @@ func (h publicHandler) Handler(ctx context.Context) error {
 
 	case apibuilder.KindDelete:
 		options := apibuilder.Options[apibuilder.DeleteOptions]{}
-		_ = options.ParseOptions(api.Options)
+		deleteOptions := options.ParseOptions(api.Options)
+
+		response, err = h.deleteHandler(ctx, deleteHandlerOptions{
+			projectID:     project.ID,
+			vm:            vm,
+			deleteOptions: deleteOptions,
+		})
+		if err != nil {
+			logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to handle delete")
+			return ctx.ApiServerError()
+		}
 
 	default:
 		return ctx.ApiError(http.StatusInternalServerError, "未知的 API 类型: %s", api.Kind)

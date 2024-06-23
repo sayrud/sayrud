@@ -46,10 +46,17 @@ type ViewOptions struct {
 }
 
 type CreateOptions struct {
+	TableUID     string            `json:"tableUID"`
+	FieldMapping map[string]string `json:"fieldMapping"`
 }
 
 type UpdateOptions struct {
+	TableUID     string            `json:"tableUID"`
+	FieldMapping map[string]string `json:"fieldMapping"`
+	Filter       *Operator         `json:"filter"`
 }
 
 type DeleteOptions struct {
+	TableUID string    `json:"tableUID"`
+	Filter   *Operator `json:"filter"`
 }
