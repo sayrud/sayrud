@@ -41,7 +41,7 @@
 <script setup lang="ts">
 import {onMounted, ref} from "vue";
 import {useRouter} from "vue-router";
-import {listProjects, type Project} from "@/api/projects.ts";
+import {listProjects, type Project} from "@/api/project.ts";
 import {type PaginationProps, PrimaryTableCol, TableRowData} from 'tdesign-vue-next';
 import dayjs from 'dayjs'
 import {useProjectStore} from "@/store";

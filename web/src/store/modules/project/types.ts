@@ -1,4 +1,4 @@
-import {type Project} from "@/api/projects";
+import {type Project} from "@/api/project.ts";
 
 export interface ProjectState {
     currentProject: Project | null;

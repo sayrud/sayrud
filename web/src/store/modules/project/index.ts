@@ -1,6 +1,6 @@
 import {defineStore} from 'pinia';
 import {ProjectState} from './types';
-import {type Project} from '@/api/projects';
+import {type Project} from '@/api/project.ts';
 
 const useProjectStore = defineStore('sayrud/project', {
     persist: true,

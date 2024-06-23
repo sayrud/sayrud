@@ -23,6 +23,30 @@ const schemaless = [
             auth: true,
         },
     },
+    {
+        path: 'apis',
+        component: () => import ('@/pages/schemaless/Apis.vue'),
+        name: 'SchemalessApi',
+        meta: {
+            auth: true,
+        },
+    },
+    {
+        path: 'apis/create',
+        component: () => import ('@/pages/schemaless/ApiSettings.vue'),
+        name: 'SchemalessApiCreate',
+        meta: {
+            auth: true,
+        },
+    },
+    {
+        path: 'apis/:apiUID',
+        component: () => import ('@/pages/schemaless/ApiSettings.vue'),
+        name: 'SchemalessApiSettings',
+        meta: {
+            auth: true,
+        },
+    }
 ]
 
 export default [

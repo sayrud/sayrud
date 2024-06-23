@@ -37,7 +37,7 @@ router.beforeEach((_to, _from, next) => {
     const appStore = useAppStore()
     const token = appStore.token
     if (token && (_to.name === 'SignIn' || _to.name === 'GitHubCallback')) {
-        next({name: 'Console'})
+        next({name: 'Dashboard'})
     } else if (!token && _to.meta.auth) {
         next({name: 'SignIn'})
     }

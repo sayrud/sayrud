@@ -204,11 +204,11 @@ onMounted(() => {
 .list-tree-operator {
   width: 280px;
   float: left;
-  padding: 0 var(--td-comp-paddingTB-xxl) 0 var(--td-comp-paddingLR-xxl);
+  padding-right: var(--td-comp-paddingTB-xxl);
 }
 
 .list-tree-content {
-  padding: 0 var(--td-comp-paddingTB-xxl) 0 var(--td-comp-paddingLR-xxl);
+  padding-left: var(--td-comp-paddingTB-xxl);
   border-left: 1px solid var(--td-border-level-1-color);
   overflow: auto;
 }
@@ -228,6 +228,6 @@ onMounted(() => {
 }
 
 .list-item.active {
-  background-color: var(--td-bg-color-component-active);
+  background-color: var(--td-bg-color-component-hover);
 }
 </style>

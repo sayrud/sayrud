@@ -34,7 +34,7 @@
 
 <script setup lang="ts">
 import {ref} from 'vue'
-import {createProject, type CreateProjectReq} from "@/api/projects";
+import {createProject, type CreateProjectReq} from "@/api/project.ts";
 import type {FormRule, SubmitContext} from 'tdesign-vue-next';
 import {useRouter} from "vue-router";
 import NProgress from "nprogress";
