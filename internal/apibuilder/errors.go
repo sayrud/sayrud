@@ -22,4 +22,6 @@ var (
 
 	ErrEmptyDatasetTableUID = errors.New("empty dataset table UID")
 	ErrEmptyDatasetFields   = errors.New("empty dataset fields")
+
+	ErrInvalidKind = errors.New("invalid kind")
 )

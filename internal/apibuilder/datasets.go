@@ -18,11 +18,6 @@ type Dataset struct {
 	OffsetExpression string    `json:"offsetExp"`
 }
 
-func ParseDatasets(data []byte) (Datasets, error) {
-	var d Datasets
-	return d, json.Unmarshal(data, &d)
-}
-
 func (d Dataset) ValidateConfig() error {
 	if d.TableUID == "" {
 		return ErrEmptyDatasetTableUID

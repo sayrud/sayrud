@@ -12,6 +12,7 @@ import (
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
 
+	"github.com/wuhan005/sayrud/internal/apibuilder"
 	"github.com/wuhan005/sayrud/internal/dbutil"
 )
 
@@ -36,14 +37,15 @@ func NewApisStore(db *gorm.DB) ApisStore {
 type Api struct {
 	dbutil.Model
 
-	ProjectID uint    `gorm:"uniqueIndex:idx_sl_table_project_id_name, where:deleted_at IS NULL" json:"-"`
-	Project   Project `gorm:"foreignKey:ProjectID" json:"-"`
+	Kind      apibuilder.Kind `json:"kind"`
+	ProjectID uint            `gorm:"uniqueIndex:idx_sl_table_project_id_name, where:deleted_at IS NULL" json:"-"`
+	Project   Project         `gorm:"foreignKey:ProjectID" json:"-"`
 
 	Methods     pq.StringArray `gorm:"type:text[]" json:"methods"`
 	Path        string         `json:"path"`
 	QueryParams datatypes.JSON `gorm:"type:jsonb" json:"queryParams"`
 	BodyParams  datatypes.JSON `gorm:"type:jsonb" json:"bodyParams"`
-	Datasets    datatypes.JSON `gorm:"type:jsonb" json:"datasets"`
+	Options     datatypes.JSON `gorm:"type:jsonb" json:"options"`
 	Response    datatypes.JSON `gorm:"type:jsonb" json:"response"`
 }
 
@@ -97,22 +99,24 @@ func (db *apis) GetByMethodPath(ctx context.Context, projectID uint, method, pat
 
 type CreateApiOptions struct {
 	ProjectID   uint
+	Kind        apibuilder.Kind
 	Methods     pq.StringArray
 	Path        string
 	QueryParams datatypes.JSON
 	BodyParams  datatypes.JSON
-	Datasets    datatypes.JSON
+	Options     datatypes.JSON
 	Response    datatypes.JSON
 }
 
 func (db *apis) Create(ctx context.Context, opts CreateApiOptions) (*Api, error) {
 	api := &Api{
 		ProjectID:   opts.ProjectID,
+		Kind:        opts.Kind,
 		Methods:     opts.Methods,
 		Path:        opts.Path,
 		QueryParams: opts.QueryParams,
 		BodyParams:  opts.BodyParams,
-		Datasets:    opts.Datasets,
+		Options:     opts.Options,
 		Response:    opts.Response,
 	}
 	if err := db.WithContext(ctx).Create(api).Error; err != nil {

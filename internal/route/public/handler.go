@@ -24,7 +24,7 @@ var Project publicHandler
 
 type publicHandler struct{}
 
-func (publicHandler) Handler(ctx context.Context) error {
+func (h publicHandler) Handler(ctx context.Context) error {
 	projectUID := ctx.Param("projectUID")
 	path := "/" + ctx.Param("**")
 	method := ctx.Request().Method
@@ -47,6 +47,7 @@ func (publicHandler) Handler(ctx context.Context) error {
 		return ctx.ApiServerError()
 	}
 
+	// Parse query params.
 	queryParams, err := apibuilder.ParseQueryParams(api.QueryParams)
 	if err != nil {
 		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to parse query params")
@@ -72,6 +73,7 @@ func (publicHandler) Handler(ctx context.Context) error {
 		queryValues[param.Key] = v
 	}
 
+	// Parse post params if method is POST or PUT.
 	bodyValues := make(map[string]interface{})
 	if method == http.MethodPost || method == http.MethodPut {
 		bodyParams, err := apibuilder.ParseBodyParams(api.BodyParams)
@@ -144,39 +146,41 @@ func (publicHandler) Handler(ctx context.Context) error {
 		return ctx.ApiServerError()
 	}
 
-	datasets, err := apibuilder.ParseDatasets(api.Datasets)
-	if err != nil {
-		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to parse datasets")
-		return ctx.ApiServerError()
-	}
+	var response interface{}
+	switch api.Kind {
+	case apibuilder.KindList:
+		options := apibuilder.Options[apibuilder.ListOptions]{}
+		listOptions := options.ParseOptions(api.Options)
 
-	// Query datasets.
-	datasetsResultSet := make(map[string][]map[string]interface{}, len(datasets))
-	datasetsCountSet := make(map[string]int64, len(datasets))
-	for _, dataset := range datasets {
-		dataset := dataset
-
-		filter, err := dataset.Filter.ToClauseExpression(vm)
-		if err != nil {
-			logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to parse filter expression")
-			return ctx.ApiError(http.StatusInternalServerError, "数据集过滤条件解析失败")
-		}
-
-		result, count, err := db.SLTables.Query(ctx.Request().Context(), project.ID, dataset.TableUID, db.QuerySLTableOptions{
-			Fields: dataset.Fields,
-			Filter: filter,
-			Order:  dataset.Order,
-			Limit:  0,
-			Offset: 0,
+		response, err = h.listHandler(ctx, listHandlerOptions{
+			projectID:   project.ID,
+			vm:          vm,
+			listOptions: listOptions,
 		})
 		if err != nil {
-			logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to query SL table")
+			logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to handle list")
 			return ctx.ApiServerError()
 		}
 
-		datasetsResultSet[dataset.TableUID] = result
-		datasetsCountSet[dataset.TableUID] = count
+	case apibuilder.KindView:
+		options := apibuilder.Options[apibuilder.ViewOptions]{}
+		_ = options.ParseOptions(api.Options)
+
+	case apibuilder.KindCreate:
+		options := apibuilder.Options[apibuilder.CreateOptions]{}
+		_ = options.ParseOptions(api.Options)
+
+	case apibuilder.KindUpdate:
+		options := apibuilder.Options[apibuilder.UpdateOptions]{}
+		_ = options.ParseOptions(api.Options)
+
+	case apibuilder.KindDelete:
+		options := apibuilder.Options[apibuilder.DeleteOptions]{}
+		_ = options.ParseOptions(api.Options)
+
+	default:
+		return ctx.ApiError(http.StatusInternalServerError, "未知的 API 类型: %s", api.Kind)
 	}
 
-	return ctx.ApiSuccess(datasetsResultSet)
+	return ctx.ApiSuccess(response)
 }

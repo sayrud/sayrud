@@ -73,6 +73,12 @@ func (apiRoute) Create(ctx context.Context, project *db.Project, f form.CreateAp
 			methods = append(methods, method)
 		}
 	}
+
+	kind := f.Kind
+	if err := kind.ValidateConfig(); err != nil {
+		return ctx.ApiError(http.StatusBadRequest, "API 类型不合法")
+	}
+
 	path := "/" + strings.TrimSpace(strings.Trim(f.Path, "/"))
 
 	queryParams := f.QueryParams
@@ -124,11 +130,12 @@ func (apiRoute) Create(ctx context.Context, project *db.Project, f form.CreateAp
 
 	api, err := db.Apis.Create(ctx.Request().Context(), db.CreateApiOptions{
 		ProjectID:   project.ID,
+		Kind:        kind,
 		Methods:     methods,
 		Path:        path,
 		QueryParams: queryParams.ToJSON(),
 		BodyParams:  bodyParams.ToJSON(),
-		Datasets:    datasets.ToJSON(),
+		Options:     datasets.ToJSON(),
 		Response:    datatypes.JSON(f.Response),
 	})
 	if err != nil {
