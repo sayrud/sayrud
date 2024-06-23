@@ -29,7 +29,9 @@ type SLTablesStore interface {
 	DeleteByID(ctx context.Context, tableID uint) error
 	CreateView(ctx context.Context, table *SLTable) error
 	ViewCount(ctx context.Context, schemaName, tableName string) (int64, error)
-	Query(ctx context.Context, projectID uint, tableUID string, options QuerySLTableOptions) ([]map[string]interface{}, int64, error)
+
+	QueryList(ctx context.Context, projectID uint, tableUID string, options QueryListSLTableOptions) ([]map[string]interface{}, int64, error)
+	QueryFirst(ctx context.Context, projectID uint, tableUID string, options QueryFirstSLTableOptions) (map[string]interface{}, error)
 }
 
 func NewSLTablesStore(db *gorm.DB) SLTablesStore {
@@ -215,7 +217,7 @@ func (db *slTables) ViewCount(ctx context.Context, schemaName, tableName string)
 	return count, nil
 }
 
-type QuerySLTableOptions struct {
+type QueryListSLTableOptions struct {
 	Fields []string
 	Filter clause.Expression
 	Order  []string
@@ -223,7 +225,7 @@ type QuerySLTableOptions struct {
 	Offset int
 }
 
-func (db *slTables) Query(ctx context.Context, projectID uint, tableUID string, options QuerySLTableOptions) ([]map[string]interface{}, int64, error) {
+func (db *slTables) QueryList(ctx context.Context, projectID uint, tableUID string, options QueryListSLTableOptions) ([]map[string]interface{}, int64, error) {
 	slTable, err := db.GetByUID(ctx, tableUID)
 	if err != nil {
 		return nil, 0, errors.Wrap(err, "get sl table by uid")
@@ -245,7 +247,7 @@ func (db *slTables) Query(ctx context.Context, projectID uint, tableUID string, 
 
 	q := db.WithContext(ctx).
 		Table(escape.Escape(`%I.%I`, schemaName, tableName)).
-		Select(selectFields).Debug()
+		Select(selectFields)
 	if options.Filter != nil {
 		q = q.Where(options.Filter)
 	}
@@ -270,4 +272,47 @@ func (db *slTables) Query(ctx context.Context, projectID uint, tableUID string, 
 		return nil, 0, errors.Wrap(err, "scan")
 	}
 	return result, total, nil
+}
+
+type QueryFirstSLTableOptions struct {
+	Fields []string
+	Filter clause.Expression
+}
+
+func (db *slTables) QueryFirst(ctx context.Context, projectID uint, tableUID string, options QueryFirstSLTableOptions) (map[string]interface{}, error) {
+	slTable, err := db.GetByUID(ctx, tableUID)
+	if err != nil {
+		return nil, errors.Wrap(err, "get sl table by uid")
+	}
+	if slTable.ProjectID != projectID {
+		return nil, ErrSLTableNotFound
+	}
+	schemaName := slTable.Project.SchemaName
+	tableName := slTable.Name
+
+	selectFields := make([]string, 0, len(options.Fields))
+	if len(options.Fields) == 1 && options.Fields[0] == "*" {
+		selectFields = []string{"*"}
+	} else {
+		for _, field := range options.Fields {
+			selectFields = append(selectFields, escape.Escape(`%I`, field))
+		}
+	}
+
+	q := db.WithContext(ctx).
+		Table(escape.Escape(`%I.%I`, schemaName, tableName)).
+		Select(selectFields)
+	if options.Filter != nil {
+		q = q.Where(options.Filter)
+	}
+
+	result := make(map[string]interface{})
+	q = q.Find(&result)
+	if err := q.Error; err != nil {
+		return nil, errors.Wrap(err, "scan")
+	}
+	if q.RowsAffected == 0 {
+		return nil, gorm.ErrRecordNotFound
+	}
+	return result, nil
 }

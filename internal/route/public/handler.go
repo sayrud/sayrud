@@ -164,7 +164,17 @@ func (h publicHandler) Handler(ctx context.Context) error {
 
 	case apibuilder.KindView:
 		options := apibuilder.Options[apibuilder.ViewOptions]{}
-		_ = options.ParseOptions(api.Options)
+		viewOptions := options.ParseOptions(api.Options)
+
+		response, err = h.viewHandler(ctx, viewHandlerOptions{
+			projectID:   project.ID,
+			vm:          vm,
+			viewOptions: viewOptions,
+		})
+		if err != nil {
+			logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to handle view")
+			return ctx.ApiServerError()
+		}
 
 	case apibuilder.KindCreate:
 		options := apibuilder.Options[apibuilder.CreateOptions]{}

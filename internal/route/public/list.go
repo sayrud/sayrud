@@ -35,7 +35,7 @@ func (publicHandler) listHandler(ctx context.Context, opts listHandlerOptions) (
 			return nil, errors.Wrap(err, "parse filter expression")
 		}
 
-		result, count, err := db.SLTables.Query(ctx.Request().Context(), projectID, dataset.TableUID, db.QuerySLTableOptions{
+		result, count, err := db.SLTables.QueryList(ctx.Request().Context(), projectID, dataset.TableUID, db.QueryListSLTableOptions{
 			Fields: dataset.Fields,
 			Filter: filter,
 			Order:  dataset.Order,
