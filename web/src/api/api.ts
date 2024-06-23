@@ -59,7 +59,7 @@ export function listApis(projectUID: string, params: {
     page?: number,
     pageSize?: number
 }) {
-    return axios.get<ListApisResp, ListApisResp>(`/projects/${projectUID}/apis`, params);
+    return axios.get<ListApisResp, ListApisResp>(`/projects/${projectUID}/apis`, {params});
 }
 
 export function getApi(projectUID: string, apiUID: string) {

@@ -75,11 +75,8 @@ import {useRoute, useRouter} from "vue-router";
 import {FormRule, SubmitContext, MessagePlugin} from "tdesign-vue-next";
 import NProgress from "nprogress";
 import {
-  type BodyParams,
   CreateApiReq,
-  type Datasets,
   type QueryParam,
-  type QueryParams,
   UpdateApiReq,
   createApi,
   updateApi,

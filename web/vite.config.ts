@@ -3,7 +3,7 @@ import vue from '@vitejs/plugin-vue'
 import AutoImport from 'unplugin-auto-import/vite';
 import Components from 'unplugin-vue-components/vite';
 import {TDesignResolver} from 'unplugin-vue-components/resolvers';
-import { fileURLToPath, URL } from "url";
+import {fileURLToPath, URL} from "url";
 
 // https://vitejs.dev/config/
 export default defineConfig({
@@ -12,6 +12,7 @@ export default defineConfig({
             {find: '@', replacement: fileURLToPath(new URL('./src', import.meta.url))},
         ],
     },
+
     plugins: [
         vue(),
         AutoImport({
@@ -25,4 +26,14 @@ export default defineConfig({
             })],
         }),
     ],
+
+    build: {
+        rollupOptions: {
+            output: {
+                entryFileNames: 'assets/[hash].js',
+                chunkFileNames: 'assets/[hash].js',
+                assetFileNames: 'assets/[hash].[ext]',
+            },
+        },
+    }
 })
