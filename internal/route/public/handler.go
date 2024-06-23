@@ -5,14 +5,19 @@
 package public
 
 import (
+	"encoding/json"
+	"encoding/xml"
+	"mime"
 	"net/http"
 
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
+	"github.com/spf13/cast"
 
 	"github.com/wuhan005/sayrud/internal/apibuilder"
 	"github.com/wuhan005/sayrud/internal/context"
 	"github.com/wuhan005/sayrud/internal/db"
+	"github.com/wuhan005/sayrud/internal/jsvm"
 )
 
 var Project publicHandler
@@ -67,13 +72,77 @@ func (publicHandler) Handler(ctx context.Context) error {
 		queryValues[param.Key] = v
 	}
 
-	// TODO parse body params
-	bodyParams, err := apibuilder.ParseBodyParams(api.BodyParams)
+	bodyValues := make(map[string]interface{})
+	if method == http.MethodPost || method == http.MethodPut {
+		bodyParams, err := apibuilder.ParseBodyParams(api.BodyParams)
+		if err != nil {
+			logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to parse body params")
+			return ctx.ApiServerError()
+		}
+
+		body := make(map[string]interface{})
+		contentType := ctx.Request().Header.Get("Content-Type")
+		bodyType, _, _ := mime.ParseMediaType(contentType)
+		switch bodyType {
+		case "multipart/form-data", "application/x-www-form-urlencoded":
+			if err := ctx.Request().ParseForm(); err != nil {
+				return ctx.ApiError(http.StatusBadRequest, "解析请求表单失败")
+			}
+			for k, v := range ctx.Request().Form {
+				body[k] = v
+			}
+
+		case "application/json":
+			bodyBytes, err := ctx.Request().Body().Bytes()
+			if err != nil {
+				return ctx.ApiError(http.StatusBadRequest, "解析 JSON 请求体失败")
+			}
+			if err := json.Unmarshal(bodyBytes, &body); err != nil {
+				return ctx.ApiError(http.StatusBadRequest, "解析 JSON 请求体失败")
+			}
+
+		case "application/xml":
+			bodyBytes, err := ctx.Request().Body().Bytes()
+			if err != nil {
+				return ctx.ApiError(http.StatusBadRequest, "解析 XML 请求体失败")
+			}
+			if err := xml.Unmarshal(bodyBytes, &body); err != nil {
+				return ctx.ApiError(http.StatusBadRequest, "解析 XML 请求体失败")
+			}
+
+		default:
+			return ctx.ApiError(http.StatusBadRequest, "不支持的请求体类型: %s", bodyType)
+		}
+
+		for _, param := range bodyParams {
+			label := param.Label
+			if label == "" {
+				label = param.Key
+			}
+
+			inputValue := cast.ToString(body[param.Key])
+			v, err := param.ValidateValue(inputValue)
+			if err != nil {
+				if errors.Is(err, apibuilder.ErrParamValueRequired) {
+					return ctx.ApiError(http.StatusBadRequest, "缺少必填参数: %s", label)
+				}
+				return ctx.ApiError(http.StatusBadRequest, "参数 %s 格式错误", label)
+			}
+			bodyValues[param.Key] = v
+		}
+	}
+
+	// Initialize JavaScript VM.
+	vm, err := jsvm.NewVM(jsvm.NewVMOptions{
+		RequestMethod: method,
+		RequestPath:   path,
+		RequestQuery:  queryValues,
+		RequestBody:   bodyValues,
+	})
 	if err != nil {
-		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to parse body params")
+		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to create JS VM")
 		return ctx.ApiServerError()
 	}
-	_ = bodyParams
 
 	datasets, err := apibuilder.ParseDatasets(api.Datasets)
 	if err != nil {
@@ -87,7 +156,7 @@ func (publicHandler) Handler(ctx context.Context) error {
 	for _, dataset := range datasets {
 		dataset := dataset
 
-		filter, err := dataset.Filter.ToClauseExpression(nil)
+		filter, err := dataset.Filter.ToClauseExpression(vm)
 		if err != nil {
 			logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to parse filter expression")
 			return ctx.ApiError(http.StatusInternalServerError, "数据集过滤条件解析失败")

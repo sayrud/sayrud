@@ -6,8 +6,11 @@ package apibuilder
 
 import (
 	"encoding/json"
+	"strings"
 
 	"github.com/dop251/goja"
+	"github.com/pkg/errors"
+	"github.com/spf13/cast"
 	"gorm.io/gorm/clause"
 )
 
@@ -100,6 +103,16 @@ func (o *Operator) ToClauseExpression(vm *goja.Runtime) (clause.Expression, erro
 		if err := json.Unmarshal(o.Value, &value); err != nil {
 			return nil, err
 		}
+
+		strValue := cast.ToString(value)
+		if strings.HasPrefix(strValue, "$") {
+			result, err := vm.RunString(strValue)
+			if err != nil {
+				return nil, errors.Wrap(err, "run string")
+			}
+			value = result.Export()
+		}
+
 		return clause.Expr{
 			SQL:  "?",
 			Vars: []interface{}{value},
