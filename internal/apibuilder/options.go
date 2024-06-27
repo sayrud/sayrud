@@ -46,7 +46,8 @@ type ViewOptions struct {
 }
 
 type CreateOptions struct {
-	TableUID     string            `json:"tableUID"`
+	TableUID string `json:"tableUID"`
+	// FieldMapping maps given request key to actual database field uid.
 	FieldMapping map[string]string `json:"fieldMapping"`
 }
 

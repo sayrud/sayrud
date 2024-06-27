@@ -178,11 +178,32 @@ func (h publicHandler) Handler(ctx context.Context) error {
 
 	case apibuilder.KindCreate:
 		options := apibuilder.Options[apibuilder.CreateOptions]{}
-		_ = options.ParseOptions(api.Options)
+		createOptions := options.ParseOptions(api.Options)
+
+		if err := h.createHandler(ctx, createHandlerOptions{
+			projectID:     project.ID,
+			queryValues:   queryValues,
+			bodyValues:    bodyValues,
+			createOptions: createOptions,
+		}); err != nil {
+			logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to handle create")
+			return ctx.ApiServerError()
+		}
 
 	case apibuilder.KindUpdate:
 		options := apibuilder.Options[apibuilder.UpdateOptions]{}
-		_ = options.ParseOptions(api.Options)
+		updateOptions := options.ParseOptions(api.Options)
+
+		if err := h.updateHandler(ctx, updateHandlerOptions{
+			projectID:     project.ID,
+			vm:            vm,
+			queryValues:   queryValues,
+			bodyValues:    bodyValues,
+			updateOptions: updateOptions,
+		}); err != nil {
+			logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to handle update")
+			return ctx.ApiServerError()
+		}
 
 	case apibuilder.KindDelete:
 		options := apibuilder.Options[apibuilder.DeleteOptions]{}

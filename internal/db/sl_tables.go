@@ -2,6 +2,7 @@ package db
 
 import (
 	"context"
+	"encoding/json"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -32,6 +33,8 @@ type SLTablesStore interface {
 
 	QueryList(ctx context.Context, projectID uint, tableUID string, options QueryListSLTableOptions) ([]map[string]interface{}, int64, error)
 	QueryFirst(ctx context.Context, projectID uint, tableUID string, options QueryFirstSLTableOptions) (map[string]interface{}, error)
+	QueryInsert(ctx context.Context, projectID uint, tableUID string, options QueryInsertSLTableOptions) error
+	QueryUpdate(ctx context.Context, projectID uint, tableUID string, options QueryUpdateSLTableOptions) error
 	QueryDelete(ctx context.Context, projectID uint, tableUID string, options QueryDeleteSLTableOptions) (int64, error)
 }
 
@@ -193,7 +196,7 @@ func (db *slTables) CreateView(ctx context.Context, table *SLTable) error {
 		tableIDStr := cast.ToString(tableID)
 		viewName := table.Name
 		q := escape.Escape(`DROP VIEW IF EXISTS %I.%I`, schemaName, viewName)
-		if err := tx.WithContext(ctx).Debug().Exec(q).Error; err != nil {
+		if err := tx.WithContext(ctx).Exec(q).Error; err != nil {
 			return errors.Wrap(err, "drop old view")
 		}
 
@@ -202,7 +205,7 @@ func (db *slTables) CreateView(ctx context.Context, table *SLTable) error {
 	`+strings.Join(fieldsDefinition, ", ")+`
 	FROM public.sl_records
 	WHERE sl_records.sl_table_id = %L AND sl_records.deleted_at IS NULL`, schemaName, viewName, tableIDStr)
-		if err := tx.WithContext(ctx).Debug().Exec(q).Error; err != nil {
+		if err := tx.WithContext(ctx).Exec(q).Error; err != nil {
 			return errors.Wrap(err, "create new view")
 		}
 
@@ -318,6 +321,91 @@ func (db *slTables) QueryFirst(ctx context.Context, projectID uint, tableUID str
 	return result, nil
 }
 
+type QueryInsertSLTableOptions struct {
+	FieldValues map[string]interface{}
+	Filter      clause.Expression
+}
+
+func (db *slTables) QueryInsert(ctx context.Context, projectID uint, tableUID string, options QueryInsertSLTableOptions) error {
+	slTable, err := db.GetByUID(ctx, tableUID)
+	if err != nil {
+		return errors.Wrap(err, "get sl table by uid")
+	}
+	if slTable.ProjectID != projectID {
+		return ErrSLTableNotFound
+	}
+
+	dataBytes, err := json.Marshal(options.FieldValues)
+	if err != nil {
+		return errors.Wrap(err, "marshal field values")
+	}
+
+	if err := db.WithContext(ctx).Model(&SLRecord{}).Create(&SLRecord{
+		SLTableID: slTable.ID,
+		Data:      dataBytes,
+	}).Error; err != nil {
+		return errors.Wrap(err, "create record")
+	}
+	return nil
+}
+
+type QueryUpdateSLTableOptions struct {
+	FieldValues map[string]interface{}
+	Filter      clause.Expression
+}
+
+func (db *slTables) QueryUpdate(ctx context.Context, projectID uint, tableUID string, options QueryUpdateSLTableOptions) error {
+	slTable, err := db.GetByUID(ctx, tableUID)
+	if err != nil {
+		return errors.Wrap(err, "get sl table by uid")
+	}
+	if slTable.ProjectID != projectID {
+		return ErrSLTableNotFound
+	}
+	schemaName := slTable.Project.SchemaName
+	tableName := slTable.Name
+
+	dataBytes, err := json.Marshal(options.FieldValues)
+	if err != nil {
+		return errors.Wrap(err, "marshal field values")
+	}
+
+	var uids []string
+	q := db.WithContext(ctx).
+		Table(escape.Escape(`%I.%I`, schemaName, tableName)).
+		Select("_uid")
+	if options.Filter != nil {
+		q = q.Where(options.Filter)
+	}
+	if err := q.Scan(&uids).Error; err != nil {
+		return errors.Wrap(err, "scan uids")
+	}
+
+	// None of the records match the filter.
+	if options.Filter != nil && len(uids) == 0 {
+		return nil
+	}
+
+	// Update the records in sl_record table.
+	q = db.WithContext(ctx).Model(&SLRecord{})
+	if len(uids) == 1 {
+		q = q.Where("uid = ?", uids[0])
+	} else if len(uids) > 1 {
+		q = q.Where("uid IN ?", uids)
+	} else {
+		// Allow global update.
+		q = q.Session(&gorm.Session{AllowGlobalUpdate: true})
+	}
+
+	if err := q.Updates(&SLRecord{
+		SLTableID: slTable.ID,
+		Data:      dataBytes,
+	}).Error; err != nil {
+		return errors.Wrap(err, "update record")
+	}
+	return nil
+}
+
 type QueryDeleteSLTableOptions struct {
 	Filter clause.Expression
 }
@@ -333,6 +421,7 @@ func (db *slTables) QueryDelete(ctx context.Context, projectID uint, tableUID st
 	schemaName := slTable.Project.SchemaName
 	tableName := slTable.Name
 
+	// TODO: soft delete in sl_recrods.
 	q := db.WithContext(ctx).
 		Table(escape.Escape(`%I.%I`, schemaName, tableName))
 	if options.Filter != nil {
