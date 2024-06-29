@@ -5,7 +5,7 @@
       :data="formData"
       :rules="FORM_RULES"
       label-align="left"
-      :label-width="100"
+      :label-width="120"
       @reset="onCancel"
       @submit="onSubmit"
   >
@@ -13,6 +13,15 @@
       <div class="form-basic-item">
         <div class="form-basic-container-title"> {{ mode === 'create' ? '新建接口' : '编辑接口' }}</div>
         <t-row class="row-gap" :gutter="[32, 24]">
+          <t-col :span="3">
+            <t-form-item label="请求类型" name="methods">
+              <t-select v-model="formData.kind" placeholder="请选择请求类型">
+                <t-option v-for="kind in ['list','view','create','update', 'delete']" :key="kind" :value="kind"
+                          :label="kind.toUpperCase()">
+                </t-option>
+              </t-select>
+            </t-form-item>
+          </t-col>
           <t-col :span="3">
             <t-form-item label="请求方式" name="methods">
               <t-select v-model="formData.methods" placeholder="请选择请求方法" multiple>
@@ -29,31 +38,7 @@
           </t-col>
         </t-row>
         <t-row class="row-gap" style="margin-top: 15px" :gutter="[32, 24]">
-          <t-col :span="16">
-            <t-form-item v-for="(_, index) in formData.queryParams" :key="index" label="请求参数">
-              <t-space>
-                <t-input v-model="formData.queryParams[index].key" placeholder="参数名"></t-input>
-                <t-input v-model="formData.queryParams[index].label" placeholder="标签"></t-input>
-                <t-select v-model="formData.queryParams[index].type">
-                  <t-option v-for="type in ['string', 'number', 'boolean']" :key="type" :value="type">
-                    {{ type }}
-                  </t-option>
-                </t-select>
-                <t-switch v-model="formData.queryParams[index].required" :style="{ width: '50px' }">必填</t-switch>
-              </t-space>
 
-              <template #statusIcon>
-                <t-button v-if="index === 0" variant="dashed"
-                          @click="() => {formData.queryParams.push({} as QueryParam)}">
-                  <t-icon name="add"/>
-                </t-button>
-                <t-button v-if="formData.queryParams.length > 1" variant="dashed"
-                          @click="formData.queryParams.splice(index, 1)">
-                  <t-icon name="remove"/>
-                </t-button>
-              </template>
-            </t-form-item>
-          </t-col>
         </t-row>
       </div>
     </div>
@@ -70,17 +55,11 @@
 </template>
 
 <script setup lang="ts">
-import {ref} from 'vue'
+import {computed, onMounted, ref} from 'vue'
 import {useRoute, useRouter} from "vue-router";
-import {FormRule, SubmitContext, MessagePlugin} from "tdesign-vue-next";
+import {FormRule, MessagePlugin, SubmitContext} from "tdesign-vue-next";
 import NProgress from "nprogress";
-import {
-  CreateApiReq,
-  type QueryParam,
-  UpdateApiReq,
-  createApi,
-  updateApi,
-} from "@/api/api.ts";
+import {createApi, CreateApiReq, getApi, updateApi, UpdateApiReq,} from "@/api/api.ts";
 
 const route = useRoute()
 const router = useRouter()
@@ -99,6 +78,7 @@ const FORM_RULES: Record<string, FormRule[]> = {
 };
 
 const formData = ref<CreateApiReq | UpdateApiReq>({
+  kind: 'list',
   methods: [],
   path: '',
   queryParams: [{
@@ -138,6 +118,22 @@ const onSubmit = (ctx: SubmitContext) => {
 const onCancel = () => {
   router.push({name: 'SchemalessApis', params: {uid: projectUID}})
 }
+
+onMounted(() => {
+  if (mode.value === 'update') {
+    getApi(projectUID, apiUID.value).then(res => {
+      formData.value = {
+        kind: res.kind,
+        methods: res.methods,
+        path: res.path,
+        queryParams: res.queryParams,
+        bodyParams: res.bodyParams,
+        datasets: res.options['datasets'],
+        response: res.response,
+      }
+    })
+  }
+})
 </script>
 
 <style scoped>
@@ -187,5 +183,9 @@ const onCancel = () => {
     align-items: center;
     justify-content: space-between;
   }
+}
+
+.row-gap {
+  margin-top: 20px;
 }
 </style>

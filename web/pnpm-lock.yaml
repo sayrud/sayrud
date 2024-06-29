@@ -20,6 +20,9 @@ dependencies:
   lodash:
     specifier: ^4.17.21
     version: 4.17.21
+  monaco-editor-vue3:
+    specifier: ^0.1.10
+    version: 0.1.10(typescript@5.4.5)
   nprogress:
     specifier: ^0.2.0
     version: 0.2.0
@@ -1012,6 +1015,20 @@ packages:
       ufo: 1.5.3
     dev: false
 
+  /monaco-editor-vue3@0.1.10(typescript@5.4.5):
+    resolution: {integrity: sha512-C1jhyx+KHQyW1AbjuA8DhIZSqkVquV7MnuWXG9jESd0e+CkzEFzuk1RvNqlN2eJ2fRkvF32yEPHYfvz9quOhHQ==}
+    dependencies:
+      monaco-editor: 0.33.0
+      vite-plugin-monaco-editor: 1.1.0(monaco-editor@0.33.0)
+      vue: 3.4.29(typescript@5.4.5)
+    transitivePeerDependencies:
+      - typescript
+    dev: false
+
+  /monaco-editor@0.33.0:
+    resolution: {integrity: sha512-VcRWPSLIUEgQJQIE0pVT8FcGBIgFoxz7jtqctE+IiCxWugD0DwgyQBcZBhdSrdMC84eumoqMZsGl2GTreOzwqw==}
+    dev: false
+
   /ms@2.1.2:
     resolution: {integrity: sha512-sGkPx+VjMtmA6MX27oA4FBFELFCZZ4S4XqeGOXCv68tT+jb3vk/RyaKWP0PTKyWtmLSM0b+adUTEvbs1PEaH2w==}
     dev: false
@@ -1380,6 +1397,14 @@ packages:
   /validator@13.12.0:
     resolution: {integrity: sha512-c1Q0mCiPlgdTVVVIJIrBuxNicYE+t/7oKeI9MWLj3fh/uq2Pxh/3eeWbVZ4OcGW1TUf53At0njHw5SMdA3tmMg==}
     engines: {node: '>= 0.10'}
+    dev: false
+
+  /vite-plugin-monaco-editor@1.1.0(monaco-editor@0.33.0):
+    resolution: {integrity: sha512-IvtUqZotrRoVqwT0PBBDIZPNraya3BxN/bfcNfnxZ5rkJiGcNtO5eAOWWSgT7zullIAEqQwxMU83yL9J5k7gww==}
+    peerDependencies:
+      monaco-editor: '>=0.33.0'
+    dependencies:
+      monaco-editor: 0.33.0
     dev: false
 
   /vite@5.3.1(less@4.2.0):

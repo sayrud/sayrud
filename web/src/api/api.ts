@@ -2,13 +2,17 @@ import axios from "axios";
 
 export type MethodType = 'GET' | 'POST' | 'PUT' | 'DELETE'
 
+export type Kind = 'list' | 'view' | 'create' | 'update' | 'delete'
+
 export interface Api {
     uid: string;
+    kind: Kind;
     methods: MethodType[];
     path: string;
     queryParams: QueryParams;
     bodyParams: BodyParams;
-    datasets: string[];
+    options: object;
+    datasets: Datasets;
     response: object;
 }
 
@@ -69,6 +73,7 @@ export function getApi(projectUID: string, apiUID: string) {
 }
 
 export interface CreateApiReq {
+    kind: Kind;
     methods: string[];
     path: string;
     queryParams: QueryParams;
@@ -82,6 +87,7 @@ export function createApi(projectUID: string, data: CreateApiReq) {
 }
 
 export interface UpdateApiReq {
+    kind: Kind;
     methods: string[];
     path: string;
     queryParams: QueryParams;

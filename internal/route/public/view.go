@@ -23,7 +23,7 @@ type viewHandlerOptions struct {
 func (publicHandler) viewHandler(ctx context.Context, opts viewHandlerOptions) (interface{}, error) {
 	projectID := opts.projectID
 	vm := opts.vm
-	dataset := opts.viewOptions.Dataset
+	dataset := opts.viewOptions.Datasets[0]
 
 	// Query dataset.
 	filter, err := dataset.Filter.ToClauseExpression(vm)

@@ -42,7 +42,7 @@ type ListOptions struct {
 }
 
 type ViewOptions struct {
-	Dataset Dataset `json:"dataset"`
+	Datasets Datasets `json:"datasets"`
 }
 
 type CreateOptions struct {
