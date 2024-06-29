@@ -6,7 +6,6 @@ package api
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"net/url"
 	"os"
@@ -80,7 +79,6 @@ func (authRoute) GitHubCallback(ctx context.Context) error {
 	}
 
 	accessToken := response.AccessToken
-	fmt.Println(accessToken)
 	githubClient := github.NewClient(nil).WithAuthToken(accessToken)
 	githubUser, _, err := githubClient.Users.Get(ctx.Request().Context(), "")
 	if err != nil {
@@ -91,6 +89,11 @@ func (authRoute) GitHubCallback(ctx context.Context) error {
 	email := githubUser.GetEmail()
 	userName := githubUser.GetName()
 	githubID := githubUser.GetLogin()
+
+	// Check the email whitelist.
+	if !strings.HasPrefix(email, "@github.red") {
+		return ctx.ApiError(http.StatusUnauthorized, "您的邮箱不在白名单中")
+	}
 
 	user, err := db.Users.Upsert(ctx.Request().Context(), db.UpsertUserOptions{
 		Email:       email,
