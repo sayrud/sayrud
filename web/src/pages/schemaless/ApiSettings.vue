@@ -1,65 +1,84 @@
 <template>
-  <t-form
-      ref="form"
-      class="base-form"
-      :data="formData"
-      :rules="FORM_RULES"
-      label-align="left"
-      :label-width="120"
-      @reset="onCancel"
-      @submit="onSubmit"
-  >
-    <div class="container">
-      <div class="form-basic-item">
-        <div class="form-basic-container-title"> {{ mode === 'create' ? '新建接口' : '编辑接口' }}</div>
-        <t-row class="row-gap" :gutter="[32, 24]">
-          <t-col :span="3">
-            <t-form-item label="请求类型" name="methods">
-              <t-select v-model="formData.kind" placeholder="请选择请求类型">
-                <t-option v-for="kind in ['list','view','create','update', 'delete']" :key="kind" :value="kind"
-                          :label="kind.toUpperCase()">
-                </t-option>
-              </t-select>
-            </t-form-item>
-          </t-col>
-          <t-col :span="3">
-            <t-form-item label="请求方式" name="methods">
-              <t-select v-model="formData.methods" placeholder="请选择请求方法" multiple>
-                <t-option v-for="method in ['GET','POST','PUT','DELETE']" :key="method" :value="method">
-                  {{ method }}
-                </t-option>
-              </t-select>
-            </t-form-item>
-          </t-col>
-          <t-col :span="3">
-            <t-form-item label="路径" name="path">
-              <t-input v-model="formData.path" :style="{ width: '322px' }" placeholder="请输入请求路径"/>
-            </t-form-item>
-          </t-col>
-        </t-row>
-        <t-row class="row-gap" style="margin-top: 15px" :gutter="[32, 24]">
+  <t-row :gutter="16">
+    <t-col :span="9">
+      <t-form
+          ref="form"
+          class="base-form"
+          :data="formData"
+          :rules="FORM_RULES"
+          label-align="left"
+          :label-width="120"
+          @reset="onCancel"
+          @submit="onSubmit"
+      >
+        <div class="container">
+          <div class="form-basic-item">
+            <div class="form-basic-container-title"> {{ mode === 'create' ? '新建接口' : '编辑接口' }}</div>
+            <t-row class="row-gap" :gutter="[32, 24]">
+              <t-col :span="3">
+                <t-form-item label="请求类型" name="methods">
+                  <t-select v-model="formData.kind" placeholder="请选择请求类型">
+                    <t-option v-for="kind in ['list','view','create','update', 'delete']" :key="kind" :value="kind"
+                              :label="kind.toUpperCase()">
+                    </t-option>
+                  </t-select>
+                </t-form-item>
+              </t-col>
+              <t-col :span="3">
+                <t-form-item label="请求方式" name="methods">
+                  <t-select v-model="formData.methods" placeholder="请选择请求方法" multiple>
+                    <t-option v-for="method in ['GET','POST','PUT','DELETE']" :key="method" :value="method">
+                      {{ method }}
+                    </t-option>
+                  </t-select>
+                </t-form-item>
+              </t-col>
+              <t-col :span="3">
+                <t-form-item label="路径" name="path">
+                  <t-input v-model="formData.path" :style="{ width: '322px' }" placeholder="请输入请求路径"/>
+                </t-form-item>
+              </t-col>
+            </t-row>
+            <t-row class="row-gap" style="margin-top: 15px" :gutter="[32, 24]">
 
-        </t-row>
-      </div>
-    </div>
+            </t-row>
+          </div>
+        </div>
 
-    <div class="form-submit-container">
-      <div class="form-submit-sub">
-        <t-space>
-          <t-button theme="primary" class="form-submit-confirm" type="submit">确认提交</t-button>
-          <t-button type="reset" class="form-submit-cancel" theme="default" variant="base">取消</t-button>
-        </t-space>
+        <div class="form-submit-container">
+          <div class="form-submit-sub">
+            <t-space>
+              <t-button theme="primary" class="form-submit-confirm" type="submit">确认提交</t-button>
+              <t-button type="reset" class="form-submit-cancel" theme="default" variant="base">取消</t-button>
+            </t-space>
+          </div>
+        </div>
+      </t-form>
+    </t-col>
+    <t-col :span="3">
+      <div class="side">
+        <Container orientation="vertical"
+                   class="container"
+                   @drop="onDropMiddlewares">
+          <Draggable v-for="item in middlewares" :key="item.id" class="node">
+            <div class="inner">
+              {{ item.name }}
+            </div>
+          </Draggable>
+        </Container>
+        <div class="line" :style="{height: `${middlewares.length*70}px`}"></div>
       </div>
-    </div>
-  </t-form>
+    </t-col>
+  </t-row>
 </template>
 
 <script setup lang="ts">
-import {computed, onMounted, ref} from 'vue'
+import {onMounted, ref} from 'vue'
 import {useRoute, useRouter} from "vue-router";
 import {FormRule, MessagePlugin, SubmitContext} from "tdesign-vue-next";
 import NProgress from "nprogress";
 import {createApi, CreateApiReq, getApi, updateApi, UpdateApiReq,} from "@/api/api.ts";
+import {Container, Draggable} from "vue3-smooth-dnd";
 
 const route = useRoute()
 const router = useRouter()
@@ -92,6 +111,31 @@ const formData = ref<CreateApiReq | UpdateApiReq>({
   datasets: [],
   response: {},
 })
+
+const middlewares = ref([
+  {name: 'John', id: 1},
+  {name: 'Joao', id: 2},
+  {name: 'Jean', id: 3},
+  {name: 'Gerard', id: 4},
+])
+
+const onDropMiddlewares = (dropResult) => {
+  const {removedIndex, addedIndex, payload} = dropResult;
+
+  if (removedIndex === null && addedIndex === null) {
+    return
+  }
+  const result = [...middlewares.value];
+  let itemToAdd = payload;
+
+  if (removedIndex !== null) {
+    itemToAdd = result.splice(removedIndex, 1)[0];
+  }
+  if (addedIndex !== null) {
+    result.splice(addedIndex, 0, itemToAdd);
+  }
+  middlewares.value = result
+}
 
 const onSubmit = (ctx: SubmitContext) => {
   if (ctx.validateResult === true) {
@@ -143,7 +187,7 @@ onMounted(() => {
   justify-content: left;
   background-color: var(--td-bg-color-container);
   border-radius: var(--td-radius-medium) var(--td-radius-medium) 0 0;
-  padding: 0 var(--td-comp-paddingLR-xxl) 80px var(--td-comp-paddingLR-xxl);
+  padding: 0 0 80px 0;
 
   @media (max-width: @screen-sm-max) {
     padding: var(--td-comp-paddingTB-xl) var(--td-comp-paddingLR-xl) 80px var(--td-comp-paddingLR-xl);
@@ -187,5 +231,47 @@ onMounted(() => {
 
 .row-gap {
   margin-top: 20px;
+}
+
+.side {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: center;
+
+  .line {
+    top: 0;
+    width: 2px;
+    background-color: var(--td-gray-color-8);
+    position: absolute;
+    z-index: 1;
+  }
+
+  .container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 30px;
+  }
+
+  .node {
+    z-index: 99;
+    width: 150px;
+    height: 50px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: var(--td-bg-color-container);
+    border-radius: var(--td-radius-medium);
+    border: 2px solid var(--td-gray-color-8);
+    cursor: grab;
+
+    .inner {
+      justify-content: center;
+      display: flex;
+      width: 150px;
+    }
+  }
 }
 </style>
