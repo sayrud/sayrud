@@ -9,6 +9,9 @@ import (
 )
 
 type Datasets []Dataset
+
+var _ ConfigValidator = (*Dataset)(nil)
+
 type Dataset struct {
 	TableUID         string    `json:"tableUID"`
 	Fields           []string  `json:"fields"`

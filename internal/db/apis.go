@@ -46,6 +46,7 @@ type Api struct {
 	QueryParams datatypes.JSON `gorm:"type:jsonb" json:"queryParams"`
 	BodyParams  datatypes.JSON `gorm:"type:jsonb" json:"bodyParams"`
 	Options     datatypes.JSON `gorm:"type:jsonb" json:"options"`
+	Middlewares datatypes.JSON `gorm:"type:jsonb" json:"middlewares"`
 	Response    datatypes.JSON `gorm:"type:jsonb" json:"response"`
 }
 
@@ -105,6 +106,7 @@ type CreateApiOptions struct {
 	QueryParams datatypes.JSON
 	BodyParams  datatypes.JSON
 	Options     datatypes.JSON
+	Middlewares datatypes.JSON
 	Response    datatypes.JSON
 }
 
@@ -117,6 +119,7 @@ func (db *apis) Create(ctx context.Context, opts CreateApiOptions) (*Api, error)
 		QueryParams: opts.QueryParams,
 		BodyParams:  opts.BodyParams,
 		Options:     opts.Options,
+		Middlewares: opts.Middlewares,
 		Response:    opts.Response,
 	}
 	if err := db.WithContext(ctx).Create(api).Error; err != nil {
@@ -131,6 +134,7 @@ type UpdateApiOptions struct {
 	QueryParams datatypes.JSON
 	BodyParams  datatypes.JSON
 	Datasets    datatypes.JSON
+	Middlewares datatypes.JSON
 	Response    string
 }
 
@@ -146,6 +150,7 @@ func (db *apis) Update(ctx context.Context, apiID uint, opts UpdateApiOptions) e
 		"query_params": opts.QueryParams,
 		"body_params":  opts.BodyParams,
 		"datasets":     opts.Datasets,
+		"middlewares":  opts.Middlewares,
 		"response":     opts.Response,
 	}).Error; err != nil {
 		return err

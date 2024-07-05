@@ -24,4 +24,6 @@ var (
 	ErrEmptyDatasetFields   = errors.New("empty dataset fields")
 
 	ErrInvalidKind = errors.New("invalid kind")
+
+	ErrInvalidMiddlewareType = errors.New("invalid middleware type")
 )
