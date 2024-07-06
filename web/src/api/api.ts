@@ -24,8 +24,19 @@ export interface Validator {
 }
 
 export type ParamType = 'string' | 'number' | 'boolean'
+export const ParamTypeLabels: Record<ParamType, string> = {
+    'string': '字符串',
+    'number': '数字',
+    'boolean': '是/否',
+}
 
-export interface Params {
+export const ParamTypeOptions = [
+    {label: '字符串', value: 'string'},
+    {label: '数字', value: 'number'},
+    {label: '是/否', value: 'boolean'},
+]
+
+export interface Param {
     key: string;
     label: string;
     type: ParamType;
@@ -33,15 +44,29 @@ export interface Params {
     customValidators: Validators;
 }
 
+export const ParamKindLabels: Record<string, string> = {
+    'query': '查询参数',
+    'body': '请求体',
+}
+
+export const ParamKindOptions = [
+    {label: '查询参数', value: 'query'},
+    {label: '请求体', value: 'body'},
+]
+
+export interface ParamMixin extends Param {
+    kind: string;
+}
+
 export type QueryParams = QueryParam[]
 
-export interface QueryParam extends Params {
+export interface QueryParam extends Param {
 
 }
 
 export type  BodyParams = BodyParam[]
 
-export interface BodyParam extends Params {
+export interface BodyParam extends Param {
 
 }
 
