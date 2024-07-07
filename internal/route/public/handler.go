@@ -147,7 +147,7 @@ func (h publicHandler) Handler(ctx context.Context) error {
 	}
 
 	var response interface{}
-	switch api.Kind {
+	switch apibuilder.Kind(api.Kind) {
 	case apibuilder.KindList:
 		options := apibuilder.Options[apibuilder.ListOptions]{}
 		listOptions := options.ParseOptions(api.Options)

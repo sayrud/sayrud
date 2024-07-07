@@ -5,6 +5,7 @@
 package apibuilder
 
 import (
+	"context"
 	"encoding/json"
 
 	"github.com/pkg/errors"
@@ -86,7 +87,7 @@ func ParseQueryParams(b []byte) (QueryParams, error) {
 	return params, nil
 }
 
-func (p QueryParams) ValidateConfig() error {
+func (p QueryParams) ValidateConfig(ctx context.Context) error {
 	keys := make(map[string]struct{})
 	for _, param := range p {
 		if err := param.ValidateConfig(); err != nil {
@@ -119,7 +120,7 @@ func ParseBodyParams(b []byte) (BodyParams, error) {
 	return params, nil
 }
 
-func (p BodyParams) ValidateConfig() error {
+func (p BodyParams) ValidateConfig(ctx context.Context) error {
 	keys := make(map[string]struct{})
 	for _, param := range p {
 		if err := param.ValidateConfig(); err != nil {

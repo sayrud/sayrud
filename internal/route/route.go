@@ -83,12 +83,12 @@ func New(db *gorm.DB) *flamego.Flame {
 				f.Group("/apis", func() {
 					f.Combo("").
 						Get(api.Api.List).
-						Post(form.Bind(form.CreateApi{}), api.Api.Create)
+						Post(form.Bind(form.CreateUpdateApi{}), api.Api.Create)
 
 					f.Group("/{apiUID}", func() {
 						f.Combo("").
 							Get(api.Api.Get).
-							Put(form.Bind(form.UpdateApi{}), api.Api.Update).
+							Put(form.Bind(form.CreateUpdateApi{}), api.Api.Update).
 							Delete(api.Api.Delete)
 					}, api.Api.Apier)
 				})

@@ -5,11 +5,22 @@
 package apibuilder
 
 import (
+	"context"
+
 	"github.com/pkg/errors"
+	"github.com/spf13/cast"
 )
 
 type ConfigValidator interface {
-	ValidateConfig() error
+	ValidateConfig(ctx context.Context) error
+}
+
+func WithProjectID(ctx context.Context, projectID uint) context.Context {
+	return context.WithValue(ctx, "project_id", projectID)
+}
+
+func ParseProjectID(ctx context.Context) uint {
+	return cast.ToUint(ctx.Value("project_id"))
 }
 
 var (
@@ -20,8 +31,10 @@ var (
 
 	ErrEmptyValidatorExpression = errors.New("empty validator expression")
 
+	ErrDatasetTableNotFound = errors.New("dataset table not found")
 	ErrEmptyDatasetTableUID = errors.New("empty dataset table UID")
 	ErrEmptyDatasetFields   = errors.New("empty dataset fields")
+	ErrFieldNotFound        = errors.New("field not found")
 
 	ErrInvalidKind = errors.New("invalid kind")
 

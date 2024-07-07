@@ -12,7 +12,6 @@ import (
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
 
-	"github.com/wuhan005/sayrud/internal/apibuilder"
 	"github.com/wuhan005/sayrud/internal/dbutil"
 )
 
@@ -26,8 +25,8 @@ type ApisStore interface {
 	GetByUID(ctx context.Context, apiUID string) (*Api, error)
 	GetByMethodPath(ctx context.Context, projectID uint, method, path string) (*Api, error)
 	Create(ctx context.Context, opts CreateApiOptions) (*Api, error)
-	Update(ctx context.Context, fieldID uint, opts UpdateApiOptions) error
-	DeleteByID(ctx context.Context, fieldID uint) error
+	Update(ctx context.Context, apiID uint, opts UpdateApiOptions) error
+	DeleteByID(ctx context.Context, apoID uint) error
 }
 
 func NewApisStore(db *gorm.DB) ApisStore {
@@ -37,9 +36,9 @@ func NewApisStore(db *gorm.DB) ApisStore {
 type Api struct {
 	dbutil.Model
 
-	Kind      apibuilder.Kind `json:"kind"`
-	ProjectID uint            `gorm:"uniqueIndex:idx_sl_table_project_id_name, where:deleted_at IS NULL" json:"-"`
-	Project   Project         `gorm:"foreignKey:ProjectID" json:"-"`
+	Kind      string  `json:"kind"`
+	ProjectID uint    `gorm:"uniqueIndex:idx_sl_table_project_id_name, where:deleted_at IS NULL" json:"-"`
+	Project   Project `gorm:"foreignKey:ProjectID" json:"-"`
 
 	Methods     pq.StringArray `gorm:"type:text[]" json:"methods"`
 	Path        string         `json:"path"`
@@ -100,7 +99,7 @@ func (db *apis) GetByMethodPath(ctx context.Context, projectID uint, method, pat
 
 type CreateApiOptions struct {
 	ProjectID   uint
-	Kind        apibuilder.Kind
+	Kind        string
 	Methods     pq.StringArray
 	Path        string
 	QueryParams datatypes.JSON
@@ -129,13 +128,14 @@ func (db *apis) Create(ctx context.Context, opts CreateApiOptions) (*Api, error)
 }
 
 type UpdateApiOptions struct {
+	Kind        string
 	Methods     pq.StringArray
 	Path        string
 	QueryParams datatypes.JSON
 	BodyParams  datatypes.JSON
-	Datasets    datatypes.JSON
+	Options     datatypes.JSON
 	Middlewares datatypes.JSON
-	Response    string
+	Response    datatypes.JSON
 }
 
 func (db *apis) Update(ctx context.Context, apiID uint, opts UpdateApiOptions) error {
@@ -145,11 +145,12 @@ func (db *apis) Update(ctx context.Context, apiID uint, opts UpdateApiOptions) e
 	}
 
 	if err := db.WithContext(ctx).Model(&Api{}).Where("id = ?", apiID).Updates(map[string]interface{}{
+		"kind":         opts.Kind,
 		"methods":      opts.Methods,
 		"path":         opts.Path,
 		"query_params": opts.QueryParams,
 		"body_params":  opts.BodyParams,
-		"datasets":     opts.Datasets,
+		"options":      opts.Options,
 		"middlewares":  opts.Middlewares,
 		"response":     opts.Response,
 	}).Error; err != nil {

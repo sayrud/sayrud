@@ -18,6 +18,7 @@ type SLFieldsStore interface {
 	List(ctx context.Context, tableID uint) ([]*SLField, error)
 	GetByID(ctx context.Context, fieldID uint) (*SLField, error)
 	GetByUID(ctx context.Context, fieldUID string) (*SLField, error)
+	GetByTableID(ctx context.Context, tableID uint) ([]*SLField, error)
 	Create(ctx context.Context, opts CreateSLFieldOptions) (*SLField, error)
 	Update(ctx context.Context, fieldID uint, opts UpdateSLFieldOptions) error
 	DeleteByID(ctx context.Context, fieldID uint) error
@@ -118,6 +119,11 @@ func (db *slFields) GetByID(ctx context.Context, fieldID uint) (*SLField, error)
 
 func (db *slFields) GetByUID(ctx context.Context, fieldUID string) (*SLField, error) {
 	return db.getBy(ctx, "uid = ?", fieldUID)
+}
+
+func (db *slFields) GetByTableID(ctx context.Context, tableID uint) ([]*SLField, error) {
+	var slFields []*SLField
+	return slFields, db.WithContext(ctx).Model(&SLField{}).Preload("SLTable").Where("sl_table_id = ?", tableID).Order("position ASC").Find(&slFields).Error
 }
 
 func (db *slFields) getBy(ctx context.Context, where string, args ...interface{}) (*SLField, error) {

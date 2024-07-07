@@ -12,6 +12,8 @@ import (
 
 type Type string
 
+const TypeMain = "main"
+
 func (t Type) IsValid() bool {
 	switch t {
 	case TypeLog:

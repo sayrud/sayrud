@@ -5,12 +5,13 @@
 package apibuilder
 
 import (
+	"context"
 	"encoding/json"
 )
 
 type Kind string
 
-func (k Kind) ValidateConfig() error {
+func (k Kind) ValidateConfig(ctx context.Context) error {
 	switch k {
 	case KindList, KindView, KindCreate, KindUpdate, KindDelete:
 		return nil
@@ -28,7 +29,12 @@ const (
 )
 
 type Options[T ListOptions | ViewOptions | CreateOptions | UpdateOptions | DeleteOptions] struct {
-	value T
+	Value T
+}
+
+func (o Options[T]) ToJSON() []byte {
+	b, _ := json.Marshal(o.Value)
+	return b
 }
 
 func (o Options[T]) ParseOptions(options []byte) T {

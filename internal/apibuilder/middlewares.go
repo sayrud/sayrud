@@ -5,6 +5,8 @@
 package apibuilder
 
 import (
+	"context"
+
 	"github.com/wuhan005/sayrud/internal/middleware"
 )
 
@@ -15,7 +17,7 @@ type Middleware struct {
 	Params map[string]interface{} `json:"params"`
 }
 
-func (m *Middleware) ValidateConfig() error {
+func (m *Middleware) ValidateConfig(ctx context.Context) error {
 	if !m.Type.IsValid() {
 		return ErrInvalidMiddlewareType
 	}

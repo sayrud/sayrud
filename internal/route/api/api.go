@@ -5,6 +5,7 @@
 package api
 
 import (
+	gocontext "context"
 	"net/http"
 	"strings"
 
@@ -59,7 +60,16 @@ func (apiRoute) List(ctx context.Context, project *db.Project) error {
 	})
 }
 
-func (apiRoute) Create(ctx context.Context, project *db.Project, f form.CreateApi) error {
+type validatedData struct {
+	Methods     []string
+	Kind        apibuilder.Kind
+	QueryParams apibuilder.QueryParams
+	BodyParams  apibuilder.BodyParams
+	Datasets    apibuilder.Datasets
+	Options     datatypes.JSON
+}
+
+func validateApiForm(ctx context.Context, validateCtx gocontext.Context, f form.CreateUpdateApi) (*validatedData, error) {
 	methods := make([]string, 0, len(f.Methods))
 	for _, method := range f.Methods {
 		if method == "*" && len(methods) > 1 {
@@ -68,74 +78,137 @@ func (apiRoute) Create(ctx context.Context, project *db.Project, f form.CreateAp
 		} else {
 			method = strings.ToUpper(method)
 			if method != http.MethodGet && method != http.MethodPost && method != http.MethodPut && method != http.MethodDelete {
-				return ctx.ApiError(http.StatusBadRequest, "请求方法 %T 不合法", method)
+				return nil, ctx.ApiError(http.StatusBadRequest, "请求方法 %T 不合法", method)
 			}
 			methods = append(methods, method)
 		}
 	}
 
 	kind := f.Kind
-	if err := kind.ValidateConfig(); err != nil {
-		return ctx.ApiError(http.StatusBadRequest, "API 类型不合法")
+	if err := kind.ValidateConfig(validateCtx); err != nil {
+		return nil, ctx.ApiError(http.StatusBadRequest, "API 类型不合法")
 	}
 
-	path := "/" + strings.TrimSpace(strings.Trim(f.Path, "/"))
-
 	queryParams := f.QueryParams
-	if err := queryParams.ValidateConfig(); err != nil {
+	if err := queryParams.ValidateConfig(validateCtx); err != nil {
 		switch {
 		case errors.Is(err, apibuilder.ErrEmptyParamKey):
-			return ctx.ApiError(http.StatusBadRequest, "查询参数的键不能为空")
+			return nil, ctx.ApiError(http.StatusBadRequest, "查询参数的键不能为空")
 		case errors.Is(err, apibuilder.ErrInvalidParamType):
-			return ctx.ApiError(http.StatusBadRequest, "查询参数的类型不合法")
+			return nil, ctx.ApiError(http.StatusBadRequest, "查询参数的类型不合法")
 		case errors.Is(err, apibuilder.ErrEmptyValidatorExpression):
-			return ctx.ApiError(http.StatusBadRequest, "查询参数的验证器表达式不能为空")
+			return nil, ctx.ApiError(http.StatusBadRequest, "查询参数的验证器表达式不能为空")
 		case errors.Is(err, apibuilder.ErrDuplicateParamKey):
-			return ctx.ApiError(http.StatusBadRequest, "查询参数的键重复")
+			return nil, ctx.ApiError(http.StatusBadRequest, "查询参数的键重复")
 		default:
 			logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to validate query params")
-			return ctx.ApiError(http.StatusInternalServerError, "验证查询参数失败")
+			return nil, ctx.ApiError(http.StatusInternalServerError, "验证查询参数失败")
 		}
 	}
 
 	bodyParams := f.BodyParams
-	if err := bodyParams.ValidateConfig(); err != nil {
+	if err := bodyParams.ValidateConfig(validateCtx); err != nil {
 		switch {
 		case errors.Is(err, apibuilder.ErrEmptyParamKey):
-			return ctx.ApiError(http.StatusBadRequest, "请求体参数的键不能为空")
+			return nil, ctx.ApiError(http.StatusBadRequest, "请求体参数的键不能为空")
 		case errors.Is(err, apibuilder.ErrInvalidParamType):
-			return ctx.ApiError(http.StatusBadRequest, "请求体参数的类型不合法")
+			return nil, ctx.ApiError(http.StatusBadRequest, "请求体参数的类型不合法")
 		case errors.Is(err, apibuilder.ErrEmptyValidatorExpression):
-			return ctx.ApiError(http.StatusBadRequest, "请求体参数的验证器表达式不能为空")
+			return nil, ctx.ApiError(http.StatusBadRequest, "请求体参数的验证器表达式不能为空")
 		case errors.Is(err, apibuilder.ErrDuplicateParamKey):
-			return ctx.ApiError(http.StatusBadRequest, "请求体参数的键重复")
+			return nil, ctx.ApiError(http.StatusBadRequest, "请求体参数的键重复")
 		default:
 			logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to validate body params")
-			return ctx.ApiError(http.StatusInternalServerError, "验证请求体参数失败")
+			return nil, ctx.ApiError(http.StatusInternalServerError, "验证请求体参数失败")
 		}
 	}
 
 	datasets := f.Datasets
-	if err := datasets.ValidateConfig(); err != nil {
+	if err := datasets.ValidateConfig(validateCtx); err != nil {
 		switch {
 		case errors.Is(err, apibuilder.ErrEmptyDatasetTableUID):
-			return ctx.ApiError(http.StatusBadRequest, "数据表 UID 不能为空")
+			return nil, ctx.ApiError(http.StatusBadRequest, "数据表 UID 不能为空")
+		case errors.Is(err, apibuilder.ErrDatasetTableNotFound):
+			return nil, ctx.ApiError(http.StatusBadRequest, "数据表不存在")
 		case errors.Is(err, apibuilder.ErrEmptyDatasetFields):
-			return ctx.ApiError(http.StatusBadRequest, "数据表字段不能为空")
+			return nil, ctx.ApiError(http.StatusBadRequest, "数据表字段不能为空")
+		case errors.Is(err, apibuilder.ErrFieldNotFound):
+			return nil, ctx.ApiError(http.StatusBadRequest, "字段不存在")
 		default:
 			logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to validate datasets")
-			return ctx.ApiError(http.StatusInternalServerError, "验证数据集失败")
+			return nil, ctx.ApiError(http.StatusInternalServerError, "验证数据集失败")
 		}
 	}
+	tableUID := datasets[0].TableUID
+
+	var options datatypes.JSON
+	switch kind {
+	case apibuilder.KindList:
+		options = apibuilder.Options[apibuilder.ListOptions]{
+			Value: apibuilder.ListOptions{
+				Datasets: datasets,
+			},
+		}.ToJSON()
+	case apibuilder.KindView:
+		options = apibuilder.Options[apibuilder.ViewOptions]{
+			Value: apibuilder.ViewOptions{
+				Datasets: datasets,
+			},
+		}.ToJSON()
+
+	case apibuilder.KindCreate:
+		options = apibuilder.Options[apibuilder.CreateOptions]{
+			Value: apibuilder.CreateOptions{
+				TableUID:     tableUID,
+				FieldMapping: nil,
+			},
+		}.ToJSON()
+	case apibuilder.KindUpdate:
+		options = apibuilder.Options[apibuilder.UpdateOptions]{
+			Value: apibuilder.UpdateOptions{
+				TableUID:     tableUID,
+				FieldMapping: nil,
+				Filter:       nil,
+			},
+		}.ToJSON()
+	case apibuilder.KindDelete:
+		options = apibuilder.Options[apibuilder.DeleteOptions]{
+			Value: apibuilder.DeleteOptions{
+				TableUID: tableUID,
+				Filter:   nil,
+			},
+		}.ToJSON()
+	}
+
+	return &validatedData{
+		Methods:     methods,
+		Kind:        kind,
+		QueryParams: queryParams,
+		BodyParams:  bodyParams,
+		Datasets:    datasets,
+		Options:     options,
+	}, nil
+}
+
+func (h apiRoute) Create(ctx context.Context, project *db.Project, f form.CreateUpdateApi) error {
+	validateCtx := gocontext.Background()
+	validateCtx = apibuilder.WithProjectID(validateCtx, project.ID)
+
+	data, handler := validateApiForm(ctx, validateCtx, f)
+	if handler != nil {
+		return handler
+	}
+
+	path := "/" + strings.TrimSpace(strings.Trim(f.Path, "/"))
 
 	api, err := db.Apis.Create(ctx.Request().Context(), db.CreateApiOptions{
 		ProjectID:   project.ID,
-		Kind:        kind,
-		Methods:     methods,
+		Kind:        string(data.Kind),
+		Methods:     data.Methods,
 		Path:        path,
-		QueryParams: queryParams.ToJSON(),
-		BodyParams:  bodyParams.ToJSON(),
-		Options:     datasets.ToJSON(),
+		QueryParams: data.QueryParams.ToJSON(),
+		BodyParams:  data.BodyParams.ToJSON(),
+		Options:     data.Options,
 		Response:    datatypes.JSON(f.Response),
 	})
 	if err != nil {
@@ -146,12 +219,34 @@ func (apiRoute) Create(ctx context.Context, project *db.Project, f form.CreateAp
 	return ctx.ApiSuccess(api)
 }
 
-func (apiRoute) Get(ctx context.Context, project *db.Project, api *db.Api) error {
+func (apiRoute) Get(ctx context.Context, api *db.Api) error {
 	return ctx.ApiSuccess(api)
 }
 
-func (apiRoute) Update(ctx context.Context, project *db.Project, api *db.Api, f form.UpdateApi) error {
-	return nil
+func (apiRoute) Update(ctx context.Context, project *db.Project, api *db.Api, f form.CreateUpdateApi) error {
+	validateCtx := gocontext.Background()
+	validateCtx = apibuilder.WithProjectID(validateCtx, project.ID)
+
+	data, handler := validateApiForm(ctx, validateCtx, f)
+	if handler != nil {
+		return handler
+	}
+
+	path := "/" + strings.TrimSpace(strings.Trim(f.Path, "/"))
+
+	if err := db.Apis.Update(ctx.Request().Context(), api.ID, db.UpdateApiOptions{
+		Kind:        string(data.Kind),
+		Methods:     data.Methods,
+		Path:        path,
+		QueryParams: data.QueryParams.ToJSON(),
+		BodyParams:  data.BodyParams.ToJSON(),
+		Options:     data.Options,
+		Response:    datatypes.JSON(f.Response),
+	}); err != nil {
+		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to update api")
+		return ctx.ApiServerError()
+	}
+	return ctx.Status(http.StatusNoContent)
 }
 
 func (apiRoute) Delete(ctx context.Context, project *db.Project, api *db.Api) error {

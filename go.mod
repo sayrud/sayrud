@@ -10,13 +10,14 @@ require (
 	github.com/jackc/pgconn v1.14.0
 	github.com/lib/pq v1.2.0
 	github.com/pkg/errors v0.9.1
+	github.com/samber/lo v1.44.0
 	github.com/sirupsen/logrus v1.4.2
 	github.com/spf13/cast v1.6.0
 	github.com/thanhpk/randstr v1.0.6
 	github.com/tj/go-pg-escape v1.1.0
 	github.com/wuhan005/gadget v0.0.0-20221206194113-7619e407f1a0
 	github.com/wuhan005/govalid v0.0.0-20230225142102-9dd5e5a0d0fd
-	golang.org/x/text v0.14.0
+	golang.org/x/text v0.16.0
 	gorm.io/datatypes v1.2.1
 	gorm.io/driver/mysql v1.5.6
 	gorm.io/driver/postgres v1.5.7
@@ -54,6 +55,6 @@ require (
 	github.com/rivo/uniseg v0.4.4 // indirect
 	github.com/stretchr/testify v1.9.0 // indirect
 	golang.org/x/crypto v0.22.0 // indirect
-	golang.org/x/sync v0.6.0 // indirect
+	golang.org/x/sync v0.7.0 // indirect
 	golang.org/x/sys v0.19.0 // indirect
 )
