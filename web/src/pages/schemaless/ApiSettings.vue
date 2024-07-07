@@ -16,7 +16,7 @@
             <div class="form-basic-container-title"> {{ mode === 'create' ? '新建接口' : '编辑接口' }}</div>
             <t-row class="row-gap" :gutter="[32, 24]">
               <t-col :span="4">
-                <t-form-item label="接口类型" name="methods">
+                <t-form-item label="接口类型" name="kind">
                   <t-select v-model="formData.kind" placeholder="请选择接口类型">
                     <t-option v-for="kind in ['list','view','create','update', 'delete']" :key="kind" :value="kind"
                               :label="kind.toUpperCase()">
@@ -131,7 +131,7 @@
                         </t-space>
                       </template>
                       <template #order="{row}">
-                        <t-space :size="5" v-if="row.order.length">
+                        <t-space :size="5" v-if="row.order && row.order.length">
                           <t-tag v-for="field in row.order" :key="field" theme="default" hover="color">
                             {{ tableFieldsMap[row.tableUID].find(f => f.value === field)?.label }}
                           </t-tag>
@@ -194,7 +194,7 @@
         <Container orientation="vertical"
                    class="container"
                    @drop="onDropMiddlewares">
-          <Draggable v-for="item in middlewares" :key="item.id" :class="['node',item.type === 'main'? 'main': '']">
+          <Draggable v-for="item in middlewares" :key="item.uid" :class="['node',item.type === 'main'? 'main': '']">
             <div class="inner">{{ item.name }}</div>
           </Draggable>
         </Container>
@@ -217,10 +217,9 @@ import {useRoute, useRouter} from "vue-router";
 import {
   FormRule,
   MessagePlugin,
-  type PrimaryTableCol,
   SubmitContext,
   TableRowData,
-  type TableProps, Input, Select, Switch, SelectInput,
+  type TableProps, Input, Select, Switch,
   type TableInstanceFunctions,
 } from "tdesign-vue-next";
 import NProgress from "nprogress";
@@ -228,7 +227,7 @@ import {
   createApi,
   CreateApiReq, Dataset,
   getApi,
-  Param, ParamKindLabels, ParamKindOptions, ParamMixin, ParamType,
+  ParamKindLabels, ParamKindOptions, ParamMixin, ParamType, ParamKind,
   ParamTypeLabels,
   ParamTypeOptions,
   updateApi,
@@ -237,7 +236,7 @@ import {
 import {Container, Draggable} from "vue3-smooth-dnd";
 import {AddIcon} from 'tdesign-icons-vue-next';
 import {allTables, type Table} from '@/api/schemalessTable'
-import {Field, listFields} from "@/api/schemalessField";
+import {listFields} from "@/api/schemalessField";
 
 const route = useRoute()
 const router = useRouter()
@@ -280,7 +279,6 @@ const paramsColumns = computed<TableProps['columns']>(() => [
     colKey: 'label', title: '参数标签', width: 150, align: 'center', edit: {
       component: Input,
       props: {clearable: true, autoWidth: true, size: 'small'},
-      rules: [{required: true, message: '不能为空'}],
       showEditIcon: false
     }
   },
@@ -442,8 +440,8 @@ const datasetsDropdown = computed(() => tables.value
       value: table.uid,
     })))
 
-const tableFieldsMap = ref<Record<string, any>>({})
-const onDatasetsAddRow = async ({value}) => {
+const tableFieldsMap = ref<Record<string, { value: string; label: string }[]>>({})
+const onDatasetsAddRow = async ({value}: { value: string }) => {
   const selectedTable = tables.value.find(table => table.uid === value)
   if (selectedTable) {
     let allFieldUIDs: string[] = []
@@ -455,7 +453,6 @@ const onDatasetsAddRow = async ({value}) => {
       label: field.name,
     }))
 
-    datasetsNames.value[selectedTable.uid] = selectedTable.name
     datasets.value.push({
       tableUID: selectedTable.uid,
       fields: allFieldUIDs,
@@ -524,23 +521,17 @@ const formData = ref<CreateApiReq | UpdateApiReq>({
   kind: 'list',
   methods: [],
   path: '',
-  queryParams: [{
-    key: '',
-    label: '',
-    type: 'string',
-    required: false,
-    customValidators: [],
-  }],
+  queryParams: [],
   bodyParams: [],
   datasets: [],
   response: '',
 })
 
 const middlewares = ref([
-  {name: 'API', type: 'main'},
+  {uid: '', name: 'API', type: 'main'},
 ])
 
-const onDropMiddlewares = (dropResult) => {
+const onDropMiddlewares = (dropResult: any) => {
   const {removedIndex, addedIndex, payload} = dropResult;
 
   if (removedIndex === null && addedIndex === null) {
@@ -561,6 +552,13 @@ const onDropMiddlewares = (dropResult) => {
 const onSubmit = (ctx: SubmitContext) => {
   if (ctx.validateResult === true) {
     NProgress.start()
+
+    // Convert the request params to the correct format.
+    formData.value.queryParams = requestParams.value.filter(param => param.kind === 'query')
+    formData.value.bodyParams = requestParams.value.filter(param => param.kind === 'body')
+
+    // Convert the datasets to the correct format.
+    formData.value.datasets = datasets.value
 
     if (mode.value === 'create') {
       createApi(projectUID, formData.value as CreateApiReq).then(() => {
@@ -587,17 +585,52 @@ const onCancel = () => {
 onMounted(() => {
   allTables(projectUID).then(res => {
     tables.value = res
+    datasetsNames.value = res.reduce((acc, table) => {
+      acc[table.uid] = table.name
+      return acc
+    }, {} as Record<string, string>)
   })
 
   if (mode.value === 'update') {
-    getApi(projectUID, apiUID.value).then(res => {
+    getApi(projectUID, apiUID.value).then(async res => {
+      const params = []
+      if (res.queryParams) {
+        for (const key in res.queryParams) {
+          params.push({
+            kind: 'query',
+            ...res.queryParams[key]
+          })
+        }
+      }
+      if (res.bodyParams) {
+        for (const key in res.bodyParams) {
+          params.push({
+            kind: 'body',
+            ...res.bodyParams[key]
+          })
+        }
+      }
+      requestParams.value = params
+
+      // Load the datasets' fields.
+      if (res.options.datasets) {
+        for (const dataset of res.options.datasets) {
+          const fields = await listFields(projectUID, dataset.tableUID)
+          tableFieldsMap.value[dataset.tableUID] = fields.map(field => ({
+            value: field.uid,
+            label: field.name,
+          }))
+        }
+        datasets.value = res.options.datasets
+      }
+
       formData.value = {
         kind: res.kind,
         methods: res.methods,
         path: res.path,
-        queryParams: res.queryParams,
-        bodyParams: res.bodyParams,
-        datasets: res.options['datasets'],
+        queryParams: [],
+        bodyParams: [],
+        datasets: [],
         response: res.response,
       }
     })

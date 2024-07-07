@@ -11,7 +11,9 @@ export interface Api {
     path: string;
     queryParams: QueryParams;
     bodyParams: BodyParams;
-    options: object;
+    options: {
+        datasets: Dataset[]
+    };
     datasets: Datasets;
     response: object;
 }
@@ -23,6 +25,7 @@ export interface Validator {
     message: string;
 }
 
+export type ParamKind = 'query' | 'body'
 export type ParamType = 'string' | 'number' | 'boolean'
 export const ParamTypeLabels: Record<ParamType, string> = {
     'string': '字符串',
@@ -77,8 +80,8 @@ export interface Dataset {
     fields: string[];
     filterExp: string;
     order: string[];
-    limit: string;
-    offset: string;
+    limitExp: string;
+    offsetExp: string;
 }
 
 export interface ListApisResp {
