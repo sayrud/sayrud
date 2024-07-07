@@ -44,7 +44,7 @@
                 <t-form-item label="请求参数">
                   <t-space direction="vertical" style="width: 100%">
                     <div style="width: 16px; display: flex; justify-content: center; margin-left: 8px;">
-                      <t-button theme="default" variant="outline" @click="onAddRow">
+                      <t-button theme="default" variant="outline" @click="onRequestParamsAddRow">
                         <t-icon name="add"/>
                       </t-button>
                     </div>
@@ -79,16 +79,87 @@
                       <template #ops="{row, rowIndex}">
                         <t-space>
                           <t-link v-if="!requestParamsEditableRowKeys.includes(row.key)" theme="primary" hover="color"
-                                  @click="onEditRow(row.key)">编辑
+                                  @click="onRequestParamsEditRow(row.key)">编辑
                           </t-link>
                           <t-link v-if="requestParamsEditableRowKeys.includes(row.key)" theme="primary" hover="color"
-                                  @click="onSaveRow(rowIndex, row.key)">保存
+                                  @click="onRequestParamsSaveRow(rowIndex, row.key)">保存
                           </t-link>
                           <t-link v-if="requestParamsEditableRowKeys.includes(row.key)" theme="primary" hover="color"
-                                  @click="onCancelRow(rowIndex)">取消
+                                  @click="onRequestParamsCancelRow(rowIndex)">取消
                           </t-link>
                           <t-popconfirm theme="danger" content="你确定要删除该参数吗？"
-                                        @confirm="onDeleteRow(rowIndex)">
+                                        @confirm="onRequestParamsDeleteRow(rowIndex)">
+                            <t-link theme="danger" hover="color"> 删除</t-link>
+                          </t-popconfirm>
+                        </t-space>
+                      </template>
+                    </t-table>
+                  </t-space>
+                </t-form-item>
+              </t-col>
+              <t-col :span="12">
+                <t-form-item label="数据集">
+                  <t-space direction="vertical" style="width: 100%">
+                    <t-dropdown
+                        :options="datasetsDropdown"
+                        @click="onDatasetsAddRow"
+                    >
+                      <t-button theme="default" variant="outline">选择数据表</t-button>
+                    </t-dropdown>
+                    <t-table
+                        ref="datasetsTableRef"
+                        row-key="key"
+                        :columns="datasetsColumns"
+                        :data="datasets"
+                        :editable-row-keys="datasetsEditableRowKeys"
+                        table-layout="auto"
+                        size="small"
+                        bordered
+                        lazy-load
+                        @row-edit="onDatasetsRowEdit"
+                        @row-validate="onDatasetsRowValidate"
+                        @validate="onDatasetsValidate"
+                    >
+                      <template #name="{row}">
+                        <t-link> {{ datasetsNames[row.tableUID] }}</t-link>
+                      </template>
+                      <template #fields="{row}">
+                        <t-space :size="5">
+                          <t-tag v-for="field in row.fields" :key="field" theme="default" hover="color">
+                            {{ tableFieldsMap[row.tableUID].find(f => f.value === field)?.label }}
+                          </t-tag>
+                        </t-space>
+                      </template>
+                      <template #order="{row}">
+                        <t-space :size="5" v-if="row.order.length">
+                          <t-tag v-for="field in row.order" :key="field" theme="default" hover="color">
+                            {{ tableFieldsMap[row.tableUID].find(f => f.value === field)?.label }}
+                          </t-tag>
+                        </t-space>
+                        <span v-else>-</span>
+                      </template>
+                      <template #filterExp="{row}">
+                        {{ row.filterExp ? row.filterExp : '-' }}
+                      </template>
+                      <template #limitExp="{row}">
+                        {{ row.limitExp ? row.limitExp : '-' }}
+                      </template>
+                      <template #offsetExp="{row}">
+                        {{ row.offsetExp ? row.offsetExp : '-' }}
+                      </template>
+                      <template #ops="{row, rowIndex}">
+                        <t-space>
+                          <t-link v-if="!datasetsEditableRowKeys.includes(row.key)" theme="primary" hover="color"
+                                  @click="onDatasetsEditRow(row.key)">编辑
+                          </t-link>
+                          <t-link v-if="datasetsEditableRowKeys.includes(row.key)" theme="primary" hover="color"
+                                  @click="onDatasetsSaveRow(rowIndex, row.key)">保存
+                          </t-link>
+                          <t-link v-if="datasetsEditableRowKeys.includes(row.key)" theme="primary" hover="color"
+                                  @click="onDatasetsCancelRow(rowIndex)">取消
+                          </t-link>
+                          <t-popconfirm theme="danger" content="你确定要删除该参数吗？"
+                                        @confirm="onDatasetsDeleteRow(rowIndex)">
                             <t-link theme="danger" hover="color"> 删除</t-link>
                           </t-popconfirm>
                         </t-space>
@@ -101,6 +172,7 @@
             <t-row class="row-gap" :gutter="[32, 24]">
               <t-col :span="12">
                 <t-form-item label="响应格式">
+                  <t-textarea v-model="formData.response" placeholder="请输入响应格式"/>
                 </t-form-item>
               </t-col>
             </t-row>
@@ -148,23 +220,24 @@ import {
   type PrimaryTableCol,
   SubmitContext,
   TableRowData,
-  type TableProps, Input, Select, Switch,
+  type TableProps, Input, Select, Switch, SelectInput,
   type TableInstanceFunctions,
 } from "tdesign-vue-next";
 import NProgress from "nprogress";
 import {
   createApi,
-  CreateApiReq,
+  CreateApiReq, Dataset,
   getApi,
   Param, ParamKindLabels, ParamKindOptions, ParamMixin, ParamType,
   ParamTypeLabels,
   ParamTypeOptions,
   updateApi,
-  UpdateApiReq
+  UpdateApiReq,
 } from "@/api/api.ts";
 import {Container, Draggable} from "vue3-smooth-dnd";
 import {AddIcon} from 'tdesign-icons-vue-next';
 import {allTables, type Table} from '@/api/schemalessTable'
+import {Field, listFields} from "@/api/schemalessField";
 
 const route = useRoute()
 const router = useRouter()
@@ -180,7 +253,8 @@ const tables = ref<Table[]>([])
 
 const FORM_RULES: Record<string, FormRule[]> = {
   name: [{required: true, message: '请输入项目名', type: 'error'}],
-  schemaName: [{required: true, message: '请输入项目ID', type: 'error'}]
+  schemaName: [{required: true, message: '请输入项目ID', type: 'error'}],
+  response: [{required: true, message: '请输入响应格式', type: 'error'}],
 };
 
 // Request params table
@@ -244,7 +318,7 @@ const requestParams = ref<ParamMixin[]>([{
 }])
 const requestParamsEditableRowKeys = ref<string[]>([])
 
-const onAddRow = () => {
+const onRequestParamsAddRow = () => {
   requestParams.value.push({
     kind: 'query',
     key: '',
@@ -254,16 +328,14 @@ const onAddRow = () => {
     customValidators: [],
   })
 }
-const onEditRow = (key: string) => {
+const onRequestParamsEditRow = (key: string) => {
   if (!requestParamsEditableRowKeys.value.includes(key)) {
     requestParamsEditableRowKeys.value.push(key)
     paramsTableRef.value?.clearValidateData()
   }
 }
 
-const currentSaveKey = ref<number>()
-const onSaveRow = (rowIndex: number, key: string) => {
-  currentSaveKey.value = rowIndex
+const onRequestParamsSaveRow = (rowIndex: number, key: string) => {
   paramsTableRef.value?.validateRowData(key).then((params) => {
     if (params.result.length) {
       const r = params.result[0]
@@ -282,11 +354,11 @@ const onSaveRow = (rowIndex: number, key: string) => {
   })
 }
 
-const onCancelRow = (rowIndex: number) => {
+const onRequestParamsCancelRow = (rowIndex: number) => {
   requestParamsEditableRowKeys.value.splice(rowIndex, 1)
 }
 
-const onDeleteRow = (key: number) => {
+const onRequestParamsDeleteRow = (key: number) => {
   requestParams.value.splice(key, 1)
 }
 const onParamsRowEdit: TableProps['onRowEdit'] = (params) => {
@@ -310,6 +382,144 @@ const onParamsValidate = () => {
 
 }
 
+// Datasets table
+
+const datasetsTableRef = ref<TableInstanceFunctions>()
+const datasetsColumns = computed<TableProps['columns']>(() => [
+  {colKey: 'name', title: '数据表名', width: 120, align: 'center'},
+  {
+    colKey: 'fields', title: '字段', align: 'center', edit: {
+      component: Select,
+      props: ({row}) => {
+        return {clearable: true, autoWidth: true, size: 'small', options: tableFieldsMap.value[row.tableUID] || [], filterable: true, multiple: true}
+      },
+      rules: [{required: true, message: '不能为空'}],
+      showEditIcon: false
+    }
+  },
+  {
+    colKey: 'filterExp', title: '筛选条件', align: 'center', edit: {
+      component: Input,
+      props: {clearable: true, size: 'small'},
+      showEditIcon: false
+    }
+  },
+  {
+    colKey: 'order', title: '排序字段', width: 120, align: 'center', edit: {
+      component: Select,
+      props: ({row}) => {
+        return {clearable: true, size: 'small', options: tableFieldsMap.value[row.tableUID] || [], filterable: true, multiple: true}
+      },
+      showEditIcon: false
+    }
+  },
+  {
+    colKey: 'limitExp', title: 'LIMIT', width: 130, align: 'center', edit: {
+      component: Input,
+      props: {clearable: true, size: 'small'},
+      showEditIcon: false
+    }
+  },
+  {
+    colKey: 'offsetExp', title: 'OFFSET', width: 130, align: 'center', edit: {
+      component: Input,
+      props: {clearable: true, size: 'small'},
+      showEditIcon: false
+    }
+  },
+  {colKey: 'ops', title: '操作', width: 150, align: 'center',},
+])
+const datasetsEditMap: Record<number, TableRowData> = {}
+const datasets = ref<Dataset[]>([])
+const datasetsNames = ref<Record<string, string>>({})
+const datasetsEditableRowKeys = ref<string[]>([])
+const datasetsDropdown = computed(() => tables.value
+    .filter(table => {
+      return !datasets.value.find(dataset => dataset.tableUID === table.uid)
+    })
+    .map(table => ({
+      content: table.name,
+      value: table.uid,
+    })))
+
+const tableFieldsMap = ref<Record<string, any>>({})
+const onDatasetsAddRow = async ({value}) => {
+  const selectedTable = tables.value.find(table => table.uid === value)
+  if (selectedTable) {
+    let allFieldUIDs: string[] = []
+    const res = await listFields(projectUID, selectedTable.uid)
+
+    allFieldUIDs = res.map(field => field.uid)
+    tableFieldsMap.value[selectedTable.uid as string] = res.map(field => ({
+      value: field.uid,
+      label: field.name,
+    }))
+
+    datasetsNames.value[selectedTable.uid] = selectedTable.name
+    datasets.value.push({
+      tableUID: selectedTable.uid,
+      fields: allFieldUIDs,
+      filterExp: '',
+      order: [],
+      limitExp: '',
+      offsetExp: '',
+    })
+  }
+}
+const onDatasetsEditRow = (key: string) => {
+  if (!datasetsEditableRowKeys.value.includes(key)) {
+    datasetsEditableRowKeys.value.push(key)
+    datasetsTableRef.value?.clearValidateData()
+  }
+}
+const onDatasetsSaveRow = (rowIndex: number, key: string) => {
+  datasetsTableRef.value?.validateRowData(key).then((params) => {
+    if (params.result.length) {
+      const r = params.result[0]
+      MessagePlugin.error(`${r.col.title} ${r.errorList[0].message}`)
+      return
+    }
+
+    // Invoked by the table component.
+    if (params.trigger === 'parent' && !params.result.length) {
+      const current = datasetsEditMap[rowIndex]
+      if (current) {
+        datasets.value.splice(rowIndex, 1, current.editedRow)
+      }
+      datasetsEditableRowKeys.value.splice(rowIndex, 1)
+    }
+  })
+}
+
+const onDatasetsCancelRow = (rowIndex: number) => {
+  datasetsEditableRowKeys.value.splice(rowIndex, 1)
+}
+
+const onDatasetsDeleteRow = (key: number) => {
+  datasets.value.splice(key, 1)
+}
+const onDatasetsRowEdit: TableProps['onRowEdit'] = (params) => {
+  const {row, col, value, rowIndex} = params;
+  const oldRowData = datasetsEditMap[rowIndex]?.editedRow || row;
+  const editedRow = {
+    ...oldRowData,
+    [col.colKey as string]: value,
+  }
+  datasetsEditMap[rowIndex] = {
+    ...params,
+    editedRow,
+  }
+}
+
+const onDatasetsRowValidate = () => {
+
+}
+
+const onDatasetsValidate = () => {
+
+}
+
+
 const formData = ref<CreateApiReq | UpdateApiReq>({
   kind: 'list',
   methods: [],
@@ -323,7 +533,7 @@ const formData = ref<CreateApiReq | UpdateApiReq>({
   }],
   bodyParams: [],
   datasets: [],
-  response: {},
+  response: '',
 })
 
 const middlewares = ref([

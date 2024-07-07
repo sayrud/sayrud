@@ -104,7 +104,7 @@ export interface CreateApiReq {
     queryParams: QueryParams;
     bodyParams: BodyParams;
     datasets: Datasets;
-    response: object;
+    response: string;
 }
 
 export function createApi(projectUID: string, data: CreateApiReq) {
