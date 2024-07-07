@@ -23,6 +23,14 @@ func ParseProjectID(ctx context.Context) uint {
 	return cast.ToUint(ctx.Value("project_id"))
 }
 
+func WithKind(ctx context.Context, kind Kind) context.Context {
+	return context.WithValue(ctx, "kind", string(kind))
+}
+
+func ParseKind(ctx context.Context) Kind {
+	return Kind(cast.ToString(ctx.Value("kind")))
+}
+
 var (
 	ErrEmptyParamKey      = errors.New("empty param key")
 	ErrInvalidParamType   = errors.New("invalid param type")
@@ -32,6 +40,7 @@ var (
 	ErrEmptyValidatorExpression = errors.New("empty validator expression")
 
 	ErrDatasetTableNotFound = errors.New("dataset table not found")
+	ErrEmptyDatasets        = errors.New("empty datasets")
 	ErrEmptyDatasetTableUID = errors.New("empty dataset table UID")
 	ErrEmptyDatasetFields   = errors.New("empty dataset fields")
 	ErrFieldNotFound        = errors.New("field not found")

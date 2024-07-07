@@ -17,6 +17,10 @@ import (
 type Datasets []Dataset
 
 func (d Datasets) ValidateConfig(ctx context.Context) error {
+	if len(d) == 0 {
+		return ErrEmptyDatasets
+	}
+
 	for _, dataset := range d {
 		if err := dataset.ValidateConfig(ctx); err != nil {
 			return err
@@ -53,6 +57,12 @@ func (d Dataset) ValidateConfig(ctx context.Context) error {
 	}
 	if table.ProjectID != projectID {
 		return ErrDatasetTableNotFound
+	}
+
+	// Skip the fields validation if the kind is create or update or delete.
+	kind := ParseKind(ctx)
+	if kind == KindCreate || kind == KindUpdate || kind == KindDelete {
+		return nil
 	}
 
 	if len(d.Fields) == 0 {

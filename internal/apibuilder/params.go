@@ -87,6 +87,15 @@ func ParseQueryParams(b []byte) (QueryParams, error) {
 	return params, nil
 }
 
+func (p QueryParams) HasKey(key string) bool {
+	for _, param := range p {
+		if param.Key == key {
+			return true
+		}
+	}
+	return false
+}
+
 func (p QueryParams) ValidateConfig(ctx context.Context) error {
 	keys := make(map[string]struct{})
 	for _, param := range p {
@@ -118,6 +127,15 @@ func ParseBodyParams(b []byte) (BodyParams, error) {
 		return nil, errors.Wrap(err, "unmarshal")
 	}
 	return params, nil
+}
+
+func (p BodyParams) HasKey(key string) bool {
+	for _, param := range p {
+		if param.Key == key {
+			return true
+		}
+	}
+	return false
 }
 
 func (p BodyParams) ValidateConfig(ctx context.Context) error {

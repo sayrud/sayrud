@@ -98,7 +98,7 @@
                 </t-form-item>
               </t-col>
               <t-col :span="12">
-                <t-form-item label="数据集">
+                <t-form-item label="数据集" v-if="formData.kind === 'list' || formData.kind === 'view'">
                   <t-space direction="vertical" style="width: 100%">
                     <t-dropdown
                         :options="datasetsDropdown"
@@ -167,6 +167,40 @@
                     </t-table>
                   </t-space>
                 </t-form-item>
+                <t-row :gutter="[32, 24]">
+                  <t-col :span="6">
+                    <t-form-item label="数据表"
+                                 v-if="formData.kind === 'create' || formData.kind === 'update' || formData.kind === 'delete'"
+                                 tips="Query参数：$request.query /  Body参数：$request.body">
+                      <t-space direction="vertical" style="width: 100%">
+                        <t-select v-model="datasets[0].tableUID" placeholder="请选择数据表" @change="onSelectDataset">
+                          <t-option v-for="table in tables" :key="table.uid" :value="table.uid"
+                                    :label="table.name"></t-option>
+                        </t-select>
+                        <t-textarea v-if="formData.kind === 'update' || formData.kind === 'delete'"
+                                    v-model="formData.filter" placeholder="请输入筛选条件"
+                                    :autosize="{minRows: 6}"></t-textarea>
+                      </t-space>
+                    </t-form-item>
+                  </t-col>
+                  <t-col :span="6">
+                    <t-form-item label="字段映射" v-if="formData.kind === 'create' || formData.kind === 'update'">
+                      <t-space direction="vertical">
+                        <t-row v-for="param in requestParams" v-bind:key="`${param.kind}:${param.key}`">
+                          <t-tag>{{ param.kind }} : {{ param.key }}</t-tag>
+                          <t-select
+                              v-if="datasets && datasets[0]"
+                              v-model="(formData.fieldMapping as Record<string, string>)[`${param.kind}:${param.key}`]"
+                              placeholder="请选择字段">
+                            <t-option v-for="field in tableFieldsMap[datasets[0].tableUID]" :key="field.value"
+                                      :value="field.value"
+                                      :label="field.label"></t-option>
+                          </t-select>
+                        </t-row>
+                      </t-space>
+                    </t-form-item>
+                  </t-col>
+                </t-row>
               </t-col>
             </t-row>
             <t-row class="row-gap" :gutter="[32, 24]">
@@ -212,22 +246,30 @@
 </template>
 
 <script setup lang="ts">
-import {onMounted, ref, computed} from 'vue'
+import {computed, onMounted, ref} from 'vue'
 import {useRoute, useRouter} from "vue-router";
 import {
   FormRule,
+  Input,
   MessagePlugin,
+  Select,
   SubmitContext,
-  TableRowData,
-  type TableProps, Input, Select, Switch,
+  Switch,
   type TableInstanceFunctions,
+  type TableProps,
+  TableRowData,
 } from "tdesign-vue-next";
 import NProgress from "nprogress";
 import {
   createApi,
-  CreateApiReq, Dataset,
+  CreateApiReq,
+  Dataset,
   getApi,
-  ParamKindLabels, ParamKindOptions, ParamMixin, ParamType, ParamKind,
+  ParamKind,
+  ParamKindLabels,
+  ParamKindOptions,
+  ParamMixin,
+  ParamType,
   ParamTypeLabels,
   ParamTypeOptions,
   updateApi,
@@ -516,6 +558,21 @@ const onDatasetsValidate = () => {
 
 }
 
+const onSelectDataset = (tableUID: string) => {
+  if (!tableUID) {
+    return
+  }
+
+  // Clean the previous field mapping.
+  formData.value.fieldMapping = {}
+
+  listFields(projectUID, tableUID).then(res => {
+    tableFieldsMap.value[tableUID] = res.map(field => ({
+      value: field.uid,
+      label: field.name,
+    }))
+  })
+}
 
 const formData = ref<CreateApiReq | UpdateApiReq>({
   kind: 'list',
@@ -523,6 +580,8 @@ const formData = ref<CreateApiReq | UpdateApiReq>({
   path: '',
   queryParams: [],
   bodyParams: [],
+  filter: '',
+  fieldMapping: {},
   datasets: [],
   response: '',
 })
@@ -560,8 +619,21 @@ const onSubmit = (ctx: SubmitContext) => {
     // Convert the datasets to the correct format.
     formData.value.datasets = datasets.value
 
+    let filterObject = {}
+    if (formData.value.kind === 'update' || formData.value.kind === 'delete') {
+      try {
+        filterObject = JSON.parse(formData.value.filter)
+      } catch (e) {
+        MessagePlugin.error(`筛选条件解析失败 ${e}`)
+        return
+      }
+    }
+
     if (mode.value === 'create') {
-      createApi(projectUID, formData.value as CreateApiReq).then(() => {
+      createApi(projectUID, {
+        ...formData.value,
+        filter: filterObject,
+      } as CreateApiReq).then(() => {
         MessagePlugin.success('新建接口成功')
         router.push({name: 'SchemalessApis', params: {uid: projectUID}})
       }).finally(() => {
@@ -569,7 +641,10 @@ const onSubmit = (ctx: SubmitContext) => {
       })
 
     } else {
-      updateApi(projectUID, apiUID.value, formData.value as UpdateApiReq).then(() => {
+      updateApi(projectUID, apiUID.value, {
+        ...formData.value,
+        filter: filterObject,
+      } as UpdateApiReq).then(() => {
         MessagePlugin.success('更新接口成功')
       }).finally(() => {
         NProgress.done()
@@ -613,7 +688,7 @@ onMounted(() => {
       requestParams.value = params
 
       // Load the datasets' fields.
-      if (res.options.datasets) {
+      if ((res.kind === 'list' || res.kind === 'view') && res.options.datasets) {
         for (const dataset of res.options.datasets) {
           const fields = await listFields(projectUID, dataset.tableUID)
           tableFieldsMap.value[dataset.tableUID] = fields.map(field => ({
@@ -622,6 +697,16 @@ onMounted(() => {
           }))
         }
         datasets.value = res.options.datasets
+
+      } else if (res.kind === 'create' || res.kind === 'update' || res.kind === 'delete') {
+        const tableUID = res.options.tableUID
+        const fields = await listFields(projectUID, tableUID)
+        tableFieldsMap.value[tableUID] = fields.map(field => ({
+          value: field.uid,
+          label: field.name,
+        }))
+
+        datasets.value = [{tableUID: tableUID} as Dataset]
       }
 
       formData.value = {
@@ -630,6 +715,8 @@ onMounted(() => {
         path: res.path,
         queryParams: [],
         bodyParams: [],
+        filter: JSON.stringify(res.options?.filter, null, 2),
+        fieldMapping: res.options?.fieldMapping,
         datasets: [],
         response: res.response,
       }

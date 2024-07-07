@@ -12,7 +12,11 @@ export interface Api {
     queryParams: QueryParams;
     bodyParams: BodyParams;
     options: {
-        datasets: Dataset[]
+        datasets?: Dataset[];
+
+        tableUID: string;
+        filter?: string;
+        fieldMapping?: Record<string, string>;
     };
     datasets: Datasets;
     response: object;
@@ -106,6 +110,8 @@ export interface CreateApiReq {
     path: string;
     queryParams: QueryParams;
     bodyParams: BodyParams;
+    filter?: string;
+    fieldMapping?: Record<string, string>;
     datasets: Datasets;
     response: string;
 }
@@ -120,6 +126,8 @@ export interface UpdateApiReq {
     path: string;
     queryParams: QueryParams;
     bodyParams: BodyParams;
+    filter?: string;
+    fieldMapping?: Record<string, string>;
     datasets: Datasets;
     response: object;
 }

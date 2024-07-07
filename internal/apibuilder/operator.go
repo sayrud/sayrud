@@ -5,6 +5,7 @@
 package apibuilder
 
 import (
+	"context"
 	"encoding/json"
 	"strings"
 
@@ -38,9 +39,66 @@ const (
 
 type Operator struct {
 	Type  OperatorType    `json:"t"`
-	Value json.RawMessage `json:"v"`
-	Left  *Operator       `json:"l"`
-	Right *Operator       `json:"r"`
+	Value json.RawMessage `json:"v,omitempty"`
+	Left  *Operator       `json:"l,omitempty"`
+	Right *Operator       `json:"r,omitempty"`
+}
+
+func (o *Operator) ValidateConfig(ctx context.Context) error {
+	if o == nil {
+		return nil
+	}
+
+	switch o.Type {
+	case OperatorTypeAnd, OperatorTypeOr:
+		if o.Left == nil || o.Right == nil {
+			return errors.New("empty left or right")
+		}
+		if err := o.Left.ValidateConfig(ctx); err != nil {
+			return err
+		}
+		if err := o.Right.ValidateConfig(ctx); err != nil {
+			return err
+		}
+
+	case OperatorTypeNotEqual, OperatorTypeEqual, OperatorTypeGreater, OperatorTypeLess, OperatorTypeGreaterEqual, OperatorTypeLessEqual, OperatorTypeLike, OperatorTypeIn:
+		if o.Left == nil || o.Right == nil {
+			return errors.New("empty left or right")
+		}
+		if err := o.Left.ValidateConfig(ctx); err != nil {
+			return err
+		}
+		if err := o.Right.ValidateConfig(ctx); err != nil {
+			return err
+		}
+
+	case OperatorTypeNot:
+		if o.Left == nil {
+			return errors.New("empty left")
+		}
+		if err := o.Left.ValidateConfig(ctx); err != nil {
+			return err
+		}
+
+	case OperatorTypeField:
+		var field string
+		if err := json.Unmarshal(o.Value, &field); err != nil {
+			return err
+		}
+		if field == "" {
+			return errors.New("empty field")
+		}
+
+	case OperatorTypeLiteral:
+		var value interface{}
+		if err := json.Unmarshal(o.Value, &value); err != nil {
+			return err
+		}
+		if cast.ToString(value) == "" {
+			return errors.New("empty value")
+		}
+	}
+	return nil
 }
 
 func (o *Operator) ToClauseExpression(vm *goja.Runtime) (clause.Expression, error) {

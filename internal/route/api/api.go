@@ -88,6 +88,7 @@ func validateApiForm(ctx context.Context, validateCtx gocontext.Context, f form.
 	if err := kind.ValidateConfig(validateCtx); err != nil {
 		return nil, ctx.ApiError(http.StatusBadRequest, "API 类型不合法")
 	}
+	validateCtx = apibuilder.WithKind(validateCtx, kind)
 
 	queryParams := f.QueryParams
 	if err := queryParams.ValidateConfig(validateCtx); err != nil {
@@ -126,6 +127,8 @@ func validateApiForm(ctx context.Context, validateCtx gocontext.Context, f form.
 	datasets := f.Datasets
 	if err := datasets.ValidateConfig(validateCtx); err != nil {
 		switch {
+		case errors.Is(err, apibuilder.ErrEmptyDatasets):
+			return nil, ctx.ApiError(http.StatusBadRequest, "数据集不能为空")
 		case errors.Is(err, apibuilder.ErrEmptyDatasetTableUID):
 			return nil, ctx.ApiError(http.StatusBadRequest, "数据表 UID 不能为空")
 		case errors.Is(err, apibuilder.ErrDatasetTableNotFound):
@@ -140,6 +143,44 @@ func validateApiForm(ctx context.Context, validateCtx gocontext.Context, f form.
 		}
 	}
 	tableUID := datasets[0].TableUID
+
+	filter := f.Filter
+	if kind == apibuilder.KindUpdate || kind == apibuilder.KindDelete {
+		if filter != nil {
+			if err := filter.ValidateConfig(validateCtx); err != nil {
+				return nil, ctx.ApiError(http.StatusBadRequest, "筛选条件校验不通过: %s", err)
+			}
+		}
+	}
+
+	fieldMapping := f.FieldMapping
+	if kind == apibuilder.KindCreate || kind == apibuilder.KindUpdate {
+		for param, fieldUID := range fieldMapping {
+			groups := strings.SplitN(param, ":", 2)
+			if len(groups) != 2 {
+				return nil, ctx.ApiError(http.StatusBadRequest, "参数映射格式错误")
+			}
+
+			paramKey := groups[1]
+			switch groups[0] {
+			case "query":
+				if !queryParams.HasKey(paramKey) {
+					return nil, ctx.ApiError(http.StatusBadRequest, "参数映射字段不存在: %q", groups[0])
+				}
+			case "body":
+				if !bodyParams.HasKey(paramKey) {
+					return nil, ctx.ApiError(http.StatusBadRequest, "参数映射字段不存在: %q", groups[0])
+				}
+			default:
+				return nil, ctx.ApiError(http.StatusBadRequest, "参数映射格式错误: %q", groups[0])
+			}
+
+			// TODO: Check fieldUID is valid.
+			if fieldUID == "" {
+				return nil, ctx.ApiError(http.StatusBadRequest, "参数映射值不能为空")
+			}
+		}
+	}
 
 	var options datatypes.JSON
 	switch kind {
@@ -160,22 +201,22 @@ func validateApiForm(ctx context.Context, validateCtx gocontext.Context, f form.
 		options = apibuilder.Options[apibuilder.CreateOptions]{
 			Value: apibuilder.CreateOptions{
 				TableUID:     tableUID,
-				FieldMapping: nil,
+				FieldMapping: fieldMapping,
 			},
 		}.ToJSON()
 	case apibuilder.KindUpdate:
 		options = apibuilder.Options[apibuilder.UpdateOptions]{
 			Value: apibuilder.UpdateOptions{
 				TableUID:     tableUID,
-				FieldMapping: nil,
-				Filter:       nil,
+				FieldMapping: fieldMapping,
+				Filter:       filter,
 			},
 		}.ToJSON()
 	case apibuilder.KindDelete:
 		options = apibuilder.Options[apibuilder.DeleteOptions]{
 			Value: apibuilder.DeleteOptions{
 				TableUID: tableUID,
-				Filter:   nil,
+				Filter:   filter,
 			},
 		}.ToJSON()
 	}
@@ -194,9 +235,9 @@ func (h apiRoute) Create(ctx context.Context, project *db.Project, f form.Create
 	validateCtx := gocontext.Background()
 	validateCtx = apibuilder.WithProjectID(validateCtx, project.ID)
 
-	data, handler := validateApiForm(ctx, validateCtx, f)
-	if handler != nil {
-		return handler
+	data, _ := validateApiForm(ctx, validateCtx, f)
+	if ctx.ResponseWriter().Written() {
+		return nil
 	}
 
 	path := "/" + strings.TrimSpace(strings.Trim(f.Path, "/"))
@@ -227,9 +268,9 @@ func (apiRoute) Update(ctx context.Context, project *db.Project, api *db.Api, f 
 	validateCtx := gocontext.Background()
 	validateCtx = apibuilder.WithProjectID(validateCtx, project.ID)
 
-	data, handler := validateApiForm(ctx, validateCtx, f)
-	if handler != nil {
-		return handler
+	data, _ := validateApiForm(ctx, validateCtx, f)
+	if ctx.ResponseWriter().Written() {
+		return nil
 	}
 
 	path := "/" + strings.TrimSpace(strings.Trim(f.Path, "/"))
