@@ -237,18 +237,38 @@
                    @drop="onDropMiddlewares">
           <Draggable v-for="(item, index) in formData.middlewares" :key="index" style="z-index: 2">
             <div :class="['node',item.type === 'main'? 'main': '']">
-              <div class="inner">{{ MiddlewareNames[item.type] }}</div>
+              <div class="delete-icon" @click="onDeleteMiddleware(index)" v-if="item.type !== 'main'">
+                <t-icon :size="18" name="close-circle-filled"/>
+              </div>
+              <div class="inner">
+                <t-icon :name="MiddlewareIcons[item.type]"/>
+                {{ MiddlewareNames[item.type] }}
+              </div>
             </div>
           </Draggable>
         </Container>
         <div class="line" :style="{height: `${formData.middlewares.length*80}px`}"></div>
       </div>
       <div class="tool">
-        <t-button shape="circle" theme="primary">
-          <template #icon>
-            <add-icon/>
+        <t-popup placement="bottom" show-arrow destroy-on-close>
+          <template #content>
+            <t-list :split="true" size="small">
+              <t-list-item v-for="(name, type) in MiddlewareSelectList">
+                <div style="display: flex; gap: 5px; align-items: center; cursor: pointer"
+                     @click="onSelectMiddleware(type)">
+                  <t-icon :name="MiddlewareIcons[type]"/>
+                  {{ name }}
+                </div>
+              </t-list-item>
+            </t-list>
           </template>
-        </t-button>
+
+          <t-button shape="circle" theme="primary">
+            <template #icon>
+              <add-icon/>
+            </template>
+          </t-button>
+        </t-popup>
       </div>
     </t-col>
   </t-row>
@@ -288,7 +308,7 @@ import {Container, Draggable} from "vue3-smooth-dnd";
 import {AddIcon} from 'tdesign-icons-vue-next';
 import {allTables, type Table} from '@/api/schemalessTable'
 import {listFields} from "@/api/schemalessField";
-import {MiddlewareNames} from "@/const/middlewares.ts";
+import {MiddlewareIcons, MiddlewareNames, MiddlewareSelectList} from "@/const/middlewares.ts";
 
 const route = useRoute()
 const router = useRouter()
@@ -612,6 +632,17 @@ const formData = ref<CreateApiReq | UpdateApiReq>({
   response: '',
 })
 
+const onSelectMiddleware = (type: string) => {
+  formData.value.middlewares.push({
+    type: type,
+    params: {}
+  })
+}
+
+const onDeleteMiddleware = (index: number) => {
+  formData.value.middlewares.splice(index, 1)
+}
+
 const onDropMiddlewares = (dropResult: any) => {
   const {removedIndex, addedIndex, payload} = dropResult;
 
@@ -834,10 +865,27 @@ onMounted(() => {
     border-radius: var(--td-radius-medium);
     border: 2px solid var(--td-gray-color-8);
     cursor: grab;
+    position: relative;
+
+    &:hover {
+      .delete-icon {
+        display: block !important;
+      }
+    }
+
+    .delete-icon {
+      cursor: pointer;
+      display: none;
+      position: absolute;
+      right: -7px;
+      top: -12px;
+    }
 
     .inner {
       padding: 0.6rem;
       justify-content: center;
+      align-items: center;
+      gap: 5px;
 
       display: flex;
       width: 100%;
@@ -872,5 +920,9 @@ onMounted(() => {
   display: flex;
   justify-content: center;
   width: 100%;
+}
+
+.smooth-dnd-container.vertical > .smooth-dnd-draggable-wrapper {
+  overflow: visible !important;
 }
 </style>
