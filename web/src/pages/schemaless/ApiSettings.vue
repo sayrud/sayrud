@@ -227,12 +227,21 @@
       <div class="side">
         <Container orientation="vertical"
                    class="container"
+                   :drop-placeholder="{
+                      className: 'drop-placeholder',
+                      animationDuration: '200',
+                      showOnTop: true
+                   }"
+                   drag-class="drag"
+                   drop-class="drop"
                    @drop="onDropMiddlewares">
-          <Draggable v-for="item in middlewares" :key="item.uid" :class="['node',item.type === 'main'? 'main': '']">
-            <div class="inner">{{ item.name }}</div>
+          <Draggable v-for="(item, index) in formData.middlewares" :key="index" style="z-index: 2">
+            <div :class="['node',item.type === 'main'? 'main': '']">
+              <div class="inner">{{ MiddlewareNames[item.type] }}</div>
+            </div>
           </Draggable>
         </Container>
-        <div class="line" :style="{height: `${middlewares.length*70}px`}"></div>
+        <div class="line" :style="{height: `${formData.middlewares.length*80}px`}"></div>
       </div>
       <div class="tool">
         <t-button shape="circle" theme="primary">
@@ -279,6 +288,7 @@ import {Container, Draggable} from "vue3-smooth-dnd";
 import {AddIcon} from 'tdesign-icons-vue-next';
 import {allTables, type Table} from '@/api/schemalessTable'
 import {listFields} from "@/api/schemalessField";
+import {MiddlewareNames} from "@/const/middlewares.ts";
 
 const route = useRoute()
 const router = useRouter()
@@ -431,7 +441,14 @@ const datasetsColumns = computed<TableProps['columns']>(() => [
     colKey: 'fields', title: '字段', align: 'center', edit: {
       component: Select,
       props: ({row}) => {
-        return {clearable: true, autoWidth: true, size: 'small', options: tableFieldsMap.value[row.tableUID] || [], filterable: true, multiple: true}
+        return {
+          clearable: true,
+          autoWidth: true,
+          size: 'small',
+          options: tableFieldsMap.value[row.tableUID] || [],
+          filterable: true,
+          multiple: true
+        }
       },
       rules: [{required: true, message: '不能为空'}],
       showEditIcon: false
@@ -448,7 +465,13 @@ const datasetsColumns = computed<TableProps['columns']>(() => [
     colKey: 'order', title: '排序字段', width: 120, align: 'center', edit: {
       component: Select,
       props: ({row}) => {
-        return {clearable: true, size: 'small', options: tableFieldsMap.value[row.tableUID] || [], filterable: true, multiple: true}
+        return {
+          clearable: true,
+          size: 'small',
+          options: tableFieldsMap.value[row.tableUID] || [],
+          filterable: true,
+          multiple: true
+        }
       },
       showEditIcon: false
     }
@@ -583,12 +606,11 @@ const formData = ref<CreateApiReq | UpdateApiReq>({
   filter: '',
   fieldMapping: {},
   datasets: [],
+  middlewares: [{
+    type: 'main', params: {}
+  }],
   response: '',
 })
-
-const middlewares = ref([
-  {uid: '', name: 'API', type: 'main'},
-])
 
 const onDropMiddlewares = (dropResult: any) => {
   const {removedIndex, addedIndex, payload} = dropResult;
@@ -596,7 +618,7 @@ const onDropMiddlewares = (dropResult: any) => {
   if (removedIndex === null && addedIndex === null) {
     return
   }
-  const result = [...middlewares.value];
+  const result = [...formData.value.middlewares];
   let itemToAdd = payload;
 
   if (removedIndex !== null) {
@@ -605,7 +627,7 @@ const onDropMiddlewares = (dropResult: any) => {
   if (addedIndex !== null) {
     result.splice(addedIndex, 0, itemToAdd);
   }
-  middlewares.value = result
+  formData.value.middlewares = result
 }
 
 const onSubmit = (ctx: SubmitContext) => {
@@ -718,6 +740,7 @@ onMounted(() => {
         filter: JSON.stringify(res.options?.filter, null, 2),
         fieldMapping: res.options?.fieldMapping,
         datasets: [],
+        middlewares: res.middlewares,
         response: res.response,
       }
     })
@@ -787,9 +810,9 @@ onMounted(() => {
   .line {
     top: 0;
     width: 2px;
-    background-color: var(--td-gray-color-8);
     position: absolute;
     z-index: 1;
+    background: linear-gradient(to bottom, var(--td-gray-color-8), transparent 120%);
   }
 
   .container {
@@ -797,13 +820,13 @@ onMounted(() => {
     align-items: center;
     justify-content: center;
     flex-direction: column;
-    gap: 30px;
   }
 
   .node {
     z-index: 99;
     width: 150px;
-    height: 50px;
+    margin-top: 0.6rem;
+    margin-bottom: 0.6rem;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -813,9 +836,11 @@ onMounted(() => {
     cursor: grab;
 
     .inner {
+      padding: 0.6rem;
       justify-content: center;
+
       display: flex;
-      width: 150px;
+      width: 100%;
     }
   }
 
@@ -823,6 +848,24 @@ onMounted(() => {
     box-shadow: 0 0 10px 0 var(--td-brand-color);
     border: 2px solid var(--td-brand-color);
   }
+}
+
+.drag {
+  background-color: var(--td-bg-color-container);
+  border-radius: var(--td-radius-medium);
+  border: 2px dashed var(--td-gray-color-8);
+}
+
+.drop {
+  background-color: var(--td-bg-color-container);
+  border-radius: var(--td-radius-medium);
+  border: 2px dashed var(--td-gray-color-8);
+}
+
+.drop-placeholder {
+  background-color: var(--td-bg-color-container);
+  border-radius: var(--td-radius-medium);
+  border: 2px dashed var(--td-gray-color-8);
 }
 
 .tool {

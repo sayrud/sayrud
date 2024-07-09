@@ -18,8 +18,14 @@ export interface Api {
         filter?: string;
         fieldMapping?: Record<string, string>;
     };
+    middlewares: Middleware[];
     datasets: Datasets;
     response: object;
+}
+
+export interface Middleware {
+    type: string
+    params: Record<string, string>
 }
 
 export type Validators = Validator[]
@@ -113,6 +119,7 @@ export interface CreateApiReq {
     filter?: string;
     fieldMapping?: Record<string, string>;
     datasets: Datasets;
+    middlewares: Middleware[];
     response: string;
 }
 
@@ -129,6 +136,7 @@ export interface UpdateApiReq {
     filter?: string;
     fieldMapping?: Record<string, string>;
     datasets: Datasets;
+    middlewares: Middleware[];
     response: object;
 }
 
