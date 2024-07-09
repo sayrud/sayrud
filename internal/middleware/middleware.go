@@ -16,7 +16,7 @@ const TypeMain = "main"
 
 func (t Type) IsValid() bool {
 	switch t {
-	case TypeLog:
+	case TypeMain, TypeLog, TypeRateLimit, TypeSendEmail:
 		return true
 	default:
 		return false

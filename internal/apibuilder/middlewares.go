@@ -25,6 +25,9 @@ func (m Middlewares) ValidateConfig(ctx context.Context) error {
 }
 
 func (m Middlewares) ToJSON() []byte {
+	if len(m) == 0 {
+		return []byte("[]")
+	}
 	b, _ := json.Marshal(m)
 	return b
 }

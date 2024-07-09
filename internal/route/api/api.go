@@ -66,6 +66,7 @@ type validatedData struct {
 	QueryParams apibuilder.QueryParams
 	BodyParams  apibuilder.BodyParams
 	Datasets    apibuilder.Datasets
+	Middlewares apibuilder.Middlewares
 	Options     datatypes.JSON
 }
 
@@ -182,6 +183,16 @@ func validateApiForm(ctx context.Context, validateCtx gocontext.Context, f form.
 		}
 	}
 
+	middlewares := f.Middlewares
+	if err := middlewares.ValidateConfig(validateCtx); err != nil {
+		switch {
+		case errors.Is(err, apibuilder.ErrInvalidMiddlewareType):
+			return nil, ctx.ApiError(http.StatusBadRequest, "中间件类型不存在")
+		default:
+			return nil, ctx.ApiError(http.StatusInternalServerError, "验证中间件失败")
+		}
+	}
+
 	var options datatypes.JSON
 	switch kind {
 	case apibuilder.KindList:
@@ -227,6 +238,7 @@ func validateApiForm(ctx context.Context, validateCtx gocontext.Context, f form.
 		QueryParams: queryParams,
 		BodyParams:  bodyParams,
 		Datasets:    datasets,
+		Middlewares: middlewares,
 		Options:     options,
 	}, nil
 }
@@ -250,6 +262,7 @@ func (h apiRoute) Create(ctx context.Context, project *db.Project, f form.Create
 		QueryParams: data.QueryParams.ToJSON(),
 		BodyParams:  data.BodyParams.ToJSON(),
 		Options:     data.Options,
+		Middlewares: data.Middlewares.ToJSON(),
 		Response:    datatypes.JSON(f.Response),
 	})
 	if err != nil {
@@ -282,6 +295,7 @@ func (apiRoute) Update(ctx context.Context, project *db.Project, api *db.Api, f 
 		QueryParams: data.QueryParams.ToJSON(),
 		BodyParams:  data.BodyParams.ToJSON(),
 		Options:     data.Options,
+		Middlewares: data.Middlewares.ToJSON(),
 		Response:    datatypes.JSON(f.Response),
 	}); err != nil {
 		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to update api")
