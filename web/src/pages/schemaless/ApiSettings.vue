@@ -2,18 +2,22 @@
   <t-row :gutter="16">
     <t-col :span="9">
       <t-form
-          ref="form"
+          ref="mainForm"
           class="base-form"
           :data="formData"
           :rules="FORM_RULES"
           label-align="right"
           :label-width="70"
-          @reset="onCancel"
-          @submit="onSubmit"
       >
         <div class="container">
           <div class="form-basic-item">
-            <div class="form-basic-container-title"> {{ mode === 'create' ? '新建接口' : '编辑接口' }}</div>
+            <div class="form-basic-container-title">
+              <div>
+                {{ mode === 'create' ? '新建接口' : '编辑接口' }}
+                <t-loading v-if="isSaving" text="保存中..." size="small"/>
+              </div>
+              <t-button theme="primary" @click="onSubmit">保存</t-button>
+            </div>
             <t-row class="row-gap" :gutter="[32, 24]">
               <t-col :span="4">
                 <t-form-item label="接口类型" name="kind">
@@ -212,15 +216,6 @@
             </t-row>
           </div>
         </div>
-
-        <div class="form-submit-container">
-          <div class="form-submit-sub">
-            <t-space>
-              <t-button theme="primary" class="form-submit-confirm" type="submit">确认提交</t-button>
-              <t-button type="reset" class="form-submit-cancel" theme="default" variant="base">取消</t-button>
-            </t-space>
-          </div>
-        </div>
       </t-form>
     </t-col>
     <t-col :span="3">
@@ -249,6 +244,7 @@
         </Container>
         <div class="line" :style="{height: `${formData.middlewares.length*80}px`}"></div>
       </div>
+
       <div class="tool">
         <t-popup placement="bottom" show-arrow destroy-on-close>
           <template #content>
@@ -275,7 +271,7 @@
 </template>
 
 <script setup lang="ts">
-import {computed, onMounted, ref} from 'vue'
+import {computed, onMounted, onUnmounted, ref, watch} from 'vue'
 import {useRoute, useRouter} from "vue-router";
 import {
   FormRule,
@@ -312,6 +308,7 @@ import {MiddlewareIcons, MiddlewareNames, MiddlewareSelectList} from "@/const/mi
 
 const route = useRoute()
 const router = useRouter()
+const mainForm = ref()
 const mode = ref<'create' | 'update'>('create')
 const projectUID = route.params.uid as string
 const apiUID = ref<string>(route.params.apiUID as string)
@@ -661,8 +658,11 @@ const onDropMiddlewares = (dropResult: any) => {
   formData.value.middlewares = result
 }
 
-const onSubmit = (ctx: SubmitContext) => {
-  if (ctx.validateResult === true) {
+const isSaving = ref<boolean>(false)
+const onSubmit = async () => {
+  const validateResult = await mainForm.value.validate()
+  if (validateResult === true) {
+    isSaving.value = true
     NProgress.start()
 
     // Convert the request params to the correct format.
@@ -686,11 +686,16 @@ const onSubmit = (ctx: SubmitContext) => {
       createApi(projectUID, {
         ...formData.value,
         filter: filterObject,
-      } as CreateApiReq).then(() => {
+      } as CreateApiReq).then(res => {
         MessagePlugin.success('新建接口成功')
-        router.push({name: 'SchemalessApis', params: {uid: projectUID}})
+        router.push({name: 'SchemalessApiSettings', params: {uid: projectUID, apiUID: res.uid}})
+
+        // Set the mode to update after creating the API.
+        mode.value = 'update'
+        apiUID.value = res.uid
       }).finally(() => {
         NProgress.done()
+        isSaving.value = false
       })
 
     } else {
@@ -698,17 +703,28 @@ const onSubmit = (ctx: SubmitContext) => {
         ...formData.value,
         filter: filterObject,
       } as UpdateApiReq).then(() => {
-        MessagePlugin.success('更新接口成功')
       }).finally(() => {
         NProgress.done()
+        isFormChanged.value = false
+        isSaving.value = false
       })
     }
   }
 };
 
-const onCancel = () => {
-  router.push({name: 'SchemalessApis', params: {uid: projectUID}})
-}
+// Autosave
+const autoSaveTimer = ref<number | null>(null)
+const isFormChanged = ref<boolean>(false)
+watch(formData, () => {
+  isFormChanged.value = true
+}, {deep: true})
+watch(requestParams, () => {
+  isFormChanged.value = true
+}, {deep: true})
+watch(datasets, () => {
+  isFormChanged.value = true
+}, {deep: true})
+
 
 onMounted(() => {
   allTables(projectUID).then(res => {
@@ -771,10 +787,27 @@ onMounted(() => {
         filter: JSON.stringify(res.options?.filter, null, 2),
         fieldMapping: res.options?.fieldMapping,
         datasets: [],
-        middlewares: res.middlewares,
+        middlewares: res.middlewares.length === 0 ? [{
+          type: 'main', params: {}
+        }] : res.middlewares,
         response: res.response,
       }
+
+    }).finally(() => {
+      isFormChanged.value = false
+
+      autoSaveTimer.value = setInterval(() => {
+        if (isFormChanged.value) {
+          onSubmit()
+        }
+      }, 5000)
     })
+  }
+})
+
+onUnmounted(() => {
+  if (autoSaveTimer.value) {
+    clearInterval(autoSaveTimer.value)
   }
 })
 </script>
@@ -804,28 +837,16 @@ onMounted(() => {
       font-weight: 400;
       color: var(--td-text-color-primary);
       margin: var(--td-comp-margin-xxl) 0 var(--td-comp-margin-xl) 0;
+      display: flex;
+      justify-content: space-between;
     }
   }
 }
 
 .form-submit-container {
-  width: 100%;
   display: flex;
-  align-items: center;
   justify-content: center;
-  padding-top: var(--td-comp-paddingLR-xl);
-  padding-bottom: var(--td-comp-paddingLR-xl);
-  background-color: var(--td-bg-color-secondarycontainer);
-  border-bottom-left-radius: var(--td-radius-medium);
-  border-bottom-right-radius: var(--td-radius-medium);
-  border-top: 1px solid var(--td-component-stroke);
-
-  .form-submit-sub {
-    width: 676px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-  }
+  margin: var(--td-comp-margin-xxl) 0 var(--td-comp-margin-xl) 0;
 }
 
 .row-gap {
@@ -837,9 +858,10 @@ onMounted(() => {
   width: 100%;
   align-items: center;
   justify-content: center;
+  margin-top: 50px;
 
   .line {
-    top: 0;
+    top: 100px;
     width: 2px;
     position: absolute;
     z-index: 1;

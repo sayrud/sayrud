@@ -56,6 +56,10 @@
     <template #ops="{row}">
       <t-space>
         <t-link theme="primary" @click="onViewApi(row)">编辑</t-link>
+        <t-popconfirm theme="danger" content="你确定要删除该 API 吗？"
+                      @confirm="onDeleteApi(row)">
+          <t-link theme="danger" hover="color"> 删除</t-link>
+        </t-popconfirm>
       </t-space>
     </template>
   </t-table>
@@ -64,8 +68,9 @@
 <script setup lang="ts">
 import {onMounted, ref} from "vue";
 import {useRoute, useRouter} from "vue-router";
-import {listApis, type Api, MethodType} from "@/api/api";
+import {listApis, type Api, MethodType, deleteApi} from "@/api/api";
 import {
+  MessagePlugin,
   type PaginationProps,
   PrimaryTableCol,
   TableRowData
@@ -117,6 +122,18 @@ const onViewApi = (api: Api) => {
     }
   })
 }
+
+const onDeleteApi = (api: Api) => {
+  const apiUID = api.uid
+  deleteApi(projectUID, apiUID).then(() => {
+    apis.value = apis.value.filter(api => api.uid !== apiUID)
+  }).then(() => {
+    MessagePlugin.success('删除 API 成功')
+  }).finally(() => {
+    getApis()
+  })
+}
+
 onMounted(() => {
   getApis()
 })
