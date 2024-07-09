@@ -15,20 +15,24 @@ type ConfigValidator interface {
 	ValidateConfig(ctx context.Context) error
 }
 
+type ctxProjectID struct{}
+
 func WithProjectID(ctx context.Context, projectID uint) context.Context {
-	return context.WithValue(ctx, "project_id", projectID)
+	return context.WithValue(ctx, ctxProjectID(struct{}{}), projectID)
 }
 
 func ParseProjectID(ctx context.Context) uint {
-	return cast.ToUint(ctx.Value("project_id"))
+	return cast.ToUint(ctx.Value(ctxProjectID(struct{}{})))
 }
 
+type ctxKind struct{}
+
 func WithKind(ctx context.Context, kind Kind) context.Context {
-	return context.WithValue(ctx, "kind", string(kind))
+	return context.WithValue(ctx, ctxKind(struct{}{}), string(kind))
 }
 
 func ParseKind(ctx context.Context) Kind {
-	return Kind(cast.ToString(ctx.Value("kind")))
+	return Kind(cast.ToString(ctx.Value(ctxKind(struct{}{}))))
 }
 
 var (
