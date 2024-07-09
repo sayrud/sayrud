@@ -620,7 +620,7 @@ const onSubmit = (ctx: SubmitContext) => {
     formData.value.datasets = datasets.value
 
     let filterObject = {}
-    if (formData.value.kind === 'update' || formData.value.kind === 'delete') {
+    if ((formData.value.kind === 'update' || formData.value.kind === 'delete') && formData.value.filter) {
       try {
         filterObject = JSON.parse(formData.value.filter)
       } catch (e) {

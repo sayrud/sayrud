@@ -44,6 +44,5 @@ declare module 'vue' {
     TTag: typeof import('tdesign-vue-next')['Tag']
     TTextarea: typeof import('tdesign-vue-next')['Textarea']
     TTimePicker: typeof import('tdesign-vue-next')['TimePicker']
-    TTooltip: typeof import('tdesign-vue-next')['Tooltip']
   }
 }
