@@ -8,14 +8,14 @@ import (
 	"github.com/wuhan005/sayrud/internal/context"
 )
 
-const TypeLog Type = "log"
+const TypeSendEmail Type = "send_email"
 
-var _ Handler = (*log)(nil)
+var _ Handler = (*sendEmail)(nil)
 
-type log struct {
+type sendEmail struct {
 	Params
 }
 
-func (l *log) Handle(ctx context.Context) error {
+func (l *sendEmail) Handle(ctx context.Context) error {
 	return nil
 }

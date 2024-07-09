@@ -5,9 +5,9 @@
 package middleware
 
 import (
-	"context"
-
 	"github.com/pkg/errors"
+
+	"github.com/wuhan005/sayrud/internal/context"
 )
 
 type Type string
@@ -35,6 +35,10 @@ func Get(typ Type, params Params) (Handler, error) {
 	switch typ {
 	case TypeLog:
 		return &log{params}, nil
+	case TypeRateLimit:
+		return &rateLimit{params}, nil
+	case TypeSendEmail:
+		return &sendEmail{params}, nil
 	default:
 		return nil, ErrUnknownMiddlewareType
 	}

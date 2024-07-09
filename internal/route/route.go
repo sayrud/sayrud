@@ -18,7 +18,7 @@ func New(db *gorm.DB) *flamego.Flame {
 	)
 
 	f.Group("/api", func() {
-		f.Any("/{projectUID}/{**}", public.Project.Handler)
+		f.Any("/{projectUID}/{**}", public.Project.Middlewares, public.Project.Handler)
 	})
 
 	f.Group("/_", func() {

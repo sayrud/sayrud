@@ -6,11 +6,34 @@ package apibuilder
 
 import (
 	"context"
+	"encoding/json"
 
 	"github.com/wuhan005/sayrud/internal/middleware"
 )
 
 var _ ConfigValidator = (*Middleware)(nil)
+
+type Middlewares []Middleware
+
+func (m Middlewares) ValidateConfig(ctx context.Context) error {
+	for _, mw := range m {
+		if err := mw.ValidateConfig(ctx); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (m Middlewares) ToJSON() []byte {
+	b, _ := json.Marshal(m)
+	return b
+}
+
+func ParseMiddlewares(middlewares []byte) Middlewares {
+	var m Middlewares
+	_ = json.Unmarshal(middlewares, &m)
+	return m
+}
 
 type Middleware struct {
 	Type   middleware.Type        `json:"type"`

@@ -18,13 +18,14 @@ import (
 	"github.com/wuhan005/sayrud/internal/context"
 	"github.com/wuhan005/sayrud/internal/db"
 	"github.com/wuhan005/sayrud/internal/jsvm"
+	"github.com/wuhan005/sayrud/internal/middleware"
 )
 
 var Project publicHandler
 
 type publicHandler struct{}
 
-func (h publicHandler) Handler(ctx context.Context) error {
+func (h publicHandler) Middlewares(ctx context.Context) error {
 	projectUID := ctx.Param("projectUID")
 	path := "/" + ctx.Param("**")
 	method := ctx.Request().Method
@@ -46,6 +47,34 @@ func (h publicHandler) Handler(ctx context.Context) error {
 		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to get api by method and path")
 		return ctx.ApiServerError()
 	}
+
+	ctx.Map(project)
+	ctx.Map(api)
+
+	middlewares := apibuilder.ParseMiddlewares(api.Middlewares)
+	if len(middlewares) != 0 {
+		for _, mw := range middlewares {
+			mw := mw
+
+			if mw.Type == middleware.TypeMain {
+				ctx.Next()
+			} else {
+				handler, err := middleware.Get(mw.Type, mw.Params)
+				if err != nil {
+					logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to get middleware")
+					return ctx.ApiServerError()
+				}
+
+				_ = handler.Handle(ctx)
+			}
+		}
+	}
+	return nil
+}
+
+func (h publicHandler) Handler(ctx context.Context, project *db.Project, api *db.Api) error {
+	path := "/" + ctx.Param("**")
+	method := ctx.Request().Method
 
 	// Parse query params.
 	queryParams, err := apibuilder.ParseQueryParams(api.QueryParams)
