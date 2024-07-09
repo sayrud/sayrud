@@ -29,7 +29,7 @@ jobs:
       - name: Login to Tencent Cloud container registry
         uses: docker/login-action@v2
         with:
-          registry: ccr.ccs.tencentyun.com
+          registry: hkccr.ccs.tencentyun.com
           username: ${{ secrets.REGISTRY_USERNAME }}
           password: ${{ secrets.REGISTRY_PASSWORD }}
       - name: Build and push images
@@ -41,4 +41,4 @@ jobs:
           build-args: |
             GITHUB_SHA=${{ github.sha }}
           tags: |
-            ccr.ccs.tencentyun.com/qcloud-image/sayrud-server:${{ env.IMAGE_TAG }}
+            hkccr.ccs.tencentyun.com/byte/sayrud-server:${{ env.IMAGE_TAG }}
