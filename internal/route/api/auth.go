@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/go-github/v62/github"
@@ -91,7 +92,7 @@ func (authRoute) GitHubCallback(ctx context.Context) error {
 	githubID := githubUser.GetLogin()
 
 	// Check the email whitelist.
-	if !strings.HasPrefix(email, "@github.red") {
+	if !strings.HasSuffix(email, "@github.red") {
 		return ctx.ApiError(http.StatusUnauthorized, "您的邮箱不在白名单中")
 	}
 
@@ -109,6 +110,7 @@ func (authRoute) GitHubCallback(ctx context.Context) error {
 	jwtSecret := os.Getenv("JWT_SECRET")
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"userUID": user.UID,
+		"exp":     float64(time.Now().Add(7 * 24 * time.Hour).Unix()),
 	})
 	tokenString, err := token.SignedString([]byte(jwtSecret))
 	if err != nil {
