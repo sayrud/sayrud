@@ -30,6 +30,7 @@ type SLTablesStore interface {
 	DeleteByID(ctx context.Context, tableID uint) error
 	CreateView(ctx context.Context, table *SLTable) error
 	ViewCount(ctx context.Context, schemaName, tableName string) (int64, error)
+	SetIncrementIndex(ctx context.Context, tableID uint, index int64) error
 
 	QueryList(ctx context.Context, projectID uint, tableUID string, options QueryListSLTableOptions) ([]map[string]interface{}, int64, error)
 	QueryFirst(ctx context.Context, projectID uint, tableUID string, options QueryFirstSLTableOptions) (map[string]interface{}, error)
@@ -231,6 +232,10 @@ func (db *slTables) ViewCount(ctx context.Context, schemaName, tableName string)
 		return 0, err
 	}
 	return count, nil
+}
+
+func (db *slTables) SetIncrementIndex(ctx context.Context, tableID uint, index int64) error {
+	return db.WithContext(ctx).Model(&SLTable{}).Where("id = ?", tableID).Set("increment_index", index).Error
 }
 
 type QueryListSLTableOptions struct {

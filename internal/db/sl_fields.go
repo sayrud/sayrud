@@ -5,6 +5,7 @@ import (
 	"reflect"
 
 	"github.com/pkg/errors"
+	"github.com/spf13/cast"
 	"gorm.io/gorm"
 
 	"github.com/wuhan005/sayrud/internal/dbutil"
@@ -44,6 +45,8 @@ type SLField struct {
 const OptionsRequired = "required"
 const OptionsIncrementIndex = "increment_index"
 const OptionsDefaultValue = "default"
+const OptionsReferenceUID = "reference_uid"
+const OptionsExpression = "expression"
 
 func (f *SLField) IsRequired() bool {
 	_, ok := f.Options[OptionsRequired]
@@ -53,6 +56,16 @@ func (f *SLField) IsRequired() bool {
 func (f *SLField) IsIncrementIndex() bool {
 	_, ok := f.Options[OptionsIncrementIndex]
 	return ok
+}
+
+func (f *SLField) ReferenceUID() string {
+	v, _ := f.Options[OptionsReferenceUID]
+	return cast.ToString(v)
+}
+
+func (f *SLField) Expression() string {
+	v, _ := f.Options[OptionsExpression]
+	return cast.ToString(v)
 }
 
 func (f *SLField) CheckValue(val interface{}) bool {
@@ -96,6 +109,9 @@ func (db *slFields) Create(ctx context.Context, opts CreateSLFieldOptions) (*SLF
 	// Check the field type.
 	if !opts.Type.Check() {
 		return nil, ErrUnexpectedType
+	}
+	if opts.Options == nil {
+		opts.Options = dbutil.Options{}
 	}
 
 	slField := &SLField{

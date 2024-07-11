@@ -21,8 +21,8 @@ type SLRecordsStore interface {
 	GetView(ctx context.Context, table *SLTable, opts GetViewOptions) ([]map[string]interface{}, int64, error)
 	GetByID(ctx context.Context, slRecordID uint) (*SLRecord, error)
 	GetByUID(ctx context.Context, slRecordUID string) (*SLRecord, error)
-	Create(ctx context.Context, slTableID uint, data map[string]interface{}) (*SLRecord, error)
-	Update(ctx context.Context, slRecordID uint, data map[string]interface{}) error
+	Create(ctx context.Context, slTableID uint, jsonBytes json.RawMessage) (*SLRecord, error)
+	Update(ctx context.Context, slRecordID uint, jsonBytes json.RawMessage) error
 	DeleteByID(ctx context.Context, slRecordID uint) error
 }
 
@@ -97,51 +97,22 @@ func (db *slRecords) getBy(ctx context.Context, where string, args ...interface{
 	return &slRecord, nil
 }
 
-func (db *slRecords) Create(ctx context.Context, slTableID uint, data map[string]interface{}) (*SLRecord, error) {
-	var slRecord *SLRecord
-
-	return slRecord, db.Transaction(func(tx *gorm.DB) error {
-		// Make sure the table exist.
-		var slTable SLTable
-		if err := tx.WithContext(ctx).Model(&SLTable{}).Where("id = ?", slTableID).First(&slTable).Error; err != nil {
-			if errors.Is(err, gorm.ErrRecordNotFound) {
-				return ErrSLTableNotFound
-			}
-			return errors.Wrap(err, "get table")
-		}
-
-		data, err := handleRecordData(ctx, tx, slTable, data)
-		if err != nil {
-			return errors.Wrap(err, "process and validate data")
-		}
-
-		// Ok, now we can encode the data.
-		jsonBytes, err := json.Marshal(data)
-		if err != nil {
-			return errors.Wrap(err, "encode data")
-		}
-
-		slRecord = &SLRecord{
-			SLTableID: slTableID,
-			Data:      jsonBytes,
-		}
-		if err := tx.WithContext(ctx).Create(slRecord).Error; err != nil {
-			return errors.Wrap(err, "create sl_records")
-		}
-		return nil
-	})
+func (db *slRecords) Create(ctx context.Context, slTableID uint, jsonBytes json.RawMessage) (*SLRecord, error) {
+	slRecord := &SLRecord{
+		SLTableID: slTableID,
+		Data:      datatypes.JSON(jsonBytes),
+	}
+	if err := db.WithContext(ctx).Create(slRecord).Error; err != nil {
+		return nil, errors.Wrap(err, "create sl_records")
+	}
+	return slRecord, nil
 }
 
 var ErrSLRecordNotFound = errors.New("sl_record does not exist")
 
-func (db *slRecords) Update(ctx context.Context, slRecordID uint, data map[string]interface{}) error {
+func (db *slRecords) Update(ctx context.Context, slRecordID uint, jsonBytes json.RawMessage) error {
 	if _, err := db.GetByID(ctx, slRecordID); err != nil {
 		return err
-	}
-
-	jsonBytes, err := json.Marshal(data)
-	if err != nil {
-		return errors.Wrap(err, "encode data")
 	}
 
 	return db.WithContext(ctx).Model(&SLRecord{}).Where("id = ?", slRecordID).Updates(map[string]interface{}{
@@ -155,66 +126,4 @@ func (db *slRecords) DeleteByID(ctx context.Context, slRecordID uint) error {
 	}
 
 	return db.WithContext(ctx).Model(&SLRecord{}).Delete(&SLRecord{}, slRecordID).Error
-}
-
-var ErrMissingRequiredField = errors.New("missing required field")
-var ErrFieldTypeMismatch = errors.New("field type mismatch")
-
-// handleRecordData validate the data type, check if the required field exist, set default value to the field.
-func handleRecordData(ctx context.Context, db *gorm.DB, slTable SLTable, data map[string]interface{}) (map[string]interface{}, error) {
-	// Get table fields.
-	var slFields []*SLField
-	if err := db.WithContext(ctx).Model(&SLField{}).Where("sl_table_id = ?", slTable.ID).Find(&slFields).Error; err != nil {
-		return nil, errors.Wrap(err, "get table fields")
-	}
-
-	var incrementIndexFlag bool
-
-	// Validate the input data fields.
-	for _, field := range slFields {
-		field := field
-
-		if field.Type.IsGeneratedValue() {
-			// The generated value has been set, skip the validation.
-			continue
-		}
-
-		val, ok := data[field.UID]
-		if !ok {
-			// Check if the field is a required field.
-			if field.IsRequired() {
-				return nil, ErrMissingRequiredField
-			}
-			// If the filed has default value, set it for this missing field.
-			defaultValue, ok := field.Options[OptionsDefaultValue]
-			if ok {
-				data[field.UID] = defaultValue
-			}
-			// Set auto increment field value,
-			// also set the incrementIndexFlag to ture, to make sure the increment index will be increased after the operation.
-			if field.Type == IntFieldType && field.IsIncrementIndex() {
-				data[field.UID] = slTable.IncrementIndex + 1
-				incrementIndexFlag = true
-			}
-		} else {
-			if val == nil {
-				if field.IsRequired() {
-					return nil, ErrMissingRequiredField
-				}
-			} else {
-				// Check if the field type match with the value.
-				if !field.CheckValue(val) {
-					return nil, ErrFieldTypeMismatch
-				}
-			}
-		}
-	}
-
-	if incrementIndexFlag {
-		if err := db.WithContext(ctx).Model(&SLTable{}).Where("id = ?", slTable.ID).Set("increment_index", slTable.IncrementIndex+1).Error; err != nil {
-			return nil, errors.Wrap(err, "add increment index")
-		}
-	}
-
-	return data, nil
 }

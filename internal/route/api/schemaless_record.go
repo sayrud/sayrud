@@ -5,14 +5,18 @@
 package api
 
 import (
+	"encoding/json"
 	"net/http"
 
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
+	"gorm.io/gorm"
 
 	"github.com/wuhan005/sayrud/internal/context"
 	"github.com/wuhan005/sayrud/internal/db"
+	"github.com/wuhan005/sayrud/internal/dbutil"
 	"github.com/wuhan005/sayrud/internal/form"
+	"github.com/wuhan005/sayrud/internal/jsvm"
 )
 
 func (schemalessRoute) Recorder(ctx context.Context, table *db.SLTable) error {
@@ -53,16 +57,150 @@ func (schemalessRoute) GetRecord(ctx context.Context, record *db.SLRecord) error
 	return ctx.ApiSuccess(record)
 }
 
-func (schemalessRoute) CreateRecord(ctx context.Context, table *db.SLTable, f form.CreateRecord) error {
-	tableID := table.ID
+var ErrMissingRequiredField = errors.New("missing required field")
+var ErrFieldTypeMismatch = errors.New("field type mismatch")
 
-	slRecord, err := db.SLRecords.Create(ctx.Request().Context(), tableID, f.Data)
-	if err != nil {
-		if errors.Is(err, db.ErrMissingRequiredField) {
+func (schemalessRoute) CreateRecord(ctx context.Context, t *db.SLTable, tx dbutil.Transactor, f form.CreateRecord) error {
+	tableID := t.ID
+	data := f.Data
+
+	var slRecord *db.SLRecord
+	if err := tx.Transaction(func(tx *gorm.DB) error {
+		slTablesStore := db.NewSLTablesStore(tx)
+		slFieldsStore := db.NewSLFieldsStore(tx)
+		slRecordsStore := db.NewSLRecordsStore(tx)
+
+		table, err := db.SLTables.GetByID(ctx.Request().Context(), tableID)
+		if err != nil {
+			return errors.Wrap(err, "get table by id")
+		}
+
+		// Get table fields.
+		slFields, err := slFieldsStore.GetByTableID(ctx.Request().Context(), tableID)
+		if err != nil {
+			return errors.Wrap(err, "get fields by table id")
+		}
+
+		var incrementIndexFlag bool
+		var hasGeneratedField bool
+		// Validate the input data fields.
+		for _, field := range slFields {
+			field := field
+
+			if field.Type.IsGeneratedValue() {
+				// The generated value has been set, skip the validation.
+				switch field.Type {
+				case db.ReferenceFieldType:
+					referenceUID := field.ReferenceUID()
+					// Make sure the reference field is in the current table.
+					referenceRecord, err := db.SLRecords.GetByUID(ctx.Request().Context(), referenceUID)
+					if err != nil {
+						return errors.Wrap(err, "get reference record")
+					}
+					if referenceRecord.SLTableID != tableID {
+						return db.ErrSLRecordNotFound
+					}
+					data[field.UID] = referenceUID
+
+				case db.GeneratedFieldType:
+					// We should set the reference field value after the other fields' value has been set.
+					hasGeneratedField = true
+
+				}
+				continue
+			}
+
+			val, ok := data[field.UID]
+			if !ok {
+				// Check if the field is a required field.
+				if field.IsRequired() {
+					return ErrMissingRequiredField
+				}
+				// If the filed has default value, set it for this missing field.
+				defaultValue, ok := field.Options[db.OptionsDefaultValue]
+				if ok {
+					data[field.UID] = defaultValue
+				}
+				// Set auto increment field value,
+				// also set the incrementIndexFlag to ture, to make sure the increment index will be increased after the operation.
+				if field.Type == db.IntFieldType && field.IsIncrementIndex() {
+					data[field.UID] = table.IncrementIndex + 1
+					incrementIndexFlag = true
+				}
+			} else {
+				if val == nil {
+					if field.IsRequired() {
+						return ErrMissingRequiredField
+					}
+				} else {
+					// Check if the field type match with the value.
+					if !field.CheckValue(val) {
+						return ErrFieldTypeMismatch
+					}
+				}
+			}
+		}
+
+		// Set the generated field value as last.
+		if hasGeneratedField {
+			// UID->Value to Name->Value
+			fieldValues := make(map[string]interface{})
+			for _, field := range slFields {
+				if field.Type == db.GeneratedFieldType {
+					continue
+				}
+				fieldValues[field.Name] = data[field.UID]
+			}
+
+			vm, err := jsvm.NewVM(jsvm.NewVMOptions{
+				FieldValues: fieldValues,
+			})
+			if err != nil {
+				return errors.Wrap(err, "new jsvm")
+			}
+
+			for _, field := range slFields {
+				field := field
+				if field.Type != db.GeneratedFieldType {
+					continue
+				}
+
+				expression := field.Expression()
+				result, err := vm.RunString(expression)
+				if err != nil {
+					return errors.Wrap(err, "run expression")
+				}
+				data[field.UID] = result.Export()
+			}
+		}
+
+		if incrementIndexFlag {
+			if err := slTablesStore.SetIncrementIndex(ctx.Request().Context(), tableID, table.IncrementIndex+1); err != nil {
+				return errors.Wrap(err, "set increment index")
+			}
+		}
+
+		// Ok, now we can encode the data.
+		jsonBytes, err := json.Marshal(data)
+		if err != nil {
+			return errors.Wrap(err, "encode data")
+		}
+
+		slRecord, err = slRecordsStore.Create(ctx.Request().Context(), tableID, jsonBytes)
+		if err != nil {
+			return errors.Wrap(err, "create sl records")
+		}
+
+		return nil
+	}); err != nil {
+		if errors.Is(err, ErrMissingRequiredField) {
 			return ctx.ApiError(http.StatusBadRequest, "缺少必填字段")
 		}
-		if errors.Is(err, db.ErrFieldTypeMismatch) {
+		if errors.Is(err, ErrFieldTypeMismatch) {
 			return ctx.ApiError(http.StatusBadRequest, "字段类型不匹配")
+		}
+		if errors.Is(err, db.ErrSLRecordNotFound) {
+			return ctx.ApiError(http.StatusBadRequest, "引用字段不存在")
 		}
 		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to create sl record")
 		return ctx.ApiServerError()
@@ -72,12 +210,20 @@ func (schemalessRoute) CreateRecord(ctx context.Context, table *db.SLTable, f fo
 
 func (schemalessRoute) UpdateRecord(ctx context.Context, record *db.SLRecord, f form.UpdateRecord) error {
 	recordID := record.ID
+	data := f.Data
 
-	if err := db.SLRecords.Update(ctx.Request().Context(), recordID, f.Data); err != nil {
-		if errors.Is(err, db.ErrMissingRequiredField) {
+	// TODO Validate
+
+	jsonBytes, err := json.Marshal(data)
+	if err != nil {
+		return errors.Wrap(err, "encode data")
+	}
+
+	if err := db.SLRecords.Update(ctx.Request().Context(), recordID, jsonBytes); err != nil {
+		if errors.Is(err, ErrMissingRequiredField) {
 			return ctx.ApiError(http.StatusBadRequest, "缺少必填字段")
 		}
-		if errors.Is(err, db.ErrFieldTypeMismatch) {
+		if errors.Is(err, ErrFieldTypeMismatch) {
 			return ctx.ApiError(http.StatusBadRequest, "字段类型不匹配")
 		}
 		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to update sl record")

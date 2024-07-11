@@ -7,6 +7,8 @@ export enum FieldType {
     FLOAT = 'float',
     TIMESTAMP = 'timestamp',
     DATE = 'date',
+    REFERENCE = 'reference',
+    GENERATED = 'generated'
 }
 
 export interface Field {
@@ -24,10 +26,11 @@ export function listFields(projectUID: string, tableUID: string) {
 
 export interface CreateFieldReq {
     fields: {
+        uid?: string;
         name: string;
         label: string;
         type: FieldType;
-        options: object;
+        options: Record<string, any>;
     }[]
 }
 
@@ -45,7 +48,7 @@ export interface UpdateFieldReq {
         name: string;
         label: string;
         type: FieldType;
-        options: object;
+        options: Record<string, any>;
         position: number;
     }[]
 }

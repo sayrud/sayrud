@@ -58,6 +58,13 @@
       <template #no="{rowIndex}">
         {{ rowIndex + 1 }}
       </template>
+      <template #options="{row}">
+        <t-space v-if="row.options">
+          <t-tag v-for="k in Object.keys(row.options)">
+            {{ k }} : {{ row.options[k] }}
+          </t-tag>
+        </t-space>
+      </template>
       <template #createdAt="{row}">
         {{ dayjs(row.createdAt).format('YYYY-MM-DD HH:mm:ss') }}
       </template>
@@ -115,6 +122,20 @@
               <t-select v-model="fieldFormData.fields[0].type">
                 <t-option v-for="type in Object.values(FieldType)" :key="type" :value="type">{{ type }}</t-option>
               </t-select>
+            </t-form-item>
+            <!-- REFERENCE -->
+            <t-form-item v-if="fieldFormData.fields[0].type === FieldType.REFERENCE" label="引用列"
+                         name="options.reference">
+              <t-select v-model="fieldFormData.fields[0].options['reference']">
+                <t-option v-for="field in fields.filter(f => f.uid !== fieldFormData.fields[0].uid)" :key="field.uid"
+                          :value="field.uid" :label="field.label">
+                </t-option>
+              </t-select>
+            </t-form-item>
+            <!-- GENERATED -->
+            <t-form-item v-if="fieldFormData.fields[0].type === FieldType.GENERATED" label="表达式"
+                         name="options.expression">
+              <t-input v-model="fieldFormData.fields[0].options['expression']"></t-input>
             </t-form-item>
           </div>
 
@@ -178,8 +199,9 @@ const COLUMNS: PrimaryTableCol<TableRowData>[] = [
   {colKey: 'no', title: '序号', width: 80},
   {colKey: 'name', title: '字段名'},
   {colKey: 'label', title: '标签'},
-  {colKey: 'type', title: '类型'},
-  {colKey: 'ops', title: '操作'},
+  {colKey: 'type', title: '类型', width: 150},
+  {colKey: 'options', title: '选项'},
+  {colKey: 'ops', title: '操作', width: 200},
 ]
 const refreshFields = () => {
   isLoading.value = true

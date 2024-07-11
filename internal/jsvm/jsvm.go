@@ -7,6 +7,8 @@ package jsvm
 import (
 	"github.com/dop251/goja"
 	"github.com/pkg/errors"
+
+	"github.com/wuhan005/sayrud/internal/jsvm/module"
 )
 
 type NewVMOptions struct {
@@ -14,35 +16,50 @@ type NewVMOptions struct {
 	RequestPath   string
 	RequestQuery  map[string]interface{}
 	RequestBody   map[string]interface{}
+
+	FieldValues map[string]interface{}
 }
 
 func NewVM(options NewVMOptions) (*goja.Runtime, error) {
 	vm := goja.New()
 
-	request := vm.NewObject()
-	for k, v := range map[string]interface{}{
-		"method": options.RequestMethod,
-		"path":   options.RequestPath,
-		"query":  options.RequestQuery,
-		"body":   options.RequestBody,
-	} {
-		if params, ok := v.(map[string]interface{}); ok {
-			obj := vm.NewObject()
-			for pk, pv := range params {
-				if err := obj.Set(pk, pv); err != nil {
-					return nil, errors.Wrap(err, "set request params")
+	if options.RequestMethod != "" && options.RequestPath != "" {
+		request := vm.NewObject()
+		for k, v := range map[string]interface{}{
+			"method": options.RequestMethod,
+			"path":   options.RequestPath,
+			"query":  options.RequestQuery,
+			"body":   options.RequestBody,
+		} {
+			if params, ok := v.(map[string]interface{}); ok {
+				obj := vm.NewObject()
+				for pk, pv := range params {
+					if err := obj.Set(pk, pv); err != nil {
+						return nil, errors.Wrap(err, "set request params")
+					}
 				}
+				v = obj
 			}
-			v = obj
-		}
 
-		if err := request.Set(k, v); err != nil {
-			return nil, err
+			if err := request.Set(k, v); err != nil {
+				return nil, err
+			}
+		}
+		if err := vm.Set("$request", request); err != nil {
+			return nil, errors.Wrap(err, "set $request")
 		}
 	}
-	if err := vm.Set("$request", request); err != nil {
-		return nil, errors.Wrap(err, "set $request")
+
+	if len(options.FieldValues) > 0 {
+		for k, v := range options.FieldValues {
+			if err := vm.Set(k, v); err != nil {
+				return nil, errors.Wrap(err, "set field values")
+			}
+		}
 	}
+
+	module.SetHash(vm)
+	module.SetString(vm)
 
 	return vm, nil
 }
