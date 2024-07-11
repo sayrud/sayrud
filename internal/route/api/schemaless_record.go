@@ -59,6 +59,7 @@ func (schemalessRoute) GetRecord(ctx context.Context, record *db.SLRecord) error
 
 var ErrMissingRequiredField = errors.New("missing required field")
 var ErrFieldTypeMismatch = errors.New("field type mismatch")
+var ErrExpressionError = errors.New("expression error")
 
 func (schemalessRoute) CreateRecord(ctx context.Context, t *db.SLTable, tx dbutil.Transactor, f form.CreateRecord) error {
 	tableID := t.ID
@@ -168,7 +169,7 @@ func (schemalessRoute) CreateRecord(ctx context.Context, t *db.SLTable, tx dbuti
 				expression := field.Expression()
 				result, err := vm.RunString(expression)
 				if err != nil {
-					return errors.Wrap(err, "run expression")
+					return ErrExpressionError
 				}
 				data[field.UID] = result.Export()
 			}
@@ -193,17 +194,19 @@ func (schemalessRoute) CreateRecord(ctx context.Context, t *db.SLTable, tx dbuti
 
 		return nil
 	}); err != nil {
-		if errors.Is(err, ErrMissingRequiredField) {
+		switch {
+		case errors.Is(err, ErrMissingRequiredField):
 			return ctx.ApiError(http.StatusBadRequest, "缺少必填字段")
-		}
-		if errors.Is(err, ErrFieldTypeMismatch) {
+		case errors.Is(err, ErrFieldTypeMismatch):
 			return ctx.ApiError(http.StatusBadRequest, "字段类型不匹配")
-		}
-		if errors.Is(err, db.ErrSLRecordNotFound) {
+		case errors.Is(err, db.ErrSLRecordNotFound):
 			return ctx.ApiError(http.StatusBadRequest, "引用字段不存在")
+		case errors.Is(err, ErrExpressionError):
+			return ctx.ApiError(http.StatusBadRequest, "表达式错误")
+		default:
+			logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to create sl record")
+			return ctx.ApiServerError()
 		}
-		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to create sl record")
-		return ctx.ApiServerError()
 	}
 	return ctx.ApiSuccess(slRecord)
 }

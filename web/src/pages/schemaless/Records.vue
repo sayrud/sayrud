@@ -49,7 +49,8 @@
   <t-drawer v-model:visible="recordDrawerVisible" :header="formMode === 'create' ? '新建记录' : '修改记录'"
             size="medium" @confirm="onSubmit">
     <t-space direction="vertical" size="large" style="width: 100%" v-if="recordDrawerVisible">
-      <t-space direction="vertical" :size="0" style="width: 100%" v-for="field in tableFields" v-bind:key="field.uid">
+      <t-space direction="vertical" :size="0" style="width: 100%"
+               v-for="field in tableFields.filter(f => f.type !== FieldType.GENERATED)" v-bind:key="field.uid">
         <div style="font-weight: 600; margin-bottom: 5px;">{{ field.label }}</div>
         <t-input v-if="field.type === FieldType.TEXT" v-model="recordFormData.data[field.uid]"
                  :placeholder="`请输入${field.label}`"/>

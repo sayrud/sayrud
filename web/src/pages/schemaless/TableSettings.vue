@@ -58,6 +58,9 @@
       <template #no="{rowIndex}">
         {{ rowIndex + 1 }}
       </template>
+      <template #type="{row}">
+        {{ FieldTypeLabels[row.type] }}
+      </template>
       <template #options="{row}">
         <t-space v-if="row.options">
           <t-tag v-for="k in Object.keys(row.options)">
@@ -95,7 +98,8 @@
               <t-space>
                 <t-input v-model="fieldFormData.fields[index].name" placeholder="字段名"></t-input>
                 <t-select v-model="fieldFormData.fields[index].type">
-                  <t-option v-for="type in Object.values(FieldType)" :key="type" :value="type">{{ type }}</t-option>
+                  <t-option v-for="type in Object.values(FieldType)" :key="type" :value="type"
+                            :label="FieldTypeLabels[type]"></t-option>
                 </t-select>
                 <t-input v-model="fieldFormData.fields[index].label" placeholder="标签"></t-input>
               </t-space>
@@ -120,7 +124,8 @@
             </t-form-item>
             <t-form-item v-for="(_, index) in fieldFormData.fields" :key="index" label="字段类型" name="type">
               <t-select v-model="fieldFormData.fields[0].type">
-                <t-option v-for="type in Object.values(FieldType)" :key="type" :value="type">{{ type }}</t-option>
+                <t-option v-for="type in Object.values(FieldType)" :key="type" :value="type"
+                          :label="FieldTypeLabels[type]"></t-option>
               </t-select>
             </t-form-item>
             <!-- REFERENCE -->
@@ -160,7 +165,7 @@ import {
   listFields,
   type UpdateFieldReq,
   createFields,
-  updateFields
+  updateFields, FieldTypeLabels
 } from "@/api/schemalessField.ts";
 import {MoveIcon} from 'tdesign-icons-vue-next';
 
@@ -199,7 +204,7 @@ const COLUMNS: PrimaryTableCol<TableRowData>[] = [
   {colKey: 'no', title: '序号', width: 80},
   {colKey: 'name', title: '字段名'},
   {colKey: 'label', title: '标签'},
-  {colKey: 'type', title: '类型', width: 150},
+  {colKey: 'type', title: '类型', width: 100},
   {colKey: 'options', title: '选项'},
   {colKey: 'ops', title: '操作', width: 200},
 ]

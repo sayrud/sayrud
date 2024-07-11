@@ -11,6 +11,17 @@ export enum FieldType {
     GENERATED = 'generated'
 }
 
+export const FieldTypeLabels: Record<string, string> = {
+    'int': '整数',
+    'text': '文本',
+    'bool': '布尔',
+    'float': '小数',
+    'timestamp': '时间',
+    'date': '日期',
+    'reference': '引用',
+    'generated': '表达式'
+}
+
 export interface Field {
     uid: string;
     name: string;
