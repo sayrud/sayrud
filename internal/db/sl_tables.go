@@ -178,6 +178,7 @@ func (db *slTables) CreateView(ctx context.Context, table *SLTable) error {
 			escape.Escape(`sl_records.created_at AS _created_at`),
 		}
 		for _, field := range fields {
+			// Normal value types.
 			recordValueQuery := escape.Escape("(sl_records.data ->> %L::text)", field.UID)
 
 			switch field.Type {
@@ -189,8 +190,19 @@ func (db *slTables) CreateView(ctx context.Context, table *SLTable) error {
 				recordValueQuery += escape.Escape(`::BOOLEAN AS %I`, field.Name)
 			case FloatFieldType:
 				recordValueQuery += escape.Escape(`::DOUBLE PRECISION AS %I`, field.Name)
+			case TimestampFieldType:
+				recordValueQuery += escape.Escape(`::TIMESTAMP WITHOUT TIME ZONE AS %I`, field.Name)
+			case DateFieldType:
+				recordValueQuery += escape.Escape(`::DATE AS %I`, field.Name)
+			case ReferenceFieldType:
+				// The value is the UID of the referenced record.
+				recordValueQuery += escape.Escape(`::TEXT AS %I`, field.Name)
+			case GeneratedFieldType:
+				// The value is the jsvm expression.
+				recordValueQuery += escape.Escape(`::TEXT AS %I`, field.Name)
 			}
 			fieldsDefinition = append(fieldsDefinition, recordValueQuery)
+
 		}
 
 		tableIDStr := cast.ToString(tableID)

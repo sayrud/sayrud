@@ -174,6 +174,11 @@ func handleRecordData(ctx context.Context, db *gorm.DB, slTable SLTable, data ma
 	for _, field := range slFields {
 		field := field
 
+		if field.Type.IsGeneratedValue() {
+			// The generated value has been set, skip the validation.
+			continue
+		}
+
 		val, ok := data[field.UID]
 		if !ok {
 			// Check if the field is a required field.
@@ -202,7 +207,6 @@ func handleRecordData(ctx context.Context, db *gorm.DB, slTable SLTable, data ma
 					return nil, ErrFieldTypeMismatch
 				}
 			}
-
 		}
 	}
 

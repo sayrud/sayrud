@@ -56,6 +56,10 @@ func (f *SLField) IsIncrementIndex() bool {
 }
 
 func (f *SLField) CheckValue(val interface{}) bool {
+	if f.Type.IsGeneratedValue() {
+		return true
+	}
+
 	kind := reflect.TypeOf(val).Kind()
 	_, ok := internalKindMatch[kind]
 	return ok

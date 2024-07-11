@@ -2,6 +2,8 @@ package db
 
 import (
 	"reflect"
+
+	"github.com/samber/lo"
 )
 
 const (
@@ -11,6 +13,8 @@ const (
 	FloatFieldType     SLFieldType = "float"
 	TimestampFieldType SLFieldType = "timestamp"
 	DateFieldType      SLFieldType = "date"
+	ReferenceFieldType SLFieldType = "reference"
+	GeneratedFieldType SLFieldType = "generated"
 )
 
 var FieldTypes = []SLFieldType{
@@ -20,6 +24,8 @@ var FieldTypes = []SLFieldType{
 	FloatFieldType,
 	TimestampFieldType,
 	DateFieldType,
+	ReferenceFieldType,
+	GeneratedFieldType,
 }
 
 func (t SLFieldType) Label() string {
@@ -36,6 +42,10 @@ func (t SLFieldType) Label() string {
 		return "时间戳"
 	case DateFieldType:
 		return "日期"
+	case ReferenceFieldType:
+		return "引用"
+	case GeneratedFieldType:
+		return "生成"
 	default:
 		return "未知类型"
 	}
@@ -62,10 +72,9 @@ var internalKindMatch = map[reflect.Kind]SLFieldType{
 type SLFieldType string
 
 func (t SLFieldType) Check() bool {
-	switch t {
-	case IntFieldType, BoolFieldType, TextFieldType, FloatFieldType, TimestampFieldType, DateFieldType:
-		return true
-	default:
-		return false
-	}
+	return lo.Contains(FieldTypes, t)
+}
+
+func (t SLFieldType) IsGeneratedValue() bool {
+	return t == ReferenceFieldType || t == GeneratedFieldType
 }
