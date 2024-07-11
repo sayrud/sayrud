@@ -110,9 +110,6 @@ func (db *slFields) Create(ctx context.Context, opts CreateSLFieldOptions) (*SLF
 	if !opts.Type.Check() {
 		return nil, ErrUnexpectedType
 	}
-	if opts.Options == nil {
-		opts.Options = dbutil.Options{}
-	}
 
 	slField := &SLField{
 		SLTableID: opts.SLTableID,
@@ -169,6 +166,11 @@ func (db *slFields) Update(ctx context.Context, fieldID uint, opts UpdateSLField
 	_, err := db.GetByID(ctx, fieldID)
 	if err != nil {
 		return errors.Wrap(err, "get by id")
+	}
+
+	// Check the field type.
+	if !opts.Type.Check() {
+		return ErrUnexpectedType
 	}
 
 	if err := db.WithContext(ctx).Model(&SLField{}).Where("id = ?", fieldID).Updates(map[string]interface{}{

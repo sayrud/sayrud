@@ -73,7 +73,7 @@ func (Options) GormDBDataType(db *gorm.DB, field *schema.Field) string {
 
 func (o Options) GormValue(ctx context.Context, db *gorm.DB) clause.Expr {
 	if len(o) == 0 {
-		return gorm.Expr("NULL")
+		return gorm.Expr("'{}'")
 	}
 
 	data, _ := json.Marshal(o)
