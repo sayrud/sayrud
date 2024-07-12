@@ -203,8 +203,9 @@ func (db *slTables) CreateView(ctx context.Context, table *SLTable) error {
 			case DateFieldType:
 				recordValueQuery += escape.Escape(`::DATE AS %I`, field.Name)
 			case ReferenceFieldType:
-				// The value is the UID of the referenced record.
-				recordValueQuery += escape.Escape(`::TEXT AS %I`, field.Name)
+				// The value is the {"u": "<reference_record_uid>", "v": "<reference_record_value>"}
+				recordValueQuery = escape.Escape(`(json_build_object('u', sl_records.data ->> %L, 'v', (SELECT JOINED_RECORDS.data ->> %L FROM public.sl_records AS JOINED_RECORDS WHERE uid = ((sl_records.data ->> %L)::text))))::JSONB AS %I`,
+					field.UID, field.ReferenceFieldUID(), field.UID, field.Name)
 			case GeneratedFieldType:
 				expression := field.Expression()
 				expression, err := sqlutil.SterilizeExpression(ctx, expression, fieldNameUIDs)
