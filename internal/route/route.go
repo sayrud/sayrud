@@ -70,6 +70,7 @@ func New(db *gorm.DB) *flamego.Flame {
 							f.Combo("").
 								Get(api.Schemaless.ListRecords).
 								Post(form.Bind(form.CreateRecord{}), api.Schemaless.CreateRecord)
+							f.Get("/query", api.Schemaless.QueryRecords)
 							f.Group("/{recordUID}", func() {
 								f.Combo("").
 									Get(api.Schemaless.GetRecord).

@@ -27,7 +27,7 @@ export interface Field {
     name: string;
     label: string;
     type: FieldType;
-    options: object;
+    options: Record<string, any>;
     position: number;
 }
 

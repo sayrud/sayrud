@@ -64,7 +64,9 @@
       <template #options="{row}">
         <t-space v-if="row.options">
           <t-tag v-for="k in Object.keys(row.options)">
-            {{ k }} : {{ row.options[k] }}
+            {{ k }} : {{
+              k === 'reference_field_uid' ? fields.filter(f => f.uid === row.options[k])[0].name : row.options[k]
+            }}
           </t-tag>
         </t-space>
       </template>
@@ -131,7 +133,7 @@
             <!-- REFERENCE -->
             <t-form-item v-if="fieldFormData.fields[0].type === FieldType.REFERENCE" label="引用列"
                          name="options.reference">
-              <t-select v-model="fieldFormData.fields[0].options['reference']">
+              <t-select v-model="fieldFormData.fields[0].options['reference_field_uid']">
                 <t-option v-for="field in fields.filter(f => f.uid !== fieldFormData.fields[0].uid)" :key="field.uid"
                           :value="field.uid" :label="field.label">
                 </t-option>

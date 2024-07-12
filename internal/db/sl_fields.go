@@ -45,7 +45,7 @@ type SLField struct {
 const OptionsRequired = "required"
 const OptionsIncrementIndex = "increment_index"
 const OptionsDefaultValue = "default"
-const OptionsReferenceUID = "reference_uid"
+const OptionsReferenceFieldUID = "reference_field_uid"
 const OptionsExpression = "expression"
 
 func (f *SLField) IsRequired() bool {
@@ -58,8 +58,8 @@ func (f *SLField) IsIncrementIndex() bool {
 	return ok
 }
 
-func (f *SLField) ReferenceUID() string {
-	v, _ := f.Options[OptionsReferenceUID]
+func (f *SLField) ReferenceFieldUID() string {
+	v, _ := f.Options[OptionsReferenceFieldUID]
 	return cast.ToString(v)
 }
 

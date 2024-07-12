@@ -62,6 +62,9 @@
                        :placeholder="`请选择${field.label}`"></t-time-picker>
         <t-date-picker v-else-if="field.type === FieldType.TIMESTAMP"
                        v-model="recordFormData.data[field.uid]"></t-date-picker>
+        <t-select v-else-if="field.type === FieldType.REFERENCE" v-model="recordFormData.data[field.uid]" filterable
+                  :options="searchRecordOptions"
+                  @search="(kw: string) => {queryRecords(field.options['reference_field_uid'] as string, kw)}"></t-select>
       </t-space>
     </t-space>
   </t-drawer>
@@ -79,7 +82,8 @@ import {
   type Record,
   type UpdateRecordReq,
   createRecord,
-  updateRecord
+  updateRecord,
+  queryRecord
 } from "@/api/schemalessRecord";
 import {AddIcon, Table1Icon} from 'tdesign-icons-vue-next';
 import dayjs from "dayjs";
@@ -142,6 +146,15 @@ const getRecords = () => {
   })
 
   getTableFields()
+}
+
+const searchRecordOptions = ref<{ value: string; label: string }[]>([])
+const queryRecords = (fieldUID: string, keyword: string) => {
+  queryRecord(projectUID, currentTableUID.value, fieldUID, keyword).then(res => {
+    searchRecordOptions.value = res.map(record => {
+      return {value: record.uid, label: record.data[fieldUID]}
+    })
+  })
 }
 
 const formMode = ref<'create' | 'update'>('create')

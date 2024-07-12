@@ -3,6 +3,8 @@ package db
 import (
 	"context"
 	"encoding/json"
+	"fmt"
+	"strings"
 
 	"github.com/pkg/errors"
 	escape "github.com/tj/go-pg-escape"
@@ -21,6 +23,7 @@ type SLRecordsStore interface {
 	GetView(ctx context.Context, table *SLTable, opts GetViewOptions) ([]map[string]interface{}, int64, error)
 	GetByID(ctx context.Context, slRecordID uint) (*SLRecord, error)
 	GetByUID(ctx context.Context, slRecordUID string) (*SLRecord, error)
+	Query(ctx context.Context, slTableID uint, options QuerySLRecordsOptions) ([]*SLRecord, error)
 	Create(ctx context.Context, slTableID uint, jsonBytes json.RawMessage) (*SLRecord, error)
 	Update(ctx context.Context, slRecordID uint, jsonBytes json.RawMessage) error
 	DeleteByID(ctx context.Context, slRecordID uint) error
@@ -84,6 +87,27 @@ func (db *slRecords) GetByID(ctx context.Context, slRecordID uint) (*SLRecord, e
 
 func (db *slRecords) GetByUID(ctx context.Context, slRecordUID string) (*SLRecord, error) {
 	return db.getBy(ctx, "uid = ?", slRecordUID)
+}
+
+type QuerySLRecordsOptions struct {
+	FieldUID   string
+	FieldValue string
+}
+
+func (db *slRecords) Query(ctx context.Context, slTableID uint, options QuerySLRecordsOptions) ([]*SLRecord, error) {
+	var slRecords []*SLRecord
+	fieldUID := strings.TrimSpace(options.FieldUID)
+	fieldValue := "%" + options.FieldValue + "%"
+
+	var field SLField
+	if err := db.WithContext(ctx).Model(&SLField{}).Where("sl_table_id = ? AND uid = ?", slTableID, fieldUID).First(&field).Error; err != nil {
+		return nil, errors.Wrap(err, "get field")
+	}
+
+	if err := db.WithContext(ctx).Model(&SLRecord{}).Where(fmt.Sprintf("sl_table_id = ? AND data->>'%s' LIKE ?", escape.Escape(field.UID)), slTableID, fieldValue).Find(&slRecords).Error; err != nil {
+		return nil, errors.Wrap(err, "find")
+	}
+	return slRecords, nil
 }
 
 func (db *slRecords) getBy(ctx context.Context, where string, args ...interface{}) (*SLRecord, error) {

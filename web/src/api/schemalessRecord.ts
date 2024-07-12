@@ -2,7 +2,7 @@ import axios from 'axios';
 
 export interface Record {
     uid: string;
-    data: { [key: number]: any };
+    data: { [key: string]: any };
 }
 
 export interface ListRecordResp {
@@ -12,6 +12,15 @@ export interface ListRecordResp {
 
 export function listRecord(projectUID: string, tableUID: string, params: { page?: number, pageSize?: number }) {
     return axios.get<ListRecordResp, ListRecordResp>(`/projects/${projectUID}/tables/${tableUID}/records`, {params});
+}
+
+export function queryRecord(projectUID: string, tableUID: string, fieldUID: string, fieldValue: string) {
+    return axios.get<Record[], Record[]>(`/projects/${projectUID}/tables/${tableUID}/records/query`, {
+        params: {
+            fieldUID,
+            fieldValue
+        }
+    });
 }
 
 export function getRecord(projectUID: string, tableUID: string, recordUID: string) {

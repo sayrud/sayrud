@@ -10,6 +10,7 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
+	"github.com/spf13/cast"
 	"gorm.io/gorm"
 
 	"github.com/wuhan005/sayrud/internal/context"
@@ -53,6 +54,22 @@ func (schemalessRoute) ListRecords(ctx context.Context, table *db.SLTable) error
 	})
 }
 
+func (schemalessRoute) QueryRecords(ctx context.Context, table *db.SLTable) error {
+	slRecords, err := db.SLRecords.Query(ctx.Request().Context(), table.ID, db.QuerySLRecordsOptions{
+		FieldUID:   ctx.Query("fieldUID"),
+		FieldValue: ctx.Query("fieldValue"),
+	})
+	if err != nil {
+		if errors.Is(err, db.ErrSLFieldNotFound) {
+			return ctx.ApiError(http.StatusBadRequest, "字段不存在")
+		}
+		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to query sl records")
+		return ctx.ApiServerError()
+	}
+
+	return ctx.ApiSuccess(slRecords)
+}
+
 func (schemalessRoute) GetRecord(ctx context.Context, record *db.SLRecord) error {
 	return ctx.ApiSuccess(record)
 }
@@ -88,26 +105,9 @@ func (schemalessRoute) CreateRecord(ctx context.Context, t *db.SLTable, tx dbuti
 		for _, field := range slFields {
 			field := field
 
-			if field.Type.IsGeneratedValue() {
-				// The generated value has been set, skip the validation.
-				switch field.Type {
-				case db.ReferenceFieldType:
-					referenceUID := field.ReferenceUID()
-					// Make sure the reference field is in the current table.
-					referenceRecord, err := db.SLRecords.GetByUID(ctx.Request().Context(), referenceUID)
-					if err != nil {
-						return errors.Wrap(err, "get reference record")
-					}
-					if referenceRecord.SLTableID != tableID {
-						return db.ErrSLRecordNotFound
-					}
-					data[field.UID] = referenceUID
-
-				case db.GeneratedFieldType:
-					// We should set the reference field value after the other fields' value has been set.
-					hasGeneratedField = true
-
-				}
+			if field.Type == db.GeneratedFieldType {
+				// We should set the reference field value after the other fields' value has been set.
+				hasGeneratedField = true
 				continue
 			}
 
@@ -138,6 +138,28 @@ func (schemalessRoute) CreateRecord(ctx context.Context, t *db.SLTable, tx dbuti
 					if !field.CheckValue(val) {
 						return ErrFieldTypeMismatch
 					}
+				}
+			}
+
+			if field.Type == db.ReferenceFieldType {
+				referenceFieldUID := field.ReferenceFieldUID()
+				// Make sure the reference field is in the current table.
+				referenceField, err := slFieldsStore.GetByUID(ctx.Request().Context(), referenceFieldUID)
+				if err != nil {
+					return errors.Wrap(err, "get reference field")
+				}
+				if referenceField.SLTableID != tableID {
+					return db.ErrSLFieldNotFound
+				}
+
+				// Check the reference field record exists.
+				recordUID := cast.ToString(val)
+				record, err := slRecordsStore.GetByUID(ctx.Request().Context(), recordUID)
+				if err != nil {
+					return errors.Wrap(err, "get reference record")
+				}
+				if record.SLTableID != referenceField.SLTableID {
+					return db.ErrSLRecordNotFound
 				}
 			}
 		}
@@ -199,8 +221,10 @@ func (schemalessRoute) CreateRecord(ctx context.Context, t *db.SLTable, tx dbuti
 			return ctx.ApiError(http.StatusBadRequest, "缺少必填字段")
 		case errors.Is(err, ErrFieldTypeMismatch):
 			return ctx.ApiError(http.StatusBadRequest, "字段类型不匹配")
-		case errors.Is(err, db.ErrSLRecordNotFound):
+		case errors.Is(err, db.ErrSLFieldNotFound):
 			return ctx.ApiError(http.StatusBadRequest, "引用字段不存在")
+		case errors.Is(err, db.ErrSLRecordNotFound):
+			return ctx.ApiError(http.StatusBadRequest, "引用记录不存在")
 		case errors.Is(err, ErrExpressionError):
 			return ctx.ApiError(http.StatusBadRequest, "表达式错误")
 		default:
