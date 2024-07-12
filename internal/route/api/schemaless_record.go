@@ -17,7 +17,6 @@ import (
 	"github.com/wuhan005/sayrud/internal/db"
 	"github.com/wuhan005/sayrud/internal/dbutil"
 	"github.com/wuhan005/sayrud/internal/form"
-	"github.com/wuhan005/sayrud/internal/jsvm"
 )
 
 func (schemalessRoute) Recorder(ctx context.Context, table *db.SLTable) error {
@@ -100,14 +99,11 @@ func (schemalessRoute) CreateRecord(ctx context.Context, t *db.SLTable, tx dbuti
 		}
 
 		var incrementIndexFlag bool
-		var hasGeneratedField bool
 		// Validate the input data fields.
 		for _, field := range slFields {
 			field := field
 
 			if field.Type == db.GeneratedFieldType {
-				// We should set the reference field value after the other fields' value has been set.
-				hasGeneratedField = true
 				continue
 			}
 
@@ -161,39 +157,6 @@ func (schemalessRoute) CreateRecord(ctx context.Context, t *db.SLTable, tx dbuti
 				if record.SLTableID != referenceField.SLTableID {
 					return db.ErrSLRecordNotFound
 				}
-			}
-		}
-
-		// Set the generated field value as last.
-		if hasGeneratedField {
-			// UID->Value to Name->Value
-			fieldValues := make(map[string]interface{})
-			for _, field := range slFields {
-				if field.Type == db.GeneratedFieldType {
-					continue
-				}
-				fieldValues[field.Name] = data[field.UID]
-			}
-
-			vm, err := jsvm.NewVM(jsvm.NewVMOptions{
-				FieldValues: fieldValues,
-			})
-			if err != nil {
-				return errors.Wrap(err, "new jsvm")
-			}
-
-			for _, field := range slFields {
-				field := field
-				if field.Type != db.GeneratedFieldType {
-					continue
-				}
-
-				expression := field.Expression()
-				result, err := vm.RunString(expression)
-				if err != nil {
-					return ErrExpressionError
-				}
-				data[field.UID] = result.Export()
 			}
 		}
 

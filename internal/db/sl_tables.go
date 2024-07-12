@@ -3,15 +3,18 @@ package db
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"strings"
 
 	"github.com/pkg/errors"
+	"github.com/samber/lo"
 	"github.com/spf13/cast"
 	escape "github.com/tj/go-pg-escape"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 
 	"github.com/wuhan005/sayrud/internal/dbutil"
+	"github.com/wuhan005/sayrud/internal/sqlutil"
 )
 
 var _ SLTablesStore = (*slTables)(nil)
@@ -174,6 +177,10 @@ func (db *slTables) CreateView(ctx context.Context, table *SLTable) error {
 			return errors.Wrap(err, "get table fields")
 		}
 
+		fieldNameUIDs := lo.SliceToMap(fields, func(field *SLField) (string, string) {
+			return field.Name, fmt.Sprintf("sl_records.data->>'%s'", field.UID)
+		})
+
 		fieldsDefinition := []string{
 			escape.Escape(`sl_records.uid AS _uid`),
 			escape.Escape(`sl_records.created_at AS _created_at`),
@@ -199,11 +206,14 @@ func (db *slTables) CreateView(ctx context.Context, table *SLTable) error {
 				// The value is the UID of the referenced record.
 				recordValueQuery += escape.Escape(`::TEXT AS %I`, field.Name)
 			case GeneratedFieldType:
-				// The value is the jsvm expression.
-				recordValueQuery += escape.Escape(`::TEXT AS %I`, field.Name)
+				expression := field.Expression()
+				expression, err := sqlutil.SterilizeExpression(ctx, expression, fieldNameUIDs)
+				if err != nil {
+					return err
+				}
+				recordValueQuery = escape.Escape(`(%s) AS %I`, expression, field.Name)
 			}
 			fieldsDefinition = append(fieldsDefinition, recordValueQuery)
-
 		}
 
 		tableIDStr := cast.ToString(tableID)
@@ -218,7 +228,7 @@ func (db *slTables) CreateView(ctx context.Context, table *SLTable) error {
 	`+strings.Join(fieldsDefinition, ", ")+`
 	FROM public.sl_records
 	WHERE sl_records.sl_table_id = %L AND sl_records.deleted_at IS NULL`, schemaName, viewName, tableIDStr)
-		if err := tx.WithContext(ctx).Exec(q).Error; err != nil {
+		if err := tx.WithContext(ctx).Debug().Exec(q).Error; err != nil {
 			return errors.Wrap(err, "create new view")
 		}
 

@@ -16,8 +16,6 @@ type NewVMOptions struct {
 	RequestPath   string
 	RequestQuery  map[string]interface{}
 	RequestBody   map[string]interface{}
-
-	FieldValues map[string]interface{}
 }
 
 func NewVM(options NewVMOptions) (*goja.Runtime, error) {
@@ -47,14 +45,6 @@ func NewVM(options NewVMOptions) (*goja.Runtime, error) {
 		}
 		if err := vm.Set("$request", request); err != nil {
 			return nil, errors.Wrap(err, "set $request")
-		}
-	}
-
-	if len(options.FieldValues) > 0 {
-		for k, v := range options.FieldValues {
-			if err := vm.Set(k, v); err != nil {
-				return nil, errors.Wrap(err, "set field values")
-			}
 		}
 	}
 

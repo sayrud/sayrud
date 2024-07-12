@@ -15,6 +15,7 @@ import (
 	"github.com/wuhan005/sayrud/internal/db"
 	"github.com/wuhan005/sayrud/internal/dbutil"
 	"github.com/wuhan005/sayrud/internal/form"
+	"github.com/wuhan005/sayrud/internal/sqlutil"
 )
 
 func (schemalessRoute) Fielder(ctx context.Context) error {
@@ -85,6 +86,12 @@ func (schemalessRoute) CreateFields(ctx context.Context, table *db.SLTable, tx d
 		if errors.Is(err, db.ErrUnexpectedType) {
 			return ctx.ApiError(http.StatusBadRequest, "字段类型错误")
 		}
+		if errors.Is(err, sqlutil.ErrForbiddenExpression) {
+			return ctx.ApiError(http.StatusBadRequest, "表达式无效")
+		}
+		if errors.Is(err, sqlutil.ErrExpressionSyntaxError) {
+			return ctx.ApiError(http.StatusBadRequest, "表达式语法错误")
+		}
 		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to create sl field")
 		return ctx.ApiServerError()
 	}
@@ -123,6 +130,12 @@ func (schemalessRoute) UpdateFields(ctx context.Context, table *db.SLTable, tx d
 	}); err != nil {
 		if errors.Is(err, db.ErrSLFieldNotFound) {
 			return ctx.ApiError(http.StatusNotFound, "数据表字段不存在")
+		}
+		if errors.Is(err, sqlutil.ErrForbiddenExpression) {
+			return ctx.ApiError(http.StatusBadRequest, "表达式无效")
+		}
+		if errors.Is(err, sqlutil.ErrExpressionSyntaxError) {
+			return ctx.ApiError(http.StatusBadRequest, "表达式语法错误")
 		}
 		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to update sl fields")
 		return ctx.ApiServerError()
