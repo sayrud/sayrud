@@ -509,7 +509,7 @@ const datasetsColumns = computed<TableProps['columns']>(() => [
   {colKey: 'ops', title: '操作', width: 150, align: 'center',},
 ])
 const datasetsEditMap: Record<number, TableRowData> = {}
-const datasets = ref<Dataset[]>([])
+const datasets = ref<Dataset[]>([{}])
 const datasetsNames = ref<Record<string, string>>({})
 const datasetsEditableRowKeys = ref<string[]>([])
 const datasetsDropdown = computed(() => tables.value
