@@ -16,6 +16,9 @@ type NewVMOptions struct {
 	RequestPath   string
 	RequestQuery  map[string]interface{}
 	RequestBody   map[string]interface{}
+
+	This map[string]interface{}
+	That map[string]interface{}
 }
 
 func NewVM(options NewVMOptions) (*goja.Runtime, error) {
@@ -45,6 +48,29 @@ func NewVM(options NewVMOptions) (*goja.Runtime, error) {
 		}
 		if err := vm.Set("$request", request); err != nil {
 			return nil, errors.Wrap(err, "set $request")
+		}
+	}
+
+	if options.This != nil {
+		this := vm.NewObject()
+		for k, v := range options.This {
+			if err := this.Set(k, v); err != nil {
+				return nil, errors.Wrap(err, "set this")
+			}
+		}
+		if err := vm.Set("$this", this); err != nil {
+			return nil, errors.Wrap(err, "set this")
+		}
+	}
+	if options.That != nil {
+		that := vm.NewObject()
+		for k, v := range options.That {
+			if err := that.Set(k, v); err != nil {
+				return nil, errors.Wrap(err, "set that")
+			}
+		}
+		if err := vm.Set("$that", that); err != nil {
+			return nil, errors.Wrap(err, "set that")
 		}
 	}
 

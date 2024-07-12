@@ -47,6 +47,7 @@ const OptionsIncrementIndex = "increment_index"
 const OptionsDefaultValue = "default"
 const OptionsReferenceFieldUID = "reference_field_uid"
 const OptionsExpression = "expression"
+const OptionsConstraint = "constraint"
 
 func (f *SLField) IsRequired() bool {
 	_, ok := f.Options[OptionsRequired]
@@ -65,6 +66,11 @@ func (f *SLField) ReferenceFieldUID() string {
 
 func (f *SLField) Expression() string {
 	v, _ := f.Options[OptionsExpression]
+	return cast.ToString(v)
+}
+
+func (f *SLField) Constraint() string {
+	v, _ := f.Options[OptionsConstraint]
 	return cast.ToString(v)
 }
 

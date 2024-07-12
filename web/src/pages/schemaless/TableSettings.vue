@@ -139,6 +139,10 @@
                 </t-option>
               </t-select>
             </t-form-item>
+            <t-form-item v-if="fieldFormData.fields[0].type === FieldType.REFERENCE" label="约束"
+                         name="options.constraint">
+              <t-input v-model="fieldFormData.fields[0].options['constraint']"/>
+            </t-form-item>
             <!-- GENERATED -->
             <t-form-item v-if="fieldFormData.fields[0].type === FieldType.GENERATED" label="表达式"
                          name="options.expression">
@@ -258,8 +262,6 @@ const onSubmitForm = (ctx: SubmitContext) => {
         fieldsDialogVisible.value = false
         MessagePlugin.success('新建字段成功')
         fieldFormData.value.fields = [{name: '', label: '', type: FieldType.TEXT, options: {}}]
-
-      }).finally(() => {
         refreshFields()
       })
     } else {
@@ -267,7 +269,6 @@ const onSubmitForm = (ctx: SubmitContext) => {
         fieldsDialogVisible.value = false
         MessagePlugin.success('编辑字段成功')
         fieldFormData.value.fields = [{name: '', label: '', type: FieldType.TEXT, options: {}}]
-      }).finally(() => {
         refreshFields()
       })
     }
