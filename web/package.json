@@ -15,6 +15,7 @@
     "less": "^4.2.0",
     "lodash": "^4.17.21",
     "monaco-editor-vue3": "^0.1.10",
+    "nanoid": "^5.0.7",
     "nprogress": "^0.2.0",
     "pinia": "^2.1.7",
     "pinia-plugin-persistedstate": "^3.2.1",

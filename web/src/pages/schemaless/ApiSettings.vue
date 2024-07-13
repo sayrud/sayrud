@@ -54,7 +54,7 @@
                     </div>
                     <t-table
                         ref="paramsTableRef"
-                        row-key="key"
+                        row-key="no"
                         :columns="paramsColumns"
                         :data="requestParams"
                         :editable-row-keys="requestParamsEditableRowKeys"
@@ -66,6 +66,9 @@
                         @row-validate="onParamsRowValidate"
                         @validate="onParamsValidate"
                     >
+                      <template #no="{rowIndex}">
+                        {{ rowIndex + 1 }}
+                      </template>
                       <template #empty>
                         无请求参数
                       </template>
@@ -80,19 +83,19 @@
                       <template #required="{row}">
                         {{ row.required ? '是' : '否' }}
                       </template>
-                      <template #ops="{row, rowIndex}">
+                      <template #ops="{row}">
                         <t-space>
-                          <t-link v-if="!requestParamsEditableRowKeys.includes(row.key)" theme="primary" hover="color"
-                                  @click="onRequestParamsEditRow(row.key)">编辑
+                          <t-link v-if="!requestParamsEditableRowKeys.includes(row.no)" theme="primary" hover="color"
+                                  @click="onRequestParamsEditRow(row.no)">编辑
                           </t-link>
-                          <t-link v-if="requestParamsEditableRowKeys.includes(row.key)" theme="primary" hover="color"
-                                  @click="onRequestParamsSaveRow(rowIndex, row.key)">保存
+                          <t-link v-if="requestParamsEditableRowKeys.includes(row.no)" theme="primary" hover="color"
+                                  @click="onRequestParamsSaveRow(row.no)">保存
                           </t-link>
-                          <t-link v-if="requestParamsEditableRowKeys.includes(row.key)" theme="primary" hover="color"
-                                  @click="onRequestParamsCancelRow(rowIndex)">取消
+                          <t-link v-if="requestParamsEditableRowKeys.includes(row.no)" theme="primary" hover="color"
+                                  @click="onRequestParamsCancelRow(row.no)">取消
                           </t-link>
                           <t-popconfirm theme="danger" content="你确定要删除该参数吗？"
-                                        @confirm="onRequestParamsDeleteRow(rowIndex)">
+                                        @confirm="onRequestParamsDeleteRow(row.no)">
                             <t-link theme="danger" hover="color"> 删除</t-link>
                           </t-popconfirm>
                         </t-space>
@@ -304,6 +307,7 @@ import {AddIcon} from 'tdesign-icons-vue-next';
 import {allTables, type Table} from '@/api/schemalessTable'
 import {listFields} from "@/api/schemalessField";
 import {MiddlewareIcons, MiddlewareNames, MiddlewareSelectList} from "@/const/middlewares.ts";
+import {nanoid} from 'nanoid'
 
 const route = useRoute()
 const router = useRouter()
@@ -327,6 +331,7 @@ const FORM_RULES: Record<string, FormRule[]> = {
 // Request params table
 const paramsTableRef = ref<TableInstanceFunctions>()
 const paramsColumns = computed<TableProps['columns']>(() => [
+  {colKey: 'no', title: '#', width: 50, align: 'center'},
   {
     colKey: 'kind', title: '参数类型', width: 100, align: 'center', edit: {
       component: Select,
@@ -373,8 +378,9 @@ const paramsColumns = computed<TableProps['columns']>(() => [
   },
   {colKey: 'ops', title: '操作', width: 150, align: 'center',},
 ])
-const requestParamsEditMap: Record<number, TableRowData> = {}
+const requestParamsEditMap: Record<string, TableRowData> = {}
 const requestParams = ref<ParamMixin[]>([{
+  no: nanoid(),
   kind: 'query',
   key: 'name',
   label: '名称',
@@ -386,6 +392,7 @@ const requestParamsEditableRowKeys = ref<string[]>([])
 
 const onRequestParamsAddRow = () => {
   requestParams.value.push({
+    no: nanoid(),
     kind: 'query',
     key: '',
     label: '',
@@ -394,14 +401,14 @@ const onRequestParamsAddRow = () => {
     customValidators: [],
   })
 }
-const onRequestParamsEditRow = (key: string) => {
+const onRequestParamsEditRow = (key: number) => {
   if (!requestParamsEditableRowKeys.value.includes(key)) {
     requestParamsEditableRowKeys.value.push(key)
     paramsTableRef.value?.clearValidateData()
   }
 }
 
-const onRequestParamsSaveRow = (rowIndex: number, key: string) => {
+const onRequestParamsSaveRow = (key: string) => {
   paramsTableRef.value?.validateRowData(key).then((params) => {
     if (params.result.length) {
       const r = params.result[0]
@@ -411,30 +418,35 @@ const onRequestParamsSaveRow = (rowIndex: number, key: string) => {
 
     // Invoked by the table component.
     if (params.trigger === 'parent' && !params.result.length) {
-      const current = requestParamsEditMap[rowIndex]
+      const current = requestParamsEditMap[key]
       if (current) {
+        console.log(current)
+        const rowIndex = requestParams.value.findIndex(param => param.no === key)
         requestParams.value.splice(rowIndex, 1, current.editedRow)
       }
+      const rowIndex = requestParamsEditableRowKeys.value.findIndex(k => k === key)
       requestParamsEditableRowKeys.value.splice(rowIndex, 1)
     }
   })
 }
 
-const onRequestParamsCancelRow = (rowIndex: number) => {
+const onRequestParamsCancelRow = (key: string) => {
+  const rowIndex = requestParamsEditableRowKeys.value.findIndex(k => k === key)
   requestParamsEditableRowKeys.value.splice(rowIndex, 1)
 }
 
-const onRequestParamsDeleteRow = (key: number) => {
-  requestParams.value.splice(key, 1)
+const onRequestParamsDeleteRow = (key: string) => {
+  const rowIndex = requestParams.value.findIndex(param => param.no === key)
+  requestParams.value.splice(rowIndex, 1)
 }
 const onParamsRowEdit: TableProps['onRowEdit'] = (params) => {
-  const {row, col, value, rowIndex} = params;
-  const oldRowData = requestParamsEditMap[rowIndex]?.editedRow || row;
+  const {row, col, value} = params;
+  const oldRowData = requestParamsEditMap[row.no]?.editedRow || row;
   const editedRow = {
     ...oldRowData,
     [col.colKey as string]: value,
   }
-  requestParamsEditMap[rowIndex] = {
+  requestParamsEditMap[row.no] = {
     ...params,
     editedRow,
   }
@@ -753,7 +765,10 @@ onMounted(() => {
           })
         }
       }
-      requestParams.value = params
+      requestParams.value = params.map(param => ({
+        no: nanoid(),
+        ...param
+      }))
 
       // Load the datasets' fields.
       if ((res.kind === 'list' || res.kind === 'view') && res.options.datasets) {

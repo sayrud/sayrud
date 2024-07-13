@@ -50,6 +50,7 @@ export const ParamTypeOptions = [
 ]
 
 export interface Param {
+    no?: string;
     key: string;
     label: string;
     type: ParamType;

@@ -38,6 +38,10 @@
             <template #ops="{row}">
               <t-space>
                 <t-link theme="primary" @click="onViewRecord(row._uid)">编辑</t-link>
+                <t-popconfirm theme="danger" content="你确定要删除该条记录吗？"
+                              @confirm="onDeleteRecord(row._uid)">
+                  <t-link theme="danger" hover="color"> 删除</t-link>
+                </t-popconfirm>
               </t-space>
             </template>
           </t-table>
@@ -83,7 +87,8 @@ import {
   type UpdateRecordReq,
   createRecord,
   updateRecord,
-  queryRecord
+  queryRecord,
+  deleteRecord
 } from "@/api/schemalessRecord";
 import {AddIcon, Table1Icon} from 'tdesign-icons-vue-next';
 import dayjs from "dayjs";
@@ -115,6 +120,8 @@ const getTableFields = () => {
         },
       }
     })
+
+    columns.value.unshift({colKey: '_uid', title: 'UID'})
 
     BASE_COLUMNS.forEach(column => {
       columns.value.push({
@@ -184,6 +191,13 @@ const onViewRecord = (uid: string) => {
     recordFormData.value = res
     recordDrawerVisible.value = true
   })
+}
+
+const onDeleteRecord = (uid: string) => {
+  deleteRecord(projectUID, currentTableUID.value, uid)
+      .finally(() => {
+        getRecords()
+      })
 }
 
 const onSubmit = () => {
