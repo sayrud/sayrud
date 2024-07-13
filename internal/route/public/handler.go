@@ -69,6 +69,9 @@ func (h publicHandler) Middlewares(ctx context.Context) error {
 				}
 
 				_ = handler.Handle(ctx)
+				if ctx.ResponseWriter().Written() {
+					return nil
+				}
 			}
 		}
 	}
@@ -76,6 +79,10 @@ func (h publicHandler) Middlewares(ctx context.Context) error {
 }
 
 func (h publicHandler) Handler(ctx context.Context, api *db.Api, tx dbutil.Transactor) error {
+	if ctx.ResponseWriter().Written() {
+		return nil
+	}
+
 	path := "/" + ctx.Param("**")
 	method := ctx.Request().Method
 

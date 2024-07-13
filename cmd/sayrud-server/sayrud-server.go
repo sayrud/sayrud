@@ -6,6 +6,7 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"github.com/wuhan005/sayrud/internal/db"
+	"github.com/wuhan005/sayrud/internal/redis"
 	"github.com/wuhan005/sayrud/internal/route"
 )
 
@@ -18,6 +19,11 @@ func main() {
 		logrus.WithError(err).Fatal("Failed to initialize database")
 	}
 
-	f := route.New(db)
+	redisClient, err := redis.Init()
+	if err != nil {
+		logrus.WithError(err).Fatal("Failed to initialize redis")
+	}
+
+	f := route.New(db, redisClient)
 	f.Run(*port)
 }

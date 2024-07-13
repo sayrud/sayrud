@@ -234,15 +234,45 @@
                    drop-class="drop"
                    @drop="onDropMiddlewares">
           <Draggable v-for="(item, index) in formData.middlewares" :key="index" style="z-index: 2">
-            <div :class="['node',item.type === 'main'? 'main': '']">
-              <div class="delete-icon" @click="onDeleteMiddleware(index)" v-if="item.type !== 'main'">
-                <t-icon :size="18" name="close-circle-filled"/>
+            <t-popup class="placement align" placement="left" show-arrow destroy-on-close>
+              <template #content>
+                <t-card :bordered="false">
+                  <t-form
+                      v-if="item.type !== 'main'"
+                      class="base-form"
+                      label-align="right"
+                      :label-width="120"
+                  >
+                    <!-- rate limit -->
+                    <div v-if="item.type === 'rate_limit'">
+                      <t-form-item label="限流策略">
+                        <t-select size="small" v-model="formData.middlewares[index].params['policy']"
+                                  placeholder="请选择限流策略">
+                          <t-option value="period" label="周期请求次数"></t-option>
+                        </t-select>
+                      </t-form-item>
+                      <t-form-item label="周期（秒）">
+                        <t-input-number size="small" v-model="formData.middlewares[index].params['period']"/>
+                      </t-form-item>
+                      <t-form-item label="最大请求次数">
+                        <t-input-number size="small" v-model="formData.middlewares[index].params['value']"/>
+                      </t-form-item>
+                    </div>
+                  </t-form>
+                  <span v-else>无操作选项</span>
+                </t-card>
+              </template>
+
+              <div :class="['node',item.type === 'main'? 'main': '']">
+                <div class="delete-icon" @click="onDeleteMiddleware(index)" v-if="item.type !== 'main'">
+                  <t-icon :size="18" name="close-circle-filled"/>
+                </div>
+                <div class="inner">
+                  <t-icon :name="MiddlewareIcons[item.type]"/>
+                  {{ MiddlewareNames[item.type] }}
+                </div>
               </div>
-              <div class="inner">
-                <t-icon :name="MiddlewareIcons[item.type]"/>
-                {{ MiddlewareNames[item.type] }}
-              </div>
-            </div>
+            </t-popup>
           </Draggable>
         </Container>
         <div class="line" :style="{height: `${formData.middlewares.length*80}px`}"></div>

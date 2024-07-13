@@ -5,6 +5,12 @@
 package middleware
 
 import (
+	"net/http"
+	"strconv"
+	"time"
+
+	"github.com/redis/go-redis/v9"
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/cast"
 
 	"github.com/wuhan005/sayrud/internal/context"
@@ -16,22 +22,37 @@ var _ Handler = (*rateLimit)(nil)
 
 type rateLimit struct {
 	Params
+	redis *redis.Client
 }
 
 func (l *rateLimit) Handle(ctx context.Context) error {
-	// TODO: Get IP from context defined function.
-	ip := ctx.RemoteAddr()
-	_ = ip
+	ip := ctx.IP()
 
 	policy := cast.ToString(l.Params["policy"])
-	countValue := cast.ToInt(l.Params["value"])
-	_ = countValue
+	period := cast.ToInt(l.Params["period"])
+	maxCount := cast.ToInt64(l.Params["value"])
 
 	switch policy {
-	case "per_second":
+	case "period":
+		key := "rate_limit:" + ip + ":period"
+		now := time.Now()
 
-	case "per_minute":
+		// Remove the expired data.
+		min := "0"
+		max := strconv.Itoa(int(now.Add(-time.Duration(period) * time.Second).UnixNano()))
+		l.redis.ZRemRangeByScore(ctx.Request().Context(), key, min, max)
 
+		currentCount := l.redis.ZCard(ctx.Request().Context(), key).Val()
+		if currentCount >= maxCount {
+			return ctx.ApiError(http.StatusTooManyRequests, "请求过快，请稍后再试")
+		}
+
+		if err := l.redis.ZAdd(ctx.Request().Context(), key, redis.Z{
+			Score:  float64(now.UnixNano()),
+			Member: now.UnixNano(),
+		}).Err(); err != nil {
+			logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to ZAdd")
+		}
 	}
 	return nil
 }

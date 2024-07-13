@@ -10,6 +10,7 @@ import (
 	"github.com/flamego/flamego"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/pkg/errors"
+	"github.com/redis/go-redis/v9"
 	"github.com/sirupsen/logrus"
 	"gorm.io/gorm"
 
@@ -75,7 +76,7 @@ func (c *Context) IP() string {
 }
 
 // Contexter initializes a classic context for a request.
-func Contexter(gormDB *gorm.DB) flamego.Handler {
+func Contexter(gormDB *gorm.DB, redisClient *redis.Client) flamego.Handler {
 	return func(ctx flamego.Context) {
 		c := Context{
 			Context: ctx,
@@ -116,6 +117,7 @@ func Contexter(gormDB *gorm.DB) flamego.Handler {
 		}
 
 		c.MapTo(gormDB, (*dbutil.Transactor)(nil))
+		c.Map(redisClient)
 		c.Map(c)
 	}
 }

@@ -8,6 +8,7 @@ export {}
 declare module 'vue' {
   export interface GlobalComponents {
     ConsoleNavBar: typeof import('./src/components/ConsoleNavBar.vue')['default']
+    Middlewares: typeof import('./src/components/Middlewares.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
     TButton: typeof import('tdesign-vue-next')['Button']

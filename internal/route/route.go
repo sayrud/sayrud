@@ -2,6 +2,7 @@ package route
 
 import (
 	"github.com/flamego/flamego"
+	"github.com/redis/go-redis/v9"
 	"gorm.io/gorm"
 
 	"github.com/wuhan005/sayrud/internal/context"
@@ -10,11 +11,11 @@ import (
 	"github.com/wuhan005/sayrud/internal/route/public"
 )
 
-func New(db *gorm.DB) *flamego.Flame {
+func New(db *gorm.DB, redisClient *redis.Client) *flamego.Flame {
 	f := flamego.Classic()
 
 	f.Use(
-		context.Contexter(db),
+		context.Contexter(db, redisClient),
 	)
 
 	f.Group("/api", func() {

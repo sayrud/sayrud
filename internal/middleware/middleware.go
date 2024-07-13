@@ -8,6 +8,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/wuhan005/sayrud/internal/context"
+	"github.com/wuhan005/sayrud/internal/redis"
 )
 
 type Type string
@@ -34,11 +35,11 @@ var ErrUnknownMiddlewareType = errors.New("unknown middleware type")
 func Get(typ Type, params Params) (Handler, error) {
 	switch typ {
 	case TypeLog:
-		return &log{params}, nil
+		return &log{Params: params}, nil
 	case TypeRateLimit:
-		return &rateLimit{params}, nil
+		return &rateLimit{Params: params, redis: redis.Get()}, nil
 	case TypeSendEmail:
-		return &sendEmail{params}, nil
+		return &sendEmail{Params: params}, nil
 	default:
 		return nil, ErrUnknownMiddlewareType
 	}
