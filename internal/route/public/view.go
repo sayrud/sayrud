@@ -15,23 +15,35 @@ import (
 )
 
 type viewHandlerOptions struct {
-	projectID   uint
 	vm          *goja.Runtime
 	viewOptions apibuilder.ViewOptions
 }
 
 func (publicHandler) viewHandler(ctx context.Context, opts viewHandlerOptions) (interface{}, error) {
-	projectID := opts.projectID
 	vm := opts.vm
 	dataset := opts.viewOptions.Datasets[0]
 
-	// Query dataset.
+	tableUID := dataset.TableUID
+	slTable, err := db.SLTables.GetByUID(ctx.Request().Context(), tableUID)
+	if err != nil {
+		return nil, errors.Wrap(err, "get sl table by UID")
+	}
+	slFields, err := db.SLFields.GetByTableID(ctx.Request().Context(), slTable.ID)
+	if err != nil {
+		return nil, errors.Wrap(err, "get sl table by UID")
+	}
+
+	uidNameSets := slFields.UIDNameSets()
+	if err := dataset.Filter.SetFieldUIDToName(uidNameSets); err != nil {
+		return nil, errors.Wrap(err, "set field UID to name")
+	}
+
 	filter, err := dataset.Filter.ToClauseExpression(vm)
 	if err != nil {
 		return nil, errors.Wrap(err, "parse filter expression")
 	}
 
-	result, err := db.SLTables.QueryFirst(ctx.Request().Context(), projectID, dataset.TableUID, db.QueryFirstSLTableOptions{
+	result, err := db.SLTables.QueryFirst(ctx.Request().Context(), slTable, db.QueryFirstSLTableOptions{
 		Fields: dataset.Fields,
 		Filter: filter,
 	})

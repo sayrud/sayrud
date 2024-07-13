@@ -13,12 +13,15 @@ import (
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cast"
+	"gorm.io/gorm"
 
 	"github.com/wuhan005/sayrud/internal/apibuilder"
 	"github.com/wuhan005/sayrud/internal/context"
 	"github.com/wuhan005/sayrud/internal/db"
+	"github.com/wuhan005/sayrud/internal/dbutil"
 	"github.com/wuhan005/sayrud/internal/jsvm"
 	"github.com/wuhan005/sayrud/internal/middleware"
+	"github.com/wuhan005/sayrud/internal/routeutil"
 )
 
 var Project publicHandler
@@ -72,7 +75,7 @@ func (h publicHandler) Middlewares(ctx context.Context) error {
 	return nil
 }
 
-func (h publicHandler) Handler(ctx context.Context, project *db.Project, api *db.Api) error {
+func (h publicHandler) Handler(ctx context.Context, api *db.Api, tx dbutil.Transactor) error {
 	path := "/" + ctx.Param("**")
 	method := ctx.Request().Method
 
@@ -182,7 +185,6 @@ func (h publicHandler) Handler(ctx context.Context, project *db.Project, api *db
 		listOptions := options.ParseOptions(api.Options)
 
 		response, err = h.listHandler(ctx, listHandlerOptions{
-			projectID:   project.ID,
 			vm:          vm,
 			listOptions: listOptions,
 		})
@@ -196,7 +198,6 @@ func (h publicHandler) Handler(ctx context.Context, project *db.Project, api *db
 		viewOptions := options.ParseOptions(api.Options)
 
 		response, err = h.viewHandler(ctx, viewHandlerOptions{
-			projectID:   project.ID,
 			vm:          vm,
 			viewOptions: viewOptions,
 		})
@@ -209,29 +210,58 @@ func (h publicHandler) Handler(ctx context.Context, project *db.Project, api *db
 		options := apibuilder.Options[apibuilder.CreateOptions]{}
 		createOptions := options.ParseOptions(api.Options)
 
-		if err := h.createHandler(ctx, createHandlerOptions{
-			projectID:     project.ID,
-			queryValues:   queryValues,
-			bodyValues:    bodyValues,
-			createOptions: createOptions,
+		if err := tx.Transaction(func(tx *gorm.DB) error {
+			return h.createHandler(ctx, createHandlerOptions{
+				queryValues:   queryValues,
+				bodyValues:    bodyValues,
+				createOptions: createOptions,
+				tx:            tx,
+			})
 		}); err != nil {
-			logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to handle create")
-			return ctx.ApiServerError()
+			switch {
+			case errors.Is(err, routeutil.ErrFieldTypeMismatch):
+				return ctx.ApiError(http.StatusBadRequest, "字段类型不匹配")
+			case errors.Is(err, db.ErrSLFieldNotFound):
+				return ctx.ApiError(http.StatusBadRequest, "引用字段不存在")
+			case errors.Is(err, db.ErrSLRecordNotFound):
+				return ctx.ApiError(http.StatusBadRequest, "引用记录不存在")
+			case errors.Is(err, routeutil.ErrExpressionError):
+				return ctx.ApiError(http.StatusBadRequest, "表达式错误")
+			case errors.Is(err, routeutil.ErrConstraintError):
+				return ctx.ApiError(http.StatusBadRequest, "约束条件错误")
+			default:
+				logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to handle create")
+				return ctx.ApiServerError()
+			}
 		}
 
 	case apibuilder.KindUpdate:
 		options := apibuilder.Options[apibuilder.UpdateOptions]{}
 		updateOptions := options.ParseOptions(api.Options)
 
-		if err := h.updateHandler(ctx, updateHandlerOptions{
-			projectID:     project.ID,
-			vm:            vm,
-			queryValues:   queryValues,
-			bodyValues:    bodyValues,
-			updateOptions: updateOptions,
+		if err := tx.Transaction(func(tx *gorm.DB) error {
+			return h.updateHandler(ctx, updateHandlerOptions{
+				vm:            vm,
+				queryValues:   queryValues,
+				bodyValues:    bodyValues,
+				updateOptions: updateOptions,
+			})
 		}); err != nil {
-			logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to handle update")
-			return ctx.ApiServerError()
+			switch {
+			case errors.Is(err, routeutil.ErrFieldTypeMismatch):
+				return ctx.ApiError(http.StatusBadRequest, "字段类型不匹配")
+			case errors.Is(err, db.ErrSLFieldNotFound):
+				return ctx.ApiError(http.StatusBadRequest, "引用字段不存在")
+			case errors.Is(err, db.ErrSLRecordNotFound):
+				return ctx.ApiError(http.StatusBadRequest, "引用记录不存在")
+			case errors.Is(err, routeutil.ErrExpressionError):
+				return ctx.ApiError(http.StatusBadRequest, "表达式错误")
+			case errors.Is(err, routeutil.ErrConstraintError):
+				return ctx.ApiError(http.StatusBadRequest, "约束条件错误")
+			default:
+				logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to handle update")
+				return ctx.ApiServerError()
+			}
 		}
 
 	case apibuilder.KindDelete:
@@ -239,7 +269,6 @@ func (h publicHandler) Handler(ctx context.Context, project *db.Project, api *db
 		deleteOptions := options.ParseOptions(api.Options)
 
 		response, err = h.deleteHandler(ctx, deleteHandlerOptions{
-			projectID:     project.ID,
 			vm:            vm,
 			deleteOptions: deleteOptions,
 		})

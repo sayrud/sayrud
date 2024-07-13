@@ -3,8 +3,10 @@ package db
 import (
 	"context"
 	"reflect"
+	"strings"
 
 	"github.com/pkg/errors"
+	"github.com/samber/lo"
 	"github.com/spf13/cast"
 	"gorm.io/gorm"
 
@@ -16,10 +18,10 @@ var _ SLFieldsStore = (*slFields)(nil)
 var SLFields SLFieldsStore
 
 type SLFieldsStore interface {
-	List(ctx context.Context, tableID uint) ([]*SLField, error)
+	List(ctx context.Context, tableID uint) (SLFieldList, error)
 	GetByID(ctx context.Context, fieldID uint) (*SLField, error)
 	GetByUID(ctx context.Context, fieldUID string) (*SLField, error)
-	GetByTableID(ctx context.Context, tableID uint) ([]*SLField, error)
+	GetByTableID(ctx context.Context, tableID uint) (SLFieldList, error)
 	Create(ctx context.Context, opts CreateSLFieldOptions) (*SLField, error)
 	Update(ctx context.Context, fieldID uint, opts UpdateSLFieldOptions) error
 	DeleteByID(ctx context.Context, fieldID uint) error
@@ -28,6 +30,14 @@ type SLFieldsStore interface {
 
 func NewSLFieldsStore(db *gorm.DB) SLFieldsStore {
 	return &slFields{db}
+}
+
+type SLFieldList []*SLField
+
+func (fields SLFieldList) UIDNameSets() map[string]string {
+	return lo.SliceToMap(fields, func(item *SLField) (string, string) {
+		return item.UID, item.Name
+	})
 }
 
 // SLField represents the table fields of schemaless tables.
@@ -42,17 +52,11 @@ type SLField struct {
 	Position  int            `json:"position"`
 }
 
-const OptionsRequired = "required"
 const OptionsIncrementIndex = "increment_index"
 const OptionsDefaultValue = "default"
 const OptionsReferenceFieldUID = "reference_field_uid"
 const OptionsExpression = "expression"
 const OptionsConstraint = "constraint"
-
-func (f *SLField) IsRequired() bool {
-	_, ok := f.Options[OptionsRequired]
-	return ok
-}
 
 func (f *SLField) IsIncrementIndex() bool {
 	_, ok := f.Options[OptionsIncrementIndex]
@@ -90,8 +94,8 @@ type slFields struct {
 
 // List returns the table field list from the given schemaless table.
 // It returns ErrSLTableNotFound if the table does not exist.
-func (db *slFields) List(ctx context.Context, tableID uint) ([]*SLField, error) {
-	var slFields []*SLField
+func (db *slFields) List(ctx context.Context, tableID uint) (SLFieldList, error) {
+	var slFields SLFieldList
 	return slFields, db.WithContext(ctx).Model(&SLField{}).Preload("SLTable").Where("sl_table_id = ?", tableID).Order("position ASC").Find(&slFields).Error
 }
 
@@ -119,7 +123,7 @@ func (db *slFields) Create(ctx context.Context, opts CreateSLFieldOptions) (*SLF
 
 	slField := &SLField{
 		SLTableID: opts.SLTableID,
-		Name:      opts.Name,
+		Name:      strings.ToLower(opts.Name),
 		Label:     opts.Label,
 		Type:      opts.Type,
 		Options:   opts.Options,
@@ -144,8 +148,8 @@ func (db *slFields) GetByUID(ctx context.Context, fieldUID string) (*SLField, er
 	return db.getBy(ctx, "uid = ?", fieldUID)
 }
 
-func (db *slFields) GetByTableID(ctx context.Context, tableID uint) ([]*SLField, error) {
-	var slFields []*SLField
+func (db *slFields) GetByTableID(ctx context.Context, tableID uint) (SLFieldList, error) {
+	var slFields SLFieldList
 	return slFields, db.WithContext(ctx).Model(&SLField{}).Preload("SLTable").Where("sl_table_id = ?", tableID).Order("position ASC").Find(&slFields).Error
 }
 
@@ -180,7 +184,7 @@ func (db *slFields) Update(ctx context.Context, fieldID uint, opts UpdateSLField
 	}
 
 	if err := db.WithContext(ctx).Model(&SLField{}).Where("id = ?", fieldID).Updates(map[string]interface{}{
-		"name":     opts.Name,
+		"name":     strings.ToLower(opts.Name),
 		"label":    opts.Label,
 		"type":     opts.Type,
 		"options":  opts.Options,

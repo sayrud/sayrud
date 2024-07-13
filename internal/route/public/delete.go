@@ -14,22 +14,34 @@ import (
 )
 
 type deleteHandlerOptions struct {
-	projectID     uint
 	vm            *goja.Runtime
 	deleteOptions apibuilder.DeleteOptions
 }
 
 func (publicHandler) deleteHandler(ctx context.Context, opts deleteHandlerOptions) (interface{}, error) {
-	projectID := opts.projectID
 	vm := opts.vm
+	tableUID := opts.deleteOptions.TableUID
 
-	// Query dataset.
+	slTable, err := db.SLTables.GetByUID(ctx.Request().Context(), tableUID)
+	if err != nil {
+		return nil, errors.Wrap(err, "get sl table by UID")
+	}
+	slFields, err := db.SLFields.GetByTableID(ctx.Request().Context(), slTable.ID)
+	if err != nil {
+		return nil, errors.Wrap(err, "get sl table by UID")
+	}
+
+	uidNameSets := slFields.UIDNameSets()
+	if err := opts.deleteOptions.Filter.SetFieldUIDToName(uidNameSets); err != nil {
+		return nil, errors.Wrap(err, "set field UID to name")
+	}
+
 	filter, err := opts.deleteOptions.Filter.ToClauseExpression(vm)
 	if err != nil {
 		return nil, errors.Wrap(err, "parse filter expression")
 	}
 
-	affectRows, err := db.SLTables.QueryDelete(ctx.Request().Context(), projectID, opts.deleteOptions.TableUID, db.QueryDeleteSLTableOptions{
+	affectRows, err := db.SLTables.QueryDelete(ctx.Request().Context(), slTable, db.QueryDeleteSLTableOptions{
 		Filter: filter,
 	})
 	if err != nil {

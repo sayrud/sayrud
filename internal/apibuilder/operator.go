@@ -101,6 +101,30 @@ func (o *Operator) ValidateConfig(ctx context.Context) error {
 	return nil
 }
 
+func (o *Operator) SetFieldUIDToName(fieldUIDNameSets map[string]string) error {
+	if o == nil {
+		return nil
+	}
+
+	if o.Type == OperatorTypeField {
+		var fieldUID string
+		if err := json.Unmarshal(o.Value, &fieldUID); err != nil {
+			return err
+		}
+		if fieldName, ok := fieldUIDNameSets[fieldUID]; ok {
+			o.Value = json.RawMessage(`"` + fieldName + `"`)
+		}
+	}
+	if err := o.Left.SetFieldUIDToName(fieldUIDNameSets); err != nil {
+		return errors.Wrap(err, "left")
+	}
+	if err := o.Right.SetFieldUIDToName(fieldUIDNameSets); err != nil {
+		return errors.Wrap(err, "right")
+	}
+
+	return nil
+}
+
 func (o *Operator) ToClauseExpression(vm *goja.Runtime) (clause.Expression, error) {
 	if o == nil {
 		return nil, nil

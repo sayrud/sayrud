@@ -9,10 +9,12 @@ import (
 
 	"github.com/dop251/goja"
 	"github.com/pkg/errors"
+	"gorm.io/gorm"
 
 	"github.com/wuhan005/sayrud/internal/apibuilder"
 	"github.com/wuhan005/sayrud/internal/context"
 	"github.com/wuhan005/sayrud/internal/db"
+	"github.com/wuhan005/sayrud/internal/routeutil"
 )
 
 const (
@@ -21,14 +23,14 @@ const (
 )
 
 type createHandlerOptions struct {
-	projectID     uint
 	queryValues   map[string]interface{}
 	bodyValues    map[string]interface{}
 	createOptions apibuilder.CreateOptions
+	tx            *gorm.DB
 }
 
-func (publicHandler) createHandler(ctx context.Context, opts createHandlerOptions) error {
-	projectID := opts.projectID
+func (h publicHandler) createHandler(ctx context.Context, opts createHandlerOptions) error {
+	tableUID := opts.createOptions.TableUID
 	fieldMapping := opts.createOptions.FieldMapping
 	fieldValues := make(map[string]interface{}, len(fieldMapping))
 
@@ -55,25 +57,34 @@ func (publicHandler) createHandler(ctx context.Context, opts createHandlerOption
 		}
 	}
 
-	if err := db.SLTables.QueryInsert(ctx.Request().Context(), projectID, opts.createOptions.TableUID, db.QueryInsertSLTableOptions{
-		FieldValues: fieldValues,
-	}); err != nil {
-		return errors.Wrap(err, "query insert")
+	slTablesStore := db.NewSLTablesStore(opts.tx)
+	slTable, err := slTablesStore.GetByUID(ctx.Request().Context(), tableUID)
+	if err != nil {
+		return errors.Wrap(err, "get sl table by UID")
 	}
 
+	jsonBytes, err := routeutil.Validate(ctx, slTable.ID, opts.tx, fieldValues)
+	if err != nil {
+		return errors.Wrap(err, "validate")
+	}
+
+	slRecords := db.NewSLRecordsStore(opts.tx)
+	if _, err := slRecords.Create(ctx.Request().Context(), slTable.ID, jsonBytes); err != nil {
+		return errors.Wrap(err, "create sl records")
+	}
 	return nil
 }
 
 type updateHandlerOptions struct {
-	projectID     uint
 	vm            *goja.Runtime
 	queryValues   map[string]interface{}
 	bodyValues    map[string]interface{}
 	updateOptions apibuilder.UpdateOptions
+	tx            *gorm.DB
 }
 
-func (publicHandler) updateHandler(ctx context.Context, opts updateHandlerOptions) error {
-	projectID := opts.projectID
+func (h publicHandler) updateHandler(ctx context.Context, opts updateHandlerOptions) error {
+	tableUID := opts.updateOptions.TableUID
 	fieldMapping := opts.updateOptions.FieldMapping
 	fieldValues := make(map[string]interface{}, len(fieldMapping))
 
@@ -100,14 +111,25 @@ func (publicHandler) updateHandler(ctx context.Context, opts updateHandlerOption
 		}
 	}
 
+	slTablesStore := db.NewSLTablesStore(opts.tx)
+	slTable, err := slTablesStore.GetByUID(ctx.Request().Context(), tableUID)
+	if err != nil {
+		return errors.Wrap(err, "get sl table by UID")
+	}
+
+	jsonBytes, err := routeutil.Validate(ctx, slTable.ID, opts.tx, fieldValues)
+	if err != nil {
+		return errors.Wrap(err, "validate")
+	}
+
 	filter, err := opts.updateOptions.Filter.ToClauseExpression(opts.vm)
 	if err != nil {
 		return errors.Wrap(err, "parse filter expression")
 	}
 
-	if err := db.SLTables.QueryUpdate(ctx.Request().Context(), projectID, opts.updateOptions.TableUID, db.QueryUpdateSLTableOptions{
-		FieldValues: fieldValues,
-		Filter:      filter,
+	if err := slTablesStore.QueryUpdate(ctx.Request().Context(), slTable, db.QueryUpdateSLTableOptions{
+		JsonBytes: jsonBytes,
+		Filter:    filter,
 	}); err != nil {
 		return errors.Wrap(err, "query update")
 	}

@@ -14,13 +14,11 @@ import (
 )
 
 type listHandlerOptions struct {
-	projectID   uint
 	vm          *goja.Runtime
 	listOptions apibuilder.ListOptions
 }
 
 func (publicHandler) listHandler(ctx context.Context, opts listHandlerOptions) (interface{}, error) {
-	projectID := opts.projectID
 	vm := opts.vm
 	datasets := opts.listOptions.Datasets
 
@@ -30,12 +28,27 @@ func (publicHandler) listHandler(ctx context.Context, opts listHandlerOptions) (
 	for _, dataset := range datasets {
 		dataset := dataset
 
+		tableUID := dataset.TableUID
+		slTable, err := db.SLTables.GetByUID(ctx.Request().Context(), tableUID)
+		if err != nil {
+			return nil, errors.Wrap(err, "get sl table by UID")
+		}
+		slFields, err := db.SLFields.GetByTableID(ctx.Request().Context(), slTable.ID)
+		if err != nil {
+			return nil, errors.Wrap(err, "get sl table by UID")
+		}
+
+		uidNameSets := slFields.UIDNameSets()
+		if err := dataset.Filter.SetFieldUIDToName(uidNameSets); err != nil {
+			return nil, errors.Wrap(err, "set field UID to name")
+		}
+
 		filter, err := dataset.Filter.ToClauseExpression(vm)
 		if err != nil {
 			return nil, errors.Wrap(err, "parse filter expression")
 		}
 
-		result, count, err := db.SLTables.QueryList(ctx.Request().Context(), projectID, dataset.TableUID, db.QueryListSLTableOptions{
+		result, count, err := db.SLTables.QueryList(ctx.Request().Context(), slTable, db.QueryListSLTableOptions{
 			Fields: dataset.Fields,
 			Filter: filter,
 			Order:  dataset.Order,

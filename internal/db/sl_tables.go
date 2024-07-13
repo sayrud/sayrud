@@ -10,6 +10,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/spf13/cast"
 	escape "github.com/tj/go-pg-escape"
+	"gorm.io/datatypes"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 
@@ -35,11 +36,10 @@ type SLTablesStore interface {
 	ViewCount(ctx context.Context, schemaName, tableName string) (int64, error)
 	SetIncrementIndex(ctx context.Context, tableID uint, index int64) error
 
-	QueryList(ctx context.Context, projectID uint, tableUID string, options QueryListSLTableOptions) ([]map[string]interface{}, int64, error)
-	QueryFirst(ctx context.Context, projectID uint, tableUID string, options QueryFirstSLTableOptions) (map[string]interface{}, error)
-	QueryInsert(ctx context.Context, projectID uint, tableUID string, options QueryInsertSLTableOptions) error
-	QueryUpdate(ctx context.Context, projectID uint, tableUID string, options QueryUpdateSLTableOptions) error
-	QueryDelete(ctx context.Context, projectID uint, tableUID string, options QueryDeleteSLTableOptions) (int64, error)
+	QueryList(ctx context.Context, slTable *SLTable, options QueryListSLTableOptions) ([]map[string]interface{}, int64, error)
+	QueryFirst(ctx context.Context, slTable *SLTable, options QueryFirstSLTableOptions) (map[string]interface{}, error)
+	QueryUpdate(ctx context.Context, slTable *SLTable, options QueryUpdateSLTableOptions) error
+	QueryDelete(ctx context.Context, slTable *SLTable, options QueryDeleteSLTableOptions) (int64, error)
 }
 
 func NewSLTablesStore(db *gorm.DB) SLTablesStore {
@@ -257,34 +257,43 @@ type QueryListSLTableOptions struct {
 	Offset int
 }
 
-func (db *slTables) QueryList(ctx context.Context, projectID uint, tableUID string, options QueryListSLTableOptions) ([]map[string]interface{}, int64, error) {
-	slTable, err := db.GetByUID(ctx, tableUID)
-	if err != nil {
-		return nil, 0, errors.Wrap(err, "get sl table by uid")
-	}
-	if slTable.ProjectID != projectID {
-		return nil, 0, ErrSLTableNotFound
-	}
+func (db *slTables) QueryList(ctx context.Context, slTable *SLTable, options QueryListSLTableOptions) ([]map[string]interface{}, int64, error) {
 	schemaName := slTable.Project.SchemaName
 	tableName := slTable.Name
+
+	slFields, err := SLFields.GetByTableID(ctx, slTable.ID)
+	if err != nil {
+		return nil, 0, errors.Wrap(err, "get sl fields by table ID")
+	}
+	fieldUIDNameSets := lo.SliceToMap(slFields, func(field *SLField) (string, string) {
+		return field.UID, field.Name
+	})
 
 	selectFields := make([]string, 0, len(options.Fields))
 	if len(options.Fields) == 1 && options.Fields[0] == "*" {
 		selectFields = []string{"*"}
 	} else {
-		for _, field := range options.Fields {
-			selectFields = append(selectFields, escape.Escape(`%I`, field))
+		for _, fieldUID := range options.Fields {
+			if fieldName, ok := fieldUIDNameSets[fieldUID]; ok {
+				selectFields = append(selectFields, escape.Escape(`%I`, fieldName))
+			}
 		}
 	}
 
-	q := db.WithContext(ctx).
+	q := db.WithContext(ctx).Debug().
 		Table(escape.Escape(`%I.%I`, schemaName, tableName)).
 		Select(selectFields)
 	if options.Filter != nil {
 		q = q.Where(options.Filter)
 	}
 	if len(options.Order) > 0 {
-		q = q.Order(strings.Join(options.Order, ", "))
+		orderFields := make([]string, 0, len(options.Order))
+		for _, field := range options.Order {
+			if fieldName, ok := fieldUIDNameSets[field]; ok {
+				orderFields = append(orderFields, escape.Escape(`%I`, fieldName))
+			}
+		}
+		q = q.Order(strings.Join(orderFields, ", "))
 	}
 
 	var total int64
@@ -311,14 +320,7 @@ type QueryFirstSLTableOptions struct {
 	Filter clause.Expression
 }
 
-func (db *slTables) QueryFirst(ctx context.Context, projectID uint, tableUID string, options QueryFirstSLTableOptions) (map[string]interface{}, error) {
-	slTable, err := db.GetByUID(ctx, tableUID)
-	if err != nil {
-		return nil, errors.Wrap(err, "get sl table by uid")
-	}
-	if slTable.ProjectID != projectID {
-		return nil, ErrSLTableNotFound
-	}
+func (db *slTables) QueryFirst(ctx context.Context, slTable *SLTable, options QueryFirstSLTableOptions) (map[string]interface{}, error) {
 	schemaName := slTable.Project.SchemaName
 	tableName := slTable.Name
 
@@ -349,54 +351,14 @@ func (db *slTables) QueryFirst(ctx context.Context, projectID uint, tableUID str
 	return result, nil
 }
 
-type QueryInsertSLTableOptions struct {
-	FieldValues map[string]interface{}
-	Filter      clause.Expression
-}
-
-func (db *slTables) QueryInsert(ctx context.Context, projectID uint, tableUID string, options QueryInsertSLTableOptions) error {
-	slTable, err := db.GetByUID(ctx, tableUID)
-	if err != nil {
-		return errors.Wrap(err, "get sl table by uid")
-	}
-	if slTable.ProjectID != projectID {
-		return ErrSLTableNotFound
-	}
-
-	dataBytes, err := json.Marshal(options.FieldValues)
-	if err != nil {
-		return errors.Wrap(err, "marshal field values")
-	}
-
-	if err := db.WithContext(ctx).Model(&SLRecord{}).Create(&SLRecord{
-		SLTableID: slTable.ID,
-		Data:      dataBytes,
-	}).Error; err != nil {
-		return errors.Wrap(err, "create record")
-	}
-	return nil
-}
-
 type QueryUpdateSLTableOptions struct {
-	FieldValues map[string]interface{}
-	Filter      clause.Expression
+	JsonBytes json.RawMessage
+	Filter    clause.Expression
 }
 
-func (db *slTables) QueryUpdate(ctx context.Context, projectID uint, tableUID string, options QueryUpdateSLTableOptions) error {
-	slTable, err := db.GetByUID(ctx, tableUID)
-	if err != nil {
-		return errors.Wrap(err, "get sl table by uid")
-	}
-	if slTable.ProjectID != projectID {
-		return ErrSLTableNotFound
-	}
+func (db *slTables) QueryUpdate(ctx context.Context, slTable *SLTable, options QueryUpdateSLTableOptions) error {
 	schemaName := slTable.Project.SchemaName
 	tableName := slTable.Name
-
-	dataBytes, err := json.Marshal(options.FieldValues)
-	if err != nil {
-		return errors.Wrap(err, "marshal field values")
-	}
 
 	var uids []string
 	q := db.WithContext(ctx).
@@ -427,7 +389,7 @@ func (db *slTables) QueryUpdate(ctx context.Context, projectID uint, tableUID st
 
 	if err := q.Updates(&SLRecord{
 		SLTableID: slTable.ID,
-		Data:      dataBytes,
+		Data:      datatypes.JSON(options.JsonBytes),
 	}).Error; err != nil {
 		return errors.Wrap(err, "update record")
 	}
@@ -438,14 +400,7 @@ type QueryDeleteSLTableOptions struct {
 	Filter clause.Expression
 }
 
-func (db *slTables) QueryDelete(ctx context.Context, projectID uint, tableUID string, options QueryDeleteSLTableOptions) (int64, error) {
-	slTable, err := db.GetByUID(ctx, tableUID)
-	if err != nil {
-		return 0, errors.Wrap(err, "get sl table by uid")
-	}
-	if slTable.ProjectID != projectID {
-		return 0, ErrSLTableNotFound
-	}
+func (db *slTables) QueryDelete(ctx context.Context, slTable *SLTable, options QueryDeleteSLTableOptions) (int64, error) {
 	schemaName := slTable.Project.SchemaName
 	tableName := slTable.Name
 
