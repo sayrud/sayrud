@@ -7,6 +7,7 @@ package routeutil
 import (
 	"encoding/json"
 
+	"github.com/dop251/goja"
 	"github.com/pkg/errors"
 	"github.com/spf13/cast"
 	"gorm.io/gorm"
@@ -20,7 +21,7 @@ var ErrFieldTypeMismatch = errors.New("field type mismatch")
 var ErrExpressionError = errors.New("expression error")
 var ErrConstraintError = errors.New("constraint error")
 
-func Validate(ctx context.Context, tableID uint, tx *gorm.DB, data map[string]interface{}) (json.RawMessage, error) {
+func Validate(ctx context.Context, vm *goja.Runtime, tableID uint, tx *gorm.DB, data map[string]interface{}) (json.RawMessage, error) {
 	slTablesStore := db.NewSLTablesStore(tx)
 	slFieldsStore := db.NewSLFieldsStore(tx)
 	slRecordsStore := db.NewSLRecordsStore(tx)
@@ -50,7 +51,12 @@ func Validate(ctx context.Context, tableID uint, tx *gorm.DB, data map[string]in
 			// If the filed has default value, set it for this missing field.
 			defaultValue, ok := field.Options[db.OptionsDefaultValue]
 			if ok {
-				data[field.UID] = defaultValue
+				defaultValueExpression := cast.ToString(defaultValue)
+				defaultValue, err := vm.RunString(defaultValueExpression)
+				if err != nil {
+					return nil, errors.Wrap(err, "run default value expression")
+				}
+				data[field.UID] = defaultValue.Export()
 			}
 			// Set auto increment field value,
 			// also set the incrementIndexFlag to ture, to make sure the increment index will be increased after the operation.

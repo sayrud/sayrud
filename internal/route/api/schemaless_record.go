@@ -15,6 +15,7 @@ import (
 	"github.com/wuhan005/sayrud/internal/db"
 	"github.com/wuhan005/sayrud/internal/dbutil"
 	"github.com/wuhan005/sayrud/internal/form"
+	"github.com/wuhan005/sayrud/internal/jsvm"
 	"github.com/wuhan005/sayrud/internal/routeutil"
 )
 
@@ -74,8 +75,19 @@ func (schemalessRoute) GetRecord(ctx context.Context, record *db.SLRecord) error
 
 func (s schemalessRoute) CreateRecord(ctx context.Context, t *db.SLTable, tx dbutil.Transactor, f form.CreateRecord) error {
 	var slRecord *db.SLRecord
+
+	vm, err := jsvm.NewVM(jsvm.NewVMOptions{
+		RequestMethod: ctx.Request().Method,
+		RequestPath:   ctx.Request().URL.Path,
+		RequestIP:     ctx.IP(),
+	})
+	if err != nil {
+		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to create vm")
+		return ctx.ApiServerError()
+	}
+
 	if err := tx.Transaction(func(tx *gorm.DB) error {
-		jsonBytes, err := routeutil.Validate(ctx, t.ID, tx, f.Data)
+		jsonBytes, err := routeutil.Validate(ctx, vm, t.ID, tx, f.Data)
 		if err != nil {
 			return errors.Wrap(err, "validate")
 		}
@@ -108,11 +120,21 @@ func (s schemalessRoute) CreateRecord(ctx context.Context, t *db.SLTable, tx dbu
 }
 
 func (s schemalessRoute) UpdateRecord(ctx context.Context, record *db.SLRecord, tx dbutil.Transactor, f form.UpdateRecord) error {
+	vm, err := jsvm.NewVM(jsvm.NewVMOptions{
+		RequestMethod: ctx.Request().Method,
+		RequestPath:   ctx.Request().URL.Path,
+		RequestIP:     ctx.IP(),
+	})
+	if err != nil {
+		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to create vm")
+		return ctx.ApiServerError()
+	}
+
 	if err := tx.Transaction(func(tx *gorm.DB) error {
 		// Current record UID will be used in the constraint expression.
 		f.Data["uid"] = record.UID
 
-		jsonBytes, err := routeutil.Validate(ctx, record.SLTableID, tx, f.Data)
+		jsonBytes, err := routeutil.Validate(ctx, vm, record.SLTableID, tx, f.Data)
 		if err != nil {
 			return errors.Wrap(err, "validate")
 		}

@@ -130,6 +130,11 @@
                           :label="FieldTypeLabels[type]"></t-option>
               </t-select>
             </t-form-item>
+            <t-form-item label="默认值" name="options.default"
+                         v-if="![FieldType.REFERENCE, FieldType.GENERATED].includes(fieldFormData.fields[0].type)"
+                         tips="支持表达式">
+              <t-input v-model="fieldFormData.fields[0].options['default']"></t-input>
+            </t-form-item>
             <!-- REFERENCE -->
             <t-form-item v-if="fieldFormData.fields[0].type === FieldType.REFERENCE" label="引用列"
                          name="options.reference">
@@ -145,7 +150,7 @@
             </t-form-item>
             <!-- GENERATED -->
             <t-form-item v-if="fieldFormData.fields[0].type === FieldType.GENERATED" label="表达式"
-                         name="options.expression">
+                         name="options.expression" tips="PostgreSQL 语法">
               <t-input v-model="fieldFormData.fields[0].options['expression']"></t-input>
             </t-form-item>
           </div>

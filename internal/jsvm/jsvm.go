@@ -16,6 +16,7 @@ type NewVMOptions struct {
 	RequestPath   string
 	RequestQuery  map[string]interface{}
 	RequestBody   map[string]interface{}
+	RequestIP     string
 
 	This map[string]interface{}
 	That map[string]interface{}
@@ -46,6 +47,11 @@ func NewVM(options NewVMOptions) (*goja.Runtime, error) {
 				return nil, err
 			}
 		}
+
+		if err := request.Set("ip", options.RequestIP); err != nil {
+			return nil, errors.Wrap(err, "set request ip")
+		}
+
 		if err := vm.Set("$request", request); err != nil {
 			return nil, errors.Wrap(err, "set $request")
 		}
@@ -76,6 +82,7 @@ func NewVM(options NewVMOptions) (*goja.Runtime, error) {
 
 	module.SetHash(vm)
 	module.SetString(vm)
+	module.SetTime(vm)
 
 	return vm, nil
 }

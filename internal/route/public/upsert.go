@@ -27,6 +27,7 @@ type createHandlerOptions struct {
 	bodyValues    map[string]interface{}
 	createOptions apibuilder.CreateOptions
 	tx            *gorm.DB
+	vm            *goja.Runtime
 }
 
 func (h publicHandler) createHandler(ctx context.Context, opts createHandlerOptions) error {
@@ -63,7 +64,7 @@ func (h publicHandler) createHandler(ctx context.Context, opts createHandlerOpti
 		return errors.Wrap(err, "get sl table by UID")
 	}
 
-	jsonBytes, err := routeutil.Validate(ctx, slTable.ID, opts.tx, fieldValues)
+	jsonBytes, err := routeutil.Validate(ctx, opts.vm, slTable.ID, opts.tx, fieldValues)
 	if err != nil {
 		return errors.Wrap(err, "validate")
 	}
@@ -117,7 +118,7 @@ func (h publicHandler) updateHandler(ctx context.Context, opts updateHandlerOpti
 		return errors.Wrap(err, "get sl table by UID")
 	}
 
-	jsonBytes, err := routeutil.Validate(ctx, slTable.ID, opts.tx, fieldValues)
+	jsonBytes, err := routeutil.Validate(ctx, opts.vm, slTable.ID, opts.tx, fieldValues)
 	if err != nil {
 		return errors.Wrap(err, "validate")
 	}

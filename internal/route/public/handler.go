@@ -172,6 +172,7 @@ func (h publicHandler) Handler(ctx context.Context, api *db.Api, tx dbutil.Trans
 		RequestPath:   path,
 		RequestQuery:  queryValues,
 		RequestBody:   bodyValues,
+		RequestIP:     ctx.IP(),
 	})
 	if err != nil {
 		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to create JS VM")
@@ -216,6 +217,7 @@ func (h publicHandler) Handler(ctx context.Context, api *db.Api, tx dbutil.Trans
 				bodyValues:    bodyValues,
 				createOptions: createOptions,
 				tx:            tx,
+				vm:            vm,
 			})
 		}); err != nil {
 			switch {
