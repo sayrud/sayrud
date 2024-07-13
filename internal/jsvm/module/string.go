@@ -18,10 +18,10 @@ func SetString(vm *goja.Runtime) {
 	string := String{vm: vm}
 
 	obj := vm.NewObject()
-	obj.Set("lower", string.toLower)
-	obj.Set("upper", string.toUpper)
+	_ = obj.Set("lower", string.toLower)
+	_ = obj.Set("upper", string.toUpper)
 
-	vm.Set("String", obj)
+	_ = vm.Set("String", obj)
 }
 
 func (s *String) toLower(call goja.FunctionCall) goja.Value {

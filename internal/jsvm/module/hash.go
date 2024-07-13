@@ -19,9 +19,9 @@ func SetHash(vm *goja.Runtime) {
 	hash := Hash{vm: vm}
 
 	obj := vm.NewObject()
-	obj.Set("md5", hash.md5Sum)
+	_ = obj.Set("md5", hash.md5Sum)
 
-	vm.Set("Hash", obj)
+	_ = vm.Set("Hash", obj)
 }
 
 func (h *Hash) md5Sum(call goja.FunctionCall) goja.Value {

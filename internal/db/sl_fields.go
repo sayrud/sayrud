@@ -64,17 +64,17 @@ func (f *SLField) IsIncrementIndex() bool {
 }
 
 func (f *SLField) ReferenceFieldUID() string {
-	v, _ := f.Options[OptionsReferenceFieldUID]
+	v := f.Options[OptionsReferenceFieldUID]
 	return cast.ToString(v)
 }
 
 func (f *SLField) Expression() string {
-	v, _ := f.Options[OptionsExpression]
+	v := f.Options[OptionsExpression]
 	return cast.ToString(v)
 }
 
 func (f *SLField) Constraint() string {
-	v, _ := f.Options[OptionsConstraint]
+	v := f.Options[OptionsConstraint]
 	return cast.ToString(v)
 }
 

@@ -18,9 +18,9 @@ func SetTime(vm *goja.Runtime) {
 	time := Time{vm: vm}
 
 	obj := vm.NewObject()
-	obj.Set("now", time.now)
+	_ = obj.Set("now", time.now)
 
-	vm.Set("Time", obj)
+	_ = vm.Set("Time", obj)
 }
 
 func (h *Time) now() goja.Value {
