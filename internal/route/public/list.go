@@ -64,5 +64,11 @@ func (publicHandler) listHandler(ctx context.Context, opts listHandlerOptions) (
 	}
 
 	// TODO
-	return datasetsResultSet, nil
+	var result interface{}
+	for _, v := range datasetsResultSet {
+		result = v
+		break
+	}
+
+	return result, nil
 }
