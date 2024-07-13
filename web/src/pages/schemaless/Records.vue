@@ -111,7 +111,7 @@ const getTableFields = () => {
       return {
         colKey: field.name,
         title: field.label,
-        cell: (h, {col, row}) => {
+        cell: (_: Function, {col, row}: { col: any, row: any }) => {
           if (field.type === FieldType.REFERENCE) {
             return JSON.parse(row[col.colKey])['v'] ? JSON.parse(row[col.colKey])['v'] : '-'
           } else {
