@@ -199,7 +199,7 @@ func (db *slTables) CreateView(ctx context.Context, table *SLTable) error {
 			case FloatFieldType:
 				recordValueQuery += escape.Escape(`::DOUBLE PRECISION AS %I`, field.Name)
 			case TimestampFieldType:
-				recordValueQuery += escape.Escape(`::TIMESTAMP WITHOUT TIME ZONE AS %I`, field.Name)
+				recordValueQuery += escape.Escape(`::TIMESTAMP WITH TIME ZONE AS %I`, field.Name)
 			case DateFieldType:
 				recordValueQuery += escape.Escape(`::DATE AS %I`, field.Name)
 			case ReferenceFieldType:
@@ -278,9 +278,10 @@ func (db *slTables) QueryList(ctx context.Context, slTable *SLTable, options Que
 				selectFields = append(selectFields, escape.Escape(`%I`, fieldName))
 			}
 		}
+		selectFields = append(selectFields, "_uid")
 	}
 
-	q := db.WithContext(ctx).Debug().
+	q := db.WithContext(ctx).
 		Table(escape.Escape(`%I.%I`, schemaName, tableName)).
 		Select(selectFields)
 	if options.Filter != nil {
