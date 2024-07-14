@@ -84,6 +84,9 @@ func Validate(ctx context.Context, vm *goja.Runtime, tableID uint, tx *gorm.DB, 
 
 			// Check the reference field record exists.
 			recordUID := cast.ToString(val)
+			if recordUID == "" {
+				continue
+			}
 			record, err := slRecordsStore.GetByUID(ctx.Request().Context(), recordUID)
 			if err != nil {
 				return nil, errors.Wrap(err, "get reference record")
