@@ -189,31 +189,34 @@ func (db *slTables) CreateView(ctx context.Context, table *SLTable) error {
 			// Normal value types.
 			recordValueQuery := escape.Escape("(sl_records.data ->> %L::text)", field.UID)
 
+			fieldName := escape.QuoteIdent(field.Name)
 			switch field.Type {
 			case IntFieldType:
-				recordValueQuery += escape.Escape(`::INTEGER AS %I`, field.Name)
+				recordValueQuery += `::INTEGER`
 			case TextFieldType:
-				recordValueQuery += escape.Escape(`::TEXT AS %I`, field.Name)
+				recordValueQuery += `::TEXT`
 			case BoolFieldType:
-				recordValueQuery += escape.Escape(`::BOOLEAN AS %I`, field.Name)
+				recordValueQuery += `::BOOLEAN`
 			case FloatFieldType:
-				recordValueQuery += escape.Escape(`::DOUBLE PRECISION AS %I`, field.Name)
+				recordValueQuery += `::DOUBLE PRECISION`
 			case TimestampFieldType:
-				recordValueQuery += escape.Escape(`::TIMESTAMP WITH TIME ZONE AS %I`, field.Name)
+				recordValueQuery += `::TIMESTAMP WITH TIME ZONE`
 			case DateFieldType:
-				recordValueQuery += escape.Escape(`::DATE AS %I`, field.Name)
+				recordValueQuery += `::DATE`
 			case ReferenceFieldType:
 				// The value is the {"u": "<reference_record_uid>", "v": "<reference_record_value>"}
-				recordValueQuery = escape.Escape(`(json_build_object('u', sl_records.data ->> %L, 'v', (SELECT JOINED_RECORDS.data ->> %L FROM public.sl_records AS JOINED_RECORDS WHERE uid = ((sl_records.data ->> %L)::text))))::JSONB AS %I`,
-					field.UID, field.ReferenceFieldUID(), field.UID, field.Name)
+				recordValueQuery = escape.Escape(`(json_build_object('u', sl_records.data ->> %L, 'v', (SELECT JOINED_RECORDS.data ->> %L FROM public.sl_records AS JOINED_RECORDS WHERE uid = ((sl_records.data ->> %L)::text))))::JSONB`,
+					field.UID, field.ReferenceFieldUID(), field.UID)
 			case GeneratedFieldType:
 				expression := field.Expression()
 				expression, err := sqlutil.SterilizeExpression(ctx, expression, fieldNameUIDs)
 				if err != nil {
 					return err
 				}
-				recordValueQuery = escape.Escape(`(%s) AS %I`, expression, field.Name)
+				recordValueQuery = escape.Escape(`(%s)`, expression)
 			}
+
+			recordValueQuery += fmt.Sprintf(` AS %s`, fieldName)
 			fieldsDefinition = append(fieldsDefinition, recordValueQuery)
 		}
 
@@ -275,7 +278,7 @@ func (db *slTables) QueryList(ctx context.Context, slTable *SLTable, options Que
 	} else {
 		for _, fieldUID := range options.Fields {
 			if fieldName, ok := fieldUIDNameSets[fieldUID]; ok {
-				selectFields = append(selectFields, escape.Escape(`%I`, fieldName))
+				selectFields = append(selectFields, escape.QuoteIdent(fieldName))
 			}
 		}
 		selectFields = append(selectFields, "_uid")

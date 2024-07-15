@@ -3,7 +3,6 @@ package db
 import (
 	"context"
 	"reflect"
-	"strings"
 
 	"github.com/pkg/errors"
 	"github.com/samber/lo"
@@ -123,7 +122,7 @@ func (db *slFields) Create(ctx context.Context, opts CreateSLFieldOptions) (*SLF
 
 	slField := &SLField{
 		SLTableID: opts.SLTableID,
-		Name:      strings.ToLower(opts.Name),
+		Name:      opts.Name,
 		Label:     opts.Label,
 		Type:      opts.Type,
 		Options:   opts.Options,
@@ -184,7 +183,7 @@ func (db *slFields) Update(ctx context.Context, fieldID uint, opts UpdateSLField
 	}
 
 	if err := db.WithContext(ctx).Model(&SLField{}).Where("id = ?", fieldID).Updates(map[string]interface{}{
-		"name":     strings.ToLower(opts.Name),
+		"name":     opts.Name,
 		"label":    opts.Label,
 		"type":     opts.Type,
 		"options":  opts.Options,
