@@ -43,6 +43,10 @@ func (schemalessRoute) ListFields(ctx context.Context, table *db.SLTable) error 
 	return ctx.ApiSuccess(slFields)
 }
 
+const ReserveUIDFieldName = "_uid"
+
+var ErrReserveUIDField = errors.New("reserve uid field name")
+
 func (schemalessRoute) CreateFields(ctx context.Context, table *db.SLTable, tx dbutil.Transactor, f form.CreateFields) error {
 	tableID := table.ID
 
@@ -60,6 +64,10 @@ func (schemalessRoute) CreateFields(ctx context.Context, table *db.SLTable, tx d
 
 		for _, field := range f.Fields {
 			field := field
+
+			if field.Name == ReserveUIDFieldName {
+				return ErrReserveUIDField
+			}
 
 			if _, err := slFieldsStore.Create(ctx.Request().Context(), db.CreateSLFieldOptions{
 				SLTableID: tableID,
@@ -92,6 +100,9 @@ func (schemalessRoute) CreateFields(ctx context.Context, table *db.SLTable, tx d
 		if errors.Is(err, sqlutil.ErrExpressionSyntaxError) {
 			return ctx.ApiError(http.StatusBadRequest, "表达式语法错误")
 		}
+		if errors.Is(err, ErrReserveUIDField) {
+			return ctx.ApiError(http.StatusBadRequest, "字段名 _uid 不可用")
+		}
 		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to create sl field")
 		return ctx.ApiServerError()
 	}
@@ -103,6 +114,10 @@ func (schemalessRoute) UpdateFields(ctx context.Context, table *db.SLTable, tx d
 		slFieldsStore := db.NewSLFieldsStore(tx)
 
 		for _, formField := range f.Fields {
+			if formField.Name == ReserveUIDFieldName {
+				return ErrReserveUIDField
+			}
+
 			fieldUID := formField.UID
 			// Make sure the field belongs to the table.
 			field, err := slFieldsStore.GetByUID(ctx.Request().Context(), fieldUID)
@@ -137,6 +152,9 @@ func (schemalessRoute) UpdateFields(ctx context.Context, table *db.SLTable, tx d
 		if errors.Is(err, sqlutil.ErrExpressionSyntaxError) {
 			return ctx.ApiError(http.StatusBadRequest, "表达式语法错误")
 		}
+		if errors.Is(err, ErrReserveUIDField) {
+			return ctx.ApiError(http.StatusBadRequest, "字段名 _uid 不可用")
+		}
 		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to update sl fields")
 		return ctx.ApiServerError()
 	}
@@ -145,6 +163,10 @@ func (schemalessRoute) UpdateFields(ctx context.Context, table *db.SLTable, tx d
 
 func (schemalessRoute) UpdateField(ctx context.Context, field *db.SLField, tx dbutil.Transactor, f form.UpdateField) error {
 	fieldID := field.ID
+
+	if f.Name == ReserveUIDFieldName {
+		return ErrReserveUIDField
+	}
 
 	if err := tx.Transaction(func(tx *gorm.DB) error {
 		slFieldsStore := db.NewSLFieldsStore(tx)

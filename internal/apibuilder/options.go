@@ -44,11 +44,13 @@ func (o Options[T]) ParseOptions(options []byte) T {
 }
 
 type ListOptions struct {
-	Datasets Datasets `json:"datasets"`
+	Datasets     Datasets          `json:"datasets"`
+	FieldMapping map[string]string `json:"fieldMapping"`
 }
 
 type ViewOptions struct {
-	Datasets Datasets `json:"datasets"`
+	Datasets     Datasets          `json:"datasets"`
+	FieldMapping map[string]string `json:"fieldMapping"`
 }
 
 type CreateOptions struct {

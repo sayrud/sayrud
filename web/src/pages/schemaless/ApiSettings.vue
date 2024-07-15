@@ -105,88 +105,19 @@
                 </t-form-item>
               </t-col>
               <t-col :span="12">
-                <t-form-item label="数据集" v-if="formData.kind === 'list' || formData.kind === 'view'">
-                  <t-space direction="vertical" style="width: 100%">
-                    <t-dropdown
-                        :options="datasetsDropdown"
-                        @click="onDatasetsAddRow"
-                    >
-                      <t-button theme="default" variant="outline">选择数据表</t-button>
-                    </t-dropdown>
-                    <t-table
-                        ref="datasetsTableRef"
-                        row-key="key"
-                        :columns="datasetsColumns"
-                        :data="datasets"
-                        :editable-row-keys="datasetsEditableRowKeys"
-                        table-layout="auto"
-                        size="small"
-                        bordered
-                        lazy-load
-                        @row-edit="onDatasetsRowEdit"
-                        @row-validate="onDatasetsRowValidate"
-                        @validate="onDatasetsValidate"
-                    >
-                      <template #name="{row}">
-                        <t-link> {{ datasetsNames[row.tableUID] }}</t-link>
-                      </template>
-                      <template #fields="{row}">
-                        <t-space :size="5">
-                          <t-tag v-for="field in row.fields" :key="field" theme="default" hover="color">
-                            {{ tableFieldsMap[row.tableUID].find(f => f.value === field)?.label }}
-                          </t-tag>
-                        </t-space>
-                      </template>
-                      <template #order="{row}">
-                        <t-space :size="5" v-if="row.order && row.order.length">
-                          <t-tag v-for="field in row.order" :key="field" theme="default" hover="color">
-                            {{ tableFieldsMap[row.tableUID].find(f => f.value === field)?.label }}
-                          </t-tag>
-                        </t-space>
-                        <span v-else>-</span>
-                      </template>
-                      <template #filterExp="{row}">
-                        {{ row.filterExp ? row.filterExp : '-' }}
-                      </template>
-                      <template #limitExp="{row}">
-                        {{ row.limitExp ? row.limitExp : '-' }}
-                      </template>
-                      <template #offsetExp="{row}">
-                        {{ row.offsetExp ? row.offsetExp : '-' }}
-                      </template>
-                      <template #ops="{row, rowIndex}">
-                        <t-space>
-                          <t-link v-if="!datasetsEditableRowKeys.includes(row.key)" theme="primary" hover="color"
-                                  @click="onDatasetsEditRow(row.key)">编辑
-                          </t-link>
-                          <t-link v-if="datasetsEditableRowKeys.includes(row.key)" theme="primary" hover="color"
-                                  @click="onDatasetsSaveRow(rowIndex, row.key)">保存
-                          </t-link>
-                          <t-link v-if="datasetsEditableRowKeys.includes(row.key)" theme="primary" hover="color"
-                                  @click="onDatasetsCancelRow(rowIndex)">取消
-                          </t-link>
-                          <t-popconfirm theme="danger" content="你确定要删除该参数吗？"
-                                        @confirm="onDatasetsDeleteRow(rowIndex)">
-                            <t-link theme="danger" hover="color"> 删除</t-link>
-                          </t-popconfirm>
-                        </t-space>
-                      </template>
-                    </t-table>
-                  </t-space>
-                </t-form-item>
                 <t-row :gutter="[32, 24]">
                   <t-col :span="6">
                     <t-form-item label="数据表"
-                                 v-if="formData.kind === 'create' || formData.kind === 'update' || formData.kind === 'delete'"
                                  tips="Query参数：$request.query /  Body参数：$request.body">
                       <t-space direction="vertical" style="width: 100%">
                         <t-select v-model="datasets[0].tableUID" placeholder="请选择数据表" @change="onSelectDataset">
                           <t-option v-for="table in tables" :key="table.uid" :value="table.uid"
                                     :label="table.name"></t-option>
                         </t-select>
-                        <t-textarea v-if="formData.kind === 'update' || formData.kind === 'delete'"
-                                    v-model="formData.filter" placeholder="请输入筛选条件"
-                                    :autosize="{minRows: 6}"></t-textarea>
+                        <t-textarea
+                            v-if="formData.kind !== 'create'"
+                            v-model="formData.filter" placeholder="请输入筛选条件"
+                            :autosize="{minRows: 6}"></t-textarea>
                       </t-space>
                     </t-form-item>
                   </t-col>
@@ -205,6 +136,43 @@
                           </t-select>
                         </t-row>
                       </t-space>
+                    </t-form-item>
+
+                    <t-form-item label="字段" v-if="formData.kind === 'list' || formData.kind === 'view'">
+                      <t-select
+                          v-if="datasets && datasets[0]"
+                          v-model="datasets[0].fields"
+                          placeholder="请选择字段" multiple>
+                        <t-option v-for="field in tableFieldsMap[datasets[0].tableUID]" v-bind:key="field.value"
+                                  :value="field.value"
+                                  :label="field.label"></t-option>
+                      </t-select>
+                    </t-form-item>
+
+                    <t-form-item label="字段别名" v-if="formData.kind === 'list' || formData.kind === 'view'">
+                      <t-space direction="vertical">
+                        <t-row v-for="field in datasets[0].fields" v-bind:key="field">
+                          <t-tag>
+                            {{ tableFieldsMap[datasets[0].tableUID].filter(item => item.value === field)[0].label }}
+                          </t-tag>
+                          <t-input v-model="(formData.fieldMapping as Record<string, string>)[field]"
+                                   placeholder="请输入字段别名"/>
+                        </t-row>
+                      </t-space>
+                    </t-form-item>
+
+                    <t-form-item label="排序字段" v-if="formData.kind === 'list' && datasets[0]">
+                      <t-select v-model="datasets[0].order" placeholder="请选择排序字段" multiple>
+                        <t-option v-for="field in tableFieldsMap[datasets[0].tableUID]" :key="field.value"
+                                  :value="field.value"
+                                  :label="field.label"></t-option>
+                      </t-select>
+                    </t-form-item>
+                    <t-form-item label="LIMIT" v-if="formData.kind === 'list'">
+                      <t-input v-model="datasets[0].limitExp" placeholder="请输入LIMIT"/>
+                    </t-form-item>
+                    <t-form-item label="OFFSET" v-if="formData.kind === 'list'">
+                      <t-input v-model="datasets[0].offsetExp" placeholder="请输入OFFSET"/>
                     </t-form-item>
                   </t-col>
                 </t-row>
@@ -490,155 +458,9 @@ const onParamsValidate = () => {
 
 }
 
-// Datasets table
-
-const datasetsTableRef = ref<TableInstanceFunctions>()
-const datasetsColumns = computed<TableProps['columns']>(() => [
-  {colKey: 'name', title: '数据表名', width: 120, align: 'center'},
-  {
-    colKey: 'fields', title: '字段', align: 'center', edit: {
-      component: Select,
-      props: ({row}) => {
-        return {
-          clearable: true,
-          autoWidth: true,
-          size: 'small',
-          options: tableFieldsMap.value[row.tableUID] || [],
-          filterable: true,
-          multiple: true
-        }
-      },
-      rules: [{required: true, message: '不能为空'}],
-      showEditIcon: false
-    }
-  },
-  {
-    colKey: 'filterExp', title: '筛选条件', align: 'center', edit: {
-      component: Input,
-      props: {clearable: true, size: 'small'},
-      showEditIcon: false
-    }
-  },
-  {
-    colKey: 'order', title: '排序字段', width: 120, align: 'center', edit: {
-      component: Select,
-      props: ({row}) => {
-        return {
-          clearable: true,
-          size: 'small',
-          options: tableFieldsMap.value[row.tableUID] || [],
-          filterable: true,
-          multiple: true
-        }
-      },
-      showEditIcon: false
-    }
-  },
-  {
-    colKey: 'limitExp', title: 'LIMIT', width: 130, align: 'center', edit: {
-      component: Input,
-      props: {clearable: true, size: 'small'},
-      showEditIcon: false
-    }
-  },
-  {
-    colKey: 'offsetExp', title: 'OFFSET', width: 130, align: 'center', edit: {
-      component: Input,
-      props: {clearable: true, size: 'small'},
-      showEditIcon: false
-    }
-  },
-  {colKey: 'ops', title: '操作', width: 150, align: 'center',},
-])
-const datasetsEditMap: Record<number, TableRowData> = {}
 const datasets = ref<Dataset[]>([{} as Dataset])
 const datasetsNames = ref<Record<string, string>>({})
-const datasetsEditableRowKeys = ref<string[]>([])
-const datasetsDropdown = computed(() => tables.value
-    .filter(table => {
-      return !datasets.value.find(dataset => dataset.tableUID === table.uid)
-    })
-    .map(table => ({
-      content: table.name,
-      value: table.uid,
-    })))
-
 const tableFieldsMap = ref<Record<string, { value: string; label: string }[]>>({})
-const onDatasetsAddRow = async ({value}: { value: string }) => {
-  const selectedTable = tables.value.find(table => table.uid === value)
-  if (selectedTable) {
-    let allFieldUIDs: string[] = []
-    const res = await listFields(projectUID, selectedTable.uid)
-
-    allFieldUIDs = res.map(field => field.uid)
-    tableFieldsMap.value[selectedTable.uid as string] = res.map(field => ({
-      value: field.uid,
-      label: field.name,
-    }))
-
-    datasets.value.push({
-      tableUID: selectedTable.uid,
-      fields: allFieldUIDs,
-      filterExp: '',
-      order: [],
-      limitExp: '',
-      offsetExp: '',
-    })
-  }
-}
-const onDatasetsEditRow = (key: string) => {
-  if (!datasetsEditableRowKeys.value.includes(key)) {
-    datasetsEditableRowKeys.value.push(key)
-    datasetsTableRef.value?.clearValidateData()
-  }
-}
-const onDatasetsSaveRow = (rowIndex: number, key: string) => {
-  datasetsTableRef.value?.validateRowData(key).then((params) => {
-    if (params.result.length) {
-      const r = params.result[0]
-      MessagePlugin.error(`${r.col.title} ${r.errorList[0].message}`)
-      return
-    }
-
-    // Invoked by the table component.
-    if (params.trigger === 'parent' && !params.result.length) {
-      const current = datasetsEditMap[rowIndex]
-      if (current) {
-        datasets.value.splice(rowIndex, 1, current.editedRow)
-      }
-      datasetsEditableRowKeys.value.splice(rowIndex, 1)
-    }
-  })
-}
-
-const onDatasetsCancelRow = (rowIndex: number) => {
-  datasetsEditableRowKeys.value.splice(rowIndex, 1)
-}
-
-const onDatasetsDeleteRow = (key: number) => {
-  datasets.value.splice(key, 1)
-}
-const onDatasetsRowEdit: TableProps['onRowEdit'] = (params) => {
-  const {row, col, value, rowIndex} = params;
-  const oldRowData = datasetsEditMap[rowIndex]?.editedRow || row;
-  const editedRow = {
-    ...oldRowData,
-    [col.colKey as string]: value,
-  }
-  datasetsEditMap[rowIndex] = {
-    ...params,
-    editedRow,
-  }
-}
-
-const onDatasetsRowValidate = () => {
-
-}
-
-const onDatasetsValidate = () => {
-
-}
-
 const onSelectDataset = (tableUID: string) => {
   if (!tableUID) {
     return
@@ -652,6 +474,10 @@ const onSelectDataset = (tableUID: string) => {
       value: field.uid,
       label: field.name,
     }))
+  })
+  tableFieldsMap.value[tableUID].push({
+    value: '_uid',
+    label: '_uid'
   })
 }
 
@@ -803,11 +629,13 @@ onMounted(() => {
       // Load the datasets' fields.
       if ((res.kind === 'list' || res.kind === 'view') && res.options.datasets) {
         for (const dataset of res.options.datasets) {
-          const fields = await listFields(projectUID, dataset.tableUID)
-          tableFieldsMap.value[dataset.tableUID] = fields.map(field => ({
+          const tableUID = dataset.tableUID
+          const fields = await listFields(projectUID, tableUID)
+          tableFieldsMap.value[tableUID] = fields.map(field => ({
             value: field.uid,
             label: field.name,
           }))
+          tableFieldsMap.value[tableUID].push({value: '_uid', label: '_uid'})
         }
         datasets.value = res.options.datasets
 
@@ -818,9 +646,11 @@ onMounted(() => {
           value: field.uid,
           label: field.name,
         }))
-
+        tableFieldsMap.value[tableUID].push({value: '_uid', label: '_uid'})
         datasets.value = [{tableUID: tableUID} as Dataset]
       }
+
+      const fieldMapping = res.options?.fieldMapping
 
       formData.value = {
         kind: res.kind,
@@ -829,7 +659,7 @@ onMounted(() => {
         queryParams: [],
         bodyParams: [],
         filter: JSON.stringify(res.options?.filter, null, 2),
-        fieldMapping: res.options?.fieldMapping,
+        fieldMapping: fieldMapping ? fieldMapping : {},
         datasets: [],
         middlewares: res.middlewares.length === 0 ? [{
           type: 'main', params: {}

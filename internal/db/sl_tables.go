@@ -253,7 +253,7 @@ func (db *slTables) SetIncrementIndex(ctx context.Context, tableID uint, index i
 }
 
 type QueryListSLTableOptions struct {
-	Fields []string
+	Fields map[string]string // Name -> Alias
 	Filter clause.Expression
 	Order  []string
 	Limit  int
@@ -264,24 +264,17 @@ func (db *slTables) QueryList(ctx context.Context, slTable *SLTable, options Que
 	schemaName := slTable.Project.SchemaName
 	tableName := slTable.Name
 
-	slFields, err := SLFields.GetByTableID(ctx, slTable.ID)
-	if err != nil {
-		return nil, 0, errors.Wrap(err, "get sl fields by table ID")
-	}
-	fieldUIDNameSets := lo.SliceToMap(slFields, func(field *SLField) (string, string) {
-		return field.UID, field.Name
-	})
-
 	selectFields := make([]string, 0, len(options.Fields))
-	if len(options.Fields) == 1 && options.Fields[0] == "*" {
+	if len(options.Fields) == 1 && options.Fields["*"] == "*" {
 		selectFields = []string{"*"}
 	} else {
-		for _, fieldUID := range options.Fields {
-			if fieldName, ok := fieldUIDNameSets[fieldUID]; ok {
-				selectFields = append(selectFields, escape.QuoteIdent(fieldName))
+		for fieldName, fieldAlia := range options.Fields {
+			field := escape.QuoteIdent(fieldName)
+			if fieldAlia != "" {
+				field += fmt.Sprintf("AS %s", escape.QuoteIdent(fieldAlia))
 			}
+			selectFields = append(selectFields, field)
 		}
-		selectFields = append(selectFields, "_uid")
 	}
 
 	q := db.WithContext(ctx).
@@ -292,10 +285,8 @@ func (db *slTables) QueryList(ctx context.Context, slTable *SLTable, options Que
 	}
 	if len(options.Order) > 0 {
 		orderFields := make([]string, 0, len(options.Order))
-		for _, field := range options.Order {
-			if fieldName, ok := fieldUIDNameSets[field]; ok {
-				orderFields = append(orderFields, escape.Escape(`%I`, fieldName))
-			}
+		for _, fieldName := range options.Order {
+			orderFields = append(orderFields, escape.Escape(`%I`, fieldName))
 		}
 		q = q.Order(strings.Join(orderFields, ", "))
 	}
@@ -320,7 +311,7 @@ func (db *slTables) QueryList(ctx context.Context, slTable *SLTable, options Que
 }
 
 type QueryFirstSLTableOptions struct {
-	Fields []string
+	Fields map[string]string // UID -> Alias
 	Filter clause.Expression
 }
 
@@ -329,17 +320,21 @@ func (db *slTables) QueryFirst(ctx context.Context, slTable *SLTable, options Qu
 	tableName := slTable.Name
 
 	selectFields := make([]string, 0, len(options.Fields))
-	if len(options.Fields) == 1 && options.Fields[0] == "*" {
+	if len(options.Fields) == 1 && options.Fields["*"] == "*" {
 		selectFields = []string{"*"}
 	} else {
-		for _, field := range options.Fields {
-			selectFields = append(selectFields, escape.Escape(`%I`, field))
+		for fieldName, fieldAlia := range options.Fields {
+			field := escape.QuoteIdent(fieldName)
+			if fieldAlia != "" {
+				field += fmt.Sprintf("AS %s", escape.QuoteIdent(fieldAlia))
+			}
+			selectFields = append(selectFields, field)
 		}
 	}
 
 	q := db.WithContext(ctx).
 		Table(escape.Escape(`%I.%I`, schemaName, tableName)).
-		Select(selectFields)
+		Select(selectFields).Debug()
 	if options.Filter != nil {
 		q = q.Where(options.Filter)
 	}

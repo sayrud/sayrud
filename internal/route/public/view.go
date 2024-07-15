@@ -22,6 +22,7 @@ type viewHandlerOptions struct {
 func (publicHandler) viewHandler(ctx context.Context, opts viewHandlerOptions) (interface{}, error) {
 	vm := opts.vm
 	dataset := opts.viewOptions.Datasets[0]
+	fieldAlias := opts.viewOptions.FieldMapping
 
 	tableUID := dataset.TableUID
 	slTable, err := db.SLTables.GetByUID(ctx.Request().Context(), tableUID)
@@ -37,6 +38,22 @@ func (publicHandler) viewHandler(ctx context.Context, opts viewHandlerOptions) (
 	if err := dataset.Filter.SetFieldUIDToName(uidNameSets); err != nil {
 		return nil, errors.Wrap(err, "set field UID to name")
 	}
+	uidNameSets["_uid"] = "_uid"
+
+	// Make a field sets and set field alias.
+	fields := make(map[string]string) // Name -> Alia
+	if len(dataset.Fields) == 0 || dataset.Fields[0] == "*" {
+		// All fields
+		for _, filed := range slFields {
+			fields[filed.Name] = fieldAlias[filed.UID]
+		}
+	} else {
+		// Specific fields
+		for _, fieldUID := range dataset.Fields {
+			fieldName := uidNameSets[fieldUID]
+			fields[fieldName] = fieldAlias[fieldUID]
+		}
+	}
 
 	filter, err := dataset.Filter.ToClauseExpression(vm)
 	if err != nil {
@@ -44,7 +61,7 @@ func (publicHandler) viewHandler(ctx context.Context, opts viewHandlerOptions) (
 	}
 
 	result, err := db.SLTables.QueryFirst(ctx.Request().Context(), slTable, db.QueryFirstSLTableOptions{
-		Fields: dataset.Fields,
+		Fields: fields,
 		Filter: filter,
 	})
 	if err != nil {

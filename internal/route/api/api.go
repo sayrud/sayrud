@@ -198,13 +198,15 @@ func validateApiForm(ctx context.Context, validateCtx gocontext.Context, f form.
 	case apibuilder.KindList:
 		options = apibuilder.Options[apibuilder.ListOptions]{
 			Value: apibuilder.ListOptions{
-				Datasets: datasets,
+				Datasets:     datasets,
+				FieldMapping: fieldMapping,
 			},
 		}.ToJSON()
 	case apibuilder.KindView:
 		options = apibuilder.Options[apibuilder.ViewOptions]{
 			Value: apibuilder.ViewOptions{
-				Datasets: datasets,
+				Datasets:     datasets,
+				FieldMapping: fieldMapping,
 			},
 		}.ToJSON()
 

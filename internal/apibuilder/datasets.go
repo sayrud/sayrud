@@ -77,7 +77,7 @@ func (d Dataset) ValidateConfig(ctx context.Context) error {
 		return f.UID
 	})
 	for _, fieldUID := range d.Fields {
-		if !lo.Contains(slFieldUIDs, fieldUID) {
+		if !lo.Contains(slFieldUIDs, fieldUID) && fieldUID != "_uid" {
 			return ErrFieldNotFound
 		}
 	}

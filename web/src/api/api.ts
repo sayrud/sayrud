@@ -91,6 +91,7 @@ export interface Dataset {
     fields: string[];
     filterExp: string;
     order: string[];
+    fieldAlias: Record<string, string>
     limitExp: string;
     offsetExp: string;
 }
