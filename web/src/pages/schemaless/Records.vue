@@ -12,57 +12,53 @@
 
   <div class="table-tree-container">
     <div class="list-tree-wrapper">
-      <div class="list-tree-operator">
-        <t-list :split="true">
-          <t-list-item v-for="table in tables" v-bind:key="table.uid" @click="() => {
-            currentTableUID = table.uid; getRecords()
-          }" :class="['list-item', table.uid === currentTableUID ? 'active' : '']">
-            <div style="display: flex; align-items: center; gap: 5px;">
-              <Table1Icon/>
-              {{ table.label }}
-              <span style="color: var(--td-text-color-secondary)">{{ table.name }}</span>
-            </div>
-          </t-list-item>
-        </t-list>
-      </div>
-      <div class="list-tree-content">
-        <t-space direction="vertical">
+      <t-space direction="vertical" :size="0">
+        <div class="list-header">
+          <t-form-item>
+            <t-select v-model="currentTableUID" @change="getRecords()">
+              <t-option v-for="table in tables" v-bind:key="table.uid" :value="table.uid"
+                        :label="table.name"></t-option>
+            </t-select>
+          </t-form-item>
           <t-space>
+            <t-button theme="default" @click="batchImportDialogVisible = true">
+              批量导入
+            </t-button>
             <t-button @click="onOpenDrawer">
               <template #icon>
                 <add-icon/>
               </template>
               新建记录
             </t-button>
-            <t-button theme="default" @click="batchImportDialogVisible = true">
-              批量导入
-            </t-button>
           </t-space>
-          <t-table
-              :data="records"
-              :columns="columns"
-              row-key="uid"
-              vertical-align="top"
-              :hover="true"
-              :pagination="pagination"
-              :loading="isLoading"
-              @page-change="pagination = $event; getRecords()"
-          >
-            <template #createdAt="{row}">
-              {{ dayjs(row._created_at).format('YYYY-MM-DD HH:mm:ss') }}
-            </template>
-            <template #ops="{row}">
-              <t-space>
-                <t-link theme="primary" @click="onViewRecord(row._uid)">编辑</t-link>
-                <t-popconfirm theme="danger" content="你确定要删除该条记录吗？"
-                              @confirm="onDeleteRecord(row._uid)">
-                  <t-link theme="danger" hover="color"> 删除</t-link>
-                </t-popconfirm>
-              </t-space>
-            </template>
-          </t-table>
-        </t-space>
-      </div>
+        </div>
+        <t-table
+            v-model:displayColumns="displayColumns"
+            :column-controller="columnControllerConfig"
+            :data="records"
+            :columns="columns"
+            row-key="uid"
+            vertical-align="top"
+            :hover="true"
+            :pagination="pagination"
+            :loading="isLoading"
+            resizable
+            @page-change="pagination = $event; getRecords()"
+        >
+          <template #createdAt="{row}">
+            {{ dayjs(row._created_at).format('YYYY-MM-DD HH:mm:ss') }}
+          </template>
+          <template #ops="{row}">
+            <t-space>
+              <t-link theme="primary" @click="onViewRecord(row._uid)">编辑</t-link>
+              <t-popconfirm theme="danger" content="你确定要删除该条记录吗？"
+                            @confirm="onDeleteRecord(row._uid)">
+                <t-link theme="danger" hover="color"> 删除</t-link>
+              </t-popconfirm>
+            </t-space>
+          </template>
+        </t-table>
+      </t-space>
     </div>
   </div>
 
@@ -91,7 +87,7 @@
 </template>
 
 <script setup lang="ts">
-import {onMounted, ref} from "vue";
+import {onMounted, ref, computed} from "vue";
 import {useRoute} from "vue-router";
 import {allTables, type Table} from "@/api/schemalessTable";
 import {type Field, FieldType, listFields} from "@/api/schemalessField";
@@ -106,15 +102,22 @@ import {
   queryRecord,
   deleteRecord, batchCreateRecord, BatchCreateRecordReq
 } from "@/api/schemalessRecord";
-import {AddIcon, Table1Icon} from 'tdesign-icons-vue-next';
+import {AddIcon} from 'tdesign-icons-vue-next';
 import dayjs from "dayjs";
-import {PaginationProps, PrimaryTableCol, TableRowData, MessagePlugin} from "tdesign-vue-next";
+import {PaginationProps, PrimaryTableCol, TableRowData, MessagePlugin, type TableProps} from "tdesign-vue-next";
 
 const route = useRoute()
 const projectUID = route.params.uid as string
 
 const tables = ref<Table[]>([])
 const tableFields = ref<Field[]>([])
+const displayColumns = ref<TableProps['displayColumns']>([]);
+const columnControllerConfig = computed<TableProps['columnController']>(() => ({
+  placement: 'top-right',
+  dialogProps: {
+    preventScrollThrough: true,
+  },
+}));
 const currentTableUID = ref<string>('')
 const BASE_COLUMNS: PrimaryTableCol<TableRowData>[] = [
   {colKey: 'createdAt', title: '创建时间'},
@@ -145,6 +148,8 @@ const getTableFields = () => {
         title: column.title as string,
       })
     })
+
+    displayColumns.value = columns.value.map(item => item.colKey) as string[]
   })
 }
 const getTables = () => {
@@ -265,43 +270,14 @@ onMounted(() => {
 .table-tree-container {
   background-color: var(--td-bg-color-container);
   border-radius: var(--td-radius-medium);
-
-  .t-tree {
-    margin-top: var(--td-comp-margin-xxl);
-  }
 }
 
 .list-tree-wrapper {
   overflow-y: hidden;
-}
 
-.list-tree-operator {
-  width: 280px;
-  float: left;
-  padding-right: var(--td-comp-paddingTB-xxl);
-}
-
-.list-tree-content {
-  padding-left: var(--td-comp-paddingTB-xxl);
-  border-left: 1px solid var(--td-border-level-1-color);
-  overflow: auto;
-}
-
-.list-item {
-  cursor: pointer;
-  transition: background-color 0.2s;
-  border-radius: var(--td-radius-medium);
-
-  &:hover {
-    background-color: var(--td-bg-color-component-hover);
+  .list-header {
+    display: flex;
+    justify-content: space-between;
   }
-
-  &:active {
-    background-color: var(--td-bg-color-component-active);
-  }
-}
-
-.list-item.active {
-  background-color: var(--td-bg-color-component-hover);
 }
 </style>
