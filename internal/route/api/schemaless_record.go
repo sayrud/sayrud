@@ -5,10 +5,12 @@
 package api
 
 import (
+	"encoding/json"
 	"net/http"
 
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
+	"github.com/spf13/cast"
 	"gorm.io/gorm"
 
 	"github.com/wuhan005/sayrud/internal/context"
@@ -117,6 +119,62 @@ func (s schemalessRoute) CreateRecord(ctx context.Context, t *db.SLTable, tx dbu
 		}
 	}
 	return ctx.ApiSuccess(slRecord)
+}
+
+func (s schemalessRoute) BatchCreateRecord(ctx context.Context, t *db.SLTable, tx dbutil.Transactor, f form.BatchCreateRecord) error {
+	if err := tx.Transaction(func(tx *gorm.DB) error {
+		slRecordsSet := make(map[string]json.RawMessage)
+
+		slFieldsStore := db.NewSLFieldsStore(tx)
+		slFields, err := slFieldsStore.GetByTableID(ctx.Request().Context(), t.ID)
+		if err != nil {
+			return errors.Wrap(err, "get sl fields")
+		}
+		uidNameSets := slFields.UIDNameSets()
+		nameUIDSets := make(map[string]string, len(uidNameSets))
+		for k, v := range uidNameSets {
+			nameUIDSets[v] = k
+		}
+
+		for _, data := range f.Data {
+			var uid string
+			fieldData := make(map[string]interface{})
+
+			for k, v := range data {
+				if k == "uid" {
+					uid = cast.ToString(v)
+					if uid == "" {
+						return errors.New("empty uid")
+					}
+				} else {
+					fieldUID, ok := nameUIDSets[k]
+					if ok {
+						fieldData[fieldUID] = v
+					}
+				}
+			}
+
+			jsonBytes, err := json.Marshal(fieldData)
+			if err != nil {
+				return errors.Wrap(err, "marshal data")
+			}
+			slRecordsSet[uid] = jsonBytes
+		}
+
+		slRecordsStore := db.NewSLRecordsStore(tx)
+		if err := slRecordsStore.Import(ctx.Request().Context(), t.ID, db.ImportSLRecordsOptions{
+			Data: slRecordsSet,
+		}); err != nil {
+			return errors.Wrap(err, "create sl records")
+		}
+		return nil
+
+	}); err != nil {
+		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to create sl record")
+		return ctx.ApiServerError()
+	}
+
+	return ctx.Status(http.StatusNoContent)
 }
 
 func (s schemalessRoute) UpdateRecord(ctx context.Context, record *db.SLRecord, tx dbutil.Transactor, f form.UpdateRecord) error {

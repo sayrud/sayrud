@@ -20,6 +20,8 @@ type Model struct {
 }
 
 func (m *Model) BeforeCreate(_ *gorm.DB) error {
-	m.UID = randstr.String(8)
+	if m.UID == "" {
+		m.UID = randstr.String(8)
+	}
 	return nil
 }

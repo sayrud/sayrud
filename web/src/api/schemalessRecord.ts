@@ -35,6 +35,14 @@ export function createRecord(projectUID: string, tableUID: string, data: CreateR
     return axios.post<Record, Record>(`/projects/${projectUID}/tables/${tableUID}/records`, data);
 }
 
+export interface BatchCreateRecordReq {
+    data: { [key: string]: any }[]
+}
+
+export function batchCreateRecord(projectUID: string, tableUID: string, data: { Data: { [p: string]: any }[] }) {
+    return axios.post<Record[], Record[]>(`/projects/${projectUID}/tables/${tableUID}/records/batch`, data);
+}
+
 export interface UpdateRecordReq {
     data: { [key: string]: any }
 }

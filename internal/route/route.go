@@ -71,6 +71,7 @@ func New(db *gorm.DB, redisClient *redis.Client) *flamego.Flame {
 							f.Combo("").
 								Get(api.Schemaless.ListRecords).
 								Post(form.Bind(form.CreateRecord{}), api.Schemaless.CreateRecord)
+							f.Post("/batch", form.Bind(form.BatchCreateRecord{}), api.Schemaless.BatchCreateRecord)
 							f.Get("/query", api.Schemaless.QueryRecords)
 							f.Group("/{recordUID}", func() {
 								f.Combo("").

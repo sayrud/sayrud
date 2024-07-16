@@ -24,6 +24,7 @@ type SLRecordsStore interface {
 	GetByID(ctx context.Context, slRecordID uint) (*SLRecord, error)
 	GetByUID(ctx context.Context, slRecordUID string) (*SLRecord, error)
 	Query(ctx context.Context, slTableID uint, options QuerySLRecordsOptions) ([]*SLRecord, error)
+	Import(ctx context.Context, slTableID uint, options ImportSLRecordsOptions) error
 	Create(ctx context.Context, slTableID uint, jsonBytes json.RawMessage) (*SLRecord, error)
 	Update(ctx context.Context, slRecordID uint, jsonBytes json.RawMessage) error
 	DeleteByID(ctx context.Context, slRecordID uint) error
@@ -119,6 +120,27 @@ func (db *slRecords) getBy(ctx context.Context, where string, args ...interface{
 		return nil, err
 	}
 	return &slRecord, nil
+}
+
+type ImportSLRecordsOptions struct {
+	Data map[string]json.RawMessage
+}
+
+func (db *slRecords) Import(ctx context.Context, slTableID uint, options ImportSLRecordsOptions) error {
+	return db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		for uid, jsonBytes := range options.Data {
+			if err := tx.WithContext(ctx).Create(&SLRecord{
+				Model: dbutil.Model{
+					UID: uid,
+				},
+				SLTableID: slTableID,
+				Data:      datatypes.JSON(jsonBytes),
+			}).Error; err != nil {
+				return errors.Wrap(err, "create")
+			}
+		}
+		return nil
+	})
 }
 
 func (db *slRecords) Create(ctx context.Context, slTableID uint, jsonBytes json.RawMessage) (*SLRecord, error) {

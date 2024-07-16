@@ -1,4 +1,15 @@
 <template>
+  <t-dialog v-model:visible="batchImportDialogVisible" header="批量添加" :confirm-btn="null" :cancel-btn="null">
+    <t-form :label-width="0">
+      <t-form-item>
+        <t-textarea v-model="batchImportRaw" :autosize="{minRows: 6}"></t-textarea>
+      </t-form-item>
+      <t-form-item>
+        <t-button @click="onBatchCreate">添加数据</t-button>
+      </t-form-item>
+    </t-form>
+  </t-dialog>
+
   <div class="table-tree-container">
     <div class="list-tree-wrapper">
       <div class="list-tree-operator">
@@ -16,12 +27,17 @@
       </div>
       <div class="list-tree-content">
         <t-space direction="vertical">
-          <t-button @click="onOpenDrawer">
-            <template #icon>
-              <add-icon/>
-            </template>
-            新建记录
-          </t-button>
+          <t-space>
+            <t-button @click="onOpenDrawer">
+              <template #icon>
+                <add-icon/>
+              </template>
+              新建记录
+            </t-button>
+            <t-button theme="default" @click="batchImportDialogVisible = true">
+              批量导入
+            </t-button>
+          </t-space>
           <t-table
               :data="records"
               :columns="columns"
@@ -88,11 +104,11 @@ import {
   createRecord,
   updateRecord,
   queryRecord,
-  deleteRecord
+  deleteRecord, batchCreateRecord, BatchCreateRecordReq
 } from "@/api/schemalessRecord";
 import {AddIcon, Table1Icon} from 'tdesign-icons-vue-next';
 import dayjs from "dayjs";
-import {PaginationProps, PrimaryTableCol, TableRowData} from "tdesign-vue-next";
+import {PaginationProps, PrimaryTableCol, TableRowData, MessagePlugin} from "tdesign-vue-next";
 
 const route = useRoute()
 const projectUID = route.params.uid as string
@@ -152,7 +168,10 @@ const pagination = ref<PaginationProps>({
 })
 const getRecords = () => {
   isLoading.value = true
-  listRecord(projectUID, currentTableUID.value, {}).then(res => {
+  listRecord(projectUID, currentTableUID.value, {
+    page: pagination.value.current,
+    pageSize: pagination.value.pageSize,
+  }).then(res => {
     records.value = res.records
     pagination.value.total = res.total
   }).finally(() => {
@@ -181,6 +200,26 @@ const onOpenDrawer = () => {
     recordFormData.value.data[field.uid] = null
   })
   recordDrawerVisible.value = true
+}
+
+const batchImportDialogVisible = ref<boolean>(false)
+const batchImportRaw = ref<string>('')
+const onBatchCreate = () => {
+  let data: { [key: string]: any }[] = []
+  try {
+    data = JSON.parse(batchImportRaw.value)
+  } catch (e: Error) {
+    MessagePlugin.error('数据格式错误 ' + e.toString())
+    return
+  }
+
+  batchCreateRecord(projectUID, currentTableUID.value, {
+    Data: data,
+  }).then(() => {
+    batchImportDialogVisible.value = false
+  }).finally(() => {
+    getRecords()
+  })
 }
 
 const currentRecordUID = ref<string>('')

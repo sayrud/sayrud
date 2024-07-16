@@ -44,6 +44,10 @@ type CreateRecord struct {
 	Data map[string]interface{} `json:"data" label:"字段数据"`
 }
 
+type BatchCreateRecord struct {
+	Data []map[string]interface{} `json:"data" label:"字段数据"`
+}
+
 type UpdateRecord struct {
 	Data map[string]interface{} `json:"data" label:"字段数据"`
 }
