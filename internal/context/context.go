@@ -83,6 +83,7 @@ func Contexter(gormDB *gorm.DB, redisClient *redis.Client) flamego.Handler {
 			IsLogin: false,
 		}
 
+		c.ResponseWriter().Header().Set("Server", "Sayrud")
 		c.ResponseWriter().Header().Set("Access-Control-Allow-Origin", "*")
 		c.ResponseWriter().Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
 		c.ResponseWriter().Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
