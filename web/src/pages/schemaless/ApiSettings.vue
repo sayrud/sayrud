@@ -226,6 +226,13 @@
                         <t-input-number size="small" v-model="formData.middlewares[index].params['value']"/>
                       </t-form-item>
                     </div>
+
+                    <!-- turnstile_captcha -->
+                    <div v-if="item.type === 'turnstile_captcha'">
+                      <t-form-item label="Secret Key">
+                        <t-input size="small" v-model="formData.middlewares[index].params['secretKey']"></t-input>
+                      </t-form-item>
+                    </div>
                   </t-form>
                   <span v-else>无操作选项</span>
                 </t-card>

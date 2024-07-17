@@ -17,7 +17,7 @@ const TypeMain = "main"
 
 func (t Type) IsValid() bool {
 	switch t {
-	case TypeMain, TypeLog, TypeRateLimit, TypeSendEmail:
+	case TypeMain, TypeLog, TypeRateLimit, TypeSendEmail, TypeTurnstileCaptcha:
 		return true
 	default:
 		return false
@@ -40,6 +40,8 @@ func Get(typ Type, params Params) (Handler, error) {
 		return &rateLimit{Params: params, redis: redis.Get()}, nil
 	case TypeSendEmail:
 		return &sendEmail{Params: params}, nil
+	case TypeTurnstileCaptcha:
+		return &turnstileCaptcha{Params: params}, nil
 	default:
 		return nil, ErrUnknownMiddlewareType
 	}

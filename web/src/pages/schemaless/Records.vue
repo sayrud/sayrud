@@ -100,7 +100,8 @@ import {
   createRecord,
   updateRecord,
   queryRecord,
-  deleteRecord, batchCreateRecord, BatchCreateRecordReq
+  deleteRecord,
+  batchCreateRecord,
 } from "@/api/schemalessRecord";
 import {AddIcon} from 'tdesign-icons-vue-next';
 import dayjs from "dayjs";
@@ -213,7 +214,7 @@ const onBatchCreate = () => {
   let data: { [key: string]: any }[] = []
   try {
     data = JSON.parse(batchImportRaw.value)
-  } catch (e: Error) {
+  } catch (e: any) {
     MessagePlugin.error('数据格式错误 ' + e.toString())
     return
   }
