@@ -71,7 +71,10 @@ func (c *Context) ServerError() {
 }
 
 func (c *Context) IP() string {
-	// TODO: from request header
+	ipHeader := os.Getenv("IP_HEADER")
+	if ipHeader != "" {
+		return c.Request().Header.Get(ipHeader)
+	}
 	return c.Request().RemoteAddr
 }
 
