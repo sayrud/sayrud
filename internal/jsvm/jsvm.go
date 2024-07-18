@@ -5,6 +5,8 @@
 package jsvm
 
 import (
+	"net/http"
+
 	"github.com/dop251/goja"
 	"github.com/pkg/errors"
 
@@ -16,6 +18,7 @@ type NewVMOptions struct {
 	RequestPath   string
 	RequestQuery  map[string]interface{}
 	RequestBody   map[string]interface{}
+	RequestHeader http.Header
 	RequestIP     string
 
 	This map[string]interface{}
@@ -50,6 +53,9 @@ func NewVM(options NewVMOptions) (*goja.Runtime, error) {
 
 		if err := request.Set("ip", options.RequestIP); err != nil {
 			return nil, errors.Wrap(err, "set request ip")
+		}
+		if err := request.Set("userAgent", options.RequestHeader.Get("User-Agent")); err != nil {
+			return nil, errors.Wrap(err, "set request ua")
 		}
 
 		if err := vm.Set("$request", request); err != nil {

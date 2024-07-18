@@ -82,6 +82,7 @@ func (s schemalessRoute) CreateRecord(ctx context.Context, t *db.SLTable, tx dbu
 		RequestMethod: ctx.Request().Method,
 		RequestPath:   ctx.Request().URL.Path,
 		RequestIP:     ctx.IP(),
+		RequestHeader: ctx.Request().Header,
 	})
 	if err != nil {
 		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to create vm")
@@ -182,6 +183,7 @@ func (s schemalessRoute) UpdateRecord(ctx context.Context, record *db.SLRecord, 
 		RequestMethod: ctx.Request().Method,
 		RequestPath:   ctx.Request().URL.Path,
 		RequestIP:     ctx.IP(),
+		RequestHeader: ctx.Request().Header,
 	})
 	if err != nil {
 		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to create vm")

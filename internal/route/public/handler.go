@@ -180,6 +180,7 @@ func (h publicHandler) Handler(ctx context.Context, api *db.Api, tx dbutil.Trans
 		RequestQuery:  queryValues,
 		RequestBody:   bodyValues,
 		RequestIP:     ctx.IP(),
+		RequestHeader: ctx.Request().Header,
 	})
 	if err != nil {
 		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to create JS VM")
