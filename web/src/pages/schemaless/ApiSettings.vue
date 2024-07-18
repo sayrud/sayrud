@@ -116,7 +116,7 @@
                         </t-select>
                         <t-textarea
                             v-if="formData.kind !== 'create'"
-                            v-model="formData.filter" placeholder="请输入筛选条件"
+                            v-model="filterData" placeholder="请输入筛选条件"
                             :autosize="{minRows: 6}"></t-textarea>
                       </t-space>
                     </t-form-item>
@@ -488,13 +488,13 @@ const onSelectDataset = (tableUID: string) => {
   })
 }
 
+const filterData = ref<string>('')
 const formData = ref<CreateApiReq | UpdateApiReq>({
   kind: 'list',
   methods: [],
   path: '',
   queryParams: [],
   bodyParams: [],
-  filter: '',
   fieldMapping: {},
   datasets: [],
   middlewares: [{
@@ -546,20 +546,25 @@ const onSubmit = async () => {
     // Convert the datasets to the correct format.
     formData.value.datasets = datasets.value
 
-    let filterObject = {}
-    if ((formData.value.kind === 'update' || formData.value.kind === 'delete') && formData.value.filter) {
+    let filterObject = {} as any
+    if (filterData.value) {
       try {
-        filterObject = JSON.parse(formData.value.filter)
+        filterObject = JSON.parse(filterData.value)
       } catch (e) {
         MessagePlugin.error(`筛选条件解析失败 ${e}`)
         return
+      }
+
+      if (formData.value.kind === 'list' || formData.value.kind === 'view') {
+        formData.value.datasets[0].filter = filterObject
+      } else if (formData.value.kind === 'update' || formData.value.kind === 'delete') {
+        formData.value.filter = filterObject
       }
     }
 
     if (mode.value === 'create') {
       createApi(projectUID, {
         ...formData.value,
-        filter: filterObject,
       } as CreateApiReq).then(res => {
         MessagePlugin.success('新建接口成功')
         router.push({name: 'SchemalessApiSettings', params: {uid: projectUID, apiUID: res.uid}})
@@ -575,7 +580,6 @@ const onSubmit = async () => {
     } else {
       updateApi(projectUID, apiUID.value, {
         ...formData.value,
-        filter: filterObject,
       } as UpdateApiReq).then(() => {
       }).finally(() => {
         NProgress.done()
@@ -659,13 +663,20 @@ onMounted(() => {
 
       const fieldMapping = res.options?.fieldMapping
 
+
+      if (res.kind === 'list' || res.kind === 'view') {
+        const dataset = res.options.datasets ? res.options.datasets[0] : null
+        filterData.value = JSON.stringify(dataset ? dataset.filter : {}, null, 2)
+      } else if (res.kind === 'update' || res.kind === 'delete') {
+        filterData.value = JSON.stringify(res.options?.filter, null, 2)
+      }
+
       formData.value = {
         kind: res.kind,
         methods: res.methods,
         path: res.path,
         queryParams: [],
         bodyParams: [],
-        filter: JSON.stringify(res.options?.filter, null, 2),
         fieldMapping: fieldMapping ? fieldMapping : {},
         datasets: [],
         middlewares: res.middlewares.length === 0 ? [{

@@ -89,7 +89,7 @@ export type Datasets = Dataset[]
 export interface Dataset {
     tableUID: string;
     fields: string[];
-    filterExp: string;
+    filter: object;
     order: string[];
     fieldAlias: Record<string, string>
     limitExp: string;
