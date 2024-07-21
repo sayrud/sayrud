@@ -82,15 +82,19 @@ func (authRoute) GitHubCallback(ctx context.Context) error {
 
 	accessToken := response.AccessToken
 	githubClient := github.NewClient(nil).WithAuthToken(accessToken)
+
 	githubUser, _, err := githubClient.Users.Get(ctx.Request().Context(), "")
 	if err != nil {
 		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to get user")
 		return ctx.ApiServerError()
 	}
 
-	email := githubUser.GetEmail()
-	logrus.WithContext(ctx.Request().Context()).Infof("Email: %s", email)
-	
+	userEmails, _, err := githubClient.Users.ListEmails(ctx.Request().Context(), nil)
+	if err != nil {
+		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to get user emails")
+		return ctx.ApiServerError()
+	}
+
 	userName := githubUser.GetName()
 	githubID := githubUser.GetLogin()
 
@@ -99,8 +103,21 @@ func (authRoute) GitHubCallback(ctx context.Context) error {
 		allowEmails = strings.Split(os.Getenv("ALLOW_EMAILS"), ",")
 	}
 
+	var email string
 	// Check the email whitelist.
-	if !strings.HasSuffix(email, "@github.red") && !lo.Contains(allowEmails, email) {
+	for _, userEmail := range userEmails {
+		if !userEmail.GetVerified() {
+			continue
+		}
+
+		e := userEmail.GetEmail()
+		if strings.HasSuffix(e, "@github.red") || lo.Contains(allowEmails, e) {
+			email = e
+			break
+		}
+	}
+
+	if email == "" {
 		return ctx.ApiError(http.StatusUnauthorized, "您的邮箱不在白名单中")
 	}
 
