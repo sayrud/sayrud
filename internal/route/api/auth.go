@@ -89,6 +89,8 @@ func (authRoute) GitHubCallback(ctx context.Context) error {
 	}
 
 	email := githubUser.GetEmail()
+	logrus.WithContext(ctx.Request().Context()).Infof("Email: %s", email)
+	
 	userName := githubUser.GetName()
 	githubID := githubUser.GetLogin()
 
