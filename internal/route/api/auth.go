@@ -14,6 +14,7 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/go-github/v62/github"
+	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
 
 	"github.com/wuhan005/sayrud/internal/context"
@@ -91,8 +92,13 @@ func (authRoute) GitHubCallback(ctx context.Context) error {
 	userName := githubUser.GetName()
 	githubID := githubUser.GetLogin()
 
+	var allowEmails []string
+	if os.Getenv("ALLOW_EMAILS") != "" {
+		allowEmails = strings.Split(os.Getenv("ALLOW_EMAILS"), ",")
+	}
+
 	// Check the email whitelist.
-	if !strings.HasSuffix(email, "@github.red") {
+	if !strings.HasSuffix(email, "@github.red") && !lo.Contains(allowEmails, email) {
 		return ctx.ApiError(http.StatusUnauthorized, "您的邮箱不在白名单中")
 	}
 
