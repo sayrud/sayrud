@@ -255,6 +255,7 @@ func (h publicHandler) Handler(ctx context.Context, api *db.Api, tx dbutil.Trans
 				queryValues:   queryValues,
 				bodyValues:    bodyValues,
 				updateOptions: updateOptions,
+				tx:            tx,
 			})
 		}); err != nil {
 			switch {
