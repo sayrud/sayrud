@@ -31,7 +31,10 @@ var dbInstance *gorm.DB
 func Init() (*gorm.DB, error) {
 	dsn := os.Getenv("POSTGRES_DSN")
 
-	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{
+	db, err := gorm.Open(postgres.New(postgres.Config{
+		DSN:                  dsn,
+		PreferSimpleProtocol: true,
+	}), &gorm.Config{
 		SkipDefaultTransaction: true,
 		NowFunc: func() time.Time {
 			return dbutil.Now()
