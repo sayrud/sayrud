@@ -29,7 +29,7 @@ import Logo from '@/assets/logo.svg';
 import {LogoGithubIcon} from 'tdesign-icons-vue-next';
 
 const onSignIn = () => {
-  window.location.href = `https://github.com/login/oauth/authorize?client_id=${import.meta.env.VITE_GITHUB_CLIENT_ID}&redirect_uri=${import.meta.env.VITE_GITHUB_REDIRECT_URI}`;
+  window.location.href = `https://github.com/login/oauth/authorize?client_id=${import.meta.env.VITE_GITHUB_CLIENT_ID}&redirect_uri=${import.meta.env.VITE_GITHUB_REDIRECT_URI}&scope=user`;
 }
 </script>
 

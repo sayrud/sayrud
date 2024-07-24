@@ -89,7 +89,10 @@ func (authRoute) GitHubCallback(ctx context.Context) error {
 		return ctx.ApiServerError()
 	}
 
-	userEmails, _, err := githubClient.Users.ListEmails(ctx.Request().Context(), nil)
+	userEmails, _, err := githubClient.Users.ListEmails(ctx.Request().Context(), &github.ListOptions{
+		Page:    1,
+		PerPage: 10,
+	})
 	if err != nil {
 		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to get user emails")
 		return ctx.ApiServerError()
