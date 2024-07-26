@@ -21,7 +21,7 @@ func main() {
 	if uptraceDsn != "" {
 		uptrace.ConfigureOpentelemetry(
 			uptrace.WithDSN(uptraceDsn),
-			uptrace.WithServiceName("Sayrud"),
+			uptrace.WithServiceName("sayrud"),
 		)
 		logrus.Debug("Tracing enabled.")
 	}

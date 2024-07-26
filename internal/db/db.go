@@ -62,7 +62,9 @@ func Init() (*gorm.DB, error) {
 
 	SetDatabaseStore(db)
 
-	if err := db.Use(otelgorm.NewPlugin()); err != nil {
+	if err := db.Use(otelgorm.NewPlugin(
+		otelgorm.WithDBName("sayrud"),
+	)); err != nil {
 		return nil, errors.Wrap(err, "register otelgorm plugin")
 	}
 

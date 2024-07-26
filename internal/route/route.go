@@ -17,7 +17,7 @@ func New(db *gorm.DB, redisClient *redis.Client) *flamego.Flame {
 
 	f.Use(
 		context.Contexter(db, redisClient),
-		tracing.Middleware("Sayrud"),
+		tracing.Middleware("sayrud"),
 	)
 
 	f.Group("/api", func() {
