@@ -9,6 +9,7 @@ import (
 	"github.com/wuhan005/sayrud/internal/form"
 	"github.com/wuhan005/sayrud/internal/route/api"
 	"github.com/wuhan005/sayrud/internal/route/public"
+	"github.com/wuhan005/sayrud/internal/tracing"
 )
 
 func New(db *gorm.DB, redisClient *redis.Client) *flamego.Flame {
@@ -16,6 +17,7 @@ func New(db *gorm.DB, redisClient *redis.Client) *flamego.Flame {
 
 	f.Use(
 		context.Contexter(db, redisClient),
+		tracing.Middleware("Sayrud"),
 	)
 
 	f.Group("/api", func() {

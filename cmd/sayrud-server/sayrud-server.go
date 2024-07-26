@@ -2,8 +2,11 @@ package main
 
 import (
 	"flag"
+	"os"
 
 	"github.com/sirupsen/logrus"
+	"github.com/uptrace/opentelemetry-go-extra/otellogrus"
+	"github.com/uptrace/uptrace-go/uptrace"
 
 	"github.com/wuhan005/sayrud/internal/db"
 	"github.com/wuhan005/sayrud/internal/redis"
@@ -13,6 +16,22 @@ import (
 func main() {
 	port := flag.Int("port", 8080, "port to listen")
 	flag.Parse()
+
+	uptraceDsn := os.Getenv("UPTRACE_DSN")
+	if uptraceDsn != "" {
+		uptrace.ConfigureOpentelemetry(
+			uptrace.WithDSN(uptraceDsn),
+			uptrace.WithServiceName("Sayrud"),
+		)
+		logrus.Debug("Tracing enabled.")
+	}
+
+	logrus.AddHook(otellogrus.NewHook(otellogrus.WithLevels(
+		logrus.PanicLevel,
+		logrus.FatalLevel,
+		logrus.ErrorLevel,
+		logrus.WarnLevel,
+	)))
 
 	db, err := db.Init()
 	if err != nil {
