@@ -384,8 +384,12 @@ github.com/tj/go-pg-escape v1.1.0 h1:cobabZ0E/H8V7q/TmfxC0Zym1Xvg1KdAX1M4PwwnSF8
 github.com/tj/go-pg-escape v1.1.0/go.mod h1:QwOGNf/gBKJqfmjaYFblbPOAYF2pvB6EZBDpAFeN5aQ=
 github.com/ugorji/go v1.1.4/go.mod h1:uQMGLiO92mf5W77hV/PUCpI3pbzQx3CRekS0kk+RGrc=
 github.com/ugorji/go/codec v0.0.0-20181204163529-d75b2dcb6bc8/go.mod h1:VFNgLljTbGfSG7qAOspJ7OScBnGdDN/yBr0sguwnwf0=
+github.com/uptrace/opentelemetry-go-extra/otelgorm v0.3.1 h1:GFFXCsiOWqrAovcIzxqJOYBEy2A/0jd//JNz/jTy1CA=
+github.com/uptrace/opentelemetry-go-extra/otelgorm v0.3.1/go.mod h1:ncqprpzpjuZHDkvsnl/baPLA0stLgZSLsYEvUhAVkbM=
 github.com/uptrace/opentelemetry-go-extra/otellogrus v0.3.1 h1:sApVqiPa+lFhsIzREHhSOH2WctSNYaSet1dBC6L1OcM=
 github.com/uptrace/opentelemetry-go-extra/otellogrus v0.3.1/go.mod h1:y5+uFBQU6m6ZUexR31pR0OTYDCrJ735Du/y3aAuYlzs=
+github.com/uptrace/opentelemetry-go-extra/otelsql v0.3.1 h1:i4f4ey/v5x0zXurkqV/zbOZlMLu8WNIvpDn1tJzdutY=
+github.com/uptrace/opentelemetry-go-extra/otelsql v0.3.1/go.mod h1:ZKgZNsGk5Y+uOxRHcYb4MKLVpmKYU4/u7BUtbStJm7w=
 github.com/uptrace/opentelemetry-go-extra/otelutil v0.3.1 h1:Suvl9fe12MM0oi8/rcGxlGd7XawNQawU369aHzZFFec=
 github.com/uptrace/opentelemetry-go-extra/otelutil v0.3.1/go.mod h1:aiX/F5+EYbY2ed2OQEYRXzMcNGvI9pip5gW2ZtBDers=
 github.com/uptrace/uptrace-go v1.27.1 h1:CIcBWKucTkw1ussNToZA1HNO7+HXOju9zDcFC+MOpOA=
@@ -626,7 +630,7 @@ gorm.io/driver/sqlite v1.4.3/go.mod h1:0Aq3iPO+v9ZKbcdiz8gLWRw5VOPcBOPUQJFLq5e2e
 gorm.io/driver/sqlserver v1.4.1 h1:t4r4r6Jam5E6ejqP7N82qAJIJAht27EGT41HyPfXRw0=
 gorm.io/driver/sqlserver v1.4.1/go.mod h1:DJ4P+MeZbc5rvY58PnmN1Lnyvb5gw5NPzGshHDnJLig=
 gorm.io/gorm v1.25.7/go.mod h1:hbnx/Oo0ChWMn1BIhpy1oYozzpM15i4YPuHDmfYtwg8=
-gorm.io/gorm v1.25.9 h1:wct0gxZIELDk8+ZqF/MVnHLkA1rvYlBWUMv2EdsK1g8=
-gorm.io/gorm v1.25.9/go.mod h1:hbnx/Oo0ChWMn1BIhpy1oYozzpM15i4YPuHDmfYtwg8=
+gorm.io/gorm v1.25.10 h1:dQpO+33KalOA+aFYGlK+EfxcI5MbO7EP2yYygwh9h+s=
+gorm.io/gorm v1.25.10/go.mod h1:hbnx/Oo0ChWMn1BIhpy1oYozzpM15i4YPuHDmfYtwg8=
 honnef.co/go/tools v0.0.0-20190102054323-c2f93a96b099/go.mod h1:rf3lG4BRIbNafJWhAfAdb/ePZxsR/4RtNHQocxwk9r4=
 honnef.co/go/tools v0.0.0-20190523083050-ea95bdfd59fc/go.mod h1:rf3lG4BRIbNafJWhAfAdb/ePZxsR/4RtNHQocxwk9r4=

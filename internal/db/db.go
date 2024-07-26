@@ -8,6 +8,7 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
+	"github.com/uptrace/opentelemetry-go-extra/otelgorm"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
@@ -60,6 +61,10 @@ func Init() (*gorm.DB, error) {
 	}
 
 	SetDatabaseStore(db)
+
+	if err := db.Use(otelgorm.NewPlugin()); err != nil {
+		return nil, errors.Wrap(err, "register otelgorm plugin")
+	}
 
 	return db, nil
 }
