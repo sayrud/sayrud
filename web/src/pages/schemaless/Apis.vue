@@ -10,8 +10,11 @@
     </div>
   </t-row>
 
-  <t-alert theme="info">
-    API Endpoint：<code>{{ apiEndpointURL }}</code>
+  <t-alert theme="success">
+    <template #title>
+      API Endpoint
+    </template>
+    <code>{{ apiEndpointURL }}</code>
   </t-alert>
 
   <t-table
