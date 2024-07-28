@@ -10,6 +10,10 @@
     </div>
   </t-row>
 
+  <t-alert theme="info">
+    API Endpoint：<code>{{ apiEndpointURL }}</code>
+  </t-alert>
+
   <t-table
       :data="apis"
       :columns="COLUMNS"
@@ -66,7 +70,7 @@
 </template>
 
 <script setup lang="ts">
-import {onMounted, ref} from "vue";
+import {computed, onMounted, ref} from "vue";
 import {useRoute, useRouter} from "vue-router";
 import {listApis, type Api, MethodType, deleteApi} from "@/api/api";
 import {
@@ -110,6 +114,11 @@ const getApis = () => {
     isLoading.value = false
   })
 }
+
+const apiEndpointURL = computed(() => {
+  const baseURL = import.meta.env.VITE_API_BASE_URL.replace(/\/_$/, '')
+  return `${baseURL}/api/${projectUID}`
+})
 
 const onCreateApi = () => {
   router.push({name: 'SchemalessApiCreate', params: {uid: projectUID}})
