@@ -1,32 +1,43 @@
 <template>
-  <div class="login-wrapper">
-    <header class="login-header">
-      <img alt="logo" class="logo" :src="Logo"/>
-    </header>
+  <t-layout class="layout">
+    <div class="login-wrapper">
+      <header class="login-header" @click="router.push({name: 'Landing'})">
+        <img height="30" :src="appStore.theme === 'dark' ? logoDark : logo" alt="logo"/>
+      </header>
 
-    <div class="login-container">
-      <div class="title-container">
-        <h1 class="title">登录 Sayrud</h1>
+      <div class="login-container">
+        <div class="title-container">
+          <h1 class="title">登录 Sayrud</h1>
+        </div>
+        <t-form ref="form" class="item-container" label-width="0">
+          <t-form-item class="btn-container">
+            <t-button block size="large" type="submit" @click="onSignIn">
+              <template #icon>
+                <LogoGithubIcon/>
+              </template>
+              GitHub 登录
+            </t-button>
+          </t-form-item>
+        </t-form>
       </div>
-      <t-form ref="form" class="item-container" label-width="0">
-        <t-form-item class="btn-container">
-          <t-button block size="large" type="submit" @click="onSignIn">
-            <template #icon>
-              <LogoGithubIcon/>
-            </template>
-            GitHub 登录
-          </t-button>
-        </t-form-item>
-      </t-form>
-    </div>
 
-    <footer class="copyright">Copyright @ 2024 Sayrud. All Rights Reserved</footer>
-  </div>
+      <footer class="copyright">Copyright @ 2024 Sayrud. All Rights Reserved</footer>
+    </div>
+  </t-layout>
 </template>
 
 <script setup lang="ts">
-import Logo from '@/assets/logo.svg';
+import logo from '@/assets/logo.svg'
+import logoDark from '@/assets/logo-dark.svg'
 import {LogoGithubIcon} from 'tdesign-icons-vue-next';
+import {useAppStore} from "@/store";
+import {useRouter} from "vue-router";
+
+const router = useRouter()
+const appStore = useAppStore()
+if (appStore.theme === 'dark') {
+  document.documentElement.setAttribute('theme-mode', 'dark');
+}
 
 const onSignIn = () => {
   window.location.href = `https://github.com/login/oauth/authorize?client_id=${import.meta.env.VITE_GITHUB_CLIENT_ID}&redirect_uri=${import.meta.env.VITE_GITHUB_REDIRECT_URI}&scope=user`;
@@ -43,13 +54,16 @@ const onSignIn = () => {
   color: var(--td-text-color-primary);
   height: var(--td-comp-size-xxxl);
 
+  img {
+    cursor: pointer;
+  }
+  
   .logo {
     height: var(--td-comp-size-l);
   }
 }
 
 .login-wrapper {
-  background-color: white;
   background-image: url('@/assets/assets-signin-bg.png');
 }
 
