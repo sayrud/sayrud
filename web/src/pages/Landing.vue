@@ -40,18 +40,19 @@
           <h1>加入 Waitlist</h1>
           <span class="sub">Sayrud 还在开发中，仅邀请少量用户参与体验。如果你愿意和我一起共建，欢迎加入 Waitlist！</span>
         </template>
-        <t-form ref="form" :data="waitListForm" :colon="true" :label-width="0" @submit="onSubmitWaitlist">
-          <t-form-item name="account">
-            <t-input clearable placeholder="请输入电子邮箱" size="large">
+        <t-form ref="form" :data="waitListForm" :colon="true" :label-width="0" @submit="onSubmitWaitlist"
+                :rules="FORM_RULES">
+          <t-form-item name="email">
+            <t-input clearable placeholder="请输入电子邮箱" size="large" v-model="waitListForm.email">
               <template #prefix-icon>
                 <mail-icon/>
               </template>
             </t-input>
           </t-form-item>
-          <t-form-item name="">
-            <t-textarea placeholder="请输入申请理由" size="large" :autosize="{ minRows: 2, maxRows: 4 }"></t-textarea>
+          <t-form-item name="comment">
+            <t-textarea placeholder="请输入申请理由" size="large" :autosize="{ minRows: 2, maxRows: 4 }"
+                        v-model="waitListForm.comment"></t-textarea>
           </t-form-item>
-
           <t-form-item>
             <t-button theme="primary" type="submit" block size="large">提交</t-button>
           </t-form-item>
@@ -64,11 +65,15 @@
 </template>
 
 <script setup lang="ts">
+import {ref} from 'vue'
 import logo from '@/assets/logo.svg'
 import logoDark from '@/assets/logo-dark.svg'
 import {useAppStore} from "@/store";
 import {Measurement1Icon, Link1Icon, UserLockedIcon, EarthIcon, MailIcon} from 'tdesign-icons-vue-next';
 import {useRouter} from 'vue-router'
+import axios from 'axios'
+import {FormRule, MessagePlugin, type SubmitContext, FormInstanceFunctions} from "tdesign-vue-next";
+import NProgress from "nprogress";
 
 const router = useRouter()
 const appStore = useAppStore()
@@ -109,9 +114,34 @@ const onSwitchTheme = () => {
   }
 }
 
-const waitListForm = {}
-const onSubmitWaitlist = () => {
+const form = ref<FormInstanceFunctions>()
+const FORM_RULES: Record<string, FormRule[]> = {
+  email: [{required: true, message: '请输入电子邮箱', type: 'error'}, {
+    email: true,
+    message: '请输入正确的电子邮箱格式'
+  }],
+  comment: [{required: true, message: '请输入申请理由', type: 'error'}],
+};
+const waitListForm = ref({
+  email: '',
+  comment: '',
+})
 
+const onSubmitWaitlist = (ctx: SubmitContext) => {
+  if (ctx.validateResult === true) {
+    NProgress.start()
+
+    axios.post('https://sayrud.apicon.cn/api/QUamwQ6G/waitlist', waitListForm.value, {
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    }).then(() => {
+      form.value?.reset()
+      MessagePlugin.success('提交成功，感谢您的支持！')
+    }).finally(() => {
+      NProgress.done()
+    })
+  }
 }
 </script>
 
