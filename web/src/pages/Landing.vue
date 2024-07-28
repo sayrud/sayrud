@@ -26,7 +26,7 @@
           <template #title>
             <div class="card-header">
               <div class="card-icon">
-                <component :size="30" :is="item.icon"/>
+                <component size="30" :is="item.icon"/>
               </div>
               <div class="card-title">{{ item.title }}</div>
             </div>
@@ -40,7 +40,7 @@
           <h1>加入 Waitlist</h1>
           <span class="sub">Sayrud 还在开发中，仅邀请少量用户参与体验。如果你愿意和我一起共建，欢迎加入 Waitlist！</span>
         </template>
-        <t-form ref="form" :data="waitListForm" :colon="true" :label-width="0" @submit="onSubmit">
+        <t-form ref="form" :data="waitListForm" :colon="true" :label-width="0" @submit="onSubmitWaitlist">
           <t-form-item name="account">
             <t-input clearable placeholder="请输入电子邮箱" size="large">
               <template #prefix-icon>
@@ -110,6 +110,9 @@ const onSwitchTheme = () => {
 }
 
 const waitListForm = {}
+const onSubmitWaitlist = () => {
+
+}
 </script>
 
 <style scoped>
