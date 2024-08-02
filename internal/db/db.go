@@ -24,6 +24,7 @@ var AllTables = []interface{}{
 	&SLField{},
 	&SLRecord{},
 	&Api{},
+	&Domain{},
 }
 
 var dbInstance *gorm.DB
@@ -79,6 +80,7 @@ func SetDatabaseStore(db *gorm.DB) {
 	SLFields = NewSLFieldsStore(db)
 	SLRecords = NewSLRecordsStore(db)
 	Apis = NewApisStore(db)
+	Domains = NewDomainsStore(db)
 }
 
 func TruncateAll(ctx context.Context) error {

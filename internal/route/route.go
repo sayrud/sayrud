@@ -97,6 +97,17 @@ func New(db *gorm.DB, redisClient *redis.Client) *flamego.Flame {
 							Delete(api.Api.Delete)
 					}, api.Api.Apier)
 				})
+
+				f.Group("/domains", func() {
+					f.Combo("").
+						Get(api.Domain.List).
+						Post(form.Bind(form.CreateDomain{}), api.Domain.Create)
+
+					f.Group("/{domain}", func() {
+						f.Delete("", api.Domain.Delete)
+						f.Post("/verify", api.Domain.Verify)
+					}, api.Domain.Domainer)
+				})
 			}, api.Project.Projecter)
 		}, api.Auth.Authenticator)
 	})
