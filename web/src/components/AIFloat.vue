@@ -151,7 +151,7 @@ const onApply = (action: string, actionJson: any) => {
 const renderMarkdown = (content: string) => {
   const marked = new Marked();
   marked.setOptions({breaks: true});
-  return DOMPurify.sanitize(marked.parse(content)) as string;
+  return DOMPurify.sanitize(marked.parse(content).toString()) as string;
 }
 </script>
 

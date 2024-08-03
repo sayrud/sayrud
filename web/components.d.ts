@@ -11,7 +11,6 @@ declare module 'vue' {
     ConsoleNavBar: typeof import('./src/components/ConsoleNavBar.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
-    TAffix: typeof import('tdesign-vue-next')['Affix']
     TAlert: typeof import('tdesign-vue-next')['Alert']
     TBaseTable: typeof import('tdesign-vue-next')['BaseTable']
     TButton: typeof import('tdesign-vue-next')['Button']

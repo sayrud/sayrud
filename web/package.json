@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@types/dompurify": "^3.0.5",
     "@types/nprogress": "^0.2.3",
     "axios": "^1.7.2",
     "dayjs": "^1.11.11",
