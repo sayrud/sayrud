@@ -109,10 +109,10 @@ func (domainRoute) Verify(ctx context.Context, domain *db.Domain) error {
 	return ctx.ApiSuccess(note)
 }
 
-func (domainRoute) createDomainIngressIfNotExists(ctx context.Context, domain string) error {
-	return nil
-}
-
-func (domainRoute) deleteDomainIngressIfExists(ctx context.Context, domain string) error {
-	return nil
-}
+//func (domainRoute) createDomainIngressIfNotExists(ctx context.Context, domain string) error {
+//	return nil
+//}
+//
+//func (domainRoute) deleteDomainIngressIfExists(ctx context.Context, domain string) error {
+//	return nil
+//}
