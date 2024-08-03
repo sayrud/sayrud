@@ -5,6 +5,8 @@
 package public
 
 import (
+	"encoding/json"
+
 	"github.com/dop251/goja"
 	"github.com/pkg/errors"
 
@@ -16,9 +18,10 @@ import (
 type deleteHandlerOptions struct {
 	vm            *goja.Runtime
 	deleteOptions apibuilder.DeleteOptions
+	response      json.RawMessage
 }
 
-func (publicHandler) deleteHandler(ctx context.Context, opts deleteHandlerOptions) (interface{}, error) {
+func (publicHandler) deleteHandler(ctx context.Context, opts deleteHandlerOptions) (json.RawMessage, error) {
 	vm := opts.vm
 	tableUID := opts.deleteOptions.TableUID
 
@@ -48,6 +51,17 @@ func (publicHandler) deleteHandler(ctx context.Context, opts deleteHandlerOption
 		return nil, errors.Wrap(err, "query delete")
 	}
 
-	// TODO
-	return affectRows, nil
+	if err := vm.Set("$data", affectRows); err != nil {
+		return nil, errors.Wrap(err, "set $data")
+	}
+
+	var responseTemplate interface{}
+	if err := json.Unmarshal(opts.response, &responseTemplate); err != nil {
+		return nil, errors.Wrap(err, "unmarshal response")
+	}
+	response, err := setResponseData(vm, responseTemplate)
+	if err != nil {
+		return nil, errors.Wrap(err, "make response")
+	}
+	return json.Marshal(response)
 }

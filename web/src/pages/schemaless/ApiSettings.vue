@@ -682,7 +682,7 @@ onMounted(() => {
         middlewares: res.middlewares.length === 0 ? [{
           type: 'main', params: {}
         }] : res.middlewares,
-        response: res.response,
+        response: JSON.stringify(res.response),
       }
 
     }).finally(() => {

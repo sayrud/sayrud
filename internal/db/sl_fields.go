@@ -82,8 +82,21 @@ func (f *SLField) CheckValue(val interface{}) bool {
 		return true
 	}
 
-	kind := reflect.TypeOf(val).Kind()
-	_, ok := internalKindMatch[kind]
+	if val == nil {
+		return true
+	}
+
+	value := reflect.ValueOf(val)
+	if value.IsZero() {
+		return true
+	}
+
+	kind := reflect.TypeOf(val)
+	if kind == nil {
+		return false
+	}
+
+	_, ok := internalKindMatch[kind.Kind()]
 	return ok
 }
 

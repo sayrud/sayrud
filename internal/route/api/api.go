@@ -6,6 +6,7 @@ package api
 
 import (
 	gocontext "context"
+	"encoding/json"
 	"net/http"
 	"strings"
 
@@ -256,6 +257,11 @@ func (h apiRoute) Create(ctx context.Context, project *db.Project, f form.Create
 
 	path := "/" + strings.TrimSpace(strings.Trim(f.Path, "/"))
 
+	var r interface{}
+	if err := json.Unmarshal([]byte(f.Response), &r); err != nil {
+		return ctx.ApiError(http.StatusBadRequest, "响应模板 JSON 格式错误")
+	}
+
 	api, err := db.Apis.Create(ctx.Request().Context(), db.CreateApiOptions{
 		ProjectID:   project.ID,
 		Kind:        string(data.Kind),
@@ -289,6 +295,11 @@ func (apiRoute) Update(ctx context.Context, project *db.Project, api *db.Api, f 
 	}
 
 	path := "/" + strings.TrimSpace(strings.Trim(f.Path, "/"))
+
+	var r interface{}
+	if err := json.Unmarshal([]byte(f.Response), &r); err != nil {
+		return ctx.ApiError(http.StatusBadRequest, "响应模板 JSON 格式错误")
+	}
 
 	if err := db.Apis.Update(ctx.Request().Context(), api.ID, db.UpdateApiOptions{
 		Kind:        string(data.Kind),

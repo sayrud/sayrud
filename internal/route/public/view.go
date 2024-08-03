@@ -5,6 +5,8 @@
 package public
 
 import (
+	"encoding/json"
+
 	"github.com/dop251/goja"
 	"github.com/pkg/errors"
 	"gorm.io/gorm"
@@ -17,9 +19,10 @@ import (
 type viewHandlerOptions struct {
 	vm          *goja.Runtime
 	viewOptions apibuilder.ViewOptions
+	response    json.RawMessage
 }
 
-func (publicHandler) viewHandler(ctx context.Context, opts viewHandlerOptions) (interface{}, error) {
+func (publicHandler) viewHandler(ctx context.Context, opts viewHandlerOptions) (json.RawMessage, error) {
 	vm := opts.vm
 	dataset := opts.viewOptions.Datasets[0]
 	fieldAlias := opts.viewOptions.FieldMapping
@@ -72,6 +75,17 @@ func (publicHandler) viewHandler(ctx context.Context, opts viewHandlerOptions) (
 		return nil, errors.Wrap(err, "query dataset")
 	}
 
-	// TODO
-	return result, nil
+	if err := vm.Set("$data", result); err != nil {
+		return nil, errors.Wrap(err, "set $data")
+	}
+
+	var responseTemplate interface{}
+	if err := json.Unmarshal(opts.response, &responseTemplate); err != nil {
+		return nil, errors.Wrap(err, "unmarshal response")
+	}
+	response, err := setResponseData(vm, responseTemplate)
+	if err != nil {
+		return nil, errors.Wrap(err, "make response")
+	}
+	return json.Marshal(response)
 }

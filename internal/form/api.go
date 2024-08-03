@@ -5,8 +5,6 @@
 package form
 
 import (
-	"encoding/json"
-
 	"github.com/wuhan005/sayrud/internal/apibuilder"
 )
 
@@ -20,5 +18,5 @@ type CreateUpdateApi struct {
 	Filter       *apibuilder.Operator   `json:"filter" label:"过滤条件"`
 	FieldMapping map[string]string      `json:"fieldMapping" label:"字段映射"`
 	Middlewares  apibuilder.Middlewares `json:"middlewares" label:"中间件"`
-	Response     json.RawMessage        `json:"response" valid:"required" label:"响应模板"`
+	Response     string                 `json:"response" valid:"required" label:"响应模板"`
 }

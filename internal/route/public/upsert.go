@@ -5,6 +5,7 @@
 package public
 
 import (
+	"encoding/json"
 	"strings"
 
 	"github.com/dop251/goja"
@@ -28,12 +29,14 @@ type createHandlerOptions struct {
 	createOptions apibuilder.CreateOptions
 	tx            *gorm.DB
 	vm            *goja.Runtime
+	response      json.RawMessage
 }
 
-func (h publicHandler) createHandler(ctx context.Context, opts createHandlerOptions) error {
+func (h publicHandler) createHandler(ctx context.Context, opts createHandlerOptions) (json.RawMessage, error) {
 	tableUID := opts.createOptions.TableUID
 	fieldMapping := opts.createOptions.FieldMapping
 	fieldValues := make(map[string]interface{}, len(fieldMapping))
+	vm := opts.vm
 
 	for requestField, databaseFieldUID := range fieldMapping {
 		// Split the `requestField` with : to get the real field name.
@@ -61,33 +64,49 @@ func (h publicHandler) createHandler(ctx context.Context, opts createHandlerOpti
 	slTablesStore := db.NewSLTablesStore(opts.tx)
 	slTable, err := slTablesStore.GetByUID(ctx.Request().Context(), tableUID)
 	if err != nil {
-		return errors.Wrap(err, "get sl table by UID")
+		return nil, errors.Wrap(err, "get sl table by UID")
 	}
 
-	jsonBytes, err := routeutil.Validate(ctx, opts.vm, slTable.ID, opts.tx, fieldValues)
+	jsonBytes, err := routeutil.Validate(ctx, vm, slTable.ID, opts.tx, fieldValues)
 	if err != nil {
-		return errors.Wrap(err, "validate")
+		return nil, errors.Wrap(err, "validate")
 	}
 
 	slRecords := db.NewSLRecordsStore(opts.tx)
-	if _, err := slRecords.Create(ctx.Request().Context(), slTable.ID, jsonBytes); err != nil {
-		return errors.Wrap(err, "create sl records")
+	newRecord, err := slRecords.Create(ctx.Request().Context(), slTable.ID, jsonBytes)
+	if err != nil {
+		return nil, errors.Wrap(err, "create sl records")
 	}
-	return nil
+
+	if err := vm.Set("$data", newRecord); err != nil {
+		return nil, errors.Wrap(err, "set $data")
+	}
+
+	var responseTemplate interface{}
+	if err := json.Unmarshal(opts.response, &responseTemplate); err != nil {
+		return nil, errors.Wrap(err, "unmarshal response")
+	}
+	response, err := setResponseData(vm, responseTemplate)
+	if err != nil {
+		return nil, errors.Wrap(err, "make response")
+	}
+	return json.Marshal(response)
 }
 
 type updateHandlerOptions struct {
-	vm            *goja.Runtime
 	queryValues   map[string]interface{}
 	bodyValues    map[string]interface{}
 	updateOptions apibuilder.UpdateOptions
 	tx            *gorm.DB
+	vm            *goja.Runtime
+	response      json.RawMessage
 }
 
-func (h publicHandler) updateHandler(ctx context.Context, opts updateHandlerOptions) error {
+func (h publicHandler) updateHandler(ctx context.Context, opts updateHandlerOptions) (json.RawMessage, error) {
 	tableUID := opts.updateOptions.TableUID
 	fieldMapping := opts.updateOptions.FieldMapping
 	fieldValues := make(map[string]interface{}, len(fieldMapping))
+	vm := opts.vm
 
 	for requestField, databaseFieldUID := range fieldMapping {
 		// Split the `requestField` with : to get the real field name.
@@ -115,25 +134,33 @@ func (h publicHandler) updateHandler(ctx context.Context, opts updateHandlerOpti
 	slTablesStore := db.NewSLTablesStore(opts.tx)
 	slTable, err := slTablesStore.GetByUID(ctx.Request().Context(), tableUID)
 	if err != nil {
-		return errors.Wrap(err, "get sl table by UID")
+		return nil, errors.Wrap(err, "get sl table by UID")
 	}
 
-	jsonBytes, err := routeutil.Validate(ctx, opts.vm, slTable.ID, opts.tx, fieldValues)
+	jsonBytes, err := routeutil.Validate(ctx, vm, slTable.ID, opts.tx, fieldValues)
 	if err != nil {
-		return errors.Wrap(err, "validate")
+		return nil, errors.Wrap(err, "validate")
 	}
 
-	filter, err := opts.updateOptions.Filter.ToClauseExpression(opts.vm)
+	filter, err := opts.updateOptions.Filter.ToClauseExpression(vm)
 	if err != nil {
-		return errors.Wrap(err, "parse filter expression")
+		return nil, errors.Wrap(err, "parse filter expression")
 	}
 
 	if err := slTablesStore.QueryUpdate(ctx.Request().Context(), slTable, db.QueryUpdateSLTableOptions{
 		JsonBytes: jsonBytes,
 		Filter:    filter,
 	}); err != nil {
-		return errors.Wrap(err, "query update")
+		return nil, errors.Wrap(err, "query update")
 	}
 
-	return nil
+	var responseTemplate interface{}
+	if err := json.Unmarshal(opts.response, &responseTemplate); err != nil {
+		return nil, errors.Wrap(err, "unmarshal response")
+	}
+	response, err := setResponseData(vm, responseTemplate)
+	if err != nil {
+		return nil, errors.Wrap(err, "make response")
+	}
+	return json.Marshal(response)
 }

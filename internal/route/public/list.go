@@ -5,6 +5,8 @@
 package public
 
 import (
+	"encoding/json"
+
 	"github.com/dop251/goja"
 	"github.com/pkg/errors"
 
@@ -15,10 +17,11 @@ import (
 
 type listHandlerOptions struct {
 	vm          *goja.Runtime
+	response    json.RawMessage
 	listOptions apibuilder.ListOptions
 }
 
-func (publicHandler) listHandler(ctx context.Context, opts listHandlerOptions) (interface{}, error) {
+func (publicHandler) listHandler(ctx context.Context, opts listHandlerOptions) (json.RawMessage, error) {
 	vm := opts.vm
 	datasets := opts.listOptions.Datasets
 	fieldAlias := opts.listOptions.FieldMapping
@@ -84,16 +87,24 @@ func (publicHandler) listHandler(ctx context.Context, opts listHandlerOptions) (
 			return nil, errors.Wrap(err, "query dataset")
 		}
 
-		datasetsResultSet[dataset.TableUID] = result
-		datasetsCountSet[dataset.TableUID] = count
+		datasetsResultSet[slTable.Name] = result
+		datasetsCountSet[slTable.Name] = count
 	}
 
-	// TODO
-	var result interface{}
-	for _, v := range datasetsResultSet {
-		result = v
-		break
+	if err := vm.Set("$data", datasetsResultSet); err != nil {
+		return nil, errors.Wrap(err, "set $data")
+	}
+	if err := vm.Set("$count", datasetsCountSet); err != nil {
+		return nil, errors.Wrap(err, "set $count")
 	}
 
-	return result, nil
+	var responseTemplate interface{}
+	if err := json.Unmarshal(opts.response, &responseTemplate); err != nil {
+		return nil, errors.Wrap(err, "unmarshal response")
+	}
+	response, err := setResponseData(vm, responseTemplate)
+	if err != nil {
+		return nil, errors.Wrap(err, "make response")
+	}
+	return json.Marshal(response)
 }

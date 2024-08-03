@@ -10,6 +10,7 @@ import (
 	"mime"
 	"net/http"
 
+	"github.com/dop251/goja"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cast"
@@ -187,7 +188,7 @@ func (h publicHandler) Handler(ctx context.Context, api *db.Api, tx dbutil.Trans
 		return ctx.ApiServerError()
 	}
 
-	var response interface{}
+	var response []byte
 	switch apibuilder.Kind(api.Kind) {
 	case apibuilder.KindList:
 		options := apibuilder.Options[apibuilder.ListOptions]{}
@@ -195,6 +196,7 @@ func (h publicHandler) Handler(ctx context.Context, api *db.Api, tx dbutil.Trans
 
 		response, err = h.listHandler(ctx, listHandlerOptions{
 			vm:          vm,
+			response:    json.RawMessage(api.Response),
 			listOptions: listOptions,
 		})
 		if err != nil {
@@ -208,6 +210,7 @@ func (h publicHandler) Handler(ctx context.Context, api *db.Api, tx dbutil.Trans
 
 		response, err = h.viewHandler(ctx, viewHandlerOptions{
 			vm:          vm,
+			response:    json.RawMessage(api.Response),
 			viewOptions: viewOptions,
 		})
 		if err != nil {
@@ -220,13 +223,16 @@ func (h publicHandler) Handler(ctx context.Context, api *db.Api, tx dbutil.Trans
 		createOptions := options.ParseOptions(api.Options)
 
 		if err := tx.Transaction(func(tx *gorm.DB) error {
-			return h.createHandler(ctx, createHandlerOptions{
+			response, err = h.createHandler(ctx, createHandlerOptions{
 				queryValues:   queryValues,
 				bodyValues:    bodyValues,
 				createOptions: createOptions,
 				tx:            tx,
 				vm:            vm,
+				response:      json.RawMessage(api.Response),
 			})
+			return err
+
 		}); err != nil {
 			switch {
 			case errors.Is(err, routeutil.ErrFieldTypeMismatch):
@@ -250,13 +256,16 @@ func (h publicHandler) Handler(ctx context.Context, api *db.Api, tx dbutil.Trans
 		updateOptions := options.ParseOptions(api.Options)
 
 		if err := tx.Transaction(func(tx *gorm.DB) error {
-			return h.updateHandler(ctx, updateHandlerOptions{
-				vm:            vm,
+			response, err = h.updateHandler(ctx, updateHandlerOptions{
 				queryValues:   queryValues,
 				bodyValues:    bodyValues,
 				updateOptions: updateOptions,
 				tx:            tx,
+				vm:            vm,
+				response:      json.RawMessage(api.Response),
 			})
+			return err
+
 		}); err != nil {
 			switch {
 			case errors.Is(err, routeutil.ErrFieldTypeMismatch):
@@ -282,6 +291,7 @@ func (h publicHandler) Handler(ctx context.Context, api *db.Api, tx dbutil.Trans
 		response, err = h.deleteHandler(ctx, deleteHandlerOptions{
 			vm:            vm,
 			deleteOptions: deleteOptions,
+			response:      response,
 		})
 		if err != nil {
 			logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to handle delete")
@@ -292,5 +302,61 @@ func (h publicHandler) Handler(ctx context.Context, api *db.Api, tx dbutil.Trans
 		return ctx.ApiError(http.StatusInternalServerError, "未知的 API 类型: %s", api.Kind)
 	}
 
-	return ctx.ApiSuccess(response)
+	ctx.ResponseWriter().Header().Set("Content-Type", "application/json")
+	_, err = ctx.ResponseWriter().Write(response)
+	if err != nil {
+		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to write response")
+		return ctx.ApiServerError()
+	}
+	return nil
+}
+
+func setResponseData(vm *goja.Runtime, responseTemplate interface{}) (interface{}, error) {
+	switch v := responseTemplate.(type) {
+	case string:
+		if v != "" && v[0] == '$' {
+			result, err := vm.RunString(v)
+			if err != nil {
+				return nil, errors.Wrap(err, "run response")
+			}
+			return result.Export(), nil
+		}
+		return v, nil
+
+	case []interface{}:
+		result := make([]interface{}, len(v))
+		for key, value := range v {
+			value, err := setResponseData(vm, value)
+			if err != nil {
+				return nil, err
+			}
+			result[key] = value
+		}
+		return result, nil
+
+	case map[string]interface{}:
+		result := make(map[string]interface{}, len(v))
+		for key, value := range v {
+			value, err := setResponseData(vm, value)
+			if err != nil {
+				return nil, err
+			}
+			result[key] = value
+		}
+		return result, nil
+
+	case map[interface{}]interface{}:
+		result := make(map[string]interface{}, len(v))
+		for key, value := range v {
+			value, err := setResponseData(vm, value)
+			if err != nil {
+				return nil, err
+			}
+			result[cast.ToString(key)] = value
+		}
+		return result, nil
+
+	default:
+		return responseTemplate, nil
+	}
 }
