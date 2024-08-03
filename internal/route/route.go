@@ -82,6 +82,19 @@ func New(db *gorm.DB, redisClient *redis.Client) *flamego.Flame {
 									Delete(api.Schemaless.DeleteRecord)
 							}, api.Schemaless.Recorder)
 						})
+
+						f.Group("/views", func() {
+							f.Combo("").
+								Get(api.View.List).
+								Post(form.Bind(form.CreateView{}), api.View.Create)
+							f.Group("/{viewUID}", func() {
+								f.Combo("").
+									Get(api.View.Get).
+									Put(form.Bind(form.UpdateView{}), api.View.Update).
+									Delete(api.View.Delete)
+								f.Post("/query", api.View.Query)
+							})
+						}, api.View.Viewer)
 					}, api.Schemaless.Tabler)
 				})
 

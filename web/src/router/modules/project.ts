@@ -46,6 +46,27 @@ const schemaless = [
         meta: {
             auth: true,
         },
+    },
+    {
+        path: 'views/create',
+        component: () => import ('@/pages/schemaless/ViewSettings.vue'),
+        meta: {
+            auth: true,
+        },
+    },
+    {
+        path: 'views/:viewUID/settings',
+        component: () => import ('@/pages/schemaless/ViewSettings.vue'),
+        meta: {
+            auth: true,
+        },
+    },
+    {
+        path: 'views/:viewUID',
+        component: () => import ('@/pages/schemaless/TableView.vue'),
+        meta: {
+            auth: true,
+        },
     }
 ]
 
