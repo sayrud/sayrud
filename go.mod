@@ -16,6 +16,8 @@ require (
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/cast v1.6.0
 	github.com/stretchr/testify v1.9.0
+	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common v1.0.975
+	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/hunyuan v1.0.975
 	github.com/thanhpk/randstr v1.0.6
 	github.com/tj/go-pg-escape v1.1.0
 	github.com/uptrace/opentelemetry-go-extra/otelgorm v0.3.1

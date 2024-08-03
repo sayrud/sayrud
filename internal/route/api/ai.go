@@ -1,0 +1,102 @@
+// Copyright 2024 E99p1ant. All rights reserved.
+// Use of this source code is governed by a MIT-style
+// license that can be found in the LICENSE file.
+
+package api
+
+import (
+	"encoding/json"
+	"net/http"
+
+	"github.com/pkg/errors"
+	"github.com/sirupsen/logrus"
+	"github.com/wuhan005/govalid"
+	"gorm.io/gorm"
+
+	"github.com/wuhan005/sayrud/internal/ai"
+	"github.com/wuhan005/sayrud/internal/ai/hunyuan"
+	"github.com/wuhan005/sayrud/internal/context"
+	"github.com/wuhan005/sayrud/internal/db"
+	"github.com/wuhan005/sayrud/internal/dbutil"
+	"github.com/wuhan005/sayrud/internal/form"
+)
+
+var AI aiRoute
+
+type aiRoute struct{}
+
+func (aiRoute) Advice(ctx context.Context, f form.AIAdvice) error {
+	client := hunyuan.NewClient()
+
+	messages := make([]*ai.Message, 0, len(f.Messages))
+	for _, m := range f.Messages {
+		messages = append(messages, &ai.Message{
+			Role:    m.Role,
+			Content: m.Content,
+		})
+	}
+
+	resp, err := client.Advice(ctx.Request().Context(), f.Action, messages)
+	if err != nil {
+		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to get advice")
+		return ctx.ApiServerError()
+	}
+
+	return ctx.ApiSuccess(map[string]interface{}{
+		"raw": resp.RawContent,
+
+		"action":      resp.Action,
+		"actionJson":  resp.ActionJSON,
+		"description": resp.Description,
+	})
+}
+
+func (aiRoute) Apply(ctx context.Context, project *db.Project, tx dbutil.Transactor, f form.AIApply) error {
+	switch f.Action {
+	case ai.ActionTypeTables:
+		var applyTables ai.ApplyTables
+		if err := json.Unmarshal(f.ActionJson, &applyTables); err != nil {
+			return ctx.ApiError(http.StatusBadRequest, "JSON 解析错误")
+		}
+
+		for _, table := range applyTables {
+			errs, ok := govalid.Check(table)
+			if !ok {
+				return ctx.ApiError(http.StatusBadRequest, errs[0].Error())
+			}
+		}
+
+		if err := tx.Transaction(func(tx *gorm.DB) error {
+			slTablesStore := db.NewSLTablesStore(tx)
+
+			for _, table := range applyTables {
+				slTable, err := slTablesStore.Create(ctx.Request().Context(), project.ID, db.CreateSLTableOptions{
+					Name:  table.TableName,
+					Label: table.TableLabel,
+				})
+				if err != nil {
+					return errors.Wrap(err, "create")
+				}
+
+				slTable.Project = *project
+
+				if err := slTablesStore.CreateView(ctx.Request().Context(), slTable); err != nil {
+					return errors.Wrap(err, "create sl view")
+				}
+			}
+
+			return nil
+		}); err != nil {
+			if errors.Is(err, db.ErrSLTableExists) {
+				return ctx.ApiError(http.StatusBadRequest, "数据表已存在")
+			}
+			logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to apply tables")
+			return ctx.ApiServerError()
+		}
+
+	default:
+		return ctx.ApiError(http.StatusBadRequest, "操作类型不存在")
+	}
+
+	return ctx.Status(http.StatusNoContent)
+}

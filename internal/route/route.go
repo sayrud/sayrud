@@ -121,6 +121,11 @@ func New(db *gorm.DB, redisClient *redis.Client) *flamego.Flame {
 						f.Post("/verify", api.Domain.Verify)
 					}, api.Domain.Domainer)
 				})
+
+				f.Group("/ai", func() {
+					f.Post("/advice", form.Bind(form.AIAdvice{}), api.AI.Advice)
+					f.Post("/apply", form.Bind(form.AIApply{}), api.AI.Apply)
+				})
 			}, api.Project.Projecter)
 		}, api.Auth.Authenticator)
 	})

@@ -58,6 +58,7 @@
       </t-form>
     </template>
   </t-dialog>
+  <AIFloat @refresh="getTables"/>
 </template>
 
 <script setup lang="ts">
@@ -74,6 +75,7 @@ import {
 } from 'tdesign-vue-next';
 import dayjs from 'dayjs'
 import {AddIcon} from 'tdesign-icons-vue-next';
+import AIFloat from "@/components/AIFloat.vue";
 
 const route = useRoute()
 const router = useRouter()
