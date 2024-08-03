@@ -8,7 +8,6 @@ require (
 	github.com/flamego/flamego v1.9.4
 	github.com/golang-jwt/jwt/v5 v5.2.1
 	github.com/google/go-github/v62 v62.0.0
-	github.com/jackc/pgconn v1.14.0
 	github.com/lib/pq v1.9.0
 	github.com/pkg/errors v0.9.1
 	github.com/redis/go-redis/v9 v9.5.4
@@ -67,10 +66,7 @@ require (
 	github.com/google/pprof v0.0.0-20230207041349-798e818bf904 // indirect
 	github.com/grpc-ecosystem/grpc-gateway v1.16.0 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.20.0 // indirect
-	github.com/jackc/chunkreader/v2 v2.0.1 // indirect
-	github.com/jackc/pgio v1.0.0 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect
-	github.com/jackc/pgproto3/v2 v2.3.2 // indirect
 	github.com/jackc/pgservicefile v0.0.0-20231201235250-de7065d80cb9 // indirect
 	github.com/jackc/pgx/v5 v5.5.5 // indirect
 	github.com/jackc/puddle/v2 v2.2.1 // indirect
