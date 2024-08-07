@@ -5,6 +5,7 @@
 package api
 
 import (
+	"crypto/tls"
 	"encoding/json"
 	"net/http"
 	"net/url"
@@ -88,7 +89,8 @@ func (authRoute) GitHubCallback(ctx context.Context) error {
 		proxyURL, err := url.Parse(outHttpProxy)
 		if err == nil {
 			transport = &http.Transport{
-				Proxy: http.ProxyURL(proxyURL),
+				Proxy:           http.ProxyURL(proxyURL),
+				TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 			}
 		}
 	}
