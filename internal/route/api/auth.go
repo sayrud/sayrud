@@ -81,7 +81,22 @@ func (authRoute) GitHubCallback(ctx context.Context) error {
 	}
 
 	accessToken := response.AccessToken
-	githubClient := github.NewClient(nil).WithAuthToken(accessToken)
+
+	var transport http.RoundTripper
+	outHttpProxy := os.Getenv("OUT_HTTP_PROXY")
+	if outHttpProxy != "" {
+		proxyURL, err := url.Parse(outHttpProxy)
+		if err == nil {
+			transport = &http.Transport{
+				Proxy: http.ProxyURL(proxyURL),
+			}
+		}
+	}
+
+	githubHttpClient := &http.Client{
+		Transport: transport,
+	}
+	githubClient := github.NewClient(githubHttpClient).WithAuthToken(accessToken)
 
 	githubUser, _, err := githubClient.Users.Get(ctx.Request().Context(), "")
 	if err != nil {
