@@ -66,11 +66,20 @@ func (authRoute) GitHubCallback(ctx context.Context) error {
 		Transport: transport,
 	}
 
-	resp, err := githubHttpClient.Do(req)
+	maxRetryTimes := 5
+
+	var resp *http.Response
+	for i := 0; i < maxRetryTimes; i++ {
+		resp, err = githubHttpClient.Do(req)
+		if err != nil {
+			logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to send request")
+			continue
+		}
+	}
 	if err != nil {
-		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to send request")
 		return ctx.ApiServerError()
 	}
+
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
