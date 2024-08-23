@@ -69,7 +69,7 @@ import {ref} from 'vue'
 import logo from '@/assets/logo.svg'
 import logoDark from '@/assets/logo-dark.svg'
 import {useAppStore} from "@/store";
-import {Measurement1Icon, Link1Icon, UserLockedIcon, EarthIcon, MailIcon} from 'tdesign-icons-vue-next';
+import {Measurement1Icon, Link1Icon, Filter3Icon, EarthIcon, MailIcon} from 'tdesign-icons-vue-next';
 import {useRouter} from 'vue-router'
 import axios from 'axios'
 import {FormRule, MessagePlugin, type SubmitContext, FormInstanceFunctions} from "tdesign-vue-next";
@@ -93,9 +93,9 @@ const cards = [
     content: '支持生成多种数据类型与筛选条件的 API。'
   },
   {
-    title: '权限管理',
-    icon: UserLockedIcon,
-    content: '支持多种权限与角色管理配置，保障数据安全。'
+    title: 'AI 大模型',
+    icon: Filter3Icon,
+    content: '使用自然语言对话即可让 AI 大模型为你设计架构。'
   },
   {
     title: '自定义域名',
