@@ -255,7 +255,7 @@ func (db *slTables) SetIncrementIndex(ctx context.Context, tableID uint, index i
 type QueryListSLTableOptions struct {
 	Fields map[string]string // Name -> Alias
 	Filter clause.Expression
-	Order  []string
+	Orders []string
 	Limit  int
 	Offset int
 }
@@ -283,9 +283,9 @@ func (db *slTables) QueryList(ctx context.Context, slTable *SLTable, options Que
 	if options.Filter != nil {
 		q = q.Where(options.Filter)
 	}
-	if len(options.Order) > 0 {
-		orderFields := make([]string, 0, len(options.Order))
-		for _, fieldName := range options.Order {
+	if len(options.Orders) > 0 {
+		orderFields := make([]string, 0, len(options.Orders))
+		for _, fieldName := range options.Orders {
 			orderFields = append(orderFields, escape.Escape(`%I`, fieldName))
 		}
 		q = q.Order(strings.Join(orderFields, ", "))
@@ -304,7 +304,7 @@ func (db *slTables) QueryList(ctx context.Context, slTable *SLTable, options Que
 	}
 
 	result := make([]map[string]interface{}, 0)
-	if err := q.Find(&result).Error; err != nil {
+	if err := q.Debug().Find(&result).Error; err != nil {
 		return nil, 0, errors.Wrap(err, "scan")
 	}
 	return result, total, nil

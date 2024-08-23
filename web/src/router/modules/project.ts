@@ -23,6 +23,7 @@ const schemaless = [
             auth: true,
         },
     },
+    // API
     {
         path: 'apis',
         component: () => import ('@/pages/schemaless/Apis.vue'),
@@ -47,9 +48,19 @@ const schemaless = [
             auth: true,
         },
     },
+    // VIEWS
     {
-        path: 'views/create',
+        path: 'views',
+        component: () => import ('@/pages/schemaless/Views.vue'),
+        name: 'SchemalessView',
+        meta: {
+            auth: true,
+        },
+    },
+    {
+        path: 'view/create',
         component: () => import ('@/pages/schemaless/ViewSettings.vue'),
+        name: 'SchemalessViewCreate',
         meta: {
             auth: true,
         },
@@ -57,6 +68,7 @@ const schemaless = [
     {
         path: 'views/:viewUID/settings',
         component: () => import ('@/pages/schemaless/ViewSettings.vue'),
+        name: 'SchemalessViewSettings',
         meta: {
             auth: true,
         },
@@ -64,6 +76,7 @@ const schemaless = [
     {
         path: 'views/:viewUID',
         component: () => import ('@/pages/schemaless/TableView.vue'),
+        name: 'SchemalessTableView',
         meta: {
             auth: true,
         },

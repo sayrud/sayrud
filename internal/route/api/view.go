@@ -6,7 +6,6 @@ package api
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
 
 	"github.com/lib/pq"
@@ -14,29 +13,43 @@ import (
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
 
+	"github.com/wuhan005/sayrud/internal/apibuilder"
 	"github.com/wuhan005/sayrud/internal/context"
 	"github.com/wuhan005/sayrud/internal/db"
+	"github.com/wuhan005/sayrud/internal/dbutil"
 	"github.com/wuhan005/sayrud/internal/form"
+	"github.com/wuhan005/sayrud/internal/jsvm"
 )
 
 var View viewRoute
 
 type viewRoute struct{}
 
-func (viewRoute) List(ctx context.Context, table *db.Project) error {
-	tableID := table.ID
+func (viewRoute) List(ctx context.Context, project *db.Project) error {
+	projectID := project.ID
 
-	views, err := db.Views.GetByTableID(ctx.Request().Context(), tableID)
+	views, total, err := db.Views.List(ctx.Request().Context(), projectID, db.ListViewOptions{
+		Pagination: dbutil.Pagination{
+			Page:     ctx.QueryInt("page", 1),
+			PageSize: ctx.QueryInt("pageSize", 10),
+		},
+	})
 	if err != nil {
 		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to list views")
 		return ctx.ApiServerError()
 	}
-	return ctx.ApiSuccess(views)
+	return ctx.ApiSuccess(map[string]interface{}{
+		"views": views,
+		"total": total,
+	})
 }
 
-func (viewRoute) Create(ctx context.Context, table *db.Project, f form.CreateView) error {
-	fieldUIDs := f.FieldUIDs
+func (viewRoute) Create(ctx context.Context, project *db.Project, f form.CreateView) error {
+	tableUID := f.TableUID
+	name := f.Name
+	inputFieldUIDs := f.FieldUIDs
 	filter := f.Filter
+	order := f.Order
 
 	if err := filter.ValidateConfig(ctx.Request().Context()); err != nil {
 		return ctx.ApiError(http.StatusBadRequest, "过滤条件配置错误")
@@ -45,6 +58,20 @@ func (viewRoute) Create(ctx context.Context, table *db.Project, f form.CreateVie
 	if err != nil {
 		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to marshal filter")
 		return ctx.ApiServerError()
+	}
+
+	table, err := db.SLTables.GetByUID(ctx.Request().Context(), tableUID)
+	if err != nil {
+		if errors.Is(err, db.ErrSLTableNotFound) {
+			return ctx.ApiError(http.StatusNotFound, "表格不存在")
+		}
+
+		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to get table")
+		return ctx.ApiServerError()
+	}
+
+	if table.ProjectID != project.ID {
+		return ctx.ApiError(http.StatusNotFound, "表格不存在")
 	}
 
 	tableFields, err := db.SLFields.GetByTableID(ctx.Request().Context(), table.ID)
@@ -57,27 +84,36 @@ func (viewRoute) Create(ctx context.Context, table *db.Project, f form.CreateVie
 		return field.UID, field
 	})
 
-	fieldIDs := make(pq.Int64Array, 0, len(fieldUIDs))
-	for _, fieldUID := range fieldUIDs {
+	fieldUIDs := make(pq.StringArray, 0, len(inputFieldUIDs))
+	for _, fieldUID := range inputFieldUIDs {
 		field, ok := tableFieldsSet[fieldUID]
 		if ok {
-			fieldIDs = append(fieldIDs, int64(field.ID))
+			fieldUIDs = append(fieldUIDs, field.UID)
 		}
 	}
 
-	if _, err := db.Views.Create(ctx.Request().Context(), db.CreateViewOptions{
-		SLTableID:  table.ID,
-		SLFieldIDs: fieldIDs,
-		Filter:     filterJSON,
-		Order:      nil,
-	}); err != nil {
+	orderJSON, err := json.Marshal(order)
+	if err != nil {
+		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to marshal order")
+		return ctx.ApiServerError()
+	}
+
+	view, err := db.Views.Create(ctx.Request().Context(), db.CreateViewOptions{
+		ProjectID:   project.ID,
+		SLTableID:   table.ID,
+		Name:        name,
+		SLFieldUIDs: fieldUIDs,
+		Filter:      filterJSON,
+		Order:       orderJSON,
+	})
+	if err != nil {
 		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to create view")
 		return ctx.ApiServerError()
 	}
-	return ctx.Status(http.StatusCreated)
+	return ctx.ApiSuccess(view)
 }
 
-func (viewRoute) Viewer(ctx context.Context, table *db.Project) error {
+func (viewRoute) Viewer(ctx context.Context, project *db.Project) error {
 	viewUID := ctx.Param("viewUID")
 
 	view, err := db.Views.GetByUID(ctx.Request().Context(), viewUID)
@@ -90,8 +126,8 @@ func (viewRoute) Viewer(ctx context.Context, table *db.Project) error {
 		return ctx.ApiServerError()
 	}
 
-	if view.SLTableID != table.ID {
-		return ctx.ApiError(http.StatusNotFound, "视图不存在")
+	if view.ProjectID != project.ID {
+		return ctx.ApiError(http.StatusNotFound, "API 不存在")
 	}
 
 	ctx.Map(view)
@@ -103,8 +139,10 @@ func (viewRoute) Get(ctx context.Context, view *db.View) error {
 }
 
 func (viewRoute) Update(ctx context.Context, view *db.View, f form.UpdateView) error {
-	fieldUIDs := f.FieldUIDs
+	name := f.Name
+	inputFieldUIDs := f.FieldUIDs
 	filter := f.Filter
+	order := f.Order
 
 	if err := filter.ValidateConfig(ctx.Request().Context()); err != nil {
 		return ctx.ApiError(http.StatusBadRequest, "过滤条件配置错误")
@@ -125,18 +163,25 @@ func (viewRoute) Update(ctx context.Context, view *db.View, f form.UpdateView) e
 		return field.UID, field
 	})
 
-	fieldIDs := make(pq.Int64Array, 0, len(fieldUIDs))
-	for _, fieldUID := range fieldUIDs {
+	fieldUIDs := make(pq.StringArray, 0, len(inputFieldUIDs))
+	for _, fieldUID := range inputFieldUIDs {
 		field, ok := tableFieldsSet[fieldUID]
 		if ok {
-			fieldIDs = append(fieldIDs, int64(field.ID))
+			fieldUIDs = append(fieldUIDs, field.UID)
 		}
 	}
 
+	orderJSON, err := json.Marshal(order)
+	if err != nil {
+		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to marshal order")
+		return ctx.ApiServerError()
+	}
+
 	if err := db.Views.Update(ctx.Request().Context(), view.ID, db.UpdateViewOptions{
-		SLFieldIDs: fieldIDs,
-		Filter:     filterJSON,
-		Order:      nil,
+		Name:        name,
+		SLFieldUIDs: fieldUIDs,
+		Filter:      filterJSON,
+		Order:       orderJSON,
 	}); err != nil {
 		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to update view")
 		return ctx.ApiServerError()
@@ -155,7 +200,65 @@ func (viewRoute) Delete(ctx context.Context, view *db.View) error {
 func (viewRoute) Query(ctx context.Context, view *db.View) error {
 	page := ctx.QueryInt("page", 1)
 	pageSize := ctx.QueryInt("pageSize", 10)
+	limit, offset := dbutil.LimitOffset(page, pageSize)
 
-	fmt.Println(page, pageSize)
-	return nil
+	// Initialize JavaScript VM.
+	vm, err := jsvm.NewVM(jsvm.NewVMOptions{})
+	if err != nil {
+		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to create JS VM")
+		return ctx.ApiServerError()
+	}
+
+	tableFields, err := db.SLFields.GetByTableID(ctx.Request().Context(), view.SLTable.ID)
+	if err != nil {
+		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to get table fields")
+		return ctx.ApiServerError()
+	}
+	// We return all the fields records.
+	fields := make(map[string]string)
+	fieldSets := make(map[string]*db.SLField, len(tableFields))
+	for _, fieldUID := range tableFields {
+		fieldUID := fieldUID
+
+		fields[fieldUID.Name] = ""
+		fieldSets[fieldUID.UID] = fieldUID
+	}
+
+	filter, err := apibuilder.ParseOperator(view.Filter)
+	if err != nil {
+		return ctx.ApiError(http.StatusBadRequest, "过滤条件配置错误")
+	}
+	filterExpression, err := filter.ToClauseExpression(vm)
+	if err != nil {
+		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to convert filter to expression")
+		return ctx.ApiServerError()
+	}
+
+	orders, err := apibuilder.ParseOrders(view.Order)
+	if err != nil {
+		return ctx.ApiError(http.StatusBadRequest, "排序条件配置错误")
+	}
+	orderFields := make([]string, 0, len(orders))
+	for _, order := range orders {
+		orderField := fieldSets[order.FieldUID]
+		// TODO asc desc
+		orderFields = append(orderFields, orderField.Name)
+	}
+
+	records, total, err := db.SLTables.QueryList(ctx.Request().Context(), &view.SLTable, db.QueryListSLTableOptions{
+		Fields: fields,
+		Filter: filterExpression,
+		Orders: orderFields,
+		Limit:  limit,
+		Offset: offset,
+	})
+	if err != nil {
+		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to query list")
+		return ctx.ApiServerError()
+	}
+
+	return ctx.ApiSuccess(map[string]interface{}{
+		"records": records,
+		"total":   total,
+	})
 }

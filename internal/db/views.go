@@ -11,6 +11,8 @@ import (
 	"github.com/lib/pq"
 	"github.com/pkg/errors"
 	"gorm.io/gorm"
+
+	"github.com/wuhan005/sayrud/internal/dbutil"
 )
 
 var _ ViewsStore = (*views)(nil)
@@ -18,8 +20,10 @@ var _ ViewsStore = (*views)(nil)
 var Views ViewsStore
 
 type ViewsStore interface {
+	List(ctx context.Context, projectID uint, options ListViewOptions) ([]*View, int64, error)
 	GetByID(ctx context.Context, viewID uint) (*View, error)
 	GetByUID(ctx context.Context, viewUID string) (*View, error)
+	GetByProjectID(ctx context.Context, projectID uint) ([]*View, error)
 	GetByTableID(ctx context.Context, tableID uint) ([]*View, error)
 	Create(ctx context.Context, options CreateViewOptions) (*View, error)
 	Update(ctx context.Context, id uint, options UpdateViewOptions) error
@@ -31,16 +35,34 @@ func NewViewsStore(db *gorm.DB) ViewsStore {
 }
 
 type View struct {
-	gorm.Model
-	SLTableID  uint            `json:"-"`
-	SLFieldIDs pq.Int64Array   `gorm:"type:integer[]" json:"-"`
-	SLFields   []SLField       `gorm:"-" json:"fields"`
-	Filter     json.RawMessage `json:"filter"`
-	Order      json.RawMessage `json:"order"`
+	dbutil.Model
+	ProjectID   uint            `json:"-"`
+	SLTableID   uint            `json:"-"`
+	SLTable     SLTable         `gorm:"foreignKey:SLTableID" json:"table"`
+	Name        string          `json:"name"`
+	SLFieldUIDs pq.StringArray  `gorm:"type:text[]" json:"fieldUIDs"`
+	Filter      json.RawMessage `json:"filter"`
+	Order       json.RawMessage `json:"order"`
 }
 
 type views struct {
 	*gorm.DB
+}
+
+type ListViewOptions struct {
+	dbutil.Pagination
+}
+
+func (db *views) List(ctx context.Context, projectID uint, options ListViewOptions) ([]*View, int64, error) {
+	var total int64
+	q := db.WithContext(ctx).Model(&View{}).Where("project_id = ?", projectID)
+	if err := q.Count(&total).Error; err != nil {
+		return nil, 0, errors.Wrap(err, "count")
+	}
+
+	limit, offset := dbutil.LimitOffset(options.Page, options.PageSize)
+	var views []*View
+	return views, total, q.Limit(limit).Offset(offset).Find(&views).Error
 }
 
 func (db *views) GetByID(ctx context.Context, viewID uint) (*View, error) {
@@ -51,9 +73,17 @@ func (db *views) GetByUID(ctx context.Context, viewUID string) (*View, error) {
 	return db.getBy(ctx, "uid = ?", viewUID)
 }
 
+func (db *views) GetByProjectID(ctx context.Context, projectID uint) ([]*View, error) {
+	return db.queryBy(ctx, "project_id = ?", projectID)
+}
+
 func (db *views) GetByTableID(ctx context.Context, tableID uint) ([]*View, error) {
+	return db.queryBy(ctx, "sl_table_id = ?", tableID)
+}
+
+func (db *views) queryBy(ctx context.Context, query string, args ...interface{}) ([]*View, error) {
 	var views []*View
-	if err := db.WithContext(ctx).Where("sl_table_id = ?", tableID).Find(&views).Error; err != nil {
+	if err := db.WithContext(ctx).Preload("SLTable.Project").Where(query, args...).Find(&views).Error; err != nil {
 		return nil, err
 	}
 	return views, nil
@@ -63,7 +93,7 @@ var ErrViewNotFound = errors.New("view does not exist")
 
 func (db *views) getBy(ctx context.Context, query string, args ...interface{}) (*View, error) {
 	var view View
-	if err := db.WithContext(ctx).Where(query, args...).First(&view).Error; err != nil {
+	if err := db.WithContext(ctx).Preload("SLTable.Project").Where(query, args...).First(&view).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, ErrViewNotFound
 		}
@@ -73,18 +103,22 @@ func (db *views) getBy(ctx context.Context, query string, args ...interface{}) (
 }
 
 type CreateViewOptions struct {
-	SLTableID  uint
-	SLFieldIDs pq.Int64Array
-	Filter     json.RawMessage
-	Order      json.RawMessage
+	ProjectID   uint
+	SLTableID   uint
+	Name        string
+	SLFieldUIDs pq.StringArray
+	Filter      json.RawMessage
+	Order       json.RawMessage
 }
 
 func (db *views) Create(ctx context.Context, options CreateViewOptions) (*View, error) {
 	view := &View{
-		SLTableID:  options.SLTableID,
-		SLFieldIDs: options.SLFieldIDs,
-		Filter:     options.Filter,
-		Order:      options.Order,
+		ProjectID:   options.ProjectID,
+		SLTableID:   options.SLTableID,
+		Name:        options.Name,
+		SLFieldUIDs: options.SLFieldUIDs,
+		Filter:      options.Filter,
+		Order:       options.Order,
 	}
 	if err := db.WithContext(ctx).Create(view).Error; err != nil {
 		return nil, err
@@ -93,9 +127,10 @@ func (db *views) Create(ctx context.Context, options CreateViewOptions) (*View, 
 }
 
 type UpdateViewOptions struct {
-	SLFieldIDs pq.Int64Array
-	Filter     json.RawMessage
-	Order      json.RawMessage
+	Name        string
+	SLFieldUIDs pq.StringArray
+	Filter      json.RawMessage
+	Order       json.RawMessage
 }
 
 func (db *views) Update(ctx context.Context, id uint, options UpdateViewOptions) error {
@@ -104,7 +139,8 @@ func (db *views) Update(ctx context.Context, id uint, options UpdateViewOptions)
 		return errors.Wrap(err, "get")
 	}
 
-	view.SLFieldIDs = options.SLFieldIDs
+	view.Name = options.Name
+	view.SLFieldUIDs = options.SLFieldUIDs
 	view.Filter = options.Filter
 	view.Order = options.Order
 

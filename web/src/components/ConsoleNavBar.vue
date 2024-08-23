@@ -25,6 +25,7 @@
       <t-menu-item value="SchemalessTable">数据表</t-menu-item>
       <t-menu-item value="SchemalessRecord">记录</t-menu-item>
       <t-menu-item value="SchemalessApi">接口</t-menu-item>
+      <t-menu-item value="SchemalessView">视图</t-menu-item>
       <t-menu-item value="ProjectSettings">项目设置</t-menu-item>
     </t-submenu>
 

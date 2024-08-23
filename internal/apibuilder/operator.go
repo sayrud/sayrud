@@ -44,6 +44,14 @@ type Operator struct {
 	Right *Operator       `json:"r,omitempty"`
 }
 
+func ParseOperator(data []byte) (*Operator, error) {
+	var o Operator
+	if err := json.Unmarshal(data, &o); err != nil {
+		return nil, err
+	}
+	return &o, nil
+}
+
 func (o *Operator) ValidateConfig(ctx context.Context) error {
 	if o == nil {
 		return nil

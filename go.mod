@@ -23,12 +23,12 @@ require (
 	github.com/uptrace/opentelemetry-go-extra/otellogrus v0.3.1
 	github.com/uptrace/uptrace-go v1.27.1
 	github.com/wuhan005/gadget v0.0.0-20221206194113-7619e407f1a0
-	github.com/wuhan005/govalid v0.0.0-20230225142102-9dd5e5a0d0fd
+	github.com/wuhan005/govalid v0.0.2
 	go.opentelemetry.io/otel v1.27.0
 	go.opentelemetry.io/otel/exporters/stdout/stdouttrace v1.27.0
 	go.opentelemetry.io/otel/sdk v1.27.0
 	go.opentelemetry.io/otel/trace v1.27.0
-	golang.org/x/text v0.16.0
+	golang.org/x/text v0.17.0
 	gorm.io/datatypes v1.2.1
 	gorm.io/driver/mysql v1.5.6
 	gorm.io/driver/postgres v1.5.7
@@ -97,7 +97,7 @@ require (
 	go.opentelemetry.io/proto/otlp v1.2.0 // indirect
 	golang.org/x/crypto v0.23.0 // indirect
 	golang.org/x/net v0.25.0 // indirect
-	golang.org/x/sync v0.7.0 // indirect
+	golang.org/x/sync v0.8.0 // indirect
 	golang.org/x/sys v0.21.0 // indirect
 	google.golang.org/genproto v0.0.0-20200911024640-645f7a48b24f // indirect
 	google.golang.org/grpc v1.64.0 // indirect
