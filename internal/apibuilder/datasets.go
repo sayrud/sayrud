@@ -35,7 +35,7 @@ type Dataset struct {
 	TableUID         string    `json:"tableUID"`
 	Fields           []string  `json:"fields"`
 	Filter           *Operator `json:"filter"`
-	Order            []string  `json:"order"`
+	Orders           []*Order  `json:"order"`
 	LimitExpression  string    `json:"limitExp"`
 	OffsetExpression string    `json:"offsetExp"`
 }

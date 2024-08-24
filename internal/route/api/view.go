@@ -238,17 +238,18 @@ func (viewRoute) Query(ctx context.Context, view *db.View) error {
 	if err != nil {
 		return ctx.ApiError(http.StatusBadRequest, "排序条件配置错误")
 	}
-	orderFields := make([]string, 0, len(orders))
+	orderSets := make(map[string]string, len(orders))
 	for _, order := range orders {
-		orderField := fieldSets[order.FieldUID]
-		// TODO asc desc
-		orderFields = append(orderFields, orderField.Name)
+		orderField, ok := fieldSets[order.FieldUID]
+		if ok {
+			orderSets[orderField.Name] = order.OrderType
+		}
 	}
 
 	records, total, err := db.SLTables.QueryList(ctx.Request().Context(), &view.SLTable, db.QueryListSLTableOptions{
 		Fields: fields,
 		Filter: filterExpression,
-		Orders: orderFields,
+		Orders: orderSets,
 		Limit:  limit,
 		Offset: offset,
 	})

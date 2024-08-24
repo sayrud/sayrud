@@ -68,11 +68,11 @@ func (publicHandler) listHandler(ctx context.Context, opts listHandlerOptions) (
 			return nil, errors.Wrap(err, "parse filter expression")
 		}
 
-		orders := make([]string, 0, len(dataset.Order))
-		for _, orderFieldUID := range dataset.Order {
-			fieldName, ok := uidNameSets[orderFieldUID]
+		orderSets := make(map[string]string, len(dataset.Orders))
+		for _, order := range dataset.Orders {
+			fieldName, ok := uidNameSets[order.FieldUID]
 			if ok {
-				orders = append(orders, fieldName)
+				orderSets[fieldName] = order.OrderType
 			}
 		}
 
@@ -80,7 +80,7 @@ func (publicHandler) listHandler(ctx context.Context, opts listHandlerOptions) (
 		result, count, err := db.SLTables.QueryList(ctx.Request().Context(), slTable, db.QueryListSLTableOptions{
 			Fields: fields,
 			Filter: filter,
-			Orders: orders,
+			Orders: orderSets,
 			Limit:  0,
 			Offset: 0,
 		})

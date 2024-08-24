@@ -90,7 +90,10 @@ export interface Dataset {
     tableUID: string;
     fields: string[];
     filter: object;
-    order: string[];
+    order: {
+        fieldUID: string;
+        orderType: 'asc' | 'desc';
+    }[]
     fieldAlias: Record<string, string>
     limitExp: string;
     offsetExp: string;

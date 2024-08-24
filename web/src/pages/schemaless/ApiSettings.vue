@@ -120,6 +120,36 @@
                             :autosize="{minRows: 6}"></t-textarea>
                       </t-space>
                     </t-form-item>
+
+                    <t-form-item label="排序字段" v-if="formData.kind === 'list' && datasets[0]">
+                      <t-button variant="outline" @click="onAddOrderItem">
+                        <t-icon name="add"/>
+                      </t-button>
+                    </t-form-item>
+                    <t-form-item name="orderType" v-for="(_, index) in datasets[0].order"
+                                 v-if="formData.kind === 'list' && datasets[0]">
+                      <t-select v-model="datasets[0]['order'][index].fieldUID">
+                        <t-option v-for="field in tableFieldsMap[datasets[0].tableUID]" :key="field.value"
+                                  :value="field.value" :label="field.label">
+                        </t-option>
+                      </t-select>
+                      <t-select v-model="datasets[0]['order'][index].orderType">
+                        <t-option value="asc" label="升序 A->Z"/>
+                        <t-option value="desc" label="降序 Z->A"/>
+                      </t-select>
+                      <template #statusIcon>
+                        <t-button variant="dashed" @click="onRemoveOrderItem(index)">
+                          <t-icon name="remove"/>
+                        </t-button>
+                      </template>
+                    </t-form-item>
+
+                    <t-form-item label="LIMIT" v-if="formData.kind === 'list'">
+                      <t-input v-model="datasets[0].limitExp" placeholder="请输入LIMIT"/>
+                    </t-form-item>
+                    <t-form-item label="OFFSET" v-if="formData.kind === 'list'">
+                      <t-input v-model="datasets[0].offsetExp" placeholder="请输入OFFSET"/>
+                    </t-form-item>
                   </t-col>
                   <t-col :span="6">
                     <t-form-item label="字段映射" v-if="formData.kind === 'create' || formData.kind === 'update'">
@@ -159,20 +189,6 @@
                                    placeholder="请输入字段别名"/>
                         </t-row>
                       </t-space>
-                    </t-form-item>
-
-                    <t-form-item label="排序字段" v-if="formData.kind === 'list' && datasets[0]">
-                      <t-select v-model="datasets[0].order" placeholder="请选择排序字段" multiple>
-                        <t-option v-for="field in tableFieldsMap[datasets[0].tableUID]" :key="field.value"
-                                  :value="field.value"
-                                  :label="field.label"></t-option>
-                      </t-select>
-                    </t-form-item>
-                    <t-form-item label="LIMIT" v-if="formData.kind === 'list'">
-                      <t-input v-model="datasets[0].limitExp" placeholder="请输入LIMIT"/>
-                    </t-form-item>
-                    <t-form-item label="OFFSET" v-if="formData.kind === 'list'">
-                      <t-input v-model="datasets[0].offsetExp" placeholder="请输入OFFSET"/>
                     </t-form-item>
                   </t-col>
                 </t-row>
@@ -502,6 +518,17 @@ const formData = ref<CreateApiReq | UpdateApiReq>({
   }],
   response: '',
 })
+
+const onAddOrderItem = () => {
+  datasets.value[0].order.push({
+    fieldUID: '',
+    orderType: 'asc',
+  })
+}
+
+const onRemoveOrderItem = (index: number) => {
+  datasets.value[0].order.splice(index, 1)
+}
 
 const onSelectMiddleware = (type: string) => {
   formData.value.middlewares.push({
