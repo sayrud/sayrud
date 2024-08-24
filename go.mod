@@ -23,7 +23,7 @@ require (
 	github.com/uptrace/opentelemetry-go-extra/otellogrus v0.3.1
 	github.com/uptrace/uptrace-go v1.27.1
 	github.com/wuhan005/gadget v0.0.0-20221206194113-7619e407f1a0
-	github.com/wuhan005/govalid v0.0.2
+	github.com/wuhan005/govalid v0.0.3
 	go.opentelemetry.io/otel v1.27.0
 	go.opentelemetry.io/otel/exporters/stdout/stdouttrace v1.27.0
 	go.opentelemetry.io/otel/sdk v1.27.0
