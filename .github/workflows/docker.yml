@@ -26,13 +26,13 @@ jobs:
           echo "Status:    ${{ steps.buildx.outputs.status }}"
           echo "Flags:     ${{ steps.buildx.outputs.flags }}"
           echo "Platforms: ${{ steps.buildx.outputs.platforms }}"
-      - name: Login to Tencent Cloud container registry
+      - name: Login to Tencent Cloud container registry (HK)
         uses: docker/login-action@v2
         with:
           registry: hkccr.ccs.tencentyun.com
           username: ${{ secrets.REGISTRY_USERNAME }}
           password: ${{ secrets.REGISTRY_PASSWORD }}
-      - name: Build and push images
+      - name: Build and push images (HK)
         uses: docker/build-push-action@v4
         with:
           context: .
@@ -42,3 +42,14 @@ jobs:
             GITHUB_SHA=${{ github.sha }}
           tags: |
             hkccr.ccs.tencentyun.com/byte/sayrud-server:${{ env.IMAGE_TAG }}
+
+      - name: Login to Tencent Cloud container registry (GD)
+        uses: docker/login-action@v2
+        with:
+          registry: ccr.ccs.tencentyun.com
+          username: ${{ secrets.REGISTRY_USERNAME }}
+          password: ${{ secrets.REGISTRY_PASSWORD }}
+      - name: Push images (GD)
+        run: |
+          docker tag hkccr.ccs.tencentyun.com/byte/sayrud-server:${{ env.IMAGE_TAG }} ccr.ccs.tencentyun.com/qcloud-image/sayrud-server:${{ env.IMAGE_TAG }}
+          docker push ccr.ccs.tencentyun.com/qcloud-image/sayrud-server:${{ env.IMAGE_TAG }}
