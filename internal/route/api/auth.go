@@ -75,6 +75,7 @@ func (authRoute) GitHubCallback(ctx context.Context) error {
 			logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to send request")
 			continue
 		}
+		break
 	}
 	if err != nil {
 		return ctx.ApiServerError()

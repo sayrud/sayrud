@@ -102,8 +102,22 @@ func (projectRoute) UpdateProject(ctx context.Context, project *db.Project, f fo
 	return ctx.Status(http.StatusNoContent)
 }
 
-func (projectRoute) DeleteProject(ctx context.Context, project *db.Project) error {
-	if err := db.Projects.DeleteByID(ctx.Request().Context(), project.ID); err != nil {
+func (projectRoute) DeleteProject(ctx context.Context, project *db.Project, tx dbutil.Transactor) error {
+	if err := tx.Transaction(func(tx *gorm.DB) error {
+		projectsStore := db.NewProjectsStore(tx)
+
+		// Delete the schema firstly.
+		if err := projectsStore.DeleteSchema(ctx.Request().Context(), project.ID); err != nil {
+			return errors.Wrap(err, "delete schema")
+		}
+
+		if err := projectsStore.DeleteByID(ctx.Request().Context(), project.ID); err != nil {
+			return errors.Wrap(err, "delete project")
+		}
+
+		// TODO: the tables, fields, records are not deleted.
+		return nil
+	}); err != nil {
 		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to delete project")
 		return ctx.ApiServerError()
 	}

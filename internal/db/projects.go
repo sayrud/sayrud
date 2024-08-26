@@ -155,8 +155,29 @@ func (db *projects) DeleteSchema(ctx context.Context, projectID uint) error {
 	}
 
 	schemaName := project.SchemaName
-	if err := db.Exec(escape.Escape("DROP SCHEMA IF EXISTS %I", schemaName)).Error; err != nil {
-		return err
+	if schemaName == "public" {
+		return errors.New("can't delete public schema")
 	}
-	return nil
+
+	return db.Transaction(func(tx *gorm.DB) error {
+
+		// Drop all the tables in schema.
+		if err := tx.Debug().Exec(`
+do $$ declare
+    r record;
+begin
+    for r in (select viewname, schemaname from pg_catalog.pg_views where schemaname = ?) loop
+        execute 'drop view if exists ' || quote_ident(r.schemaname) || '.' || quote_ident(r.viewname) || ' cascade';
+    end loop;
+end $$;
+`, schemaName).Error; err != nil {
+			return errors.Wrap(err, "drop schema tables")
+		}
+
+		if err := tx.Exec(escape.Escape("DROP SCHEMA IF EXISTS %I", schemaName)).Error; err != nil {
+			return errors.Wrap(err, "drop schema")
+		}
+
+		return nil
+	})
 }
