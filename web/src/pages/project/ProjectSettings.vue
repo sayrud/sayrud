@@ -6,7 +6,6 @@
       :rules="FORM_RULES"
       label-align="top"
       :label-width="100"
-      @reset="onCancel"
       @submit="onSubmit"
   >
     <div class="form-basic-container">
@@ -16,7 +15,7 @@
           <t-input v-model="formData.name" :style="{ width: '322px' }" placeholder="请输入项目名"/>
         </t-form-item>
         <t-form-item label="项目ID" name="schemaName">
-          <t-input disabled v-model="formData.schemaName" :style="{ width: '322px' }" placeholder="请输入项目ID"/>
+          <t-input disabled v-model="project.schemaName" :style="{ width: '322px' }" placeholder="请输入项目ID"/>
         </t-form-item>
       </div>
     </div>
@@ -55,7 +54,6 @@ const FORM_RULES: Record<string, FormRule[]> = {
 
 const formData = ref<UpdateProjectReq>({
   name: '',
-  schemaName: '',
 })
 
 const fetchProject = () => {
@@ -63,7 +61,6 @@ const fetchProject = () => {
     project.value = res
     formData.value = {
       name: res.name,
-      schemaName: res.schemaName,
     }
   }).finally(() => {
     projectStore.setProject(project.value)
