@@ -1,29 +1,35 @@
 package main
 
 import (
+	"context"
+	"errors"
 	"flag"
 	"os"
 
 	"github.com/sirupsen/logrus"
 	"github.com/uptrace/opentelemetry-go-extra/otellogrus"
-	"github.com/uptrace/uptrace-go/uptrace"
 
 	"github.com/wuhan005/sayrud/internal/db"
 	"github.com/wuhan005/sayrud/internal/redis"
 	"github.com/wuhan005/sayrud/internal/route"
+	"github.com/wuhan005/sayrud/internal/tracing"
 )
 
 func main() {
 	port := flag.Int("port", 8080, "port to listen")
 	flag.Parse()
 
-	uptraceDsn := os.Getenv("UPTRACE_DSN")
-	if uptraceDsn != "" {
-		uptrace.ConfigureOpentelemetry(
-			uptrace.WithDSN(uptraceDsn),
-			uptrace.WithServiceName("sayrud"),
-		)
-		logrus.Debug("Tracing enabled.")
+	if os.Getenv("TRACING_ENDPOINT") != "" {
+		ctx := context.Background()
+		otelShutdown, err := tracing.SetupOTelSDK(ctx)
+		if err != nil {
+			logrus.WithContext(ctx).WithError(err).Fatal("Failed to initialize OTel SDK")
+		}
+		defer func() {
+			if err = errors.Join(err, otelShutdown(context.Background())); err != nil {
+				logrus.WithError(err).Error("Failed to shutdown OTel SDK")
+			}
+		}()
 	}
 
 	logrus.AddHook(otellogrus.NewHook(otellogrus.WithLevels(

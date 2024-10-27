@@ -9,6 +9,7 @@ import (
 	"os"
 
 	"github.com/pkg/errors"
+	"github.com/redis/go-redis/extra/redisotel/v9"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -23,6 +24,12 @@ func Init() (*redis.Client, error) {
 	ctx := context.Background()
 	if err := rdb.Ping(ctx).Err(); err != nil {
 		return nil, errors.Wrap(err, "ping")
+	}
+	if err := redisotel.InstrumentTracing(rdb); err != nil {
+		return nil, errors.Wrap(err, "instrument tracing")
+	}
+	if err := redisotel.InstrumentMetrics(rdb); err != nil {
+		return nil, errors.Wrap(err, "instrument metrics")
 	}
 	return rdb, nil
 }
