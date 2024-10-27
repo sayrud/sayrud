@@ -12,6 +12,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/redis/go-redis/v9"
 	"github.com/sirupsen/logrus"
+	"go.opentelemetry.io/otel/trace"
 	"gorm.io/gorm"
 
 	"github.com/wuhan005/sayrud/internal/db"
@@ -84,6 +85,11 @@ func Contexter(gormDB *gorm.DB, redisClient *redis.Client) flamego.Handler {
 		c := Context{
 			Context: ctx,
 			IsLogin: false,
+		}
+
+		spanCtx := trace.SpanContextFromContext(ctx.Request().Context())
+		if spanCtx.HasTraceID() {
+			c.ResponseWriter().Header().Set("Trace-ID", spanCtx.TraceID().String())
 		}
 
 		c.ResponseWriter().Header().Set("Server", "Sayrud")
