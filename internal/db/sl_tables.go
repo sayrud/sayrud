@@ -264,22 +264,21 @@ func (db *slTables) QueryList(ctx context.Context, slTable *SLTable, options Que
 	schemaName := slTable.Project.SchemaName
 	tableName := slTable.Name
 
-	selectFields := make([]string, 0, len(options.Fields))
+	q := db.WithContext(ctx).
+		Table(escape.Escape(`%I.%I`, schemaName, tableName))
+
 	if len(options.Fields) == 1 && options.Fields["*"] == "*" {
-		selectFields = []string{"*"}
+		q = q.Select([]string{"*"})
 	} else {
-		for fieldName, fieldAlia := range options.Fields {
-			field := escape.QuoteIdent(fieldName)
-			if fieldAlia != "" {
-				field += fmt.Sprintf("AS %s", escape.QuoteIdent(fieldAlia))
+		selectFields := lo.Keys(options.Fields)
+		for k, v := range options.Fields {
+			if v == "" {
+				options.Fields[k] = k
 			}
-			selectFields = append(selectFields, field)
 		}
+		q = q.Select(selectFields).MapColumns(options.Fields)
 	}
 
-	q := db.WithContext(ctx).
-		Table(escape.Escape(`%I.%I`, schemaName, tableName)).
-		Select(selectFields)
 	if options.Filter != nil {
 		q = q.Where(options.Filter)
 	}
@@ -324,22 +323,21 @@ func (db *slTables) QueryFirst(ctx context.Context, slTable *SLTable, options Qu
 	schemaName := slTable.Project.SchemaName
 	tableName := slTable.Name
 
-	selectFields := make([]string, 0, len(options.Fields))
+	q := db.WithContext(ctx).
+		Table(escape.Escape(`%I.%I`, schemaName, tableName))
+
 	if len(options.Fields) == 1 && options.Fields["*"] == "*" {
-		selectFields = []string{"*"}
+		q = q.Select([]string{"*"})
 	} else {
-		for fieldName, fieldAlia := range options.Fields {
-			field := escape.QuoteIdent(fieldName)
-			if fieldAlia != "" {
-				field += fmt.Sprintf("AS %s", escape.QuoteIdent(fieldAlia))
+		selectFields := lo.Keys(options.Fields)
+		for k, v := range options.Fields {
+			if v == "" {
+				options.Fields[k] = k
 			}
-			selectFields = append(selectFields, field)
 		}
+		q = q.Select(selectFields).MapColumns(options.Fields)
 	}
 
-	q := db.WithContext(ctx).
-		Table(escape.Escape(`%I.%I`, schemaName, tableName)).
-		Select(selectFields).Debug()
 	if options.Filter != nil {
 		q = q.Where(options.Filter)
 	}
