@@ -19,20 +19,7 @@ jobs:
       - name: Set up Docker Buildx
         id: buildx
         uses: docker/setup-buildx-action@v2
-      - name: Inspect builder
-        run: |
-          echo "Name:      ${{ steps.buildx.outputs.name }}"
-          echo "Endpoint:  ${{ steps.buildx.outputs.endpoint }}"
-          echo "Status:    ${{ steps.buildx.outputs.status }}"
-          echo "Flags:     ${{ steps.buildx.outputs.flags }}"
-          echo "Platforms: ${{ steps.buildx.outputs.platforms }}"
-      - name: Login to Tencent Cloud container registry (HK)
-        uses: docker/login-action@v2
-        with:
-          registry: hkccr.ccs.tencentyun.com
-          username: ${{ secrets.REGISTRY_USERNAME }}
-          password: ${{ secrets.REGISTRY_PASSWORD }}
-      - name: Login to Tencent Cloud container registry (GD)
+      - name: Login to Tencent Cloud container registry
         uses: docker/login-action@v2
         with:
           registry: ccr.ccs.tencentyun.com
@@ -47,5 +34,18 @@ jobs:
           build-args: |
             GITHUB_SHA=${{ github.sha }}
           tags: |
-            hkccr.ccs.tencentyun.com/byte/sayrud-server:${{ env.IMAGE_TAG }}
             ccr.ccs.tencentyun.com/qcloud-image/sayrud-server:${{ env.IMAGE_TAG }}
+      - name: Set proxy config
+        env:
+          HTTP_PROXY: ${{ secrets.HTTP_PROXY }}
+          HTTPS_PROXY: ${{ secrets.HTTP_PROXY }}
+        run: |
+          wget https://github.com/jqlang/jq/releases/download/jq-1.7.1/jq-linux-amd64 -O jq
+          chmod +x jq
+          ./jq '. + {"proxies":{"http-proxy": "'"${HTTP_PROXY}"'", "https-proxy": "'"${HTTPS_PROXY}"'"}}' /etc/docker/daemon.json > /tmp/daemon.json.tmp
+          sudo mv /tmp/daemon.json.tmp /etc/docker/daemon.json
+          sudo systemctl restart docker
+      - name: Push image
+        run: |
+          docker push ccr.ccs.tencentyun.com/qcloud-image/sayrud-server:${{ env.IMAGE_TAG }}
+
