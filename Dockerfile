@@ -6,7 +6,6 @@ ENV CGO_ENABLED=0
 
 COPY . .
 
-RUN go mod tidy
 RUN go build -v -trimpath -ldflags "-w -s -extldflags '-static' -X 'github.com/wuhan005/sayrud/internal/appconst.BuildCommit=$GITHUB_SHA'" -o sayrud-server ./cmd/sayrud-server
 
 FROM alpine:latest
