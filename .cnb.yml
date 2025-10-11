@@ -4,13 +4,17 @@ master:
       services:
         - docker
       docker:
+        image: golang:1.22
         volumes:
-          - /var/lib/docker/overlay2:copy-on-write
+          - /go/pkg
       stages:
         - name: 设置镜像 tag
           script: echo -n "${CNB_DOCKER_REGISTRY}/${CNB_REPO_SLUG_LOWERCASE}:$(date -u '+%Y%m%d-%H%M%S')"
           exports:
             info: IMAGE_TAG
+
+        - name: 编译 Go
+          script: go build -v -trimpath -ldflags "-w -s -extldflags '-static' -X 'github.com/wuhan005/sayrud/internal/appconst.BuildCommit=$GITHUB_SHA'" -o sayrud-server ./cmd/sayrud-server
 
         - name: 构建镜像
           script: docker build -t $IMAGE_TAG .

@@ -1,16 +1,3 @@
-FROM golang:1.22-alpine as go_builder
-
-WORKDIR /app
-
-ENV CGO_ENABLED=0
-
-COPY go.mod go.sum ./
-RUN go mod download
-
-COPY . .
-
-RUN go build -v -trimpath -ldflags "-w -s -extldflags '-static' -X 'github.com/wuhan005/sayrud/internal/appconst.BuildCommit=$GITHUB_SHA'" -o sayrud-server ./cmd/sayrud-server
-
 FROM alpine:latest
 
 RUN apk update && apk add tzdata && cp /usr/share/zoneinfo/Asia/Shanghai /etc/localtime \
