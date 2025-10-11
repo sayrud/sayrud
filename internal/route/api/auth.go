@@ -44,7 +44,12 @@ func (authRoute) GitHubCallback(ctx context.Context) error {
 	form.Set("client_secret", os.Getenv("GITHUB_CLIENT_SECRET"))
 	form.Set("code", code)
 
-	req, err := http.NewRequest(http.MethodPost, "https://github.com/login/oauth/access_token", strings.NewReader(form.Encode()))
+	githubBaseURL := "https://github.com"
+	if os.Getenv("GITHUB_BASE_URL") != "" {
+		githubBaseURL = strings.TrimRight(os.Getenv("GITHUB_BASE_URL"), "/")
+	}
+
+	req, err := http.NewRequest(http.MethodPost, githubBaseURL+"/login/oauth/access_token", strings.NewReader(form.Encode()))
 	if err != nil {
 		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to create request")
 		return ctx.ApiServerError()
@@ -106,7 +111,17 @@ func (authRoute) GitHubCallback(ctx context.Context) error {
 
 	accessToken := response.AccessToken
 
+	apiBaseURLStr := "https://api.github.com"
+	if os.Getenv("GITHUB_API_BASE_URL") != "" {
+		apiBaseURLStr = strings.TrimRight(os.Getenv("GITHUB_API_BASE_URL"), "/")
+	}
+	apiBaseURL, err := url.Parse(apiBaseURLStr)
+	if err != nil {
+		return ctx.ApiError(http.StatusInternalServerError, "GitHub API 端点解析失败")
+	}
+
 	githubClient := github.NewClient(githubHttpClient).WithAuthToken(accessToken)
+	githubClient.BaseURL = apiBaseURL
 
 	githubUser, _, err := githubClient.Users.Get(ctx.Request().Context(), "")
 	if err != nil {
