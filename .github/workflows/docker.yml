@@ -38,7 +38,8 @@ jobs:
         run: |
           wget https://github.com/jqlang/jq/releases/download/jq-1.7.1/jq-linux-amd64 -O jq
           chmod +x jq
-          ./jq '. + {"proxies":{"http-proxy": "'"${HTTP_PROXY}"'", "https-proxy": "'"${HTTPS_PROXY}"'"}}' /etc/docker/daemon.json > /tmp/daemon.json.tmp
+          sudo sh -c 'ls /etc/docker/daemon.json || echo "{}" > /etc/docker/daemon.json'
+          sudo ./jq '. + {"proxies":{"http-proxy": "'"${HTTP_PROXY}"'", "https-proxy": "'"${HTTPS_PROXY}"'"}}' /etc/docker/daemon.json > /tmp/daemon.json.tmp
           sudo mv /tmp/daemon.json.tmp /etc/docker/daemon.json
           sudo systemctl restart docker
       - name: Push image
