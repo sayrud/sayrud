@@ -19,6 +19,8 @@ master:
         - name: debug
           script: |
             ls -alh /go/pkg/
+            go env GOMODCACHE
+            go env GOCACHE
         - name: 构建镜像
           script: docker build -t $IMAGE_TAG .
 
