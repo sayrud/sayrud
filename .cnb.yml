@@ -1,0 +1,16 @@
+master:
+  push:
+    - name: "构建镜像"
+      services:
+        - docker
+      stages:
+        - name: 设置镜像 tag
+          script: echo -n "${CNB_DOCKER_REGISTRY}/${CNB_REPO_SLUG_LOWERCASE}:$(date -u '+%Y%m%d-%H%M%S')"
+          exports:
+            info: IMAGE_TAG
+
+        - name: 构建镜像
+          script: docker build -t $IMAGE_TAG .
+
+        - name: 推送镜像
+          script: docker push $IMAGE_TAG
