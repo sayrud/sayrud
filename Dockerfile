@@ -5,7 +5,7 @@ RUN apk update && apk add tzdata && cp /usr/share/zoneinfo/Asia/Shanghai /etc/lo
 
 WORKDIR /home/app
 
-COPY --from=go_builder /app/sayrud-server .
+COPY ./sayrud-server .
 
 RUN chmod 777 /home/app/sayrud-server
 
