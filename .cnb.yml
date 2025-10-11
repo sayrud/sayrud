@@ -4,7 +4,7 @@ master:
       services:
         - docker
       docker:
-        image: golang:1.22
+        image: docker.cnb.cool/nekobase/base-images/golang-1.22:latest
         volumes:
           - /go/pkg/mod
           - /root/.cache/go-build
@@ -14,11 +14,8 @@ master:
           exports:
             info: IMAGE_TAG
 
-        - name: 编译 Go
-          script: go build -v -trimpath -ldflags "-w -s -extldflags '-static' -X 'github.com/wuhan005/sayrud/internal/appconst.BuildCommit=$GITHUB_SHA'" -o sayrud-server ./cmd/sayrud-server
-
-        - name: 构建镜像
-          script: docker build -t $IMAGE_TAG .
-
-        - name: 推送镜像
-          script: docker push $IMAGE_TAG
+        - name: 编译 Go + 构建镜像 + 推送镜像
+          script: |
+            go build -v -trimpath -ldflags "-w -s -extldflags '-static' -X 'github.com/wuhan005/sayrud/internal/appconst.BuildCommit=$GITHUB_SHA'" -o sayrud-server ./cmd/sayrud-server
+            docker build -t $IMAGE_TAG .
+            docker push $IMAGE_TAG
