@@ -5,7 +5,7 @@ master:
         - docker
       docker:
         volumes:
-          - /tmp/aa:copy-on-write
+          - /var/lib/docker/overlay2:copy-on-write
       stages:
         - name: 设置镜像 tag
           script: echo -n "${CNB_DOCKER_REGISTRY}/${CNB_REPO_SLUG_LOWERCASE}:$(date -u '+%Y%m%d-%H%M%S')"
