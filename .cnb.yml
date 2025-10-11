@@ -14,9 +14,6 @@ master:
           exports:
             info: IMAGE_TAG
 
-        - name: Go mod download
-          script: go mod download
-
         - name: 编译 Go
           script: go build -v -trimpath -ldflags "-w -s -extldflags '-static' -X 'github.com/wuhan005/sayrud/internal/appconst.BuildCommit=$GITHUB_SHA'" -o sayrud-server ./cmd/sayrud-server
 
