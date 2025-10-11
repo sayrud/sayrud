@@ -1,4 +1,4 @@
-FROM alpine:latest
+FROM docker.cnb.cool/nekobase/base-images/alpine-runtime:latest
 
 RUN apk update && apk add tzdata && cp /usr/share/zoneinfo/Asia/Shanghai /etc/localtime \
 && echo "Asia/Shanghai" > /etc/timezone
