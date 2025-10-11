@@ -16,6 +16,9 @@ master:
         - name: 编译 Go
           script: go build -v -trimpath -ldflags "-w -s -extldflags '-static' -X 'github.com/wuhan005/sayrud/internal/appconst.BuildCommit=$GITHUB_SHA'" -o sayrud-server ./cmd/sayrud-server
 
+        - name: debug
+          script: |
+            ls -alh /go/pkg/
         - name: 构建镜像
           script: docker build -t $IMAGE_TAG .
 
