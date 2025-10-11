@@ -111,9 +111,9 @@ func (authRoute) GitHubCallback(ctx context.Context) error {
 
 	accessToken := response.AccessToken
 
-	apiBaseURLStr := "https://api.github.com"
+	apiBaseURLStr := "https://api.github.com/"
 	if os.Getenv("GITHUB_API_BASE_URL") != "" {
-		apiBaseURLStr = strings.TrimRight(os.Getenv("GITHUB_API_BASE_URL"), "/")
+		apiBaseURLStr = strings.TrimRight(os.Getenv("GITHUB_API_BASE_URL"), "/") + "/"
 	}
 	apiBaseURL, err := url.Parse(apiBaseURLStr)
 	if err != nil {
