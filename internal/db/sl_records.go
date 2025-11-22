@@ -72,7 +72,7 @@ func (db *slRecords) GetView(ctx context.Context, table *SLTable, opts GetViewOp
 	viewName := escape.Escape("%I.%I", table.Project.SchemaName, table.Name)
 
 	var total int64
-	q := db.WithContext(ctx).Table(viewName)
+	q := db.WithContext(ctx).Table(viewName).Order("_created_at DESC")
 	if err := q.Count(&total).Error; err != nil {
 		return nil, 0, errors.Wrap(err, "count")
 	}
