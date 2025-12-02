@@ -52,7 +52,7 @@ onMounted(async () => {
 
   view.value = await getView(projectUID, viewUID)
   fields.value = await listFields(projectUID, view.value.table.uid)
-  columns.value = view.value.fieldUIDs.map(fieldUID => {
+  columns.value = view.value.fieldUIDs.map((fieldUID) => {
     const field = fields.value.find(field => field.uid === fieldUID)
     if (!field) {
       return {
@@ -64,7 +64,7 @@ onMounted(async () => {
       colKey: field.name,
       title: field.label,
     }
-  })
+  }) as PrimaryTableCol<TableRowData>[]
   queryRecords()
 
   isLoading.value = false
