@@ -83,6 +83,11 @@
                       <template #required="{row}">
                         {{ row.required ? '是' : '否' }}
                       </template>
+                      <template #customValidators="{row}">
+                        <t-link theme="primary" @click="onEditValidators(row)">
+                          {{ row.customValidators && row.customValidators.length ? `已配置 ${row.customValidators.length} 条` : '配置' }}
+                        </t-link>
+                      </template>
                       <template #ops="{row}">
                         <t-space>
                           <t-link v-if="!requestParamsEditableRowKeys.includes(row.no)" theme="primary" hover="color"
@@ -292,6 +297,41 @@
       </div>
     </t-col>
   </t-row>
+
+  <t-dialog
+      v-model:visible="validatorDialogVisible"
+      header="自定义校验规则配置"
+      width="800px"
+      @confirm="onValidatorDialogConfirm"
+  >
+    <t-button theme="primary" style="margin-bottom: 16px" @click="onAddValidator">
+      <template #icon>
+        <t-icon name="add"/>
+      </template>
+      添加规则
+    </t-button>
+
+    <t-table
+        :data="currentValidators"
+        :columns="validatorColumns"
+        row-key="_id"
+        size="small"
+        bordered
+    >
+      <template #type="{ row }">
+        <t-input v-model="row.type" placeholder="请输入类型"/>
+      </template>
+      <template #expression="{ row }">
+        <t-input v-model="row.expression" placeholder="请输入表达式"/>
+      </template>
+      <template #message="{ row }">
+        <t-input v-model="row.message" placeholder="请输入错误提示"/>
+      </template>
+      <template #ops="{ rowIndex }">
+        <t-link theme="danger" @click="onRemoveValidator(rowIndex)">删除</t-link>
+      </template>
+    </t-table>
+  </t-dialog>
 </template>
 
 <script setup lang="ts">
@@ -322,6 +362,7 @@ import {
   ParamTypeOptions,
   updateApi,
   UpdateApiReq,
+  Validator,
 } from "@/api/api.ts";
 import {Container, Draggable} from "vue3-smooth-dnd";
 import {AddIcon} from 'tdesign-icons-vue-next';
@@ -391,11 +432,7 @@ const paramsColumns = computed<TableProps['columns']>(() => [
     }
   },
   {
-    colKey: 'customValidators', title: '自定义校验规则', align: 'center', edit: {
-      component: Input,
-      props: {clearable: true, size: 'small'},
-      showEditIcon: false
-    }
+    colKey: 'customValidators', title: '自定义校验规则', align: 'center', width: 150
   },
   {colKey: 'ops', title: '操作', width: 150, align: 'center',},
 ])
@@ -479,6 +516,48 @@ const onParamsRowValidate = () => {
 
 const onParamsValidate = () => {
 
+}
+
+// Custom Validators Dialog
+const validatorDialogVisible = ref(false)
+const currentValidators = ref<(Validator & { _id: string })[]>([])
+const currentEditingParamNo = ref('')
+const validatorColumns = [
+  { colKey: 'type', title: '类型', width: 150 },
+  { colKey: 'expression', title: '表达式' },
+  { colKey: 'message', title: '错误提示' },
+  { colKey: 'ops', title: '操作', width: 100, align: 'center' },
+]
+
+const onEditValidators = (row: ParamMixin) => {
+  currentEditingParamNo.value = row.no!
+  currentValidators.value = (row.customValidators || []).map(v => ({
+    ...v,
+    _id: nanoid()
+  }))
+  validatorDialogVisible.value = true
+}
+
+const onValidatorDialogConfirm = () => {
+  const index = requestParams.value.findIndex(p => p.no === currentEditingParamNo.value)
+  if (index !== -1) {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    requestParams.value[index].customValidators = currentValidators.value.map(({_id, ...v}) => v)
+  }
+  validatorDialogVisible.value = false
+}
+
+const onAddValidator = () => {
+  currentValidators.value.push({
+    type: '',
+    expression: '',
+    message: '',
+    _id: nanoid()
+  })
+}
+
+const onRemoveValidator = (index: number) => {
+  currentValidators.value.splice(index, 1)
 }
 
 const datasets = ref<Dataset[]>([{} as Dataset])
@@ -731,7 +810,7 @@ onUnmounted(() => {
 })
 </script>
 
-<style scoped>
+<style lang="less" scoped>
 .container {
   display: flex;
   align-items: center;

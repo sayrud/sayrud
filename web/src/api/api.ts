@@ -31,6 +31,7 @@ export interface Middleware {
 export type Validators = Validator[]
 
 export interface Validator {
+    type: string;
     expression: string;
     message: string;
 }
