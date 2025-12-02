@@ -810,7 +810,7 @@ onUnmounted(() => {
 })
 </script>
 
-<style lang="less" scoped>
+<style scoped>
 .container {
   display: flex;
   align-items: center;
