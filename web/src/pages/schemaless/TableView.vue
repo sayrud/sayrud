@@ -64,7 +64,7 @@ onMounted(async () => {
       colKey: field.name,
       title: field.label,
     }
-  }) as PrimaryTableCol<TableRowData>[]
+  }) as any
   queryRecords()
 
   isLoading.value = false
