@@ -10,6 +10,7 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/spf13/cast"
+	"github.com/wuhan005/sayrud/internal/security"
 )
 
 type ParamType string
@@ -41,7 +42,7 @@ type Param struct {
 	CustomValidators Validators `json:"customValidators"`
 }
 
-func (p Param) ValidateValue(inputValue string) (interface{}, error) {
+func (p Param) ValidateValue(ctx context.Context, inputValue string) (interface{}, error) {
 	if inputValue == "" && p.Required {
 		return nil, ErrParamValueRequired
 	}
@@ -59,7 +60,23 @@ func (p Param) ValidateValue(inputValue string) (interface{}, error) {
 		v = inputValue
 	}
 
-	// TODO: custom validator
+	// Custom validator
+	for _, validator := range p.CustomValidators {
+		validator := validator
+		switch validator.Type {
+		case ValidatorTypeTextModeration:
+			pass, err := security.TencentTextModeration(ctx, inputValue)
+			if err != nil {
+				return nil, errors.Wrap(err, "text moderation")
+			}
+			if !pass {
+				return nil, &ValidatorError{Message: validator.Message}
+			}
+
+		default:
+			continue
+		}
+	}
 
 	return v, nil
 }

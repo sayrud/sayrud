@@ -4,6 +4,10 @@
 
 package apibuilder
 
+const (
+	ValidatorTypeTextModeration = "text_moderation"
+)
+
 type Validators []Validator
 
 func (v Validators) ValidateConfig() error {
@@ -16,6 +20,7 @@ func (v Validators) ValidateConfig() error {
 }
 
 type Validator struct {
+	Type       string `json:"type"`
 	Expression string `json:"expression"`
 	Message    string `json:"message"`
 }
@@ -25,4 +30,12 @@ func (v Validator) ValidateConfig() error {
 		return ErrEmptyValidatorExpression
 	}
 	return nil
+}
+
+type ValidatorError struct {
+	Message string
+}
+
+func (e ValidatorError) Error() string {
+	return e.Message
 }

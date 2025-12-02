@@ -103,11 +103,17 @@ func (h publicHandler) Handler(ctx context.Context, api *db.Api, tx dbutil.Trans
 		}
 
 		inputValue := queries.Get(param.Key)
-		v, err := param.ValidateValue(inputValue)
+		v, err := param.ValidateValue(ctx.Request().Context(), inputValue)
 		if err != nil {
 			if errors.Is(err, apibuilder.ErrParamValueRequired) {
 				return ctx.ApiError(http.StatusBadRequest, "缺少必填参数: %s", label)
 			}
+
+			var validatorError *apibuilder.ValidatorError
+			if errors.As(err, &validatorError) {
+				return ctx.ApiError(http.StatusBadRequest, validatorError.Message)
+			}
+
 			return ctx.ApiError(http.StatusBadRequest, "参数 %s 格式错误", label)
 		}
 		queryValues[param.Key] = v
@@ -163,11 +169,17 @@ func (h publicHandler) Handler(ctx context.Context, api *db.Api, tx dbutil.Trans
 			}
 
 			inputValue := cast.ToString(body[param.Key])
-			v, err := param.ValidateValue(inputValue)
+			v, err := param.ValidateValue(ctx.Request().Context(), inputValue)
 			if err != nil {
 				if errors.Is(err, apibuilder.ErrParamValueRequired) {
 					return ctx.ApiError(http.StatusBadRequest, "缺少必填参数: %s", label)
 				}
+
+				var validatorError *apibuilder.ValidatorError
+				if errors.As(err, &validatorError) {
+					return ctx.ApiError(http.StatusBadRequest, validatorError.Message)
+				}
+
 				return ctx.ApiError(http.StatusBadRequest, "参数 %s 格式错误", label)
 			}
 			bodyValues[param.Key] = v
