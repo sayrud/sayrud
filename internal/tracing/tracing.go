@@ -6,10 +6,12 @@ package tracing
 
 import (
 	"context"
-	"errors"
 	"os"
 	"time"
 
+	"github.com/cockroachdb/errors"
+	"github.com/sirupsen/logrus"
+	"github.com/uptrace/opentelemetry-go-extra/otellogrus"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
@@ -19,7 +21,31 @@ import (
 	"go.opentelemetry.io/otel/sdk/resource"
 	"go.opentelemetry.io/otel/sdk/trace"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+
+	"github.com/wuhan005/sayrud/internal/conf"
 )
+
+func Init(ctx context.Context) (cancel func(), err error) {
+	otelShutdown, err := SetupOTelSDK(ctx)
+	if err != nil {
+		return nil, errors.Wrap(err, "setup otel sdk")
+	}
+
+	cancelFunc := func() {
+		if err := otelShutdown(context.Background()); err != nil {
+			logrus.WithError(err).Error("Failed to shutdown OTel SDK")
+		}
+	}
+
+	logrus.AddHook(otellogrus.NewHook(otellogrus.WithLevels(
+		logrus.PanicLevel,
+		logrus.FatalLevel,
+		logrus.ErrorLevel,
+		logrus.WarnLevel,
+	)))
+
+	return cancelFunc, nil
+}
 
 func SetupOTelSDK(ctx context.Context) (shutdown func(context.Context) error, err error) {
 	var shutdownFuncs []func(context.Context) error
@@ -27,14 +53,14 @@ func SetupOTelSDK(ctx context.Context) (shutdown func(context.Context) error, er
 	shutdown = func(ctx context.Context) error {
 		var err error
 		for _, fn := range shutdownFuncs {
-			err = errors.Join(err, fn(ctx))
+			err = errors.CombineErrors(err, fn(ctx))
 		}
 		shutdownFuncs = nil
 		return err
 	}
 
 	handleErr := func(inErr error) {
-		err = errors.Join(inErr, shutdown(ctx))
+		err = errors.CombineErrors(inErr, shutdown(ctx))
 	}
 
 	tracerProvider, err := newTraceProvider(ctx)
@@ -67,9 +93,9 @@ func newTraceProvider(ctx context.Context) (*trace.TracerProvider, error) {
 
 	r, err := resource.New(ctx, []resource.Option{
 		resource.WithAttributes(
-			attribute.KeyValue{Key: "token", Value: attribute.StringValue(os.Getenv("TRACING_TOKEN"))},
+			attribute.KeyValue{Key: "token", Value: attribute.StringValue(conf.Tracing.Token)},
 			attribute.KeyValue{Key: "service.name", Value: attribute.StringValue("sayrud")},
-			attribute.KeyValue{Key: "host.name", Value: attribute.StringValue(os.Getenv("HOSTNAME"))}, // <hostName>替换为IP地址
+			attribute.KeyValue{Key: "host.name", Value: attribute.StringValue(os.Getenv("HOSTNAME"))},
 		),
 	}...)
 	if err != nil {

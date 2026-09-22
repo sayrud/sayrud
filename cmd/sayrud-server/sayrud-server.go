@@ -2,13 +2,19 @@ package main
 
 import (
 	"context"
-	"errors"
 	"flag"
+	"fmt"
+	"net"
+	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
+	"github.com/cockroachdb/errors"
 	"github.com/sirupsen/logrus"
-	"github.com/uptrace/opentelemetry-go-extra/otellogrus"
 
+	"github.com/wuhan005/sayrud/internal/conf"
 	"github.com/wuhan005/sayrud/internal/db"
 	"github.com/wuhan005/sayrud/internal/redis"
 	"github.com/wuhan005/sayrud/internal/route"
@@ -16,28 +22,19 @@ import (
 )
 
 func main() {
-	port := flag.Int("port", 8080, "port to listen")
+	configFilePath := flag.String("config", "./config/sayrud.yaml", "path to the configuration file")
 	flag.Parse()
 
-	if os.Getenv("TRACING_ENDPOINT") != "" {
-		ctx := context.Background()
-		otelShutdown, err := tracing.SetupOTelSDK(ctx)
-		if err != nil {
-			logrus.WithContext(ctx).WithError(err).Fatal("Failed to initialize OTel SDK")
-		}
-		defer func() {
-			if err = errors.Join(err, otelShutdown(context.Background())); err != nil {
-				logrus.WithError(err).Error("Failed to shutdown OTel SDK")
-			}
-		}()
+	if err := conf.Init(*configFilePath); err != nil {
+		logrus.WithError(err).Fatal("Failed to initialize configuration")
 	}
 
-	logrus.AddHook(otellogrus.NewHook(otellogrus.WithLevels(
-		logrus.PanicLevel,
-		logrus.FatalLevel,
-		logrus.ErrorLevel,
-		logrus.WarnLevel,
-	)))
+	ctx := context.Background()
+	cancel, err := tracing.Init(ctx)
+	if err != nil {
+		logrus.WithError(err).Fatal("Failed to initialize tracing")
+	}
+	defer cancel()
 
 	db, err := db.Init()
 	if err != nil {
@@ -49,6 +46,34 @@ func main() {
 		logrus.WithError(err).Fatal("Failed to initialize redis")
 	}
 
-	f := route.New(db, redisClient)
-	f.Run(*port)
+	address := fmt.Sprintf("0.0.0.0:%d", conf.App.Port)
+	listener, err := net.Listen("tcp", address)
+	if err != nil {
+		logrus.WithError(err).Fatalf("Failed to listen on %s", address)
+	}
+	logrus.Infof("Listening on %s", address)
+
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
+
+	ctx, cancel = context.WithCancel(ctx)
+	server := http.Server{
+		Handler:           route.New(db, redisClient),
+		ReadHeaderTimeout: 10 * time.Second,
+	}
+	go func() {
+		<-c
+		_ = server.Shutdown(ctx)
+		cancel()
+	}()
+
+	if err := server.Serve(listener); err != nil {
+		if !errors.Is(err, http.ErrServerClosed) {
+			logrus.WithError(err).Errorf("Failed to start server")
+			cancel()
+		}
+	}
+
+	<-ctx.Done()
+	logrus.Info("Shutting down")
 }
