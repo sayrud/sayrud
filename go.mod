@@ -1,6 +1,6 @@
 module github.com/wuhan005/sayrud
 
-go 1.22
+go 1.27
 
 require (
 	github.com/auxten/postgresql-parser v1.0.1
