@@ -2,11 +2,10 @@ package db
 
 import (
 	"context"
-	"reflect"
 
-	"github.com/pkg/errors"
-	"github.com/samber/lo"
-	"github.com/spf13/cast"
+	"github.com/cockroachdb/errors"
+	"github.com/thanhpk/randstr"
+	"gorm.io/datatypes"
 	"gorm.io/gorm"
 
 	"github.com/wuhan005/sayrud/internal/dbutil"
@@ -17,14 +16,16 @@ var _ SLFieldsStore = (*slFields)(nil)
 var SLFields SLFieldsStore
 
 type SLFieldsStore interface {
-	List(ctx context.Context, tableID uint) (SLFieldList, error)
-	GetByID(ctx context.Context, fieldID uint) (*SLField, error)
+	ListByTableID(ctx context.Context, tableID int64) (SLFieldList, error)
+	GetByID(ctx context.Context, fieldID int64) (*SLField, error)
 	GetByUID(ctx context.Context, fieldUID string) (*SLField, error)
-	GetByTableID(ctx context.Context, tableID uint) (SLFieldList, error)
-	Create(ctx context.Context, opts CreateSLFieldOptions) (*SLField, error)
-	Update(ctx context.Context, fieldID uint, opts UpdateSLFieldOptions) error
-	DeleteByID(ctx context.Context, fieldID uint) error
-	Count(ctx context.Context, tableID uint) (int64, error)
+	Create(ctx context.Context, options CreateSLFieldOptions) (*SLField, error)
+	SetLabel(ctx context.Context, fieldID int64, label string) error
+	SetType(ctx context.Context, fieldID int64, slFieldType SLFieldType, metadata SLFieldMetadata) error
+	SetMetadata(ctx context.Context, fieldID int64, metadata SLFieldMetadata) error
+	SetPosition(ctx context.Context, fieldID int64, position int64) error
+	DeleteByID(ctx context.Context, fieldID int64) error
+	Count(ctx context.Context, tableID int64) (int64, error)
 }
 
 func NewSLFieldsStore(db *gorm.DB) SLFieldsStore {
@@ -33,116 +34,65 @@ func NewSLFieldsStore(db *gorm.DB) SLFieldsStore {
 
 type SLFieldList []*SLField
 
-func (fields SLFieldList) UIDNameSets() map[string]string {
-	return lo.SliceToMap(fields, func(item *SLField) (string, string) {
-		return item.UID, item.Name
-	})
-}
-
 // SLField represents the table fields of schemaless tables.
 type SLField struct {
 	dbutil.Model
-	SLTableID uint           `gorm:"uniqueIndex:idx_sl_tables_id_name, where:deleted_at IS NULL" json:"-"`
-	SLTable   SLTable        `gorm:"foreignKey:SLTableID" json:"-"`
-	Name      string         `gorm:"uniqueIndex:idx_sl_tables_id_name, where:deleted_at IS NULL" json:"name"`
-	Label     string         `json:"label"`
-	Type      SLFieldType    `json:"type"`
-	Options   dbutil.Options `json:"options"`
-	Position  int            `json:"position"`
+
+	SLTableID int64  `gorm:"index;uniqueIndex:idx_sl_tables_id_uid, where:deleted_at IS NULL"`
+	UID       string `gorm:"uniqueIndex:idx_sl_tables_id_uid, where:deleted_at IS NULL"`
+	Label     string
+	Type      SLFieldType
+	Metadata  datatypes.JSONType[SLFieldMetadata]
+	Position  int
 }
 
-const OptionsIncrementIndex = "increment_index"
-const OptionsDefaultValue = "default"
-const OptionsReferenceFieldUID = "reference_field_uid"
-const OptionsExpression = "expression"
-const OptionsConstraint = "constraint"
-
-func (f *SLField) IsIncrementIndex() bool {
-	_, ok := f.Options[OptionsIncrementIndex]
-	return ok
-}
-
-func (f *SLField) ReferenceFieldUID() string {
-	v := f.Options[OptionsReferenceFieldUID]
-	return cast.ToString(v)
-}
-
-func (f *SLField) Expression() string {
-	v := f.Options[OptionsExpression]
-	return cast.ToString(v)
-}
-
-func (f *SLField) Constraint() string {
-	v := f.Options[OptionsConstraint]
-	return cast.ToString(v)
-}
-
-func (f *SLField) CheckValue(val interface{}) bool {
-	if f.Type.IsGeneratedValue() {
-		return true
-	}
-
-	if val == nil {
-		return true
-	}
-
-	value := reflect.ValueOf(val)
-	if value.IsZero() {
-		return true
-	}
-
-	kind := reflect.TypeOf(val)
-	if kind == nil {
-		return false
-	}
-
-	_, ok := internalKindMatch[kind.Kind()]
-	return ok
+func (slField *SLField) BeforeCreate(_ *gorm.DB) error {
+	slField.UID = "fld" + randstr.String(7)
+	return nil
 }
 
 type slFields struct {
 	*gorm.DB
 }
 
-// List returns the table field list from the given schemaless table.
+// ListByTableID returns the table field list from the given schemaless table.
 // It returns ErrSLTableNotFound if the table does not exist.
-func (db *slFields) List(ctx context.Context, tableID uint) (SLFieldList, error) {
+func (db *slFields) ListByTableID(ctx context.Context, tableID int64) (SLFieldList, error) {
 	var slFields SLFieldList
-	return slFields, db.WithContext(ctx).Model(&SLField{}).Preload("SLTable").Where("sl_table_id = ?", tableID).Order("position ASC").Find(&slFields).Error
+	if err := db.WithContext(ctx).Model(&SLField{}).Where("sl_table_id = ?", tableID).Order("position ASC").Find(&slFields).Error; err != nil {
+		return nil, errors.Wrap(err, "find")
+	}
+	return slFields, nil
 }
 
 type CreateSLFieldOptions struct {
-	SLTableID uint
-	Name      string
+	SLTableID int64
 	Label     string
 	Type      SLFieldType
-	Options   dbutil.Options
+	Metadata  SLFieldMetadata
 	Position  int
 }
 
-var ErrSLFieldExists = errors.New("sl_field exists")
-var ErrUnexpectedType = errors.New("unexpected type")
+var (
+	ErrSLFieldExists  = errors.New("sl_field exists")
+	ErrUnexpectedType = errors.New("unexpected type")
+)
 
 // Create creates the field in the given schemaless table.
-// It returns ErrSLTableNotFound if the table is not exists.
-// It returns ErrUnexpectedType if the type of the field is incorrect.
-// It returns ErrSLFieldExists if the field name already existed.
-func (db *slFields) Create(ctx context.Context, opts CreateSLFieldOptions) (*SLField, error) {
-	// Check the field type.
-	if !opts.Type.Check() {
+func (db *slFields) Create(ctx context.Context, options CreateSLFieldOptions) (*SLField, error) {
+	if !options.Type.Check() {
 		return nil, ErrUnexpectedType
 	}
 
 	slField := &SLField{
-		SLTableID: opts.SLTableID,
-		Name:      opts.Name,
-		Label:     opts.Label,
-		Type:      opts.Type,
-		Options:   opts.Options,
-		Position:  opts.Position,
+		SLTableID: options.SLTableID,
+		Label:     options.Label,
+		Type:      options.Type,
+		Metadata:  datatypes.NewJSONType(options.Metadata),
+		Position:  options.Position,
 	}
 	if err := db.WithContext(ctx).Create(slField).Error; err != nil {
-		if dbutil.IsUniqueViolation(err, "idx_sl_tables_id_name") {
+		if dbutil.IsUniqueViolation(err, "idx_sl_tables_id_uid") {
 			return nil, ErrSLFieldExists
 		}
 		return nil, err
@@ -151,18 +101,12 @@ func (db *slFields) Create(ctx context.Context, opts CreateSLFieldOptions) (*SLF
 }
 
 // GetByID returns the field with the given ID.
-// It returns ErrSLFieldNotFound if the field does not exist.
-func (db *slFields) GetByID(ctx context.Context, fieldID uint) (*SLField, error) {
+func (db *slFields) GetByID(ctx context.Context, fieldID int64) (*SLField, error) {
 	return db.getBy(ctx, "id = ?", fieldID)
 }
 
 func (db *slFields) GetByUID(ctx context.Context, fieldUID string) (*SLField, error) {
 	return db.getBy(ctx, "uid = ?", fieldUID)
-}
-
-func (db *slFields) GetByTableID(ctx context.Context, tableID uint) (SLFieldList, error) {
-	var slFields SLFieldList
-	return slFields, db.WithContext(ctx).Model(&SLField{}).Preload("SLTable").Where("sl_table_id = ?", tableID).Order("position ASC").Find(&slFields).Error
 }
 
 func (db *slFields) getBy(ctx context.Context, where string, args ...interface{}) (*SLField, error) {
@@ -176,36 +120,44 @@ func (db *slFields) getBy(ctx context.Context, where string, args ...interface{}
 	return &slField, nil
 }
 
-type UpdateSLFieldOptions struct {
-	Name     string
-	Label    string
-	Type     SLFieldType
-	Options  dbutil.Options
-	Position int
+func (db *slFields) SetLabel(ctx context.Context, fieldID int64, label string) error {
+	return db.set(ctx, fieldID, map[string]interface{}{
+		"label": label,
+	})
 }
 
-func (db *slFields) Update(ctx context.Context, fieldID uint, opts UpdateSLFieldOptions) error {
-	_, err := db.GetByID(ctx, fieldID)
-	if err != nil {
-		return errors.Wrap(err, "get by id")
-	}
+func (db *slFields) SetType(ctx context.Context, fieldID int64, slFieldType SLFieldType, metadata SLFieldMetadata) error {
+	return db.set(ctx, fieldID, map[string]interface{}{
+		"type":     slFieldType,
+		"metadata": datatypes.NewJSONType(metadata),
+	})
+}
 
-	// Check the field type.
-	if !opts.Type.Check() {
-		return ErrUnexpectedType
-	}
+func (db *slFields) SetMetadata(ctx context.Context, fieldID int64, metadata SLFieldMetadata) error {
+	return db.set(ctx, fieldID, map[string]interface{}{
+		"metadata": datatypes.NewJSONType(metadata),
+	})
+}
 
-	if err := db.WithContext(ctx).Model(&SLField{}).Where("id = ?", fieldID).Updates(map[string]interface{}{
-		"name":     opts.Name,
-		"label":    opts.Label,
-		"type":     opts.Type,
-		"options":  opts.Options,
-		"position": opts.Position,
-	}).Error; err != nil {
-		if dbutil.IsUniqueViolation(err, "idx_sl_tables_id_name") {
-			return ErrSLFieldExists
+func (db *slFields) SetPosition(ctx context.Context, fieldID int64, position int64) error {
+	return db.Transaction(func(tx *gorm.DB) error {
+		// Fields below the given position will have their positions incremented by 1 to make space for the field being moved.
+		if err := tx.WithContext(ctx).Model(&SLField{}).Where("position >= ?", position).Update("position", gorm.Expr("position + 1")).Error; err != nil {
+			return errors.Wrap(err, "update below position")
 		}
-		return err
+
+		// The field being moved will have its position set to the given position.
+		if err := tx.WithContext(ctx).Model(&SLField{}).Where("id = ?", fieldID).Update("position", position).Error; err != nil {
+			return errors.Wrap(err, "update new position")
+		}
+		return nil
+	})
+}
+
+func (db *slFields) set(ctx context.Context, id int64, fields map[string]interface{}) error {
+	fields["updated_at"] = dbutil.Now()
+	if err := db.WithContext(ctx).Model(&SLField{}).Where("id = ?", id).Updates(fields).Error; err != nil {
+		return errors.Wrap(err, "update")
 	}
 	return nil
 }
@@ -213,15 +165,17 @@ func (db *slFields) Update(ctx context.Context, fieldID uint, opts UpdateSLField
 var ErrSLFieldNotFound = errors.New("sl_field does not exist")
 
 // DeleteByID deletes the field by the given fieldID ID.
-// It returns ErrSLFieldNotFound if the field does not exist.
-func (db *slFields) DeleteByID(ctx context.Context, fieldID uint) error {
-	return db.WithContext(ctx).Delete(&SLField{}, fieldID).Error
+func (db *slFields) DeleteByID(ctx context.Context, fieldID int64) error {
+	if err := db.WithContext(ctx).Delete(&SLField{}, fieldID).Error; err != nil {
+		return errors.Wrap(err, "delete")
+	}
+	return nil
 }
 
-func (db *slFields) Count(ctx context.Context, tableID uint) (int64, error) {
+func (db *slFields) Count(ctx context.Context, tableID int64) (int64, error) {
 	var count int64
 	if err := db.WithContext(ctx).Model(&SLField{}).Where("sl_table_id = ?", tableID).Count(&count).Error; err != nil {
-		return 0, err
+		return 0, errors.Wrap(err, "count")
 	}
 	return count, nil
 }

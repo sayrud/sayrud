@@ -1,38 +1,22 @@
 package db
 
 import (
-	"context"
-	"fmt"
-	"os"
 	"time"
 
-	"github.com/pkg/errors"
+	"github.com/cockroachdb/errors"
 	"github.com/sirupsen/logrus"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 	"gorm.io/plugin/opentelemetry/tracing"
 
+	"github.com/wuhan005/sayrud/internal/conf"
 	"github.com/wuhan005/sayrud/internal/dbutil"
 )
 
-var AllTables = []interface{}{
-	&User{},
-	&Project{},
-
-	&SLTable{},
-	&SLField{},
-	&SLRecord{},
-	&Api{},
-	&Domain{},
-	&View{},
-}
-
-var dbInstance *gorm.DB
-
 // Init initializes the database.
 func Init() (*gorm.DB, error) {
-	dsn := os.Getenv("POSTGRES_DSN")
+	dsn := conf.Postgres.DSN
 
 	db, err := gorm.Open(postgres.New(postgres.Config{
 		DSN:                  dsn,
@@ -55,10 +39,16 @@ func Init() (*gorm.DB, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "open connection")
 	}
-	dbInstance = db
 
-	// Migrate databases.
-	if err := db.AutoMigrate(AllTables...); err != nil {
+	tables := []interface{}{
+		&User{},
+		&Project{},
+
+		&SLTable{}, &SLField{}, &SLRecord{},
+
+		&Api{}, &Domain{}, &View{},
+	}
+	if err := db.AutoMigrate(tables...); err != nil {
 		return nil, errors.Wrap(err, "auto migrate")
 	}
 
@@ -77,28 +67,12 @@ func Init() (*gorm.DB, error) {
 func SetDatabaseStore(db *gorm.DB) {
 	Users = NewUsersStore(db)
 	Projects = NewProjectsStore(db)
+
 	SLTables = NewSLTablesStore(db)
 	SLFields = NewSLFieldsStore(db)
 	SLRecords = NewSLRecordsStore(db)
+
 	Apis = NewApisStore(db)
 	Domains = NewDomainsStore(db)
 	Views = NewViewsStore(db)
-}
-
-func TruncateAll(ctx context.Context) error {
-	for _, model := range AllTables {
-		model := model
-
-		stmt := &gorm.Statement{DB: dbInstance}
-		if err := stmt.Parse(model); err != nil {
-			return errors.Wrap(err, "parse")
-		}
-		tableName := stmt.Schema.Table
-
-		if err := dbInstance.WithContext(ctx).Exec(fmt.Sprintf("TRUNCATE %s RESTART IDENTITY CASCADE;", tableName)).Error; err != nil {
-			return errors.Wrap(err, "truncate")
-		}
-	}
-
-	return nil
 }

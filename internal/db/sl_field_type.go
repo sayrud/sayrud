@@ -1,80 +1,88 @@
 package db
 
 import (
-	"reflect"
-
 	"github.com/samber/lo"
 )
 
-const (
-	IntFieldType       SLFieldType = "int"
-	TextFieldType      SLFieldType = "text"
-	BoolFieldType      SLFieldType = "bool"
-	FloatFieldType     SLFieldType = "float"
-	TimestampFieldType SLFieldType = "timestamp"
-	DateFieldType      SLFieldType = "date"
-	ReferenceFieldType SLFieldType = "reference"
-	GeneratedFieldType SLFieldType = "generated"
-)
+type SLFieldType string
 
-var FieldTypes = []SLFieldType{
-	IntFieldType,
+var AllFieldTypes = []SLFieldType{
 	TextFieldType,
-	BoolFieldType,
-	FloatFieldType,
-	TimestampFieldType,
-	DateFieldType,
-	ReferenceFieldType,
-	GeneratedFieldType,
+	SingleSelectFieldType,
+	MultiSelectFieldType,
+	DateTimeFieldType,
+	NumberFieldType,
+	CheckboxFieldType,
+	FormulaFieldType,
 }
+
+func (t SLFieldType) Check() bool {
+	return lo.Contains(AllFieldTypes, t)
+}
+
+func (t SLFieldType) IsUnknown() bool {
+	return t.Check() || t == UnknownFieldType
+}
+
+const (
+	TextFieldType         SLFieldType = "text"
+	SingleSelectFieldType SLFieldType = "single_select"
+	MultiSelectFieldType  SLFieldType = "multi_select"
+	DateTimeFieldType     SLFieldType = "datetime"
+	NumberFieldType       SLFieldType = "number"
+	CheckboxFieldType     SLFieldType = "checkbox"
+	FormulaFieldType      SLFieldType = "formula"
+	UnknownFieldType      SLFieldType = "unknown"
+)
 
 func (t SLFieldType) Label() string {
 	switch t {
-	case IntFieldType:
-		return "整数"
 	case TextFieldType:
 		return "文本"
-	case BoolFieldType:
-		return "布尔值"
-	case FloatFieldType:
-		return "浮点数"
-	case TimestampFieldType:
-		return "时间戳"
-	case DateFieldType:
+	case SingleSelectFieldType:
+		return "单选"
+	case MultiSelectFieldType:
+		return "多选"
+	case DateTimeFieldType:
 		return "日期"
-	case ReferenceFieldType:
-		return "引用"
-	case GeneratedFieldType:
-		return "生成"
+	case NumberFieldType:
+		return "数字"
+	case CheckboxFieldType:
+		return "复选框"
+	case FormulaFieldType:
+		return "公式"
 	default:
 		return "未知类型"
 	}
 }
 
-var internalKindMatch = map[reflect.Kind]SLFieldType{
-	reflect.Bool:    BoolFieldType,
-	reflect.Int:     IntFieldType,
-	reflect.Int8:    IntFieldType,
-	reflect.Int16:   IntFieldType,
-	reflect.Int32:   IntFieldType,
-	reflect.Int64:   IntFieldType,
-	reflect.Uint:    IntFieldType,
-	reflect.Uint8:   IntFieldType,
-	reflect.Uint16:  IntFieldType,
-	reflect.Uint32:  IntFieldType,
-	reflect.Uint64:  IntFieldType,
-	reflect.Uintptr: IntFieldType,
-	reflect.Float32: FloatFieldType,
-	reflect.Float64: FloatFieldType,
-	reflect.String:  TextFieldType,
+type SLFieldMetadata interface{}
+
+type TextMetadata struct {
+	Default string `json:"default"`
 }
 
-type SLFieldType string
-
-func (t SLFieldType) Check() bool {
-	return lo.Contains(FieldTypes, t)
+type SingleSelectMetadata struct {
+	DefaultOptionUID string `json:"default"`
 }
 
-func (t SLFieldType) IsGeneratedValue() bool {
-	return t == ReferenceFieldType || t == GeneratedFieldType
+type MultiSelectMetadata struct {
+	DefaultOptionUIDs []string `json:"default"`
+}
+
+type DateTimeMetadata struct {
+	Format   string `json:"format"`
+	WithTime bool   `json:"with_time"`
+	Default  string `json:"default"`
+}
+
+type NumberMetadata struct {
+	Format  string  `json:"format"`
+	Default float64 `json:"default"`
+}
+
+type CheckboxMetadata struct{}
+
+type FormulaMetadata struct {
+	Expression string `json:"exp"`
 }

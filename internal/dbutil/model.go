@@ -7,21 +7,12 @@ package dbutil
 import (
 	"time"
 
-	"github.com/thanhpk/randstr"
 	"gorm.io/gorm"
 )
 
 type Model struct {
-	ID        uint           `gorm:"primarykey" json:"-"`
-	UID       string         `gorm:"uniqueIndex" json:"uid"`
-	CreatedAt time.Time      `json:"createdAt"`
-	UpdatedAt time.Time      `json:"-"`
-	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
-}
-
-func (m *Model) BeforeCreate(_ *gorm.DB) error {
-	if m.UID == "" {
-		m.UID = randstr.String(8)
-	}
-	return nil
+	ID        int64 `gorm:"primarykey"`
+	CreatedAt time.Time
+	UpdatedAt time.Time
+	DeletedAt gorm.DeletedAt `gorm:"index"`
 }
