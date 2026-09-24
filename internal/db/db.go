@@ -46,7 +46,7 @@ func Init() (*gorm.DB, error) {
 
 		&SLTable{}, &SLField{}, &SLRecord{},
 
-		&Api{}, &Domain{}, &View{},
+		&Api{},
 	}
 	if err := db.AutoMigrate(tables...); err != nil {
 		return nil, errors.Wrap(err, "auto migrate")
@@ -73,6 +73,4 @@ func SetDatabaseStore(db *gorm.DB) {
 	SLRecords = NewSLRecordsStore(db)
 
 	Apis = NewApisStore(db)
-	Domains = NewDomainsStore(db)
-	Views = NewViewsStore(db)
 }

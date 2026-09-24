@@ -111,7 +111,7 @@ func (db *slFields) GetByUID(ctx context.Context, fieldUID string) (*SLField, er
 
 func (db *slFields) getBy(ctx context.Context, where string, args ...interface{}) (*SLField, error) {
 	var slField SLField
-	if err := db.WithContext(ctx).Model(&SLField{}).Preload("SLTable").Where(where, args...).First(&slField).Error; err != nil {
+	if err := db.WithContext(ctx).Model(&SLField{}).Where(where, args...).First(&slField).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, ErrSLFieldNotFound
 		}

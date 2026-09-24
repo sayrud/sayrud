@@ -11,6 +11,7 @@ import (
 
 	"github.com/cockroachdb/errors"
 	"github.com/samber/lo"
+	"github.com/thanhpk/randstr"
 	escape "github.com/tj/go-pg-escape"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
@@ -23,13 +24,13 @@ var _ SLRecordsStore = (*slRecords)(nil)
 var SLRecords SLRecordsStore
 
 type SLRecordsStore interface {
-	GetView(ctx context.Context, table *SLTable, opts GetViewOptions) ([]map[string]interface{}, int64, error)
 	GetByID(ctx context.Context, slRecordID int64) (*SLRecord, error)
 	GetByUID(ctx context.Context, slRecordUID string) (*SLRecord, error)
 	Query(ctx context.Context, slTableID int64, options QuerySLRecordsOptions) ([]*SLRecord, int64, error)
 	Import(ctx context.Context, slTableID int64, options ImportSLRecordsOptions) error
 	Create(ctx context.Context, slTableID int64, jsonBytes json.RawMessage) (*SLRecord, error)
 	Update(ctx context.Context, slRecordID int64, jsonBytes json.RawMessage) error
+	CountByTableID(ctx context.Context, slTableID int64) (int64, error)
 	DeleteByID(ctx context.Context, slRecordID int64) error
 }
 
@@ -46,27 +47,13 @@ type SLRecord struct {
 	Data      datatypes.JSON `gorm:"type:jsonb"`
 }
 
+func (slRecord *SLRecord) BeforeCreate(_ *gorm.DB) error {
+	slRecord.UID = "rec" + randstr.String(11)
+	return nil
+}
+
 type slRecords struct {
 	*gorm.DB
-}
-
-type GetViewOptions struct {
-	Page     int
-	PageSize int
-}
-
-func (db *slRecords) GetView(ctx context.Context, table *SLTable, opts GetViewOptions) ([]map[string]interface{}, int64, error) {
-	viewName := escape.Ident(table.Project.SchemaName) + "." + escape.Ident(table.Name)
-
-	var total int64
-	q := db.WithContext(ctx).Table(viewName).Order("_created_at DESC")
-	if err := q.Count(&total).Error; err != nil {
-		return nil, 0, errors.Wrap(err, "count")
-	}
-
-	limit, offset := dbutil.LimitOffset(opts.Page, opts.PageSize)
-	records := make([]map[string]interface{}, 0)
-	return records, total, q.Limit(limit).Offset(offset).Find(&records).Error
 }
 
 func (db *slRecords) GetByID(ctx context.Context, slRecordID int64) (*SLRecord, error) {
@@ -426,6 +413,14 @@ func (db *slRecords) Update(ctx context.Context, slRecordID int64, jsonBytes jso
 		return errors.Wrap(err, "update")
 	}
 	return nil
+}
+
+func (db *slRecords) CountByTableID(ctx context.Context, slTableID int64) (int64, error) {
+	var count int64
+	if err := db.WithContext(ctx).Model(&SLRecord{}).Where("sl_table_id = ?", slTableID).Count(&count).Error; err != nil {
+		return 0, errors.Wrap(err, "count")
+	}
+	return count, nil
 }
 
 func (db *slRecords) DeleteByID(ctx context.Context, slRecordID int64) error {
