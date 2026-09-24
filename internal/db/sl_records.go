@@ -3,10 +3,14 @@ package db
 import (
 	"context"
 	"encoding/json"
-	"fmt"
+	"math"
+	"regexp"
+	"strconv"
 	"strings"
+	"time"
 
-	"github.com/pkg/errors"
+	"github.com/cockroachdb/errors"
+	"github.com/samber/lo"
 	escape "github.com/tj/go-pg-escape"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
@@ -19,15 +23,14 @@ var _ SLRecordsStore = (*slRecords)(nil)
 var SLRecords SLRecordsStore
 
 type SLRecordsStore interface {
-	GetByTableID(ctx context.Context, slTableID uint, opts GetByTableIDOptions) ([]*SLRecord, int64, error)
 	GetView(ctx context.Context, table *SLTable, opts GetViewOptions) ([]map[string]interface{}, int64, error)
-	GetByID(ctx context.Context, slRecordID uint) (*SLRecord, error)
+	GetByID(ctx context.Context, slRecordID int64) (*SLRecord, error)
 	GetByUID(ctx context.Context, slRecordUID string) (*SLRecord, error)
-	Query(ctx context.Context, slTableID uint, options QuerySLRecordsOptions) ([]*SLRecord, error)
-	Import(ctx context.Context, slTableID uint, options ImportSLRecordsOptions) error
-	Create(ctx context.Context, slTableID uint, jsonBytes json.RawMessage) (*SLRecord, error)
-	Update(ctx context.Context, slRecordID uint, jsonBytes json.RawMessage) error
-	DeleteByID(ctx context.Context, slRecordID uint) error
+	Query(ctx context.Context, slTableID int64, options QuerySLRecordsOptions) ([]*SLRecord, int64, error)
+	Import(ctx context.Context, slTableID int64, options ImportSLRecordsOptions) error
+	Create(ctx context.Context, slTableID int64, jsonBytes json.RawMessage) (*SLRecord, error)
+	Update(ctx context.Context, slRecordID int64, jsonBytes json.RawMessage) error
+	DeleteByID(ctx context.Context, slRecordID int64) error
 }
 
 func NewSLRecordsStore(db *gorm.DB) SLRecordsStore {
@@ -37,30 +40,14 @@ func NewSLRecordsStore(db *gorm.DB) SLRecordsStore {
 // SLRecord represents the table records in schemaless tables.
 type SLRecord struct {
 	dbutil.Model
-	SLTableID uint           `json:"-"`
-	SLTable   SLTable        `gorm:"foreignKey:SLTableID" json:"-"`
-	Data      datatypes.JSON `gorm:"type:jsonb" json:"data"`
+
+	SLTableID int64          `gorm:"index;uniqueIndex:idx_sl_table_id_uid, where:deleted_at IS NULL"`
+	UID       string         `gorm:"uniqueIndex:idx_sl_table_id_uid, where:deleted_at IS NULL"`
+	Data      datatypes.JSON `gorm:"type:jsonb"`
 }
 
 type slRecords struct {
 	*gorm.DB
-}
-
-type GetByTableIDOptions struct {
-	Page     int
-	PageSize int
-}
-
-func (db *slRecords) GetByTableID(ctx context.Context, slTableID uint, opts GetByTableIDOptions) ([]*SLRecord, int64, error) {
-	var total int64
-	q := db.WithContext(ctx).Model(&SLTable{}).Where("sl_table_id = ?", slTableID)
-	if err := q.Count(&total).Error; err != nil {
-		return nil, 0, errors.Wrap(err, "count")
-	}
-
-	limit, offset := dbutil.LimitOffset(opts.Page, opts.PageSize)
-	var slRecords []*SLRecord
-	return slRecords, total, q.Limit(limit).Offset(offset).Find(&slRecords).Error
 }
 
 type GetViewOptions struct {
@@ -69,7 +56,7 @@ type GetViewOptions struct {
 }
 
 func (db *slRecords) GetView(ctx context.Context, table *SLTable, opts GetViewOptions) ([]map[string]interface{}, int64, error) {
-	viewName := escape.Escape("%I.%I", table.Project.SchemaName, table.Name)
+	viewName := escape.Ident(table.Project.SchemaName) + "." + escape.Ident(table.Name)
 
 	var total int64
 	q := db.WithContext(ctx).Table(viewName).Order("_created_at DESC")
@@ -82,7 +69,7 @@ func (db *slRecords) GetView(ctx context.Context, table *SLTable, opts GetViewOp
 	return records, total, q.Limit(limit).Offset(offset).Find(&records).Error
 }
 
-func (db *slRecords) GetByID(ctx context.Context, slRecordID uint) (*SLRecord, error) {
+func (db *slRecords) GetByID(ctx context.Context, slRecordID int64) (*SLRecord, error) {
 	return db.getBy(ctx, "id = ?", slRecordID)
 }
 
@@ -90,25 +77,303 @@ func (db *slRecords) GetByUID(ctx context.Context, slRecordUID string) (*SLRecor
 	return db.getBy(ctx, "uid = ?", slRecordUID)
 }
 
-type QuerySLRecordsOptions struct {
-	FieldUID   string
-	FieldValue string
+type FilterOperation string
+
+const (
+	FilterOperationEqual              FilterOperation = "eq"
+	FilterOperationNotEqual           FilterOperation = "neq"
+	FilterOperationGreaterThan        FilterOperation = "gt"
+	FilterOperationLessThan           FilterOperation = "lt"
+	FilterOperationGreaterThanOrEqual FilterOperation = "gte"
+	FilterOperationLessThanOrEqual    FilterOperation = "lte"
+	FilterOperationIn                 FilterOperation = "in"
+	FilterOperationNotIn              FilterOperation = "nin"
+	FilterOperationLike               FilterOperation = "like"
+)
+
+type QuerySLRecordsFilter struct {
+	FieldUID  string
+	Operation FilterOperation
+	// Value is a JSON array (e.g. `["a","b"]`, `[1,2]`) for in / nin, and a single value for other operations.
+	Value string
 }
 
-func (db *slRecords) Query(ctx context.Context, slTableID uint, options QuerySLRecordsOptions) ([]*SLRecord, error) {
-	var slRecords []*SLRecord
-	fieldUID := strings.TrimSpace(options.FieldUID)
-	fieldValue := "%" + options.FieldValue + "%"
+type QuerySLRecordsSort struct {
+	FieldUID string
+	Order    string
+}
 
-	var field SLField
-	if err := db.WithContext(ctx).Model(&SLField{}).Where("sl_table_id = ? AND uid = ?", slTableID, fieldUID).First(&field).Error; err != nil {
-		return nil, errors.Wrap(err, "get field")
+type QuerySLRecordsGroup struct {
+	FieldUID string
+}
+
+type QuerySLRecordsOptions struct {
+	Filter []QuerySLRecordsFilter
+	Order  []QuerySLRecordsSort
+	// Group sorts records by the field values before Order, so records in the same group are adjacent.
+	Group  []QuerySLRecordsGroup
+	Limit  int
+	Offset int
+}
+
+var (
+	ErrSLFieldNotQueryable        = errors.New("sl_field is not queryable")
+	ErrUnsupportedFilterOperation = errors.New("unsupported filter operation")
+	ErrInvalidFilterValue         = errors.New("invalid filter value")
+	ErrInvalidSortOrder           = errors.New("invalid sort order")
+)
+
+// Query returns the paginated records matching the filter, group and order options, along with the filtered total count.
+// It returns ErrSLFieldNotFound if any referenced field does not exist.
+func (db *slRecords) Query(ctx context.Context, slTableID int64, options QuerySLRecordsOptions) ([]*SLRecord, int64, error) {
+	fields, err := db.getQueryFields(ctx, slTableID, options)
+	if err != nil {
+		return nil, 0, err
 	}
 
-	if err := db.WithContext(ctx).Model(&SLRecord{}).Where(fmt.Sprintf("sl_table_id = ? AND data->>'%s' LIKE ?", escape.Escape(field.UID)), slTableID, fieldValue).Find(&slRecords).Error; err != nil {
-		return nil, errors.Wrap(err, "find")
+	orders := make([]string, 0, len(options.Group)+len(options.Order)+1)
+	for _, group := range options.Group {
+		orders = append(orders, slRecordFieldExpr(fields[group.FieldUID])+" ASC NULLS LAST")
 	}
-	return slRecords, nil
+	for _, sort := range options.Order {
+		direction, err := parseSLRecordSortOrder(sort.Order)
+		if err != nil {
+			return nil, 0, err
+		}
+		orders = append(orders, slRecordFieldExpr(fields[sort.FieldUID])+" "+direction+" NULLS LAST")
+	}
+	orders = append(orders, "id DESC")
+
+	q := db.WithContext(ctx).Model(&SLRecord{}).Where("sl_table_id = ?", slTableID)
+	for _, filter := range options.Filter {
+		condition, args, err := buildSLRecordFilter(fields[filter.FieldUID], filter)
+		if err != nil {
+			return nil, 0, err
+		}
+		q = q.Where(condition, args...)
+	}
+
+	var count int64
+	if err := q.Count(&count).Error; err != nil {
+		return nil, 0, errors.Wrap(err, "count")
+	}
+
+	limit, offset := options.Limit, options.Offset
+	if limit <= 0 {
+		limit = dbutil.DefaultPageSize
+	}
+	if offset < 0 {
+		offset = 0
+	}
+
+	var records []*SLRecord
+	if err := q.Order(strings.Join(orders, ", ")).Limit(limit).Offset(offset).Find(&records).Error; err != nil {
+		return nil, 0, errors.Wrap(err, "find")
+	}
+	return records, count, nil
+}
+
+var slFieldUIDPattern = regexp.MustCompile(`^[A-Za-z0-9_]+$`)
+
+// getQueryFields returns the fields referenced by the query options, keyed by UID.
+func (db *slRecords) getQueryFields(ctx context.Context, slTableID int64, options QuerySLRecordsOptions) (map[string]*SLField, error) {
+	uids := make([]string, 0, len(options.Filter)+len(options.Order)+len(options.Group))
+	for _, filter := range options.Filter {
+		uids = append(uids, filter.FieldUID)
+	}
+	for _, sort := range options.Order {
+		uids = append(uids, sort.FieldUID)
+	}
+	for _, group := range options.Group {
+		uids = append(uids, group.FieldUID)
+	}
+	uids = lo.Uniq(uids)
+	if len(uids) == 0 {
+		return map[string]*SLField{}, nil
+	}
+	// UIDs are embedded into the SQL text as literals, restrict the charset to rule out quotes, gorm placeholder `?`, etc.
+	for _, uid := range uids {
+		if !slFieldUIDPattern.MatchString(uid) {
+			return nil, ErrSLFieldNotFound
+		}
+	}
+
+	var slFields []*SLField
+	if err := db.WithContext(ctx).Model(&SLField{}).Where("sl_table_id = ? AND uid IN ?", slTableID, uids).Find(&slFields).Error; err != nil {
+		return nil, errors.Wrap(err, "find fields")
+	}
+
+	fields := lo.KeyBy(slFields, func(field *SLField) string { return field.UID })
+	for _, uid := range uids {
+		field, ok := fields[uid]
+		if !ok {
+			return nil, ErrSLFieldNotFound
+		}
+		// Formula field values are not stored in data, so they cannot be queried directly.
+		if field.Type == FormulaFieldType {
+			return nil, errors.Wrapf(ErrSLFieldNotQueryable, "field %q", uid)
+		}
+	}
+	return fields, nil
+}
+
+// slRecordFieldExpr returns the SQL expression of the field value, cast by the field type.
+// Values with a mismatched JSON type are treated as NULL, so stale data won't break the cast.
+func slRecordFieldExpr(field *SLField) string {
+	// Do not use escape.Escape with multiple placeholders: it replaces sequentially on the whole string,
+	// so a `%L` inside a previous argument would be replaced by the next one and break the quoting.
+	key := escape.Literal(field.UID)
+	switch field.Type {
+	case NumberFieldType:
+		return "(CASE WHEN jsonb_typeof(data -> " + key + ") = 'number' THEN (data ->> " + key + ")::NUMERIC END)"
+	case CheckboxFieldType:
+		// Unchecked records may not have the key, treat them as FALSE.
+		return "COALESCE(CASE WHEN jsonb_typeof(data -> " + key + ") = 'boolean' THEN (data ->> " + key + ")::BOOLEAN END, FALSE)"
+	case DateTimeFieldType:
+		return "(CASE WHEN jsonb_typeof(data -> " + key + ") = 'string' THEN (data ->> " + key + ")::TIMESTAMPTZ END)"
+	case MultiSelectFieldType:
+		return "(data -> " + key + ")"
+	default:
+		return "(data ->> " + key + ")"
+	}
+}
+
+var slRecordLikeEscaper = strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`)
+
+func buildSLRecordFilter(field *SLField, filter QuerySLRecordsFilter) (string, []interface{}, error) {
+	expr := slRecordFieldExpr(field)
+	unsupported := errors.Wrapf(ErrUnsupportedFilterOperation, "field %q (%s) operation %q", field.UID, field.Type, filter.Operation)
+
+	// Multi-select values are arrays of option UIDs, matched with "contains" semantics.
+	if field.Type == MultiSelectFieldType {
+		switch filter.Operation {
+		case FilterOperationEqual:
+			return "COALESCE(jsonb_exists(" + expr + ", ?), FALSE)", []interface{}{filter.Value}, nil
+		case FilterOperationNotEqual:
+			return "NOT COALESCE(jsonb_exists(" + expr + ", ?), FALSE)", []interface{}{filter.Value}, nil
+		case FilterOperationIn, FilterOperationNotIn:
+			values, err := parseSLRecordFilterValues(field.Type, filter.Value)
+			if err != nil {
+				return "", nil, err
+			}
+			placeholders := strings.TrimSuffix(strings.Repeat("?,", len(values)), ",")
+			condition := "COALESCE(jsonb_exists_any(" + expr + ", ARRAY[" + placeholders + "]::TEXT[]), FALSE)"
+			if filter.Operation == FilterOperationNotIn {
+				condition = "NOT " + condition
+			}
+			return condition, values, nil
+		default:
+			return "", nil, unsupported
+		}
+	}
+
+	switch filter.Operation {
+	case FilterOperationEqual, FilterOperationNotEqual:
+		value, err := parseSLRecordFilterValue(field.Type, filter.Value)
+		if err != nil {
+			return "", nil, err
+		}
+		if filter.Operation == FilterOperationEqual {
+			return expr + " = ?", []interface{}{value}, nil
+		}
+		return expr + " IS DISTINCT FROM ?", []interface{}{value}, nil
+
+	case FilterOperationGreaterThan, FilterOperationLessThan, FilterOperationGreaterThanOrEqual, FilterOperationLessThanOrEqual:
+		if field.Type != NumberFieldType && field.Type != DateTimeFieldType && field.Type != TextFieldType {
+			return "", nil, unsupported
+		}
+		value, err := parseSLRecordFilterValue(field.Type, filter.Value)
+		if err != nil {
+			return "", nil, err
+		}
+		operator := map[FilterOperation]string{
+			FilterOperationGreaterThan:        ">",
+			FilterOperationLessThan:           "<",
+			FilterOperationGreaterThanOrEqual: ">=",
+			FilterOperationLessThanOrEqual:    "<=",
+		}[filter.Operation]
+		return expr + " " + operator + " ?", []interface{}{value}, nil
+
+	case FilterOperationIn, FilterOperationNotIn:
+		values, err := parseSLRecordFilterValues(field.Type, filter.Value)
+		if err != nil {
+			return "", nil, err
+		}
+		if filter.Operation == FilterOperationIn {
+			return expr + " IN ?", []interface{}{values}, nil
+		}
+		return "(" + expr + " IS NULL OR " + expr + " NOT IN ?)", []interface{}{values}, nil
+
+	case FilterOperationLike:
+		if field.Type != TextFieldType {
+			return "", nil, unsupported
+		}
+		return expr + " ILIKE ?", []interface{}{"%" + slRecordLikeEscaper.Replace(filter.Value) + "%"}, nil
+
+	default:
+		return "", nil, unsupported
+	}
+}
+
+// parseSLRecordFilterValue parses the filter value into a Go value matching the type of the field SQL expression.
+func parseSLRecordFilterValue(fieldType SLFieldType, value string) (interface{}, error) {
+	switch fieldType {
+	case NumberFieldType:
+		v, err := strconv.ParseFloat(strings.TrimSpace(value), 64)
+		// NaN / Inf would be interpolated as bare words by pgx under the simple protocol, causing SQL syntax errors.
+		if err != nil || math.IsNaN(v) || math.IsInf(v, 0) {
+			return nil, errors.Wrapf(ErrInvalidFilterValue, "parse %q as number", value)
+		}
+		return v, nil
+	case CheckboxFieldType:
+		v, err := strconv.ParseBool(strings.TrimSpace(value))
+		if err != nil {
+			return nil, errors.Wrapf(ErrInvalidFilterValue, "parse %q as bool", value)
+		}
+		return v, nil
+	case DateTimeFieldType:
+		v, err := time.Parse(time.RFC3339, strings.TrimSpace(value))
+		if err != nil {
+			return nil, errors.Wrapf(ErrInvalidFilterValue, "parse %q as datetime", value)
+		}
+		return v, nil
+	default:
+		return value, nil
+	}
+}
+
+// parseSLRecordFilterValues parses the JSON array value of in / nin, whose elements can be strings or raw JSON values.
+func parseSLRecordFilterValues(fieldType SLFieldType, value string) ([]interface{}, error) {
+	var raws []json.RawMessage
+	if err := json.Unmarshal([]byte(value), &raws); err != nil || len(raws) == 0 {
+		return nil, errors.Wrapf(ErrInvalidFilterValue, "%q is not a non-empty JSON array", value)
+	}
+
+	values := make([]interface{}, 0, len(raws))
+	for _, raw := range raws {
+		s := string(raw)
+		var str string
+		if err := json.Unmarshal(raw, &str); err == nil {
+			s = str
+		}
+		v, err := parseSLRecordFilterValue(fieldType, s)
+		if err != nil {
+			return nil, err
+		}
+		values = append(values, v)
+	}
+	return values, nil
+}
+
+func parseSLRecordSortOrder(order string) (string, error) {
+	switch strings.ToLower(strings.TrimSpace(order)) {
+	case "", "asc":
+		return "ASC", nil
+	case "desc":
+		return "DESC", nil
+	default:
+		return "", errors.Wrapf(ErrInvalidSortOrder, "%q", order)
+	}
 }
 
 func (db *slRecords) getBy(ctx context.Context, where string, args ...interface{}) (*SLRecord, error) {
@@ -123,53 +388,49 @@ func (db *slRecords) getBy(ctx context.Context, where string, args ...interface{
 }
 
 type ImportSLRecordsOptions struct {
-	Data map[string]json.RawMessage
+	Data []json.RawMessage
 }
 
-func (db *slRecords) Import(ctx context.Context, slTableID uint, options ImportSLRecordsOptions) error {
-	return db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		for uid, jsonBytes := range options.Data {
-			if err := tx.WithContext(ctx).Create(&SLRecord{
-				Model: dbutil.Model{
-					UID: uid,
-				},
-				SLTableID: slTableID,
-				Data:      datatypes.JSON(jsonBytes),
-			}).Error; err != nil {
-				return errors.Wrap(err, "create")
-			}
-		}
-		return nil
-	})
+func (db *slRecords) Import(ctx context.Context, slTableID int64, options ImportSLRecordsOptions) error {
+	records := make([]*SLRecord, 0, len(options.Data))
+	for _, jsonBytes := range options.Data {
+		records = append(records, &SLRecord{
+			SLTableID: slTableID,
+			Data:      datatypes.JSON(jsonBytes),
+		})
+	}
+
+	if err := db.WithContext(ctx).Create(&records).Error; err != nil {
+		return errors.Wrap(err, "create")
+	}
+	return nil
 }
 
-func (db *slRecords) Create(ctx context.Context, slTableID uint, jsonBytes json.RawMessage) (*SLRecord, error) {
+func (db *slRecords) Create(ctx context.Context, slTableID int64, jsonBytes json.RawMessage) (*SLRecord, error) {
 	slRecord := &SLRecord{
 		SLTableID: slTableID,
 		Data:      datatypes.JSON(jsonBytes),
 	}
 	if err := db.WithContext(ctx).Create(slRecord).Error; err != nil {
-		return nil, errors.Wrap(err, "create sl_records")
+		return nil, errors.Wrap(err, "create")
 	}
 	return slRecord, nil
 }
 
 var ErrSLRecordNotFound = errors.New("sl_record does not exist")
 
-func (db *slRecords) Update(ctx context.Context, slRecordID uint, jsonBytes json.RawMessage) error {
-	if _, err := db.GetByID(ctx, slRecordID); err != nil {
-		return err
-	}
-
-	return db.WithContext(ctx).Model(&SLRecord{}).Where("id = ?", slRecordID).Updates(map[string]interface{}{
+func (db *slRecords) Update(ctx context.Context, slRecordID int64, jsonBytes json.RawMessage) error {
+	if err := db.WithContext(ctx).Model(&SLRecord{}).Where("id = ?", slRecordID).Updates(map[string]interface{}{
 		"data": jsonBytes,
-	}).Error
+	}).Error; err != nil {
+		return errors.Wrap(err, "update")
+	}
+	return nil
 }
 
-func (db *slRecords) DeleteByID(ctx context.Context, slRecordID uint) error {
-	if _, err := db.GetByID(ctx, slRecordID); err != nil {
-		return err
+func (db *slRecords) DeleteByID(ctx context.Context, slRecordID int64) error {
+	if err := db.WithContext(ctx).Model(&SLRecord{}).Delete(&SLRecord{}, slRecordID).Error; err != nil {
+		return errors.Wrap(err, "delete")
 	}
-
-	return db.WithContext(ctx).Model(&SLRecord{}).Delete(&SLRecord{}, slRecordID).Error
+	return nil
 }

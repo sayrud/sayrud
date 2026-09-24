@@ -38,8 +38,8 @@ type SLFieldList []*SLField
 type SLField struct {
 	dbutil.Model
 
-	SLTableID int64  `gorm:"index;uniqueIndex:idx_sl_tables_id_uid, where:deleted_at IS NULL"`
-	UID       string `gorm:"uniqueIndex:idx_sl_tables_id_uid, where:deleted_at IS NULL"`
+	SLTableID int64  `gorm:"index;uniqueIndex:idx_sl_table_id_uid, where:deleted_at IS NULL"`
+	UID       string `gorm:"uniqueIndex:idx_sl_table_id_uid, where:deleted_at IS NULL"`
 	Label     string
 	Type      SLFieldType
 	Metadata  datatypes.JSONType[SLFieldMetadata]
@@ -92,7 +92,7 @@ func (db *slFields) Create(ctx context.Context, options CreateSLFieldOptions) (*
 		Position:  options.Position,
 	}
 	if err := db.WithContext(ctx).Create(slField).Error; err != nil {
-		if dbutil.IsUniqueViolation(err, "idx_sl_tables_id_uid") {
+		if dbutil.IsUniqueViolation(err, "idx_sl_table_id_uid") {
 			return nil, ErrSLFieldExists
 		}
 		return nil, err
