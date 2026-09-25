@@ -85,43 +85,6 @@ func New(db *gorm.DB, redisClient *redis.Client) *flamego.Flame {
 					}, api.Schemaless.Tabler)
 				})
 
-				f.Group("/views", func() {
-					f.Combo("").
-						Get(api.View.List).
-						Post(form.Bind(form.CreateView{}), api.View.Create)
-					f.Group("/{viewUID}", func() {
-						f.Combo("").
-							Get(api.View.Get).
-							Put(form.Bind(form.UpdateView{}), api.View.Update).
-							Delete(api.View.Delete)
-						f.Get("/query", api.View.Query)
-					}, api.View.Viewer)
-				})
-
-				f.Group("/apis", func() {
-					f.Combo("").
-						Get(api.Api.List).
-						Post(form.Bind(form.CreateUpdateApi{}), api.Api.Create)
-
-					f.Group("/{apiUID}", func() {
-						f.Combo("").
-							Get(api.Api.Get).
-							Put(form.Bind(form.CreateUpdateApi{}), api.Api.Update).
-							Delete(api.Api.Delete)
-					}, api.Api.Apier)
-				})
-
-				f.Group("/domains", func() {
-					f.Combo("").
-						Get(api.Domain.List).
-						Post(form.Bind(form.CreateDomain{}), api.Domain.Create)
-
-					f.Group("/{domain}", func() {
-						f.Delete("", api.Domain.Delete)
-						f.Post("/verify", api.Domain.Verify)
-					}, api.Domain.Domainer)
-				})
-
 				f.Group("/ai", func() {
 					f.Post("/advice", form.Bind(form.AIAdvice{}), api.AI.Advice)
 					f.Post("/apply", form.Bind(form.AIApply{}), api.AI.Apply)
