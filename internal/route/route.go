@@ -25,8 +25,6 @@ func New(db *gorm.DB, redisClient *redis.Client) *flamego.Flame {
 	})
 
 	f.Group("/_", func() {
-		f.Get("/auth/github/callback", api.Auth.GitHubCallback)
-
 		f.Group("/auth", func() {
 			f.Get("/profile", api.Auth.Profile)
 		}, api.Auth.Authenticator)

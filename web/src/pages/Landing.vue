@@ -12,7 +12,7 @@
               <t-icon name="brightness-1"/>
             </template>
           </t-button>
-          <t-button @click="router.push({name: 'SignIn'})">登录/注册</t-button>
+          <t-button @click="router.push({name: 'Dashboard'})">进入控制台</t-button>
         </template>
       </t-head-menu>
     </t-header>

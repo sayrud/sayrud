@@ -5,24 +5,19 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"strings"
 
 	"github.com/flamego/flamego"
-	"github.com/golang-jwt/jwt/v5"
-	"github.com/pkg/errors"
 	"github.com/redis/go-redis/v9"
 	"github.com/sirupsen/logrus"
 	"go.opentelemetry.io/otel/trace"
 	"gorm.io/gorm"
 
-	"github.com/wuhan005/sayrud/internal/db"
 	"github.com/wuhan005/sayrud/internal/dbutil"
 )
 
 // Context represents context of a request.
 type Context struct {
 	flamego.Context
-	IsLogin bool
 }
 
 func (c *Context) ApiSuccess(data interface{}) error {
@@ -84,7 +79,6 @@ func Contexter(gormDB *gorm.DB, redisClient *redis.Client) flamego.Handler {
 	return func(ctx flamego.Context) {
 		c := Context{
 			Context: ctx,
-			IsLogin: false,
 		}
 
 		spanCtx := trace.SpanContextFromContext(ctx.Request().Context())
@@ -100,30 +94,6 @@ func Contexter(gormDB *gorm.DB, redisClient *redis.Client) flamego.Handler {
 		if ctx.Request().Method == http.MethodOptions {
 			ctx.ResponseWriter().WriteHeader(http.StatusOK)
 			return
-		}
-
-		authorizationHeader := ctx.Request().Header.Get("Authorization")
-		if authorizationHeader != "" && strings.HasPrefix(authorizationHeader, "Bearer ") {
-			tokenString := strings.TrimSpace(strings.TrimPrefix(authorizationHeader, "Bearer "))
-
-			token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
-				if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-					return nil, errors.Errorf("unexpected signing method: %q", token.Header["alg"])
-				}
-
-				return []byte(os.Getenv("JWT_SECRET")), nil
-			})
-			if err == nil {
-				if claims, ok := token.Claims.(jwt.MapClaims); ok {
-					userID, _ := claims["userUID"].(string)
-
-					user, err := db.Users.GetByUID(ctx.Request().Context(), userID)
-					if err == nil {
-						c.IsLogin = true
-						c.Map(user)
-					}
-				}
-			}
 		}
 
 		c.MapTo(gormDB, (*dbutil.Transactor)(nil))

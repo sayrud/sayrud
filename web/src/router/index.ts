@@ -1,7 +1,6 @@
 import {createRouter, createWebHistory, RouteRecordRaw} from "vue-router";
 import NProgress from 'nprogress';
 import 'nprogress/nprogress.css';
-import {useAppStore} from "@/store";
 
 NProgress.configure({showSpinner: false});
 
@@ -33,15 +32,6 @@ const router = createRouter({
 
 router.beforeEach((_to, _from, next) => {
     NProgress.start()
-
-    const appStore = useAppStore()
-    const token = appStore.token
-    if (token && (_to.name === 'SignIn' || _to.name === 'GitHubCallback')) {
-        next({name: 'Dashboard'})
-    } else if (!token && _to.meta.auth) {
-        next({name: 'SignIn'})
-    }
-
     next()
     NProgress.done()
 })

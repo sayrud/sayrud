@@ -43,10 +43,6 @@
               <user-circle-icon/>
               个人信息
             </t-dropdown-item>
-            <t-dropdown-item @click="onLogOut">
-              <poweroff-icon/>
-              退出登录
-            </t-dropdown-item>
           </t-dropdown-menu>
         </template>
         <t-button theme="default" variant="text">
@@ -70,7 +66,7 @@ import {useRoute, useRouter} from "vue-router";
 import logo from '@/assets/logo.svg'
 import logoDark from '@/assets/logo-dark.svg'
 import {userProfile, type UserProfileResp} from "@/api/auth.ts";
-import {ChevronDownIcon, PoweroffIcon, UserCircleIcon} from 'tdesign-icons-vue-next';
+import {ChevronDownIcon, UserCircleIcon} from 'tdesign-icons-vue-next';
 
 const route = useRoute()
 const router = useRouter()
@@ -103,11 +99,6 @@ const onSwitchTheme = () => {
 
 const onProfile = () => {
   router.push({name: 'Profile'})
-}
-
-const onLogOut = () => {
-  appStore.cleanToken()
-  router.push({name: 'SignIn'})
 }
 
 const profile = ref<UserProfileResp>({} as UserProfileResp)

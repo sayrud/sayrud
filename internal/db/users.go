@@ -23,7 +23,7 @@ type UsersStore interface {
 	GetByID(ctx context.Context, userID uint) (*User, error)
 	GetByUID(ctx context.Context, userUID string) (*User, error)
 	GetByEmail(ctx context.Context, email string) (*User, error)
-	Upsert(ctx context.Context, options UpsertUserOptions) (*User, error)
+	GetOrCreateDefault(ctx context.Context) (*User, error)
 	Create(ctx context.Context, options CreateUserOptions) (*User, error)
 	Update(ctx context.Context, id uint, options UpdateUserOptions) error
 	DeleteByID(ctx context.Context, id uint) error
@@ -73,36 +73,34 @@ func (db *users) getBy(ctx context.Context, where string, args ...interface{}) (
 
 var ErrUserAlreadyExisted = errors.New("user already existed")
 
-type UpsertUserOptions struct {
-	Email       string
-	UserName    string
-	GitHubID    string
-	AccessToken string
-}
+const (
+	DefaultUserEmail = "admin@sayrud.local"
+	DefaultUserName  = "admin"
+)
 
-func (db *users) Upsert(ctx context.Context, options UpsertUserOptions) (*User, error) {
-	u := &User{
-		Email:       options.Email,
-		EmailMd5:    gadget.Md5(strings.ToLower(options.Email)),
-		UserName:    options.UserName,
-		GitHubID:    options.GitHubID,
-		AccessToken: options.AccessToken,
+// GetOrCreateDefault returns the earliest created user as the default user, creating one if the table is empty.
+func (db *users) GetOrCreateDefault(ctx context.Context) (*User, error) {
+	var user User
+	err := db.WithContext(ctx).Model(&User{}).Order("id ASC").First(&user).Error
+	if err == nil {
+		return &user, nil
+	}
+	if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, errors.Wrap(err, "get first user")
 	}
 
-	if err := db.Transaction(func(tx *gorm.DB) error {
-		if err := tx.WithContext(ctx).FirstOrCreate(u, "email = ?", options.Email).Error; err != nil {
-			return errors.Wrap(err, "first or create")
+	created, err := db.Create(ctx, CreateUserOptions{
+		Email:    DefaultUserEmail,
+		UserName: DefaultUserName,
+	})
+	if err != nil {
+		// A concurrent request may have created the default user first.
+		if errors.Is(err, ErrUserAlreadyExisted) {
+			return db.GetByEmail(ctx, DefaultUserEmail)
 		}
-
-		u.AccessToken = options.AccessToken
-		if err := tx.WithContext(ctx).Save(u).Error; err != nil {
-			return errors.Wrap(err, "save")
-		}
-		return nil
-	}); err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "create default user")
 	}
-	return u, nil
+	return created, nil
 }
 
 type CreateUserOptions struct {

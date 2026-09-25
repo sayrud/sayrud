@@ -7,8 +7,6 @@ require (
 	github.com/cockroachdb/errors v1.8.2
 	github.com/dop251/goja v0.0.0-20240610225006-393f6d42497b
 	github.com/flamego/flamego v1.9.4
-	github.com/golang-jwt/jwt/v5 v5.2.1
-	github.com/google/go-github/v62 v62.0.0
 	github.com/lib/pq v1.9.0
 	github.com/pkg/errors v0.9.1
 	github.com/redis/go-redis/extra/redisotel/v9 v9.7.0
@@ -67,7 +65,6 @@ require (
 	github.com/go-sql-driver/mysql v1.8.1 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang/protobuf v1.5.4 // indirect
-	github.com/google/go-querystring v1.1.0 // indirect
 	github.com/google/pprof v0.0.0-20230207041349-798e818bf904 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/grpc-ecosystem/grpc-gateway v1.16.0 // indirect
