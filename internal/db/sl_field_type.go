@@ -21,7 +21,7 @@ func (t SLFieldType) Check() bool {
 }
 
 func (t SLFieldType) IsUnknown() bool {
-	return t.Check() || t == UnknownFieldType
+	return !t.Check() || t == UnknownFieldType
 }
 
 const (

@@ -141,8 +141,13 @@ func (db *slFields) SetMetadata(ctx context.Context, fieldID int64, metadata SLF
 
 func (db *slFields) SetPosition(ctx context.Context, fieldID int64, position int64) error {
 	return db.Transaction(func(tx *gorm.DB) error {
+		var tableID int64
+		if err := tx.WithContext(ctx).Model(&SLField{}).Where("id = ?", fieldID).Pluck("sl_table_id", &tableID).Error; err != nil {
+			return errors.Wrap(err, "get table id")
+		}
+
 		// Fields below the given position will have their positions incremented by 1 to make space for the field being moved.
-		if err := tx.WithContext(ctx).Model(&SLField{}).Where("position >= ?", position).Update("position", gorm.Expr("position + 1")).Error; err != nil {
+		if err := tx.WithContext(ctx).Model(&SLField{}).Where("sl_table_id = ? AND position >= ?", tableID, position).Update("position", gorm.Expr("position + 1")).Error; err != nil {
 			return errors.Wrap(err, "update below position")
 		}
 
