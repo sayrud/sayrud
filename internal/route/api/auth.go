@@ -9,6 +9,7 @@ import (
 
 	"github.com/wuhan005/sayrud/internal/context"
 	"github.com/wuhan005/sayrud/internal/db"
+	"github.com/wuhan005/sayrud/internal/dto"
 )
 
 var Auth authRoute
@@ -27,6 +28,13 @@ func (authRoute) Authenticator(ctx context.Context) error {
 	return nil
 }
 
+// Profile
+// @Summary Get the profile of the signed-in user
+// @Produce json
+// @Success 200 {object} dto.Profile
+// @Failure 500 {string} string "Internal server error"
+// @ID getProfile
+// @Router /auth/profile [get]
 func (authRoute) Profile(ctx context.Context, user *db.User) error {
-	return ctx.ApiSuccess(user)
+	return ctx.ApiSuccess(dto.ToProfile(user))
 }

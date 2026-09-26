@@ -9,11 +9,11 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
-	"gorm.io/gorm"
 
 	"github.com/wuhan005/sayrud/internal/context"
 	"github.com/wuhan005/sayrud/internal/db"
 	"github.com/wuhan005/sayrud/internal/dbutil"
+	"github.com/wuhan005/sayrud/internal/dto"
 	"github.com/wuhan005/sayrud/internal/form"
 )
 
@@ -21,6 +21,7 @@ var Schemaless schemalessRoute
 
 type schemalessRoute struct{}
 
+// Tabler maps the table of the tableUID path parameter as *db.SLTable, it must belong to the current project.
 func (schemalessRoute) Tabler(ctx context.Context, project *db.Project) error {
 	tableUID := ctx.Param("tableUID")
 	slTable, err := db.SLTables.GetByUID(ctx.Request().Context(), tableUID)
@@ -40,79 +41,70 @@ func (schemalessRoute) Tabler(ctx context.Context, project *db.Project) error {
 	return nil
 }
 
+// ListTables
+// @Summary List tables
+// @Description List the tables of the project, with the number of records in each table.
+// @Produce json
+// @Param projectUID path string true "Project UID"
+// @Param page query int false "Page number, starting from 1"
+// @Param pageSize query int false "Page size, defaults to 20"
+// @Success 200 {object} dto.ListTablesResp
+// @Failure 403 {string} string "Permission denied"
+// @Failure 404 {string} string "Project not found"
+// @Failure 500 {string} string "Internal server error"
+// @ID listTables
+// @Router /projects/{projectUID}/tables [get]
 func (schemalessRoute) ListTables(ctx context.Context, project *db.Project) error {
-	slTables, total, err := db.SLTables.ListByProjectID(ctx.Request().Context(), project.ID, db.ListSLTableOptions{
-		Page:     ctx.QueryInt("page"),
-		PageSize: ctx.QueryInt("pageSize"),
+	slTables, total, err := db.SLTables.Query(ctx.Request().Context(), db.QuerySLTableOptions{
+		ProjectID: project.ID,
+		Pagination: dbutil.Pagination{
+			Page:     ctx.QueryInt("page"),
+			PageSize: ctx.QueryInt("pageSize"),
+		},
 	})
 	if err != nil {
 		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to list sl tables")
 		return ctx.ApiServerError()
 	}
 
-	type ListTableItem struct {
-		UID   string `json:"uid"`
-		Name  string `json:"name"`
-		Label string `json:"label"`
-		Desc  string `json:"desc"`
-		Count int64  `json:"count"`
-	}
-
-	tables := make([]ListTableItem, 0, len(slTables))
+	tables := make([]*dto.TableListItem, 0, len(slTables))
 	for _, table := range slTables {
-		count, err := db.SLTables.ViewCount(ctx.Request().Context(), table.Project.SchemaName, table.Name)
+		count, err := db.SLRecords.CountByTableID(ctx.Request().Context(), table.ID)
 		if err != nil {
-			logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to get view count")
+			logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to count sl records")
 			return ctx.ApiServerError()
 		}
-
-		tables = append(tables, ListTableItem{
-			UID:   table.UID,
-			Name:  table.Name,
-			Label: table.Label,
-			Desc:  table.Desc,
+		tables = append(tables, &dto.TableListItem{
+			Table: *dto.ToTable(project, table),
 			Count: count,
 		})
 	}
 
-	return ctx.ApiSuccess(map[string]interface{}{
-		"tables": tables,
-		"total":  total,
+	return ctx.ApiSuccess(dto.ListTablesResp{
+		Tables: tables,
+		Total:  total,
 	})
 }
 
-func (schemalessRoute) AllTables(ctx context.Context, project *db.Project) error {
-	slTables, err := db.SLTables.AllByProjectID(ctx.Request().Context(), project.ID)
+// CreateTable
+// @Summary Create a table
+// @Accept json
+// @Produce json
+// @Param projectUID path string true "Project UID"
+// @Param data body form.CreateTable true "Table to create"
+// @Success 200 {object} dto.Table
+// @Failure 400 {string} string "Invalid request body"
+// @Failure 403 {string} string "Permission denied"
+// @Failure 404 {string} string "Project not found"
+// @Failure 409 {string} string "Table already exists"
+// @Failure 500 {string} string "Internal server error"
+// @ID createTable
+// @Router /projects/{projectUID}/tables [post]
+func (schemalessRoute) CreateTable(ctx context.Context, project *db.Project, f form.CreateTable) error {
+	slTable, err := db.SLTables.Create(ctx.Request().Context(), project.ID, db.CreateSLTableOptions{
+		Name: f.Name,
+	})
 	if err != nil {
-		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to get all sl tables")
-		return ctx.ApiServerError()
-	}
-	return ctx.ApiSuccess(slTables)
-}
-
-func (schemalessRoute) CreateTable(ctx context.Context, project *db.Project, tx dbutil.Transactor, f form.CreateTable) error {
-	var slTable *db.SLTable
-	if err := tx.Transaction(func(tx *gorm.DB) error {
-		sLTablesStore := db.NewSLTablesStore(tx)
-
-		var err error
-		slTable, err = sLTablesStore.Create(ctx.Request().Context(), project.ID, db.CreateSLTableOptions{
-			Name:  f.Name,
-			Label: f.Label,
-			Desc:  f.Desc,
-		})
-		if err != nil {
-			return errors.Wrap(err, "create sl table")
-		}
-
-		slTable.Project = *project
-
-		if err := sLTablesStore.CreateView(ctx.Request().Context(), slTable); err != nil {
-			return errors.Wrap(err, "create sl view")
-		}
-		return nil
-
-	}); err != nil {
 		if errors.Is(err, db.ErrSLTableExists) {
 			return ctx.ApiError(http.StatusConflict, "数据表已存在")
 		}
@@ -120,34 +112,61 @@ func (schemalessRoute) CreateTable(ctx context.Context, project *db.Project, tx 
 		return ctx.ApiServerError()
 	}
 
-	return ctx.ApiSuccess(slTable)
+	return ctx.ApiSuccess(dto.ToTable(project, slTable))
 }
 
-func (schemalessRoute) GetTable(ctx context.Context, table *db.SLTable) error {
-	return ctx.ApiSuccess(table)
+// GetTable
+// @Summary Get a table
+// @Produce json
+// @Param projectUID path string true "Project UID"
+// @Param tableUID path string true "Table UID"
+// @Success 200 {object} dto.Table
+// @Failure 403 {string} string "Permission denied"
+// @Failure 404 {string} string "Project or table not found"
+// @Failure 500 {string} string "Internal server error"
+// @ID getTable
+// @Router /projects/{projectUID}/tables/{tableUID} [get]
+func (schemalessRoute) GetTable(ctx context.Context, project *db.Project, table *db.SLTable) error {
+	return ctx.ApiSuccess(dto.ToTable(project, table))
 }
 
+// UpdateTable
+// @Summary Update a table
+// @Accept json
+// @Produce json
+// @Param projectUID path string true "Project UID"
+// @Param tableUID path string true "Table UID"
+// @Param data body form.UpdateTable true "Table properties"
+// @Success 204 "No Content"
+// @Failure 400 {string} string "Invalid request body"
+// @Failure 403 {string} string "Permission denied"
+// @Failure 404 {string} string "Project or table not found"
+// @Failure 500 {string} string "Internal server error"
+// @ID updateTable
+// @Router /projects/{projectUID}/tables/{tableUID} [put]
 func (schemalessRoute) UpdateTable(ctx context.Context, table *db.SLTable, f form.UpdateTable) error {
-	tableID := table.ID
-	if err := db.SLTables.Update(ctx.Request().Context(), tableID, db.UpdateSLTableOptions{
-		Label: f.Label,
-		Desc:  f.Desc,
+	if err := db.SLTables.Update(ctx.Request().Context(), table.ID, db.UpdateSLTableOptions{
+		Name: f.Name,
 	}); err != nil {
-		if errors.Is(err, db.ErrSLTableNotFound) {
-			return ctx.ApiError(http.StatusNotFound, "数据表不存在")
-		}
 		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to update sl table")
 		return ctx.ApiServerError()
 	}
 	return ctx.Status(http.StatusNoContent)
 }
 
+// DeleteTable
+// @Summary Delete a table
+// @Produce json
+// @Param projectUID path string true "Project UID"
+// @Param tableUID path string true "Table UID"
+// @Success 204 "No Content"
+// @Failure 403 {string} string "Permission denied"
+// @Failure 404 {string} string "Project or table not found"
+// @Failure 500 {string} string "Internal server error"
+// @ID deleteTable
+// @Router /projects/{projectUID}/tables/{tableUID} [delete]
 func (schemalessRoute) DeleteTable(ctx context.Context, table *db.SLTable) error {
-	tableID := table.ID
-	if err := db.SLTables.DeleteByID(ctx.Request().Context(), tableID); err != nil {
-		if errors.Is(err, db.ErrSLTableNotFound) {
-			return ctx.ApiError(http.StatusNotFound, "数据表不存在")
-		}
+	if err := db.SLTables.DeleteByID(ctx.Request().Context(), table.ID); err != nil {
 		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to delete sl table")
 		return ctx.ApiServerError()
 	}

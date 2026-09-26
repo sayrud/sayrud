@@ -11,14 +11,17 @@ import (
 )
 
 type AIAdvice struct {
-	Action   ai.ActionType `json:"action"`
-	Messages []*struct {
-		Role    string `json:"role"`
-		Content string `json:"content"`
-	} `json:"messages"`
-}
+	Action   ai.ActionType `json:"action" swaggertype:"string" enums:"tables"`
+	Messages []*AIMessage  `json:"messages"`
+} // @name AIAdvice
+
+type AIMessage struct {
+	Role    string `json:"role"`
+	Content string `json:"content"`
+} // @name AIMessage
 
 type AIApply struct {
-	Action     ai.ActionType   `json:"action"`
-	ActionJson json.RawMessage `json:"actionJson"`
-}
+	Action ai.ActionType `json:"action" swaggertype:"string" enums:"tables"`
+	// ActionJson is the actionJson returned by the advice API.
+	ActionJson json.RawMessage `json:"actionJson" swaggertype:"object"`
+} // @name AIApply

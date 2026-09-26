@@ -16,6 +16,7 @@ require (
 	github.com/spf13/cast v1.6.0
 	github.com/spf13/viper v1.3.2
 	github.com/stretchr/testify v1.9.0
+	github.com/swaggo/swag v1.16.6
 	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common v1.1.48
 	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/hunyuan v1.0.975
 	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/tms v1.1.48
@@ -30,7 +31,7 @@ require (
 	go.opentelemetry.io/otel/sdk v1.31.0
 	go.opentelemetry.io/otel/sdk/metric v1.31.0
 	go.opentelemetry.io/otel/trace v1.31.0
-	golang.org/x/text v0.19.0
+	golang.org/x/text v0.21.0
 	gorm.io/datatypes v1.2.1
 	gorm.io/driver/mysql v1.5.6
 	gorm.io/driver/postgres v1.5.7
@@ -40,6 +41,9 @@ require (
 
 require (
 	filippo.io/edwards25519 v1.1.0 // indirect
+	github.com/KyleBanks/depth v1.2.1 // indirect
+	github.com/PuerkitoBio/purell v1.1.1 // indirect
+	github.com/PuerkitoBio/urlesc v0.0.0-20170810143723-de5bf2ad4578 // indirect
 	github.com/alecthomas/participle/v2 v2.0.0 // indirect
 	github.com/aymanbagabas/go-osc52/v2 v2.0.1 // indirect
 	github.com/bmizerany/assert v0.0.0-20160611221934-b7ed37b82869 // indirect
@@ -61,6 +65,10 @@ require (
 	github.com/go-logfmt/logfmt v0.6.0 // indirect
 	github.com/go-logr/logr v1.4.2 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
+	github.com/go-openapi/jsonpointer v0.19.5 // indirect
+	github.com/go-openapi/jsonreference v0.19.6 // indirect
+	github.com/go-openapi/spec v0.20.4 // indirect
+	github.com/go-openapi/swag v0.19.15 // indirect
 	github.com/go-sourcemap/sourcemap v2.1.3+incompatible // indirect
 	github.com/go-sql-driver/mysql v1.8.1 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
@@ -76,10 +84,12 @@ require (
 	github.com/jackc/puddle/v2 v2.2.1 // indirect
 	github.com/jinzhu/inflection v1.0.0 // indirect
 	github.com/jinzhu/now v1.1.5 // indirect
+	github.com/josharian/intern v1.0.0 // indirect
 	github.com/kr/pretty v0.3.1 // indirect
 	github.com/kr/text v0.2.0 // indirect
 	github.com/lucasb-eyer/go-colorful v1.2.0 // indirect
 	github.com/magiconair/properties v1.8.0 // indirect
+	github.com/mailru/easyjson v0.7.6 // indirect
 	github.com/mattn/go-isatty v0.0.18 // indirect
 	github.com/mattn/go-runewidth v0.0.14 // indirect
 	github.com/mitchellh/mapstructure v1.1.2 // indirect
@@ -98,10 +108,12 @@ require (
 	go.opentelemetry.io/otel/log v0.3.0 // indirect
 	go.opentelemetry.io/otel/metric v1.31.0 // indirect
 	go.opentelemetry.io/proto/otlp v1.3.1 // indirect
-	golang.org/x/crypto v0.28.0 // indirect
-	golang.org/x/net v0.30.0 // indirect
-	golang.org/x/sync v0.8.0 // indirect
-	golang.org/x/sys v0.26.0 // indirect
+	golang.org/x/crypto v0.32.0 // indirect
+	golang.org/x/mod v0.18.0 // indirect
+	golang.org/x/net v0.34.0 // indirect
+	golang.org/x/sync v0.10.0 // indirect
+	golang.org/x/sys v0.29.0 // indirect
+	golang.org/x/tools v0.22.0 // indirect
 	google.golang.org/genproto v0.0.0-20200911024640-645f7a48b24f // indirect
 	google.golang.org/grpc v1.67.1 // indirect
 	google.golang.org/protobuf v1.35.1 // indirect

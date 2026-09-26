@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/pkg/errors"
+	"github.com/thanhpk/randstr"
 	escape "github.com/tj/go-pg-escape"
 	"gorm.io/gorm"
 
@@ -20,14 +21,14 @@ var _ ProjectsStore = (*projects)(nil)
 var Projects ProjectsStore
 
 type ProjectsStore interface {
-	ListByUserID(ctx context.Context, userID uint, options ListByUserIDOptions) ([]*Project, int64, error)
-	GetByID(ctx context.Context, projectID uint) (*Project, error)
+	ListByUserID(ctx context.Context, userID int64, options ListByUserIDOptions) ([]*Project, int64, error)
+	GetByID(ctx context.Context, projectID int64) (*Project, error)
 	GetByUID(ctx context.Context, projectUID string) (*Project, error)
 	Create(ctx context.Context, opts CreateProjectOptions) (*Project, error)
-	Update(ctx context.Context, projectID uint, opts UpdateProjectOptions) error
-	DeleteByID(ctx context.Context, projectID uint) error
-	CreateSchema(ctx context.Context, projectID uint) error
-	DeleteSchema(ctx context.Context, projectID uint) error
+	Update(ctx context.Context, projectID int64, opts UpdateProjectOptions) error
+	DeleteByID(ctx context.Context, projectID int64) error
+	CreateSchema(ctx context.Context, projectID int64) error
+	DeleteSchema(ctx context.Context, projectID int64) error
 }
 
 func NewProjectsStore(db *gorm.DB) ProjectsStore {
@@ -36,12 +37,18 @@ func NewProjectsStore(db *gorm.DB) ProjectsStore {
 
 type Project struct {
 	dbutil.Model
-	OwnerUserID uint   `json:"-"`
+	UID         string `gorm:"uniqueIndex:idx_projects_uid, where:deleted_at IS NULL" json:"uid"`
+	OwnerUserID int64  `json:"-"`
 	Name        string `json:"name"`
 	SchemaName  string `gorm:"uniqueIndex:idx_projects_schema_name, where:deleted_at IS NULL" json:"schemaName"`
 
 	CustomDomain string `json:"customDomain"`
 	RoutePrefix  string `json:"routePrefix"`
+}
+
+func (project *Project) BeforeCreate(_ *gorm.DB) error {
+	project.UID = "prj" + randstr.String(10)
+	return nil
 }
 
 type projects struct {
@@ -52,7 +59,7 @@ type ListByUserIDOptions struct {
 	dbutil.Pagination
 }
 
-func (db *projects) ListByUserID(ctx context.Context, userID uint, options ListByUserIDOptions) ([]*Project, int64, error) {
+func (db *projects) ListByUserID(ctx context.Context, userID int64, options ListByUserIDOptions) ([]*Project, int64, error) {
 	var total int64
 	q := db.WithContext(ctx).Model(&Project{}).Where("owner_user_id = ?", userID)
 	if err := q.Count(&total).Error; err != nil {
@@ -64,7 +71,7 @@ func (db *projects) ListByUserID(ctx context.Context, userID uint, options ListB
 	return projects, total, q.Limit(limit).Offset(offset).Find(&projects).Error
 }
 
-func (db *projects) GetByID(ctx context.Context, projectID uint) (*Project, error) {
+func (db *projects) GetByID(ctx context.Context, projectID int64) (*Project, error) {
 	return db.getBy(ctx, "id = ?", projectID)
 }
 
@@ -73,7 +80,7 @@ func (db *projects) GetByUID(ctx context.Context, projectUID string) (*Project, 
 }
 
 type CreateProjectOptions struct {
-	OwnerUserID uint
+	OwnerUserID int64
 	Name        string
 	SchemaName  string
 }
@@ -99,7 +106,7 @@ type UpdateProjectOptions struct {
 	Name string
 }
 
-func (db *projects) Update(ctx context.Context, projectID uint, opts UpdateProjectOptions) error {
+func (db *projects) Update(ctx context.Context, projectID int64, opts UpdateProjectOptions) error {
 	project, err := db.GetByID(ctx, projectID)
 	if err != nil {
 		return err
@@ -125,14 +132,14 @@ func (db *projects) getBy(ctx context.Context, where string, args ...interface{}
 	return &project, nil
 }
 
-func (db *projects) DeleteByID(ctx context.Context, projectID uint) error {
+func (db *projects) DeleteByID(ctx context.Context, projectID int64) error {
 	if err := db.WithContext(ctx).Where("id = ?", projectID).Delete(&Project{}).Error; err != nil {
 		return err
 	}
 	return nil
 }
 
-func (db *projects) CreateSchema(ctx context.Context, projectID uint) error {
+func (db *projects) CreateSchema(ctx context.Context, projectID int64) error {
 	project, err := db.GetByID(ctx, projectID)
 	if err != nil {
 		return errors.Wrap(err, "get by ID")
@@ -148,7 +155,7 @@ func (db *projects) CreateSchema(ctx context.Context, projectID uint) error {
 	return nil
 }
 
-func (db *projects) DeleteSchema(ctx context.Context, projectID uint) error {
+func (db *projects) DeleteSchema(ctx context.Context, projectID int64) error {
 	project, err := db.GetByID(ctx, projectID)
 	if err != nil {
 		return errors.Wrap(err, "get by ID")

@@ -1,0 +1,1449 @@
+basePath: /_
+definitions:
+  AIAdvice:
+    properties:
+      action:
+        enum:
+        - tables
+        type: string
+      messages:
+        items:
+          $ref: '#/definitions/AIMessage'
+        type: array
+    required:
+    - action
+    - messages
+    type: object
+  AIAdviceResp:
+    properties:
+      action:
+        type: string
+      actionJson:
+        description: ActionJSON is the structured payload of the action, which can
+          be passed to the apply API as is.
+        type: object
+      description:
+        type: string
+      raw:
+        description: Raw is the raw output of the model.
+        type: string
+    required:
+    - action
+    - actionJson
+    - description
+    - raw
+    type: object
+  AIApply:
+    properties:
+      action:
+        enum:
+        - tables
+        type: string
+      actionJson:
+        description: ActionJson is the actionJson returned by the advice API.
+        type: object
+    required:
+    - action
+    - actionJson
+    type: object
+  AIMessage:
+    properties:
+      content:
+        type: string
+      role:
+        type: string
+    required:
+    - content
+    - role
+    type: object
+  BatchCreateRecords:
+    properties:
+      data:
+        description: Data is the list of cell values keyed by field UID, one item
+          for each record.
+        items:
+          additionalProperties: true
+          type: object
+        type: array
+    required:
+    - data
+    type: object
+  CreateField:
+    properties:
+      label:
+        type: string
+      metadata:
+        additionalProperties: true
+        description: Metadata is the type-specific configuration, e.g. select options
+          or the formula expression.
+        type: object
+      type:
+        enum:
+        - text
+        - single_select
+        - multi_select
+        - datetime
+        - number
+        - checkbox
+        - formula
+        type: string
+    required:
+    - label
+    - type
+    type: object
+  CreateFields:
+    properties:
+      fields:
+        items:
+          $ref: '#/definitions/CreateField'
+        type: array
+    required:
+    - fields
+    type: object
+  CreateProject:
+    properties:
+      name:
+        type: string
+      schemaName:
+        description: SchemaName is the Postgres schema of the project, a random one
+          is generated if empty.
+        type: string
+    required:
+    - name
+    type: object
+  CreateRecord:
+    properties:
+      data:
+        additionalProperties: true
+        description: Data is the cell values keyed by field UID.
+        type: object
+    type: object
+  CreateTable:
+    properties:
+      name:
+        type: string
+    required:
+    - name
+    type: object
+  ListProjectsResp:
+    properties:
+      projects:
+        items:
+          $ref: '#/definitions/ProjectListItem'
+        type: array
+      total:
+        type: integer
+    required:
+    - projects
+    - total
+    type: object
+  ListRecordsResp:
+    properties:
+      records:
+        items:
+          $ref: '#/definitions/SLRecord'
+        type: array
+      total:
+        description: Total is the number of records matching the query, regardless
+          of limit and offset.
+        type: integer
+    required:
+    - records
+    - total
+    type: object
+  ListTablesResp:
+    properties:
+      tables:
+        items:
+          $ref: '#/definitions/TableListItem'
+        type: array
+      total:
+        type: integer
+    required:
+    - tables
+    - total
+    type: object
+  Profile:
+    properties:
+      email:
+        type: string
+      emailMd5:
+        type: string
+      userName:
+        type: string
+    required:
+    - email
+    - emailMd5
+    - userName
+    type: object
+  Project:
+    properties:
+      createdAt:
+        type: string
+      name:
+        type: string
+      schemaName:
+        type: string
+      uid:
+        type: string
+      updatedAt:
+        type: string
+    required:
+    - createdAt
+    - name
+    - schemaName
+    - uid
+    - updatedAt
+    type: object
+  ProjectListItem:
+    properties:
+      createdAt:
+        type: string
+      name:
+        type: string
+      schemaName:
+        type: string
+      tableCount:
+        type: integer
+      uid:
+        type: string
+      updatedAt:
+        type: string
+    required:
+    - createdAt
+    - name
+    - schemaName
+    - tableCount
+    - uid
+    - updatedAt
+    type: object
+  QueryRecords:
+    properties:
+      filter:
+        items:
+          $ref: '#/definitions/QueryRecordsFilter'
+        type: array
+      group:
+        description: Group sorts the records by the field values before Order, so
+          records in the same group are adjacent.
+        items:
+          $ref: '#/definitions/QueryRecordsGroup'
+        type: array
+      limit:
+        description: Limit defaults to 20 when it is not positive.
+        type: integer
+      offset:
+        type: integer
+      order:
+        items:
+          $ref: '#/definitions/QueryRecordsSort'
+        type: array
+    type: object
+  QueryRecordsFilter:
+    properties:
+      fieldUID:
+        type: string
+      operation:
+        enum:
+        - eq
+        - neq
+        - gt
+        - lt
+        - gte
+        - lte
+        - in
+        - nin
+        - like
+        type: string
+      value:
+        description: Value is a JSON array (e.g. `["a","b"]`) for in / nin, and a
+          single value for other operations.
+        type: string
+    required:
+    - fieldUID
+    - operation
+    - value
+    type: object
+  QueryRecordsGroup:
+    properties:
+      fieldUID:
+        type: string
+    required:
+    - fieldUID
+    type: object
+  QueryRecordsSort:
+    properties:
+      fieldUID:
+        type: string
+      order:
+        enum:
+        - asc
+        - desc
+        type: string
+    required:
+    - fieldUID
+    type: object
+  SLField:
+    properties:
+      createdAt:
+        type: string
+      label:
+        type: string
+      metadata:
+        additionalProperties: true
+        description: Metadata is the type-specific configuration, e.g. select options
+          or the formula expression.
+        type: object
+      position:
+        type: integer
+      tableUID:
+        type: string
+      type:
+        enum:
+        - text
+        - single_select
+        - multi_select
+        - datetime
+        - number
+        - checkbox
+        - formula
+        type: string
+      uid:
+        type: string
+      updatedAt:
+        type: string
+    required:
+    - createdAt
+    - label
+    - metadata
+    - position
+    - tableUID
+    - type
+    - uid
+    - updatedAt
+    type: object
+  SLRecord:
+    properties:
+      createdAt:
+        type: string
+      data:
+        additionalProperties: true
+        description: Data is the cell values keyed by field UID.
+        type: object
+      tableUID:
+        type: string
+      uid:
+        type: string
+      updatedAt:
+        type: string
+    required:
+    - createdAt
+    - data
+    - tableUID
+    - uid
+    - updatedAt
+    type: object
+  SLTable:
+    properties:
+      createdAt:
+        type: string
+      name:
+        type: string
+      projectUID:
+        type: string
+      uid:
+        type: string
+      updatedAt:
+        type: string
+    required:
+    - createdAt
+    - name
+    - projectUID
+    - uid
+    - updatedAt
+    type: object
+  TableListItem:
+    properties:
+      count:
+        type: integer
+      createdAt:
+        type: string
+      name:
+        type: string
+      projectUID:
+        type: string
+      uid:
+        type: string
+      updatedAt:
+        type: string
+    required:
+    - count
+    - createdAt
+    - name
+    - projectUID
+    - uid
+    - updatedAt
+    type: object
+  UpdateField:
+    properties:
+      label:
+        type: string
+      metadata:
+        additionalProperties: true
+        description: Metadata replaces the whole field configuration, it is required
+          when the type changes.
+        type: object
+      type:
+        enum:
+        - text
+        - single_select
+        - multi_select
+        - datetime
+        - number
+        - checkbox
+        - formula
+        type: string
+    type: object
+  UpdateFieldPosition:
+    properties:
+      position:
+        description: Position is the new position of the field, negative values are
+          treated as 0.
+        type: integer
+    required:
+    - position
+    type: object
+  UpdateProject:
+    properties:
+      name:
+        type: string
+    required:
+    - name
+    type: object
+  UpdateRecord:
+    properties:
+      data:
+        additionalProperties: true
+        description: Data replaces all the cell values of the record, keyed by field
+          UID.
+        type: object
+    required:
+    - data
+    type: object
+  UpdateTable:
+    properties:
+      name:
+        type: string
+    required:
+    - name
+    type: object
+info:
+  contact: {}
+  title: Sayrud API
+  version: "1.0"
+paths:
+  /auth/profile:
+    get:
+      operationId: getProfile
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/Profile'
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      summary: Get the profile of the signed-in user
+  /projects:
+    get:
+      description: List the projects owned by the signed-in user, with the number
+        of tables in each project.
+      operationId: listProjects
+      parameters:
+      - description: Page number, starting from 1
+        in: query
+        name: page
+        type: integer
+      - description: Page size, defaults to 20
+        in: query
+        name: pageSize
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/ListProjectsResp'
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      summary: List projects
+    post:
+      consumes:
+      - application/json
+      description: Create a project owned by the signed-in user, along with its Postgres
+        schema.
+      operationId: createProject
+      parameters:
+      - description: Project to create
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/CreateProject'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/Project'
+        "400":
+          description: Invalid request body
+          schema:
+            type: string
+        "409":
+          description: Schema name already exists
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      summary: Create a project
+  /projects/{projectUID}:
+    delete:
+      description: Delete the project and drop its Postgres schema.
+      operationId: deleteProject
+      parameters:
+      - description: Project UID
+        in: path
+        name: projectUID
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "403":
+          description: Permission denied
+          schema:
+            type: string
+        "404":
+          description: Project not found
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      summary: Delete a project
+    get:
+      operationId: getProject
+      parameters:
+      - description: Project UID
+        in: path
+        name: projectUID
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/Project'
+        "403":
+          description: Permission denied
+          schema:
+            type: string
+        "404":
+          description: Project not found
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      summary: Get a project
+    put:
+      consumes:
+      - application/json
+      operationId: updateProject
+      parameters:
+      - description: Project UID
+        in: path
+        name: projectUID
+        required: true
+        type: string
+      - description: Project properties
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/UpdateProject'
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Invalid request body
+          schema:
+            type: string
+        "403":
+          description: Permission denied
+          schema:
+            type: string
+        "404":
+          description: Project not found
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      summary: Update a project
+  /projects/{projectUID}/ai/advice:
+    post:
+      consumes:
+      - application/json
+      description: Generate the advice of the action by AI from the conversation messages.
+      operationId: aiAdvice
+      parameters:
+      - description: Project UID
+        in: path
+        name: projectUID
+        required: true
+        type: string
+      - description: Action and conversation messages
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/AIAdvice'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/AIAdviceResp'
+        "403":
+          description: Permission denied
+          schema:
+            type: string
+        "404":
+          description: Project not found
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      summary: Get table design advice from AI
+  /projects/{projectUID}/ai/apply:
+    post:
+      consumes:
+      - application/json
+      description: Apply the actionJson returned by the advice API, e.g. create the
+        advised tables.
+      operationId: aiApply
+      parameters:
+      - description: Project UID
+        in: path
+        name: projectUID
+        required: true
+        type: string
+      - description: Action to apply
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/AIApply'
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Invalid action or payload
+          schema:
+            type: string
+        "403":
+          description: Permission denied
+          schema:
+            type: string
+        "404":
+          description: Project not found
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      summary: Apply the AI advice
+  /projects/{projectUID}/tables:
+    get:
+      description: List the tables of the project, with the number of records in each
+        table.
+      operationId: listTables
+      parameters:
+      - description: Project UID
+        in: path
+        name: projectUID
+        required: true
+        type: string
+      - description: Page number, starting from 1
+        in: query
+        name: page
+        type: integer
+      - description: Page size, defaults to 20
+        in: query
+        name: pageSize
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/ListTablesResp'
+        "403":
+          description: Permission denied
+          schema:
+            type: string
+        "404":
+          description: Project not found
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      summary: List tables
+    post:
+      consumes:
+      - application/json
+      operationId: createTable
+      parameters:
+      - description: Project UID
+        in: path
+        name: projectUID
+        required: true
+        type: string
+      - description: Table to create
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/CreateTable'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/SLTable'
+        "400":
+          description: Invalid request body
+          schema:
+            type: string
+        "403":
+          description: Permission denied
+          schema:
+            type: string
+        "404":
+          description: Project not found
+          schema:
+            type: string
+        "409":
+          description: Table already exists
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      summary: Create a table
+  /projects/{projectUID}/tables/{tableUID}:
+    delete:
+      operationId: deleteTable
+      parameters:
+      - description: Project UID
+        in: path
+        name: projectUID
+        required: true
+        type: string
+      - description: Table UID
+        in: path
+        name: tableUID
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "403":
+          description: Permission denied
+          schema:
+            type: string
+        "404":
+          description: Project or table not found
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      summary: Delete a table
+    get:
+      operationId: getTable
+      parameters:
+      - description: Project UID
+        in: path
+        name: projectUID
+        required: true
+        type: string
+      - description: Table UID
+        in: path
+        name: tableUID
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/SLTable'
+        "403":
+          description: Permission denied
+          schema:
+            type: string
+        "404":
+          description: Project or table not found
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      summary: Get a table
+    put:
+      consumes:
+      - application/json
+      operationId: updateTable
+      parameters:
+      - description: Project UID
+        in: path
+        name: projectUID
+        required: true
+        type: string
+      - description: Table UID
+        in: path
+        name: tableUID
+        required: true
+        type: string
+      - description: Table properties
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/UpdateTable'
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Invalid request body
+          schema:
+            type: string
+        "403":
+          description: Permission denied
+          schema:
+            type: string
+        "404":
+          description: Project or table not found
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      summary: Update a table
+  /projects/{projectUID}/tables/{tableUID}/fields:
+    get:
+      description: List all the fields of the table, ordered by position.
+      operationId: listFields
+      parameters:
+      - description: Project UID
+        in: path
+        name: projectUID
+        required: true
+        type: string
+      - description: Table UID
+        in: path
+        name: tableUID
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/SLField'
+            type: array
+        "403":
+          description: Permission denied
+          schema:
+            type: string
+        "404":
+          description: Project or table not found
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      summary: List fields
+    post:
+      consumes:
+      - application/json
+      description: Create fields in batch, which are appended to the end of the table.
+      operationId: createFields
+      parameters:
+      - description: Project UID
+        in: path
+        name: projectUID
+        required: true
+        type: string
+      - description: Table UID
+        in: path
+        name: tableUID
+        required: true
+        type: string
+      - description: Fields to create
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/CreateFields'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/SLField'
+            type: array
+        "400":
+          description: Invalid label or type
+          schema:
+            type: string
+        "403":
+          description: Permission denied
+          schema:
+            type: string
+        "404":
+          description: Project or table not found
+          schema:
+            type: string
+        "409":
+          description: Field label already exists
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      summary: Create fields
+  /projects/{projectUID}/tables/{tableUID}/fields/{fieldUID}:
+    delete:
+      operationId: deleteField
+      parameters:
+      - description: Project UID
+        in: path
+        name: projectUID
+        required: true
+        type: string
+      - description: Table UID
+        in: path
+        name: tableUID
+        required: true
+        type: string
+      - description: Field UID
+        in: path
+        name: fieldUID
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "403":
+          description: Permission denied
+          schema:
+            type: string
+        "404":
+          description: Project, table or field not found
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      summary: Delete a field
+    put:
+      consumes:
+      - application/json
+      description: Update the label, type or metadata of the field. Existing record
+        values are kept as is when the type changes.
+      operationId: updateField
+      parameters:
+      - description: Project UID
+        in: path
+        name: projectUID
+        required: true
+        type: string
+      - description: Table UID
+        in: path
+        name: tableUID
+        required: true
+        type: string
+      - description: Field UID
+        in: path
+        name: fieldUID
+        required: true
+        type: string
+      - description: Field properties
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/UpdateField'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/SLField'
+        "400":
+          description: Invalid label or type
+          schema:
+            type: string
+        "403":
+          description: Permission denied
+          schema:
+            type: string
+        "404":
+          description: Project, table or field not found
+          schema:
+            type: string
+        "409":
+          description: Field label already exists
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      summary: Update a field
+  /projects/{projectUID}/tables/{tableUID}/fields/{fieldUID}/position:
+    put:
+      consumes:
+      - application/json
+      description: Set the position of the field, the fields at or after the position
+        are moved back by one.
+      operationId: updateFieldPosition
+      parameters:
+      - description: Project UID
+        in: path
+        name: projectUID
+        required: true
+        type: string
+      - description: Table UID
+        in: path
+        name: tableUID
+        required: true
+        type: string
+      - description: Field UID
+        in: path
+        name: fieldUID
+        required: true
+        type: string
+      - description: Field position
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/UpdateFieldPosition'
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "403":
+          description: Permission denied
+          schema:
+            type: string
+        "404":
+          description: Project, table or field not found
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      summary: Move a field
+  /projects/{projectUID}/tables/{tableUID}/records:
+    get:
+      description: List the records of the table, the newest first.
+      operationId: listRecords
+      parameters:
+      - description: Project UID
+        in: path
+        name: projectUID
+        required: true
+        type: string
+      - description: Table UID
+        in: path
+        name: tableUID
+        required: true
+        type: string
+      - description: Maximum number of records, defaults to 20
+        in: query
+        name: limit
+        type: integer
+      - description: Number of records to skip
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/ListRecordsResp'
+        "403":
+          description: Permission denied
+          schema:
+            type: string
+        "404":
+          description: Project or table not found
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      summary: List records
+    post:
+      consumes:
+      - application/json
+      operationId: createRecord
+      parameters:
+      - description: Project UID
+        in: path
+        name: projectUID
+        required: true
+        type: string
+      - description: Table UID
+        in: path
+        name: tableUID
+        required: true
+        type: string
+      - description: Record to create
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/CreateRecord'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/SLRecord'
+        "400":
+          description: Field not found or value mismatches the field type
+          schema:
+            type: string
+        "403":
+          description: Permission denied
+          schema:
+            type: string
+        "404":
+          description: Project or table not found
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      summary: Create a record
+  /projects/{projectUID}/tables/{tableUID}/records/{recordUID}:
+    delete:
+      operationId: deleteRecord
+      parameters:
+      - description: Project UID
+        in: path
+        name: projectUID
+        required: true
+        type: string
+      - description: Table UID
+        in: path
+        name: tableUID
+        required: true
+        type: string
+      - description: Record UID
+        in: path
+        name: recordUID
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "403":
+          description: Permission denied
+          schema:
+            type: string
+        "404":
+          description: Project, table or record not found
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      summary: Delete a record
+    get:
+      operationId: getRecord
+      parameters:
+      - description: Project UID
+        in: path
+        name: projectUID
+        required: true
+        type: string
+      - description: Table UID
+        in: path
+        name: tableUID
+        required: true
+        type: string
+      - description: Record UID
+        in: path
+        name: recordUID
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/SLRecord'
+        "403":
+          description: Permission denied
+          schema:
+            type: string
+        "404":
+          description: Project, table or record not found
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      summary: Get a record
+    put:
+      consumes:
+      - application/json
+      operationId: updateRecord
+      parameters:
+      - description: Project UID
+        in: path
+        name: projectUID
+        required: true
+        type: string
+      - description: Table UID
+        in: path
+        name: tableUID
+        required: true
+        type: string
+      - description: Record UID
+        in: path
+        name: recordUID
+        required: true
+        type: string
+      - description: Record data
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/UpdateRecord'
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Field not found or value mismatches the field type
+          schema:
+            type: string
+        "403":
+          description: Permission denied
+          schema:
+            type: string
+        "404":
+          description: Project, table or record not found
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      summary: Update a record
+  /projects/{projectUID}/tables/{tableUID}/records/batch:
+    post:
+      consumes:
+      - application/json
+      description: Create multiple records atomically, none is created if any data
+        is invalid.
+      operationId: batchCreateRecords
+      parameters:
+      - description: Project UID
+        in: path
+        name: projectUID
+        required: true
+        type: string
+      - description: Table UID
+        in: path
+        name: tableUID
+        required: true
+        type: string
+      - description: Records to create
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/BatchCreateRecords'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/SLRecord'
+            type: array
+        "400":
+          description: Field not found or value mismatches the field type
+          schema:
+            type: string
+        "403":
+          description: Permission denied
+          schema:
+            type: string
+        "404":
+          description: Project or table not found
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      summary: Create records in batch
+  /projects/{projectUID}/tables/{tableUID}/records/query:
+    post:
+      consumes:
+      - application/json
+      description: Filter, group and sort the records of the table. Formula fields
+        cannot be queried.
+      operationId: queryRecords
+      parameters:
+      - description: Project UID
+        in: path
+        name: projectUID
+        required: true
+        type: string
+      - description: Table UID
+        in: path
+        name: tableUID
+        required: true
+        type: string
+      - description: Query options
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/QueryRecords'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/ListRecordsResp'
+        "400":
+          description: Invalid field, operation, value or order
+          schema:
+            type: string
+        "403":
+          description: Permission denied
+          schema:
+            type: string
+        "404":
+          description: Project or table not found
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      summary: Query records
+  /projects/{projectUID}/tables/types:
+    get:
+      description: Return the labels of all the field types, keyed by field type.
+      operationId: listFieldTypes
+      parameters:
+      - description: Project UID
+        in: path
+        name: projectUID
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "403":
+          description: Permission denied
+          schema:
+            type: string
+        "404":
+          description: Project not found
+          schema:
+            type: string
+      summary: List field types
+swagger: "2.0"

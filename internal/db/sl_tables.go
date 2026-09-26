@@ -21,6 +21,7 @@ type SLTablesStore interface {
 	Create(ctx context.Context, projectID int64, options CreateSLTableOptions) (*SLTable, error)
 	Update(ctx context.Context, tableID int64, options UpdateSLTableOptions) error
 	DeleteByID(ctx context.Context, tableID int64) error
+	CountByProjectID(ctx context.Context, projectID int64) (int64, error)
 }
 
 func NewSLTablesStore(db *gorm.DB) SLTablesStore {
@@ -127,4 +128,12 @@ func (db *slTables) DeleteByID(ctx context.Context, tableID int64) error {
 		return errors.Wrap(err, "delete")
 	}
 	return nil
+}
+
+func (db *slTables) CountByProjectID(ctx context.Context, projectID int64) (int64, error) {
+	var count int64
+	if err := db.WithContext(ctx).Model(&SLTable{}).Where("project_id = ?", projectID).Count(&count).Error; err != nil {
+		return 0, errors.Wrap(err, "count")
+	}
+	return count, nil
 }

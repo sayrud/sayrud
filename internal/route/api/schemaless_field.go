@@ -6,19 +6,22 @@ package api
 
 import (
 	"net/http"
+	"strings"
 
 	"github.com/pkg/errors"
+	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
 	"gorm.io/gorm"
 
 	"github.com/wuhan005/sayrud/internal/context"
 	"github.com/wuhan005/sayrud/internal/db"
 	"github.com/wuhan005/sayrud/internal/dbutil"
+	"github.com/wuhan005/sayrud/internal/dto"
 	"github.com/wuhan005/sayrud/internal/form"
-	"github.com/wuhan005/sayrud/internal/sqlutil"
 )
 
-func (schemalessRoute) Fielder(ctx context.Context) error {
+// Fielder maps the field of the fieldUID path parameter as *db.SLField, it must belong to the current table.
+func (schemalessRoute) Fielder(ctx context.Context, table *db.SLTable) error {
 	fieldUID := ctx.Param("fieldUID")
 	slField, err := db.SLFields.GetByUID(ctx.Request().Context(), fieldUID)
 	if err != nil {
@@ -29,202 +32,274 @@ func (schemalessRoute) Fielder(ctx context.Context) error {
 		return ctx.ApiServerError()
 	}
 
+	if slField.SLTableID != table.ID {
+		return ctx.ApiError(http.StatusNotFound, "数据表字段不存在")
+	}
+
 	ctx.Map(slField)
 	return nil
 }
 
+// ListFields
+// @Summary List fields
+// @Description List all the fields of the table, ordered by position.
+// @Produce json
+// @Param projectUID path string true "Project UID"
+// @Param tableUID path string true "Table UID"
+// @Success 200 {array} dto.Field
+// @Failure 403 {string} string "Permission denied"
+// @Failure 404 {string} string "Project or table not found"
+// @Failure 500 {string} string "Internal server error"
+// @ID listFields
+// @Router /projects/{projectUID}/tables/{tableUID}/fields [get]
 func (schemalessRoute) ListFields(ctx context.Context, table *db.SLTable) error {
-	tableID := table.ID
-	slFields, err := db.SLFields.List(ctx.Request().Context(), tableID)
+	slFields, err := db.SLFields.ListByTableID(ctx.Request().Context(), table.ID)
 	if err != nil {
 		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to list sl fields")
 		return ctx.ApiServerError()
 	}
-	return ctx.ApiSuccess(slFields)
+	return ctx.ApiSuccess(dto.ToFields(table, slFields))
 }
 
 const ReserveUIDFieldName = "_uid"
 
-var ErrReserveUIDField = errors.New("reserve uid field name")
+var (
+	ErrReserveUIDField  = errors.New("reserve uid field name")
+	ErrEmptyFieldLabel  = errors.New("empty field label")
+	ErrFieldLabelExists = errors.New("field label exists")
+)
 
+// checkFieldLabel checks the label is not empty, reserved, or used by other fields.
+func checkFieldLabel(label string, otherLabels []string) error {
+	switch {
+	case label == "":
+		return ErrEmptyFieldLabel
+	case label == ReserveUIDFieldName:
+		return ErrReserveUIDField
+	case lo.Contains(otherLabels, label):
+		return ErrFieldLabelExists
+	default:
+		return nil
+	}
+}
+
+// fieldErrorResponse returns the response of the field validation errors, ok is false if the error is unexpected.
+func fieldErrorResponse(err error) (statusCode int, msg string, ok bool) {
+	switch {
+	case errors.Is(err, ErrEmptyFieldLabel):
+		return http.StatusBadRequest, "字段标题不能为空", true
+	case errors.Is(err, ErrReserveUIDField):
+		return http.StatusBadRequest, "字段名 _uid 不可用", true
+	case errors.Is(err, ErrFieldLabelExists), errors.Is(err, db.ErrSLFieldExists):
+		return http.StatusConflict, "字段已存在", true
+	case errors.Is(err, db.ErrUnexpectedType):
+		return http.StatusBadRequest, "字段类型错误", true
+	default:
+		return 0, "", false
+	}
+}
+
+// CreateFields
+// @Summary Create fields
+// @Description Create fields in batch, which are appended to the end of the table.
+// @Accept json
+// @Produce json
+// @Param projectUID path string true "Project UID"
+// @Param tableUID path string true "Table UID"
+// @Param data body form.CreateFields true "Fields to create"
+// @Success 200 {array} dto.Field
+// @Failure 400 {string} string "Invalid label or type"
+// @Failure 403 {string} string "Permission denied"
+// @Failure 404 {string} string "Project or table not found"
+// @Failure 409 {string} string "Field label already exists"
+// @Failure 500 {string} string "Internal server error"
+// @ID createFields
+// @Router /projects/{projectUID}/tables/{tableUID}/fields [post]
 func (schemalessRoute) CreateFields(ctx context.Context, table *db.SLTable, tx dbutil.Transactor, f form.CreateFields) error {
-	tableID := table.ID
-
+	var createdFields []*db.SLField
 	if err := tx.Transaction(func(tx *gorm.DB) error {
 		slFieldsStore := db.NewSLFieldsStore(tx)
 
-		currentFields, err := slFieldsStore.List(ctx.Request().Context(), tableID)
+		currentFields, err := slFieldsStore.ListByTableID(ctx.Request().Context(), table.ID)
 		if err != nil {
-			return errors.Wrap(err, "count")
+			return errors.Wrap(err, "list fields")
 		}
-		var lastPosition int
+		labels := lo.Map(currentFields, func(field *db.SLField, _ int) string { return field.Label })
+
+		var position int
 		if len(currentFields) > 0 {
-			lastPosition = currentFields[len(currentFields)-1].Position + 1
+			position = currentFields[len(currentFields)-1].Position + 1
 		}
 
 		for _, field := range f.Fields {
-			field := field
-
-			if field.Name == ReserveUIDFieldName {
-				return ErrReserveUIDField
+			label := strings.TrimSpace(field.Label)
+			if err := checkFieldLabel(label, labels); err != nil {
+				return err
 			}
 
-			if _, err := slFieldsStore.Create(ctx.Request().Context(), db.CreateSLFieldOptions{
-				SLTableID: tableID,
-				Name:      field.Name,
-				Label:     field.Label,
+			metadata := field.Metadata
+			if metadata == nil {
+				metadata = map[string]interface{}{}
+			}
+
+			slField, err := slFieldsStore.Create(ctx.Request().Context(), db.CreateSLFieldOptions{
+				SLTableID: table.ID,
+				Label:     label,
 				Type:      db.SLFieldType(field.Type),
-				Options:   field.Options,
-				Position:  lastPosition,
-			}); err != nil {
+				Metadata:  metadata,
+				Position:  position,
+			})
+			if err != nil {
 				return errors.Wrap(err, "create")
 			}
 
-			lastPosition++
+			createdFields = append(createdFields, slField)
+			labels = append(labels, label)
+			position++
 		}
-
-		// Refresh table view.
-		slTablesStore := db.NewSLTablesStore(tx)
-		return slTablesStore.CreateView(ctx.Request().Context(), table)
-
+		return nil
 	}); err != nil {
-		if errors.Is(err, db.ErrSLFieldExists) {
-			return ctx.ApiError(http.StatusConflict, "字段已存在")
+		if statusCode, msg, ok := fieldErrorResponse(err); ok {
+			return ctx.ApiError(statusCode, "%s", msg)
 		}
-		if errors.Is(err, db.ErrUnexpectedType) {
-			return ctx.ApiError(http.StatusBadRequest, "字段类型错误")
-		}
-		if errors.Is(err, sqlutil.ErrForbiddenExpression) {
-			return ctx.ApiError(http.StatusBadRequest, "表达式无效")
-		}
-		if errors.Is(err, sqlutil.ErrExpressionSyntaxError) {
-			return ctx.ApiError(http.StatusBadRequest, "表达式语法错误")
-		}
-		if errors.Is(err, ErrReserveUIDField) {
-			return ctx.ApiError(http.StatusBadRequest, "字段名 _uid 不可用")
-		}
-		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to create sl field")
+		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to create sl fields")
 		return ctx.ApiServerError()
 	}
-	return ctx.Status(http.StatusNoContent)
+	return ctx.ApiSuccess(dto.ToFields(table, createdFields))
 }
 
-func (schemalessRoute) UpdateFields(ctx context.Context, table *db.SLTable, tx dbutil.Transactor, f form.UpdateFields) error {
+// UpdateField
+// @Summary Update a field
+// @Description Update the label, type or metadata of the field. Existing record values are kept as is when the type changes.
+// @Accept json
+// @Produce json
+// @Param projectUID path string true "Project UID"
+// @Param tableUID path string true "Table UID"
+// @Param fieldUID path string true "Field UID"
+// @Param data body form.UpdateField true "Field properties"
+// @Success 200 {object} dto.Field
+// @Failure 400 {string} string "Invalid label or type"
+// @Failure 403 {string} string "Permission denied"
+// @Failure 404 {string} string "Project, table or field not found"
+// @Failure 409 {string} string "Field label already exists"
+// @Failure 500 {string} string "Internal server error"
+// @ID updateField
+// @Router /projects/{projectUID}/tables/{tableUID}/fields/{fieldUID} [put]
+func (schemalessRoute) UpdateField(ctx context.Context, table *db.SLTable, field *db.SLField, tx dbutil.Transactor, f form.UpdateField) error {
+	var updatedField *db.SLField
 	if err := tx.Transaction(func(tx *gorm.DB) error {
 		slFieldsStore := db.NewSLFieldsStore(tx)
 
-		for _, formField := range f.Fields {
-			if formField.Name == ReserveUIDFieldName {
-				return ErrReserveUIDField
-			}
-
-			fieldUID := formField.UID
-			// Make sure the field belongs to the table.
-			field, err := slFieldsStore.GetByUID(ctx.Request().Context(), fieldUID)
+		if f.Label != nil {
+			currentFields, err := slFieldsStore.ListByTableID(ctx.Request().Context(), table.ID)
 			if err != nil {
-				return errors.Wrap(err, "get field")
+				return errors.Wrap(err, "list fields")
 			}
-			if field.SLTableID != table.ID {
-				return db.ErrSLFieldNotFound
-			}
+			otherLabels := lo.FilterMap(currentFields, func(item *db.SLField, _ int) (string, bool) {
+				return item.Label, item.ID != field.ID
+			})
 
-			if err := slFieldsStore.Update(ctx.Request().Context(), field.ID, db.UpdateSLFieldOptions{
-				Name:     formField.Name,
-				Label:    formField.Label,
-				Type:     db.SLFieldType(formField.Type),
-				Options:  formField.Options,
-				Position: formField.Position,
-			}); err != nil {
-				return errors.Wrap(err, "update")
+			label := strings.TrimSpace(*f.Label)
+			if err := checkFieldLabel(label, otherLabels); err != nil {
+				return err
+			}
+			if err := slFieldsStore.SetLabel(ctx.Request().Context(), field.ID, label); err != nil {
+				return errors.Wrap(err, "set label")
 			}
 		}
 
-		// Refresh table view.
-		slTablesStore := db.NewSLTablesStore(tx)
-		return slTablesStore.CreateView(ctx.Request().Context(), table)
+		if f.Type != nil && db.SLFieldType(*f.Type) != field.Type {
+			fieldType := db.SLFieldType(*f.Type)
+			if !fieldType.Check() {
+				return db.ErrUnexpectedType
+			}
+			metadata := f.Metadata
+			if metadata == nil {
+				metadata = map[string]interface{}{}
+			}
+			if err := slFieldsStore.SetType(ctx.Request().Context(), field.ID, fieldType, metadata); err != nil {
+				return errors.Wrap(err, "set type")
+			}
+		} else if f.Metadata != nil {
+			if err := slFieldsStore.SetMetadata(ctx.Request().Context(), field.ID, f.Metadata); err != nil {
+				return errors.Wrap(err, "set metadata")
+			}
+		}
+
+		var err error
+		updatedField, err = slFieldsStore.GetByID(ctx.Request().Context(), field.ID)
+		if err != nil {
+			return errors.Wrap(err, "get field")
+		}
+		return nil
 	}); err != nil {
-		if errors.Is(err, db.ErrSLFieldNotFound) {
-			return ctx.ApiError(http.StatusNotFound, "数据表字段不存在")
-		}
-		if errors.Is(err, sqlutil.ErrForbiddenExpression) {
-			return ctx.ApiError(http.StatusBadRequest, "表达式无效")
-		}
-		if errors.Is(err, sqlutil.ErrExpressionSyntaxError) {
-			return ctx.ApiError(http.StatusBadRequest, "表达式语法错误")
-		}
-		if errors.Is(err, ErrReserveUIDField) {
-			return ctx.ApiError(http.StatusBadRequest, "字段名 _uid 不可用")
-		}
-		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to update sl fields")
-		return ctx.ApiServerError()
-	}
-	return ctx.Status(http.StatusNoContent)
-}
-
-func (schemalessRoute) UpdateField(ctx context.Context, field *db.SLField, tx dbutil.Transactor, f form.UpdateField) error {
-	fieldID := field.ID
-
-	if f.Name == ReserveUIDFieldName {
-		return ErrReserveUIDField
-	}
-
-	if err := tx.Transaction(func(tx *gorm.DB) error {
-		slFieldsStore := db.NewSLFieldsStore(tx)
-
-		if err := slFieldsStore.Update(ctx.Request().Context(), fieldID, db.UpdateSLFieldOptions{
-			Name:     f.Name,
-			Label:    f.Label,
-			Type:     db.SLFieldType(f.Type),
-			Options:  f.Options,
-			Position: f.Position,
-		}); err != nil {
-			return errors.Wrap(err, "update")
-		}
-
-		// Refresh table view.
-		slTablesStore := db.NewSLTablesStore(tx)
-		return slTablesStore.CreateView(ctx.Request().Context(), &field.SLTable)
-
-	}); err != nil {
-		if errors.Is(err, db.ErrSLFieldNotFound) {
-			return ctx.ApiError(http.StatusNotFound, "数据表字段不存在")
+		if statusCode, msg, ok := fieldErrorResponse(err); ok {
+			return ctx.ApiError(statusCode, "%s", msg)
 		}
 		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to update sl field")
 		return ctx.ApiServerError()
 	}
 
+	return ctx.ApiSuccess(dto.ToField(table, updatedField))
+}
+
+// UpdateFieldPosition
+// @Summary Move a field
+// @Description Set the position of the field, the fields at or after the position are moved back by one.
+// @Accept json
+// @Produce json
+// @Param projectUID path string true "Project UID"
+// @Param tableUID path string true "Table UID"
+// @Param fieldUID path string true "Field UID"
+// @Param data body form.UpdateFieldPosition true "Field position"
+// @Success 204 "No Content"
+// @Failure 403 {string} string "Permission denied"
+// @Failure 404 {string} string "Project, table or field not found"
+// @Failure 500 {string} string "Internal server error"
+// @ID updateFieldPosition
+// @Router /projects/{projectUID}/tables/{tableUID}/fields/{fieldUID}/position [put]
+func (schemalessRoute) UpdateFieldPosition(ctx context.Context, field *db.SLField, f form.UpdateFieldPosition) error {
+	if err := db.SLFields.SetPosition(ctx.Request().Context(), field.ID, max(f.Position, 0)); err != nil {
+		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to set sl field position")
+		return ctx.ApiServerError()
+	}
 	return ctx.Status(http.StatusNoContent)
 }
 
-func (schemalessRoute) DeleteField(ctx context.Context, field *db.SLField, tx dbutil.Transactor) error {
-	fieldID := field.ID
-
-	if err := tx.Transaction(func(tx *gorm.DB) error {
-		slFieldsStore := db.NewSLFieldsStore(tx)
-		if err := slFieldsStore.DeleteByID(ctx.Request().Context(), fieldID); err != nil {
-			return errors.Wrap(err, "delete")
-		}
-
-		// Refresh table view.
-		slTablesStore := db.NewSLTablesStore(tx)
-		return slTablesStore.CreateView(ctx.Request().Context(), &field.SLTable)
-
-	}); err != nil {
-		if errors.Is(err, db.ErrSLFieldNotFound) {
-			return ctx.ApiError(http.StatusNotFound, "数据表字段不存在")
-		}
+// DeleteField
+// @Summary Delete a field
+// @Produce json
+// @Param projectUID path string true "Project UID"
+// @Param tableUID path string true "Table UID"
+// @Param fieldUID path string true "Field UID"
+// @Success 204 "No Content"
+// @Failure 403 {string} string "Permission denied"
+// @Failure 404 {string} string "Project, table or field not found"
+// @Failure 500 {string} string "Internal server error"
+// @ID deleteField
+// @Router /projects/{projectUID}/tables/{tableUID}/fields/{fieldUID} [delete]
+func (schemalessRoute) DeleteField(ctx context.Context, field *db.SLField) error {
+	if err := db.SLFields.DeleteByID(ctx.Request().Context(), field.ID); err != nil {
 		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to delete sl field")
 		return ctx.ApiServerError()
 	}
 	return ctx.Status(http.StatusNoContent)
 }
 
+// FieldTypes
+// @Summary List field types
+// @Description Return the labels of all the field types, keyed by field type.
+// @Produce json
+// @Param projectUID path string true "Project UID"
+// @Success 200 {object} map[string]string
+// @Failure 403 {string} string "Permission denied"
+// @Failure 404 {string} string "Project not found"
+// @ID listFieldTypes
+// @Router /projects/{projectUID}/tables/types [get]
 func (schemalessRoute) FieldTypes(ctx context.Context) error {
-	// FIXME: sort field types.
-	fieldTypes := make(map[db.SLFieldType]string)
-	for _, field := range db.FieldTypes {
-		label := field.Label()
-		fieldTypes[field] = label
+	fieldTypes := make(map[db.SLFieldType]string, len(db.AllFieldTypes))
+	for _, fieldType := range db.AllFieldTypes {
+		fieldTypes[fieldType] = fieldType.Label()
 	}
 	return ctx.ApiSuccess(fieldTypes)
 }

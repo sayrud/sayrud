@@ -5,140 +5,118 @@
 package routeutil
 
 import (
+	"context"
 	"encoding/json"
+	"math"
+	"time"
 
-	"github.com/dop251/goja"
 	"github.com/pkg/errors"
-	"github.com/spf13/cast"
+	"github.com/samber/lo"
 	"gorm.io/gorm"
 
-	"github.com/wuhan005/sayrud/internal/context"
 	"github.com/wuhan005/sayrud/internal/db"
-	"github.com/wuhan005/sayrud/internal/jsvm"
 )
 
 var ErrFieldTypeMismatch = errors.New("field type mismatch")
-var ErrExpressionError = errors.New("expression error")
-var ErrConstraintError = errors.New("constraint error")
 
-func Validate(ctx context.Context, vm *goja.Runtime, tableID uint, tx *gorm.DB, data map[string]interface{}) (json.RawMessage, error) {
-	slTablesStore := db.NewSLTablesStore(tx)
-	slFieldsStore := db.NewSLFieldsStore(tx)
-	slRecordsStore := db.NewSLRecordsStore(tx)
-
-	table, err := db.SLTables.GetByID(ctx.Request().Context(), tableID)
+// Validate checks the cell values keyed by field UID against the table fields, and returns the data to be stored.
+// Empty values, unchecked checkboxes and formula values are dropped, as they are not stored.
+// It returns db.ErrSLFieldNotFound if any key is not a field of the table, and ErrFieldTypeMismatch if any value mismatches its field type.
+func Validate(ctx context.Context, tx *gorm.DB, tableID int64, data map[string]interface{}) (json.RawMessage, error) {
+	fields, err := db.NewSLFieldsStore(tx).ListByTableID(ctx, tableID)
 	if err != nil {
-		return nil, errors.Wrap(err, "get table by id")
+		return nil, errors.Wrap(err, "list fields")
 	}
+	fieldSets := lo.KeyBy(fields, func(field *db.SLField) string { return field.UID })
 
-	// Get table fields.
-	slFields, err := slFieldsStore.GetByTableID(ctx.Request().Context(), tableID)
-	if err != nil {
-		return nil, errors.Wrap(err, "get fields by table id")
-	}
-
-	var incrementIndexFlag bool
-	// Validate the input data fields.
-	for _, field := range slFields {
-		field := field
-
-		if field.Type == db.GeneratedFieldType {
+	result := make(map[string]interface{}, len(data))
+	for uid, value := range data {
+		field, ok := fieldSets[uid]
+		if !ok {
+			return nil, errors.Wrapf(db.ErrSLFieldNotFound, "field %q", uid)
+		}
+		if field.Type == db.FormulaFieldType || isEmptyValue(value) {
 			continue
 		}
-
-		val, ok := data[field.UID]
-		if !ok {
-			// If the filed has default value, set it for this missing field.
-			defaultValue, ok := field.Options[db.OptionsDefaultValue]
-			if ok {
-				defaultValueExpression := cast.ToString(defaultValue)
-				defaultValue, err := vm.RunString(defaultValueExpression)
-				if err != nil {
-					return nil, errors.Wrap(err, "run default value expression")
-				}
-				data[field.UID] = defaultValue.Export()
-			}
-			// Set auto increment field value,
-			// also set the incrementIndexFlag to ture, to make sure the increment index will be increased after the operation.
-			if field.Type == db.IntFieldType && field.IsIncrementIndex() {
-				data[field.UID] = table.IncrementIndex + 1
-				incrementIndexFlag = true
-			}
-		} else {
-			// Check if the field type match with the value.
-			if !field.CheckValue(val) {
-				return nil, ErrFieldTypeMismatch
-			}
+		if !checkValue(field, value) {
+			return nil, errors.Wrapf(ErrFieldTypeMismatch, "field %q", field.Label)
 		}
-
-		if field.Type == db.ReferenceFieldType {
-			referenceFieldUID := field.ReferenceFieldUID()
-			// Make sure the reference field is in the current table.
-			referenceField, err := slFieldsStore.GetByUID(ctx.Request().Context(), referenceFieldUID)
-			if err != nil {
-				return nil, errors.Wrap(err, "get reference field")
-			}
-			if referenceField.SLTableID != tableID {
-				return nil, db.ErrSLFieldNotFound
-			}
-
-			// Check the reference field record exists.
-			recordUID := cast.ToString(val)
-			if recordUID == "" {
-				continue
-			}
-			record, err := slRecordsStore.GetByUID(ctx.Request().Context(), recordUID)
-			if err != nil {
-				return nil, errors.Wrap(err, "get reference record")
-			}
-			if record.SLTableID != referenceField.SLTableID {
-				return nil, db.ErrSLRecordNotFound
-			}
-
-			// Check the constraint.
-			recordData := make(map[string]interface{})
-			if err := json.Unmarshal(record.Data, &recordData); err != nil {
-				return nil, errors.Wrap(err, "unmarshal reference record data")
-			}
-
-			this := make(map[string]interface{})
-			that := make(map[string]interface{})
-			for _, f := range slFields {
-				this[f.Name] = data[f.UID]
-				that[f.Name] = recordData[f.UID]
-			}
-			this["uid"] = data["uid"]
-			that["uid"] = record.UID
-
-			// Check the reference field constraint.
-			constraint := field.Constraint()
-			vm, err := jsvm.NewVM(jsvm.NewVMOptions{
-				This: this,
-				That: that,
-			})
-			if err != nil {
-				return nil, errors.Wrap(err, "new vm")
-			}
-			result, err := vm.RunString(constraint)
-			if err != nil {
-				return nil, errors.Wrap(err, "run constraint")
-			}
-			if !result.ToBoolean() {
-				return nil, ErrConstraintError
-			}
+		if field.Type == db.CheckboxFieldType && value == false {
+			continue
 		}
+		result[uid] = value
 	}
 
-	if incrementIndexFlag {
-		if err := slTablesStore.SetIncrementIndex(ctx.Request().Context(), tableID, table.IncrementIndex+1); err != nil {
-			return nil, errors.Wrap(err, "set increment index")
-		}
-	}
-
-	// Ok, now we can encode the data.
-	jsonBytes, err := json.Marshal(data)
+	jsonBytes, err := json.Marshal(result)
 	if err != nil {
 		return nil, errors.Wrap(err, "encode data")
 	}
 	return jsonBytes, nil
+}
+
+func isEmptyValue(value interface{}) bool {
+	switch v := value.(type) {
+	case nil:
+		return true
+	case string:
+		return v == ""
+	case []interface{}:
+		return len(v) == 0
+	default:
+		return false
+	}
+}
+
+func checkValue(field *db.SLField, value interface{}) bool {
+	switch field.Type {
+	case db.TextFieldType:
+		_, ok := value.(string)
+		return ok
+	case db.NumberFieldType:
+		v, ok := value.(float64)
+		return ok && !math.IsNaN(v) && !math.IsInf(v, 0)
+	case db.CheckboxFieldType:
+		_, ok := value.(bool)
+		return ok
+	case db.DateTimeFieldType:
+		v, ok := value.(string)
+		if !ok {
+			return false
+		}
+		_, err := time.Parse(time.RFC3339, v)
+		return err == nil
+	case db.SingleSelectFieldType:
+		v, ok := value.(string)
+		return ok && lo.Contains(optionUIDs(field), v)
+	case db.MultiSelectFieldType:
+		values, ok := value.([]interface{})
+		if !ok {
+			return false
+		}
+		options := optionUIDs(field)
+		for _, value := range values {
+			v, ok := value.(string)
+			if !ok || !lo.Contains(options, v) {
+				return false
+			}
+		}
+		return true
+	default:
+		return false
+	}
+}
+
+// optionUIDs returns the option UIDs of the select field, which are stored in metadata as `{"options": [{"uid": "..."}]}`.
+func optionUIDs(field *db.SLField) []string {
+	metadata, _ := field.Metadata.Data().(map[string]interface{})
+	options, _ := metadata["options"].([]interface{})
+
+	uids := make([]string, 0, len(options))
+	for _, option := range options {
+		option, _ := option.(map[string]interface{})
+		if uid, ok := option["uid"].(string); ok {
+			uids = append(uids, uid)
+		}
+	}
+	return uids
 }

@@ -27,7 +27,7 @@ type SLRecordsStore interface {
 	GetByID(ctx context.Context, slRecordID int64) (*SLRecord, error)
 	GetByUID(ctx context.Context, slRecordUID string) (*SLRecord, error)
 	Query(ctx context.Context, slTableID int64, options QuerySLRecordsOptions) ([]*SLRecord, int64, error)
-	Import(ctx context.Context, slTableID int64, options ImportSLRecordsOptions) error
+	Import(ctx context.Context, slTableID int64, options ImportSLRecordsOptions) ([]*SLRecord, error)
 	Create(ctx context.Context, slTableID int64, jsonBytes json.RawMessage) (*SLRecord, error)
 	Update(ctx context.Context, slRecordID int64, jsonBytes json.RawMessage) error
 	CountByTableID(ctx context.Context, slTableID int64) (int64, error)
@@ -378,7 +378,8 @@ type ImportSLRecordsOptions struct {
 	Data []json.RawMessage
 }
 
-func (db *slRecords) Import(ctx context.Context, slTableID int64, options ImportSLRecordsOptions) error {
+// Import creates the records in batch and returns them in the same order as options.Data.
+func (db *slRecords) Import(ctx context.Context, slTableID int64, options ImportSLRecordsOptions) ([]*SLRecord, error) {
 	records := make([]*SLRecord, 0, len(options.Data))
 	for _, jsonBytes := range options.Data {
 		records = append(records, &SLRecord{
@@ -386,11 +387,14 @@ func (db *slRecords) Import(ctx context.Context, slTableID int64, options Import
 			Data:      datatypes.JSON(jsonBytes),
 		})
 	}
+	if len(records) == 0 {
+		return records, nil
+	}
 
 	if err := db.WithContext(ctx).Create(&records).Error; err != nil {
-		return errors.Wrap(err, "create")
+		return nil, errors.Wrap(err, "create")
 	}
-	return nil
+	return records, nil
 }
 
 func (db *slRecords) Create(ctx context.Context, slTableID int64, jsonBytes json.RawMessage) (*SLRecord, error) {

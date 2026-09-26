@@ -8,10 +8,13 @@ import (
 	"github.com/wuhan005/sayrud/internal/context"
 	"github.com/wuhan005/sayrud/internal/form"
 	"github.com/wuhan005/sayrud/internal/route/api"
-	"github.com/wuhan005/sayrud/internal/route/public"
 	"github.com/wuhan005/sayrud/internal/tracing"
 )
 
+// New creates the router of the application.
+// @Title Sayrud API
+// @Version 1.0
+// @BasePath /_
 func New(db *gorm.DB, redisClient *redis.Client) *flamego.Flame {
 	f := flamego.Classic()
 
@@ -19,10 +22,6 @@ func New(db *gorm.DB, redisClient *redis.Client) *flamego.Flame {
 		tracing.Middleware("sayrud"),
 		context.Contexter(db, redisClient),
 	)
-
-	f.Group("/api", func() {
-		f.Any("/{projectUID}/{**}", public.Project.Middlewares, public.Project.Handler)
-	})
 
 	f.Group("/_", func() {
 		f.Group("/auth", func() {
@@ -44,7 +43,6 @@ func New(db *gorm.DB, redisClient *redis.Client) *flamego.Flame {
 					f.Combo("").
 						Get(api.Schemaless.ListTables).
 						Post(form.Bind(form.CreateTable{}), api.Schemaless.CreateTable)
-					f.Get("/all", api.Schemaless.AllTables)
 					f.Get("/types", api.Schemaless.FieldTypes)
 
 					f.Group("/{tableUID}", func() {
@@ -56,13 +54,13 @@ func New(db *gorm.DB, redisClient *redis.Client) *flamego.Flame {
 						f.Group("/fields", func() {
 							f.Combo("").
 								Get(api.Schemaless.ListFields).
-								Post(form.Bind(form.CreateFields{}), api.Schemaless.CreateFields).
-								Put(form.Bind(form.UpdateFields{}), api.Schemaless.UpdateFields)
+								Post(form.Bind(form.CreateFields{}), api.Schemaless.CreateFields)
 
 							f.Group("/{fieldUID}", func() {
 								f.Combo("").
 									Put(form.Bind(form.UpdateField{}), api.Schemaless.UpdateField).
 									Delete(api.Schemaless.DeleteField)
+								f.Put("/position", form.Bind(form.UpdateFieldPosition{}), api.Schemaless.UpdateFieldPosition)
 							}, api.Schemaless.Fielder)
 						})
 
@@ -71,8 +69,8 @@ func New(db *gorm.DB, redisClient *redis.Client) *flamego.Flame {
 							f.Combo("").
 								Get(api.Schemaless.ListRecords).
 								Post(form.Bind(form.CreateRecord{}), api.Schemaless.CreateRecord)
-							f.Post("/batch", form.Bind(form.BatchCreateRecord{}), api.Schemaless.BatchCreateRecord)
-							f.Get("/query", api.Schemaless.QueryRecords)
+							f.Post("/batch", form.Bind(form.BatchCreateRecords{}), api.Schemaless.BatchCreateRecords)
+							f.Post("/query", form.Bind(form.QueryRecords{}), api.Schemaless.QueryRecords)
 							f.Group("/{recordUID}", func() {
 								f.Combo("").
 									Get(api.Schemaless.GetRecord).

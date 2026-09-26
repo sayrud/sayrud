@@ -18,6 +18,7 @@ import (
 	"github.com/wuhan005/sayrud/internal/context"
 	"github.com/wuhan005/sayrud/internal/db"
 	"github.com/wuhan005/sayrud/internal/dbutil"
+	"github.com/wuhan005/sayrud/internal/dto"
 	"github.com/wuhan005/sayrud/internal/form"
 )
 
@@ -25,6 +26,19 @@ var AI aiRoute
 
 type aiRoute struct{}
 
+// Advice
+// @Summary Get table design advice from AI
+// @Description Generate the advice of the action by AI from the conversation messages.
+// @Accept json
+// @Produce json
+// @Param projectUID path string true "Project UID"
+// @Param data body form.AIAdvice true "Action and conversation messages"
+// @Success 200 {object} dto.AIAdviceResp
+// @Failure 403 {string} string "Permission denied"
+// @Failure 404 {string} string "Project not found"
+// @Failure 500 {string} string "Internal server error"
+// @ID aiAdvice
+// @Router /projects/{projectUID}/ai/advice [post]
 func (aiRoute) Advice(ctx context.Context, f form.AIAdvice) error {
 	client := hunyuan.NewClient()
 
@@ -42,15 +56,28 @@ func (aiRoute) Advice(ctx context.Context, f form.AIAdvice) error {
 		return ctx.ApiServerError()
 	}
 
-	return ctx.ApiSuccess(map[string]interface{}{
-		"raw": resp.RawContent,
-
-		"action":      resp.Action,
-		"actionJson":  resp.ActionJSON,
-		"description": resp.Description,
+	return ctx.ApiSuccess(dto.AIAdviceResp{
+		Raw:         resp.RawContent,
+		Action:      resp.Action,
+		ActionJSON:  resp.ActionJSON,
+		Description: resp.Description,
 	})
 }
 
+// Apply
+// @Summary Apply the AI advice
+// @Description Apply the actionJson returned by the advice API, e.g. create the advised tables.
+// @Accept json
+// @Produce json
+// @Param projectUID path string true "Project UID"
+// @Param data body form.AIApply true "Action to apply"
+// @Success 204 "No Content"
+// @Failure 400 {string} string "Invalid action or payload"
+// @Failure 403 {string} string "Permission denied"
+// @Failure 404 {string} string "Project not found"
+// @Failure 500 {string} string "Internal server error"
+// @ID aiApply
+// @Router /projects/{projectUID}/ai/apply [post]
 func (aiRoute) Apply(ctx context.Context, project *db.Project, tx dbutil.Transactor, f form.AIApply) error {
 	switch f.Action {
 	case ai.ActionTypeTables:
@@ -62,7 +89,7 @@ func (aiRoute) Apply(ctx context.Context, project *db.Project, tx dbutil.Transac
 		for _, table := range applyTables {
 			errs, ok := govalid.Check(table)
 			if !ok {
-				return ctx.ApiError(http.StatusBadRequest, errs[0].Error())
+				return ctx.ApiError(http.StatusBadRequest, "%s", errs[0].Error())
 			}
 		}
 
@@ -70,18 +97,10 @@ func (aiRoute) Apply(ctx context.Context, project *db.Project, tx dbutil.Transac
 			slTablesStore := db.NewSLTablesStore(tx)
 
 			for _, table := range applyTables {
-				slTable, err := slTablesStore.Create(ctx.Request().Context(), project.ID, db.CreateSLTableOptions{
-					Name:  table.TableName,
-					Label: table.TableLabel,
-				})
-				if err != nil {
+				if _, err := slTablesStore.Create(ctx.Request().Context(), project.ID, db.CreateSLTableOptions{
+					Name: table.TableLabel,
+				}); err != nil {
 					return errors.Wrap(err, "create")
-				}
-
-				slTable.Project = *project
-
-				if err := slTablesStore.CreateView(ctx.Request().Context(), slTable); err != nil {
-					return errors.Wrap(err, "create sl view")
 				}
 			}
 
