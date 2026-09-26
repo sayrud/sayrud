@@ -1,0 +1,192 @@
+/* 飞书风格的设计变量，并覆盖 Arco 的主色与圆角。 */
+body {
+  --primary-1: 240, 244, 255;
+  --primary-2: 225, 234, 255;
+  --primary-3: 186, 206, 253;
+  --primary-4: 130, 167, 252;
+  --primary-5: 78, 131, 253;
+  --primary-6: 51, 112, 255;
+  --primary-7: 36, 91, 219;
+  --primary-8: 28, 63, 168;
+  --primary-9: 19, 44, 118;
+  --primary-10: 12, 29, 77;
+  --arcoblue-6: 51, 112, 255;
+  --link-6: 51, 112, 255;
+  --danger-6: 245, 74, 69;
+  --success-6: 52, 199, 36;
+  --warning-6: 255, 136, 0;
+  --border-radius-small: 4px;
+  --border-radius-medium: 6px;
+  --border-radius-large: 8px;
+
+  --color-primary: #3370ff;
+  --color-primary-hover: #4e83fd;
+  --color-primary-light: #e1eaff;
+  --color-primary-lighter: #f0f4ff;
+  --color-danger: #f54a45;
+  --color-success: #34c724;
+  --color-warning: #ff8800;
+
+  --text-title: #1f2329;
+  --text-body: #1f2329;
+  --text-caption: #646a73;
+  --text-placeholder: #8f959e;
+  --text-disabled: #bbbfc4;
+
+  --line-border: #dee0e3;
+  --line-divider: rgba(31, 35, 41, 0.12);
+  --grid-line: #e4e5e7;
+
+  --fill-hover: rgba(31, 35, 41, 0.06);
+  --fill-active: rgba(31, 35, 41, 0.1);
+  --bg-base: #f5f6f7;
+  --bg-body: #fff;
+  --bg-sidebar: #f7f8fa;
+
+  --grid-selected-row: #f0f4ff;
+  --grid-range: rgba(51, 112, 255, 0.08);
+  --grid-search: #fff3c7;
+  --grid-search-current: #ffd76b;
+
+  --shadow-popover: 0 6px 24px rgba(31, 35, 41, 0.12), 0 2px 6px rgba(31, 35, 41, 0.06);
+  --shadow-card: 0 1px 2px rgba(31, 35, 41, 0.06), 0 1px 4px rgba(31, 35, 41, 0.04);
+
+  margin: 0;
+  color: var(--text-body);
+  background: var(--bg-body);
+  font-family:
+    -apple-system, BlinkMacSystemFont, 'Helvetica Neue', 'PingFang SC', 'Microsoft YaHei', 'Segoe UI', Roboto,
+    sans-serif;
+  font-size: 14px;
+  -webkit-font-smoothing: antialiased;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  height: 100%;
+}
+
+button {
+  font: inherit;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(31, 35, 41, 0.2);
+  border-radius: 10px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(31, 35, 41, 0.35);
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* 通用小组件 */
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-caption);
+  cursor: pointer;
+  flex: none;
+}
+.icon-btn:hover {
+  background: var(--fill-hover);
+  color: var(--text-title);
+}
+.icon-btn:disabled {
+  color: var(--text-disabled);
+  cursor: not-allowed;
+  background: transparent;
+}
+.icon-btn.sm {
+  width: 22px;
+  height: 22px;
+  border-radius: 4px;
+}
+
+.tool-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 28px;
+  padding: 0 8px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-title);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.tool-btn:hover {
+  background: var(--fill-hover);
+}
+.tool-btn.active {
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+}
+.tool-btn svg {
+  color: inherit;
+}
+
+.panel-title {
+  font-weight: 600;
+  color: var(--text-title);
+}
+
+.text-caption {
+  color: var(--text-caption);
+}
+
+.ellipsis {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* Arco 微调 */
+/* 下拉、日期面板等需要盖过自定义浮层 FloatingPanel（z-index: 1100）。 */
+.arco-trigger-popup {
+  z-index: 1200 !important;
+}
+.arco-btn {
+  border-radius: 6px;
+}
+.arco-modal {
+  border-radius: 12px;
+}
+.arco-dropdown {
+  border-radius: 8px;
+  padding: 4px;
+}
+.arco-dropdown-option {
+  border-radius: 6px;
+}
+.arco-select-dropdown {
+  border-radius: 8px;
+}
+.arco-message {
+  border-radius: 8px;
+}
