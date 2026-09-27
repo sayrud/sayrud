@@ -726,10 +726,27 @@ function toggleAll() {
   store.selectedRecords = allChecked.value ? [] : layout.value.nav.map((r) => r.uid)
 }
 
-function toggleRow(uid: string) {
+// Anchor for Shift range checking: the UID of the record whose checkbox was clicked last.
+let checkAnchor: string | null = null
+
+function toggleRow(e: MouseEvent, uid: string) {
   const set = new Set(store.selectedRecords)
-  if (set.has(uid)) set.delete(uid)
-  else set.add(uid)
+  const checked = !set.has(uid)
+  const to = navIndex.value.get(uid)
+  let from = checkAnchor ? navIndex.value.get(checkAnchor) : undefined
+  // Without a usable anchor (e.g. the rows were checked before a remount), fall back to the latest checked row.
+  for (let i = store.selectedRecords.length - 1; from === undefined && i >= 0; i--) {
+    from = navIndex.value.get(store.selectedRecords[i])
+  }
+  if (e.shiftKey && from !== undefined && to !== undefined) {
+    // Every record between the anchor and the clicked row takes the clicked row's new state.
+    for (const r of layout.value.nav.slice(Math.min(from, to), Math.max(from, to) + 1)) {
+      if (checked) set.add(r.uid)
+      else set.delete(r.uid)
+    }
+  } else if (checked) set.add(uid)
+  else set.delete(uid)
+  checkAnchor = uid
   store.selectedRecords = [...set]
 }
 
@@ -1090,7 +1107,8 @@ defineExpose({ addRecord })
               <span
                 class="row-check"
                 :class="{ checked: store.selectedRecords.includes(item.record.uid) }"
-                @click.stop="toggleRow(item.record.uid)"
+                @mousedown.shift.prevent
+                @click.stop="toggleRow($event, item.record.uid)"
               >
                 <Check v-if="store.selectedRecords.includes(item.record.uid)" :size="11" :stroke-width="3" />
               </span>
