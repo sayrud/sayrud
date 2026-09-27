@@ -20,3 +20,5 @@
 .envrc
 .DS_Store
 .vscode
+
+config/sayrud.yaml
