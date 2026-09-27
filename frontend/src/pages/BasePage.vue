@@ -192,7 +192,7 @@ onBeforeUnmount(() => {
             <GalleryView v-else-if="view.type === 'gallery'" :view="view" />
             <FormView v-else-if="view.type === 'form'" :key="view.uid" :view="view" />
           </template>
-          <a-empty v-else-if="!store.tables.length" class="loading" description="还没有数据表，点击左侧「新建数据表」开始" />
+          <a-empty v-else-if="!store.tables.length" class="loading" description="还没有数据表，点击左侧的「+」新建数据表" />
         </div>
       </main>
     </div>

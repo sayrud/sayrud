@@ -23,11 +23,12 @@ const c = computed(() => tagColor(props.color))
   align-items: center;
   gap: 2px;
   max-width: 100%;
-  height: 22px;
-  padding: 0 8px;
-  border-radius: 11px;
-  font-size: 12px;
-  line-height: 22px;
+  height: 24px;
+  padding: 0 10px;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 24px;
   flex: none;
   vertical-align: middle;
 }

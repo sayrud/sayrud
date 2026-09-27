@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Message, Modal } from '@arco-design/web-vue'
-import { Copy, Ellipsis, PanelLeftClose, Pencil, Plus, Search, Table2, Trash } from '@lucide/vue'
+import { ChevronsLeft, Copy, Ellipsis, Pencil, Plus, Search, Table2, Trash, X } from '@lucide/vue'
 import { computed, nextTick, ref } from 'vue'
 
 import { openMenu } from '@/composables/useContextMenu'
@@ -94,15 +94,18 @@ function openActions(e: MouseEvent, uid: string, name: string) {
 <template>
   <aside class="sidebar">
     <div class="side-head">
-      <span class="side-title">数据表</span>
-      <button class="icon-btn sm" title="收起侧边栏" @click="emit('collapse')"><PanelLeftClose :size="15" /></button>
+      <label class="side-search">
+        <Search :size="15" class="search-icon" />
+        <input v-model="keyword" placeholder="搜索" @keydown.esc="keyword = ''" />
+        <button v-if="keyword" class="icon-btn sm clear" title="清空" @click="keyword = ''"><X :size="13" /></button>
+      </label>
+      <a-tooltip content="新建数据表" mini>
+        <button class="icon-btn" :disabled="creating" @click="create"><Plus :size="17" /></button>
+      </a-tooltip>
+      <a-tooltip content="收起侧边栏" mini>
+        <button class="icon-btn" @click="emit('collapse')"><ChevronsLeft :size="17" /></button>
+      </a-tooltip>
     </div>
-    <div class="side-search">
-      <a-input v-model="keyword" size="small" placeholder="搜索数据表" allow-clear>
-        <template #prefix><Search :size="13" /></template>
-      </a-input>
-    </div>
-    <button class="new-table" :disabled="creating" @click="create"><Plus :size="15" /> 新建数据表</button>
     <div class="table-list">
       <div
         v-for="t in tables"
@@ -146,32 +149,37 @@ function openActions(e: MouseEvent, uid: string, name: string) {
 .side-head {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  height: 44px;
-  padding: 0 10px 0 16px;
-}
-.side-title {
-  font-size: 13px;
-  color: var(--text-caption);
+  gap: 2px;
+  height: 48px;
+  padding: 0 8px 0 16px;
 }
 .side-search {
-  padding: 0 12px 8px;
-}
-.new-table {
+  flex: 1;
+  min-width: 0;
   display: flex;
   align-items: center;
-  gap: 6px;
-  height: 34px;
-  margin: 0 8px 4px;
-  padding: 0 10px;
-  border: none;
-  border-radius: 6px;
-  background: transparent;
-  color: var(--color-primary);
-  cursor: pointer;
+  gap: 8px;
+  height: 32px;
+  color: var(--text-caption);
+  cursor: text;
 }
-.new-table:hover {
-  background: var(--color-primary-lighter);
+.side-search input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: var(--text-title);
+  font: inherit;
+}
+.side-search input::placeholder {
+  color: var(--text-placeholder);
+}
+.search-icon {
+  flex: none;
+}
+.clear {
+  color: var(--text-placeholder);
 }
 .table-list {
   flex: 1;

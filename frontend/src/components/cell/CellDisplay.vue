@@ -89,7 +89,7 @@ const isNumeric = computed(
 }
 .tags {
   display: flex;
-  gap: 4px;
+  gap: 6px;
   min-width: 0;
   overflow: hidden;
 }

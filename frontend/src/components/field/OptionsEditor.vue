@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { GripVertical, Plus, X } from '@lucide/vue'
-import { nextTick, ref } from 'vue'
+import { computed, nextTick, ref } from 'vue'
 
 import FloatingPanel, { type Anchor } from '@/components/common/FloatingPanel.vue'
 import type { SelectOption } from '@/types/bitable'
-import { TAG_COLORS, tagColor } from '@/utils/colors'
+import { PALETTE_ROWS, TAG_COLORS, tagColor } from '@/utils/colors'
 import { newOptionUID } from '@/utils/id'
 
 const options = defineModel<SelectOption[]>({ required: true })
@@ -31,6 +31,11 @@ function remove(uid: string) {
 function update(uid: string, patch: Partial<SelectOption>) {
   options.value = options.value.map((o) => (o.uid === uid ? { ...o, ...patch } : o))
 }
+
+const currentColor = computed(() => {
+  const o = options.value.find((x) => x.uid === palette.value?.uid)
+  return o ? ((o.color % TAG_COLORS.length) + TAG_COLORS.length) % TAG_COLORS.length : -1
+})
 
 function openPalette(e: MouseEvent, uid: string) {
   const r = (e.currentTarget as HTMLElement).getBoundingClientRect()
@@ -70,7 +75,7 @@ function onEnter(e: KeyboardEvent, i: number) {
         <span class="grip" draggable="true" @dragstart="dragIndex = i" @dragend="onDrop">
           <GripVertical :size="14" />
         </span>
-        <span class="color-dot" :style="{ background: tagColor(o.color).solid }" @click="openPalette($event, o.uid)" />
+        <span class="color-dot" :style="{ background: tagColor(o.color).bg }" @click="openPalette($event, o.uid)" />
         <input
           class="option-input"
           :value="o.name"
@@ -85,15 +90,16 @@ function onEnter(e: KeyboardEvent, i: number) {
 
     <FloatingPanel v-if="palette" :anchor="palette.anchor" @close="palette = null">
       <div class="palette">
-        <span
-          v-for="(c, i) in TAG_COLORS"
-          :key="i"
-          class="palette-item"
-          :style="{ background: c.bg, color: c.text }"
-          @click="(update(palette!.uid, { color: i }), (palette = null))"
-        >
-          Aa
-        </span>
+        <div v-for="(row, r) in PALETTE_ROWS" :key="r" class="palette-row" :class="{ vivid: r === 0 }">
+          <span
+            v-for="i in row"
+            :key="i"
+            class="palette-item"
+            :class="{ selected: currentColor === i }"
+            :style="{ background: TAG_COLORS[i]!.bg }"
+            @click="(update(palette!.uid, { color: i }), (palette = null))"
+          />
+        </div>
       </div>
     </FloatingPanel>
   </div>
@@ -134,6 +140,7 @@ function onEnter(e: KeyboardEvent, i: number) {
   width: 14px;
   height: 14px;
   border-radius: 50%;
+  box-shadow: inset 0 0 0 1px rgba(31, 35, 41, 0.12);
   cursor: pointer;
   flex: none;
 }
@@ -166,22 +173,30 @@ function onEnter(e: KeyboardEvent, i: number) {
   background: var(--color-primary-lighter);
 }
 .palette {
-  display: grid;
-  grid-template-columns: repeat(5, 28px);
-  gap: 6px;
-  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px;
+}
+.palette-row {
+  display: flex;
+  gap: 8px;
+}
+.palette-row.vivid {
+  margin-bottom: 12px;
 }
 .palette-item {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  border-radius: 6px;
-  font-size: 12px;
+  width: 24px;
+  height: 24px;
+  border-radius: 5px;
   cursor: pointer;
 }
 .palette-item:hover {
+  outline: 2px solid var(--color-primary-light-3);
+  outline-offset: 1px;
+}
+.palette-item.selected {
   outline: 2px solid var(--color-primary);
+  outline-offset: 1px;
 }
 </style>
