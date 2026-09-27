@@ -1299,6 +1299,10 @@ defineExpose({ addRecord })
 .grid-footer .index-cell {
   background: #fff;
 }
+/* The summary bar has no column borders, the transparent border keeps the cells aligned with the columns. */
+.grid-footer .cell {
+  border-right-color: transparent;
+}
 .grid-scroll {
   --frozen-shadow: linear-gradient(to right, rgba(31, 35, 41, 0.1), rgba(31, 35, 41, 0.03) 50%, transparent);
 }
