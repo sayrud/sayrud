@@ -13,20 +13,35 @@ import (
 
 var _ SLFieldsStore = (*slFields)(nil)
 
+// SLFields is the default instance of the SLFieldsStore.
 var SLFields SLFieldsStore
 
+// SLFieldsStore is the persistent interface for the fields of schemaless tables.
 type SLFieldsStore interface {
+	// ListByTableID returns all the fields of the table ordered by position.
 	ListByTableID(ctx context.Context, tableID int64) (SLFieldList, error)
+	// GetByID returns the field with the given ID.
+	// It returns ErrSLFieldNotFound if the field does not exist.
 	GetByID(ctx context.Context, fieldID int64) (*SLField, error)
+	// GetByUID returns the field with the given UID.
+	// It returns ErrSLFieldNotFound if the field does not exist.
 	GetByUID(ctx context.Context, fieldUID string) (*SLField, error)
+	// Create creates a new field in the table.
+	// It returns ErrUnexpectedType if the field type is unknown, and ErrSLFieldExists if the UID has been used in the table.
 	Create(ctx context.Context, options CreateSLFieldOptions) (*SLField, error)
+	// SetLabel sets the label of the field.
 	SetLabel(ctx context.Context, fieldID int64, label string) error
+	// SetType sets the type of the field along with the metadata of the new type, the record values are not converted.
 	SetType(ctx context.Context, fieldID int64, slFieldType SLFieldType, metadata SLFieldMetadata) error
+	// SetMetadata replaces the metadata of the field.
 	SetMetadata(ctx context.Context, fieldID int64, metadata SLFieldMetadata) error
+	// SetPosition sets the position of the field, the fields at or after the position are moved back by one.
 	SetPosition(ctx context.Context, fieldID int64, position int64) error
 	// Move moves the field to the zero-based index among the table fields, and renumbers all the field positions.
 	Move(ctx context.Context, tableID, fieldID int64, index int) error
+	// DeleteByID deletes the field with the given ID, the record values of the field are kept.
 	DeleteByID(ctx context.Context, fieldID int64) error
+	// Count returns the number of fields in the table.
 	Count(ctx context.Context, tableID int64) (int64, error)
 }
 
@@ -34,18 +49,27 @@ func NewSLFieldsStore(db *gorm.DB) SLFieldsStore {
 	return &slFields{db}
 }
 
+// SLFieldList is a list of fields.
 type SLFieldList []*SLField
 
 // SLField represents the table fields of schemaless tables.
 type SLField struct {
+	// Model contains the primary key and the creation, update and deletion times.
 	dbutil.Model
 
-	SLTableID int64  `gorm:"index;uniqueIndex:idx_sl_table_id_uid, where:deleted_at IS NULL"`
-	UID       string `gorm:"uniqueIndex:idx_sl_table_id_uid, where:deleted_at IS NULL"`
-	Label     string
-	Type      SLFieldType
-	Metadata  datatypes.JSONType[SLFieldMetadata]
-	Position  int
+	// SLTableID is the ID of the table the field belongs to.
+	SLTableID int64 `gorm:"index;uniqueIndex:idx_sl_table_id_uid, where:deleted_at IS NULL"`
+	// UID is the public identifier of the field unique in the table, e.g. "fld" followed by 7 random characters.
+	// The record values are keyed by it, so renaming the field does not affect the records.
+	UID string `gorm:"uniqueIndex:idx_sl_table_id_uid, where:deleted_at IS NULL"`
+	// Label is the display name of the field, unique in the table.
+	Label string
+	// Type is the type of the field values.
+	Type SLFieldType
+	// Metadata is the type-specific configuration, e.g. select options, number format or formula expression.
+	Metadata datatypes.JSONType[SLFieldMetadata]
+	// Position is the order of the field in the table, starting from 0. The first field is the primary field.
+	Position int
 }
 
 func (slField *SLField) BeforeCreate(_ *gorm.DB) error {
@@ -56,11 +80,10 @@ func (slField *SLField) BeforeCreate(_ *gorm.DB) error {
 }
 
 type slFields struct {
+	// DB is the database connection the store operates on.
 	*gorm.DB
 }
 
-// ListByTableID returns the table field list from the given schemaless table.
-// It returns ErrSLTableNotFound if the table does not exist.
 func (db *slFields) ListByTableID(ctx context.Context, tableID int64) (SLFieldList, error) {
 	var slFields SLFieldList
 	if err := db.WithContext(ctx).Model(&SLField{}).Where("sl_table_id = ?", tableID).Order("position ASC, id ASC").Find(&slFields).Error; err != nil {
@@ -69,14 +92,20 @@ func (db *slFields) ListByTableID(ctx context.Context, tableID int64) (SLFieldLi
 	return slFields, nil
 }
 
+// CreateSLFieldOptions are the options of creating a field.
 type CreateSLFieldOptions struct {
 	// UID is generated randomly if empty.
-	UID       string
+	UID string
+	// SLTableID is the ID of the table the field belongs to.
 	SLTableID int64
-	Label     string
-	Type      SLFieldType
-	Metadata  SLFieldMetadata
-	Position  int
+	// Label is the display name of the field.
+	Label string
+	// Type is the type of the field values.
+	Type SLFieldType
+	// Metadata is the type-specific configuration.
+	Metadata SLFieldMetadata
+	// Position is the order of the field in the table.
+	Position int
 }
 
 var (

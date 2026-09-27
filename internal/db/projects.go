@@ -18,16 +18,31 @@ import (
 
 var _ ProjectsStore = (*projects)(nil)
 
+// Projects is the default instance of the ProjectsStore.
 var Projects ProjectsStore
 
+// ProjectsStore is the persistent interface for projects.
 type ProjectsStore interface {
+	// ListByUserID returns the paginated projects owned by the user, along with the total count.
 	ListByUserID(ctx context.Context, userID int64, options ListByUserIDOptions) ([]*Project, int64, error)
+	// GetByID returns the project with the given ID.
+	// It returns ErrProjectNotFound if the project does not exist.
 	GetByID(ctx context.Context, projectID int64) (*Project, error)
+	// GetByUID returns the project with the given UID.
+	// It returns ErrProjectNotFound if the project does not exist.
 	GetByUID(ctx context.Context, projectUID string) (*Project, error)
+	// Create creates a new project with the given options.
+	// It returns ErrProjectSchemaNameExists if the schema name has been used.
 	Create(ctx context.Context, opts CreateProjectOptions) (*Project, error)
+	// Update updates the project with the given ID.
+	// It returns ErrProjectNotFound if the project does not exist.
 	Update(ctx context.Context, projectID int64, opts UpdateProjectOptions) error
+	// DeleteByID deletes the project with the given ID.
 	DeleteByID(ctx context.Context, projectID int64) error
+	// CreateSchema creates the Postgres schema of the project.
+	// It returns ErrProjectSchemaNameExists if the schema already exists.
 	CreateSchema(ctx context.Context, projectID int64) error
+	// DeleteSchema drops the Postgres schema of the project along with all the views in it, the public schema can't be deleted.
 	DeleteSchema(ctx context.Context, projectID int64) error
 }
 
@@ -35,15 +50,23 @@ func NewProjectsStore(db *gorm.DB) ProjectsStore {
 	return &projects{db}
 }
 
+// Project is a collection of tables owned by a user.
 type Project struct {
+	// Model contains the primary key and the creation, update and deletion times.
 	dbutil.Model
-	UID         string `gorm:"uniqueIndex:idx_projects_uid, where:deleted_at IS NULL" json:"uid"`
-	OwnerUserID int64  `json:"-"`
-	Name        string `json:"name"`
-	SchemaName  string `gorm:"uniqueIndex:idx_projects_schema_name, where:deleted_at IS NULL" json:"schemaName"`
+	// UID is the unique public identifier of the project, it is generated when creating.
+	UID string `gorm:"uniqueIndex:idx_projects_uid, where:deleted_at IS NULL" json:"uid"`
+	// OwnerUserID is the ID of the user who owns the project.
+	OwnerUserID int64 `json:"-"`
+	// Name is the display name of the project.
+	Name string `json:"name"`
+	// SchemaName is the unique name of the Postgres schema of the project.
+	SchemaName string `gorm:"uniqueIndex:idx_projects_schema_name, where:deleted_at IS NULL" json:"schemaName"`
 
+	// CustomDomain is the custom domain serving the project APIs.
 	CustomDomain string `json:"customDomain"`
-	RoutePrefix  string `json:"routePrefix"`
+	// RoutePrefix is the path prefix of the project APIs.
+	RoutePrefix string `json:"routePrefix"`
 }
 
 func (project *Project) BeforeCreate(_ *gorm.DB) error {
@@ -52,10 +75,13 @@ func (project *Project) BeforeCreate(_ *gorm.DB) error {
 }
 
 type projects struct {
+	// DB is the database connection the store operates on.
 	*gorm.DB
 }
 
+// ListByUserIDOptions are the options of listing the projects of a user.
 type ListByUserIDOptions struct {
+	// Pagination is the page and page size of the list.
 	dbutil.Pagination
 }
 
@@ -79,10 +105,14 @@ func (db *projects) GetByUID(ctx context.Context, projectUID string) (*Project, 
 	return db.getBy(ctx, "uid = ?", projectUID)
 }
 
+// CreateProjectOptions are the options of creating a project.
 type CreateProjectOptions struct {
+	// OwnerUserID is the ID of the user who owns the project.
 	OwnerUserID int64
-	Name        string
-	SchemaName  string
+	// Name is the display name of the project.
+	Name string
+	// SchemaName is the unique name of the Postgres schema of the project.
+	SchemaName string
 }
 
 var ErrProjectSchemaNameExists = errors.New("project schema name exists")
@@ -102,7 +132,9 @@ func (db *projects) Create(ctx context.Context, opts CreateProjectOptions) (*Pro
 	return project, nil
 }
 
+// UpdateProjectOptions are the options of updating a project.
 type UpdateProjectOptions struct {
+	// Name is the new display name of the project.
 	Name string
 }
 

@@ -17,15 +17,29 @@ import (
 
 var _ UsersStore = (*users)(nil)
 
+// Users is the default instance of the UsersStore.
 var Users UsersStore
 
+// UsersStore is the persistent interface for users.
 type UsersStore interface {
+	// GetByID returns the user with the given ID.
+	// It returns ErrUserNotFound if the user does not exist.
 	GetByID(ctx context.Context, userID uint) (*User, error)
+	// GetByUID returns the user with the given UID.
+	// It returns ErrUserNotFound if the user does not exist.
 	GetByUID(ctx context.Context, userUID string) (*User, error)
+	// GetByEmail returns the user with the given email.
+	// It returns ErrUserNotFound if the user does not exist.
 	GetByEmail(ctx context.Context, email string) (*User, error)
+	// GetOrCreateDefault returns the earliest created user as the default user, creating one if there is no user.
 	GetOrCreateDefault(ctx context.Context) (*User, error)
+	// Create creates a new user with the given options.
+	// It returns ErrUserAlreadyExisted if the email or GitHub ID has been used.
 	Create(ctx context.Context, options CreateUserOptions) (*User, error)
+	// Update updates the user with the given ID.
+	// It returns ErrUserNotFound if the user does not exist.
 	Update(ctx context.Context, id uint, options UpdateUserOptions) error
+	// DeleteByID deletes the user with the given ID.
 	DeleteByID(ctx context.Context, id uint) error
 }
 
@@ -33,16 +47,24 @@ func NewUsersStore(db *gorm.DB) UsersStore {
 	return &users{db}
 }
 
+// User is a user of the application.
 type User struct {
+	// Model contains the primary key and the creation, update and deletion times.
 	dbutil.Model
-	Email       string `gorm:"uniqueIndex:idx_user_email, where:deleted_at IS NULL" json:"email"`
-	EmailMd5    string `json:"emailMd5"`
-	UserName    string `json:"userName"`
-	GitHubID    string `gorm:"uniqueIndex:idx_user_github_id, where:deleted_at IS NULL" json:"githubID"`
+	// Email is the unique email of the user.
+	Email string `gorm:"uniqueIndex:idx_user_email, where:deleted_at IS NULL" json:"email"`
+	// EmailMd5 is the MD5 hash of the lowercase email, which is used for the Gravatar avatar.
+	EmailMd5 string `json:"emailMd5"`
+	// UserName is the display name of the user.
+	UserName string `json:"userName"`
+	// GitHubID is the unique GitHub account ID of the user, empty if the user does not sign in with GitHub.
+	GitHubID string `gorm:"uniqueIndex:idx_user_github_id, where:deleted_at IS NULL" json:"githubID"`
+	// AccessToken is the OAuth access token of the user, it is never exposed.
 	AccessToken string `json:"-"`
 }
 
 type users struct {
+	// DB is the database connection the store operates on.
 	*gorm.DB
 }
 
@@ -103,10 +125,15 @@ func (db *users) GetOrCreateDefault(ctx context.Context) (*User, error) {
 	return created, nil
 }
 
+// CreateUserOptions are the options of creating a user.
 type CreateUserOptions struct {
-	Email       string
-	UserName    string
-	GitHubID    string
+	// Email is the unique email of the user.
+	Email string
+	// UserName is the display name of the user.
+	UserName string
+	// GitHubID is the unique GitHub account ID of the user, it can be empty.
+	GitHubID string
+	// AccessToken is the OAuth access token of the user, it can be empty.
 	AccessToken string
 }
 
@@ -127,7 +154,9 @@ func (db *users) Create(ctx context.Context, options CreateUserOptions) (*User, 
 	return user, nil
 }
 
+// UpdateUserOptions are the options of updating a user.
 type UpdateUserOptions struct {
+	// UserName is the new display name of the user.
 	UserName string
 }
 

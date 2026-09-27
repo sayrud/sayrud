@@ -21,21 +21,37 @@ import (
 
 var _ SLRecordsStore = (*slRecords)(nil)
 
+// SLRecords is the default instance of the SLRecordsStore.
 var SLRecords SLRecordsStore
 
+// SLRecordsStore is the persistent interface for the records of schemaless tables.
 type SLRecordsStore interface {
+	// GetByID returns the record with the given ID.
+	// It returns ErrSLRecordNotFound if the record does not exist.
 	GetByID(ctx context.Context, slRecordID int64) (*SLRecord, error)
+	// GetByUID returns the record with the given UID.
+	// It returns ErrSLRecordNotFound if the record does not exist.
 	GetByUID(ctx context.Context, slRecordUID string) (*SLRecord, error)
-	// ListByUIDs returns the records of the table with the given UIDs, the missing ones are skipped.
+	// ListByUIDs returns the records of the table with the given UIDs in creation order, the missing ones are skipped.
 	ListByUIDs(ctx context.Context, slTableID int64, uids []string) ([]*SLRecord, error)
 	// ListAll returns all the records of the table in creation order.
 	ListAll(ctx context.Context, slTableID int64) ([]*SLRecord, error)
+	// Query returns the paginated records matching the filter, group and order options, along with the filtered total count.
+	// It returns ErrSLFieldNotFound if any referenced field does not exist, ErrSLFieldNotQueryable if any referenced field is a formula,
+	// and ErrUnsupportedFilterOperation, ErrInvalidFilterValue or ErrInvalidSortOrder if the options are invalid.
 	Query(ctx context.Context, slTableID int64, options QuerySLRecordsOptions) ([]*SLRecord, int64, error)
+	// Import creates the records in batch and returns them in the same order as the options.
+	// It returns ErrSLRecordExists if any UID has been used in the table.
 	Import(ctx context.Context, slTableID int64, options ImportSLRecordsOptions) ([]*SLRecord, error)
+	// Create creates a record in the table with the data keyed by field UID.
 	Create(ctx context.Context, slTableID int64, jsonBytes json.RawMessage) (*SLRecord, error)
+	// Update replaces the data of the record with the given ID.
 	Update(ctx context.Context, slRecordID int64, jsonBytes json.RawMessage) error
+	// CountByTableID returns the number of records in the table.
 	CountByTableID(ctx context.Context, slTableID int64) (int64, error)
+	// DeleteByID deletes the record with the given ID.
 	DeleteByID(ctx context.Context, slRecordID int64) error
+	// DeleteByUIDs deletes the records of the table with the given UIDs, the missing ones are skipped.
 	DeleteByUIDs(ctx context.Context, slTableID int64, uids []string) error
 	// RemoveFieldData removes the value of the field from all the records of the table.
 	RemoveFieldData(ctx context.Context, slTableID int64, fieldUID string) error
@@ -47,11 +63,15 @@ func NewSLRecordsStore(db *gorm.DB) SLRecordsStore {
 
 // SLRecord represents the table records in schemaless tables.
 type SLRecord struct {
+	// Model contains the primary key and the creation, update and deletion times.
 	dbutil.Model
 
-	SLTableID int64          `gorm:"index;uniqueIndex:idx_sl_table_id_uid, where:deleted_at IS NULL"`
-	UID       string         `gorm:"uniqueIndex:idx_sl_table_id_uid, where:deleted_at IS NULL"`
-	Data      datatypes.JSON `gorm:"type:jsonb"`
+	// SLTableID is the ID of the table the record belongs to.
+	SLTableID int64 `gorm:"index;uniqueIndex:idx_sl_table_id_uid, where:deleted_at IS NULL"`
+	// UID is the public identifier of the record unique in the table, e.g. "rec" followed by 11 random characters.
+	UID string `gorm:"uniqueIndex:idx_sl_table_id_uid, where:deleted_at IS NULL"`
+	// Data is the sparse cell values keyed by field UID, the empty values are omitted.
+	Data datatypes.JSON `gorm:"type:jsonb"`
 }
 
 func (slRecord *SLRecord) BeforeCreate(_ *gorm.DB) error {
@@ -62,6 +82,7 @@ func (slRecord *SLRecord) BeforeCreate(_ *gorm.DB) error {
 }
 
 type slRecords struct {
+	// DB is the database connection the store operates on.
 	*gorm.DB
 }
 
@@ -73,6 +94,7 @@ func (db *slRecords) GetByUID(ctx context.Context, slRecordUID string) (*SLRecor
 	return db.getBy(ctx, "uid = ?", slRecordUID)
 }
 
+// FilterOperation is the comparison operation of a record filter.
 type FilterOperation string
 
 const (
@@ -87,28 +109,41 @@ const (
 	FilterOperationLike               FilterOperation = "like"
 )
 
+// QuerySLRecordsFilter is a condition on a field value.
 type QuerySLRecordsFilter struct {
-	FieldUID  string
+	// FieldUID is the UID of the field to compare.
+	FieldUID string
+	// Operation is the comparison operation.
 	Operation FilterOperation
 	// Value is a JSON array (e.g. `["a","b"]`, `[1,2]`) for in / nin, and a single value for other operations.
 	Value string
 }
 
+// QuerySLRecordsSort sorts the records by a field value.
 type QuerySLRecordsSort struct {
+	// FieldUID is the UID of the field to sort by.
 	FieldUID string
-	Order    string
+	// Order is "asc" or "desc", empty is treated as "asc".
+	Order string
 }
 
+// QuerySLRecordsGroup groups the records by a field value.
 type QuerySLRecordsGroup struct {
+	// FieldUID is the UID of the field to group by.
 	FieldUID string
 }
 
+// QuerySLRecordsOptions are the options of querying the records.
 type QuerySLRecordsOptions struct {
+	// Filter are the conditions the records must all match.
 	Filter []QuerySLRecordsFilter
-	Order  []QuerySLRecordsSort
+	// Order are the sort keys applied in order, the newest records come first for ties.
+	Order []QuerySLRecordsSort
 	// Group sorts records by the field values before Order, so records in the same group are adjacent.
-	Group  []QuerySLRecordsGroup
-	Limit  int
+	Group []QuerySLRecordsGroup
+	// Limit is the maximum number of records, it defaults to dbutil.DefaultPageSize if not positive.
+	Limit int
+	// Offset is the number of records to skip.
 	Offset int
 }
 
@@ -383,7 +418,9 @@ func (db *slRecords) getBy(ctx context.Context, where string, args ...interface{
 	return &slRecord, nil
 }
 
+// ImportSLRecordsOptions are the options of importing records in batch.
 type ImportSLRecordsOptions struct {
+	// Data are the data of the records keyed by field UID, one item for each record.
 	Data []json.RawMessage
 	// UIDs are the UIDs of the records in the same order as Data, random UIDs are generated if it is empty.
 	UIDs []string

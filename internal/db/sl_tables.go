@@ -12,15 +12,27 @@ import (
 
 var _ SLTablesStore = (*slTables)(nil)
 
+// SLTables is the default instance of the SLTablesStore.
 var SLTables SLTablesStore
 
+// SLTablesStore is the persistent interface for schemaless tables.
 type SLTablesStore interface {
+	// Query returns the paginated tables of the project in creation order, along with the total count of the project tables.
 	Query(ctx context.Context, options QuerySLTableOptions) ([]*SLTable, int64, error)
+	// GetByID returns the table with the given ID.
+	// It returns ErrSLTableNotFound if the table does not exist.
 	GetByID(ctx context.Context, tableID int64) (*SLTable, error)
+	// GetByUID returns the table with the given UID.
+	// It returns ErrSLTableNotFound if the table does not exist.
 	GetByUID(ctx context.Context, tableUID string) (*SLTable, error)
+	// Create creates a new table in the project.
+	// It returns ErrSLTableExists if the generated UID collides.
 	Create(ctx context.Context, projectID int64, options CreateSLTableOptions) (*SLTable, error)
+	// Update updates the table with the given ID.
 	Update(ctx context.Context, tableID int64, options UpdateSLTableOptions) error
+	// DeleteByID deletes the table with the given ID, its fields, records and views are kept.
 	DeleteByID(ctx context.Context, tableID int64) error
+	// CountByProjectID returns the number of tables in the project.
 	CountByProjectID(ctx context.Context, projectID int64) (int64, error)
 	// IncreaseRev increases the revision of the table by one and returns the new revision.
 	// The table row stays locked until the transaction ends, so the changes of a table are serialized.
@@ -33,11 +45,15 @@ func NewSLTablesStore(db *gorm.DB) SLTablesStore {
 
 // SLTable represents the structure of the schemaless table.
 type SLTable struct {
+	// Model contains the primary key and the creation, update and deletion times.
 	dbutil.Model
 
-	UID       string `gorm:"uniqueIndex:idx_sl_table_uid, where:deleted_at IS NULL"`
-	ProjectID int64  `gorm:"index"`
-	Name      string
+	// UID is the unique public identifier of the table, e.g. "tbl" followed by 13 random characters.
+	UID string `gorm:"uniqueIndex:idx_sl_table_uid, where:deleted_at IS NULL"`
+	// ProjectID is the ID of the project the table belongs to.
+	ProjectID int64 `gorm:"index"`
+	// Name is the display name of the table.
+	Name string
 	// Rev is the revision of the table data, it increases by one for each changeset.
 	Rev int64 `gorm:"not null;default:0"`
 }
@@ -50,15 +66,18 @@ func (slTable *SLTable) BeforeCreate(_ *gorm.DB) error {
 }
 
 type slTables struct {
+	// DB is the database connection the store operates on.
 	*gorm.DB
 }
 
+// QuerySLTableOptions are the options of querying the tables.
 type QuerySLTableOptions struct {
+	// ProjectID is the ID of the project whose tables are queried.
 	ProjectID int64
+	// Pagination is the page and page size of the list.
 	dbutil.Pagination
 }
 
-// Query 按创建顺序分页返回项目下的数据表，以及该项目的数据表总数。
 func (db *slTables) Query(ctx context.Context, options QuerySLTableOptions) ([]*SLTable, int64, error) {
 	q := db.WithContext(ctx).Model(&SLTable{}).Where("project_id = ?", options.ProjectID)
 
@@ -96,7 +115,9 @@ func (db *slTables) getBy(ctx context.Context, where string, args ...interface{}
 	return &slTable, nil
 }
 
+// CreateSLTableOptions are the options of creating a table.
 type CreateSLTableOptions struct {
+	// Name is the display name of the table.
 	Name string
 }
 
@@ -116,7 +137,9 @@ func (db *slTables) Create(ctx context.Context, projectID int64, options CreateS
 	return slTable, nil
 }
 
+// UpdateSLTableOptions are the options of updating a table.
 type UpdateSLTableOptions struct {
+	// Name is the new display name of the table.
 	Name string
 }
 

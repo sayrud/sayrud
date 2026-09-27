@@ -17,15 +17,28 @@ import (
 
 var _ ApisStore = (*apis)(nil)
 
+// Apis is the default instance of the ApisStore.
 var Apis ApisStore
 
+// ApisStore is the persistent interface for the custom APIs of the projects.
 type ApisStore interface {
+	// List returns the paginated APIs of the project, along with the total count.
 	List(ctx context.Context, projectID uint, options ListApiOptions) ([]*Api, int64, error)
+	// GetByID returns the API with the given ID.
+	// It returns ErrApiNotFound if the API does not exist.
 	GetByID(ctx context.Context, apiID uint) (*Api, error)
+	// GetByUID returns the API with the given UID.
+	// It returns ErrApiNotFound if the API does not exist.
 	GetByUID(ctx context.Context, apiUID string) (*Api, error)
+	// GetByMethodPath returns the API of the project matching the HTTP method and path, the method "*" matches all methods.
+	// It returns ErrApiNotFound if no API matches.
 	GetByMethodPath(ctx context.Context, projectID uint, method, path string) (*Api, error)
+	// Create creates a new API with the given options.
 	Create(ctx context.Context, opts CreateApiOptions) (*Api, error)
+	// Update updates the API with the given ID.
+	// It returns ErrApiNotFound if the API does not exist.
 	Update(ctx context.Context, apiID uint, opts UpdateApiOptions) error
+	// DeleteByID deletes the API with the given ID.
 	DeleteByID(ctx context.Context, apoID uint) error
 }
 
@@ -33,27 +46,42 @@ func NewApisStore(db *gorm.DB) ApisStore {
 	return &apis{db}
 }
 
+// Api is a custom API of a project, which serves the table data by the configured kind and options.
 type Api struct {
+	// Model contains the primary key and the creation, update and deletion times.
 	dbutil.Model
 
-	Kind      string  `json:"kind"`
-	ProjectID uint    `gorm:"uniqueIndex:idx_sl_table_project_id_name, where:deleted_at IS NULL" json:"-"`
-	Project   Project `gorm:"foreignKey:ProjectID" json:"-"`
+	// Kind is the operation of the API, e.g. list, view, create, update and delete.
+	Kind string `json:"kind"`
+	// ProjectID is the ID of the project the API belongs to.
+	ProjectID uint `gorm:"uniqueIndex:idx_sl_table_project_id_name, where:deleted_at IS NULL" json:"-"`
+	// Project is the project the API belongs to, it is preloaded when querying.
+	Project Project `gorm:"foreignKey:ProjectID" json:"-"`
 
-	Methods     pq.StringArray `gorm:"type:text[]" json:"methods"`
-	Path        string         `json:"path"`
+	// Methods are the HTTP methods the API accepts, "*" accepts all methods.
+	Methods pq.StringArray `gorm:"type:text[]" json:"methods"`
+	// Path is the request path of the API, relative to the project.
+	Path string `json:"path"`
+	// QueryParams are the definitions of the query parameters.
 	QueryParams datatypes.JSON `gorm:"type:jsonb" json:"queryParams"`
-	BodyParams  datatypes.JSON `gorm:"type:jsonb" json:"bodyParams"`
-	Options     datatypes.JSON `gorm:"type:jsonb" json:"options"`
+	// BodyParams are the definitions of the request body parameters.
+	BodyParams datatypes.JSON `gorm:"type:jsonb" json:"bodyParams"`
+	// Options are the kind-specific options, e.g. the datasets to query.
+	Options datatypes.JSON `gorm:"type:jsonb" json:"options"`
+	// Middlewares are the middlewares applied before handling the request, e.g. rate limit and captcha.
 	Middlewares datatypes.JSON `gorm:"type:jsonb" json:"middlewares"`
-	Response    datatypes.JSON `gorm:"type:jsonb" json:"response"`
+	// Response is the template of the response body.
+	Response datatypes.JSON `gorm:"type:jsonb" json:"response"`
 }
 
 type apis struct {
+	// DB is the database connection the store operates on.
 	*gorm.DB
 }
 
+// ListApiOptions are the options of listing the APIs.
 type ListApiOptions struct {
+	// Pagination is the page and page size of the list.
 	dbutil.Pagination
 }
 
@@ -97,16 +125,26 @@ func (db *apis) GetByMethodPath(ctx context.Context, projectID uint, method, pat
 	)
 }
 
+// CreateApiOptions are the options of creating an API, see Api for the meaning of each field.
 type CreateApiOptions struct {
-	ProjectID   uint
-	Kind        string
-	Methods     pq.StringArray
-	Path        string
+	// ProjectID is the ID of the project the API belongs to.
+	ProjectID uint
+	// Kind is the operation of the API.
+	Kind string
+	// Methods are the HTTP methods the API accepts.
+	Methods pq.StringArray
+	// Path is the request path of the API.
+	Path string
+	// QueryParams are the definitions of the query parameters.
 	QueryParams datatypes.JSON
-	BodyParams  datatypes.JSON
-	Options     datatypes.JSON
+	// BodyParams are the definitions of the request body parameters.
+	BodyParams datatypes.JSON
+	// Options are the kind-specific options.
+	Options datatypes.JSON
+	// Middlewares are the middlewares applied before handling the request.
 	Middlewares datatypes.JSON
-	Response    datatypes.JSON
+	// Response is the template of the response body.
+	Response datatypes.JSON
 }
 
 func (db *apis) Create(ctx context.Context, opts CreateApiOptions) (*Api, error) {
@@ -127,15 +165,24 @@ func (db *apis) Create(ctx context.Context, opts CreateApiOptions) (*Api, error)
 	return api, nil
 }
 
+// UpdateApiOptions are the options of updating an API, all the fields are overwritten.
 type UpdateApiOptions struct {
-	Kind        string
-	Methods     pq.StringArray
-	Path        string
+	// Kind is the operation of the API.
+	Kind string
+	// Methods are the HTTP methods the API accepts.
+	Methods pq.StringArray
+	// Path is the request path of the API.
+	Path string
+	// QueryParams are the definitions of the query parameters.
 	QueryParams datatypes.JSON
-	BodyParams  datatypes.JSON
-	Options     datatypes.JSON
+	// BodyParams are the definitions of the request body parameters.
+	BodyParams datatypes.JSON
+	// Options are the kind-specific options.
+	Options datatypes.JSON
+	// Middlewares are the middlewares applied before handling the request.
 	Middlewares datatypes.JSON
-	Response    datatypes.JSON
+	// Response is the template of the response body.
+	Response datatypes.JSON
 }
 
 func (db *apis) Update(ctx context.Context, apiID uint, opts UpdateApiOptions) error {
