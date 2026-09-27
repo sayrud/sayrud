@@ -1,19 +1,19 @@
 <script setup lang="ts">
 import { Message, Modal } from '@arco-design/web-vue'
-import { Ellipsis, Pencil, Plus, RotateCcw, Search, Table2, Trash } from '@lucide/vue'
+import { Ellipsis, Pencil, Plus, Search, Table2, Trash } from '@lucide/vue'
 import dayjs from 'dayjs'
 import relativeTime from 'dayjs/plugin/relativeTime'
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 
 import { projectsApi, type ProjectListItem } from '@/api/bitable'
-import { USE_MOCK } from '@/api/http'
 import { openMenu } from '@/composables/useContextMenu'
-import { resetMockDatabase } from '@/mock/db'
+import { getIdentity } from '@/collab/identity'
 
 dayjs.extend(relativeTime)
 
 const router = useRouter()
+const identity = getIdentity()
 const projects = ref<ProjectListItem[]>([])
 const loading = ref(true)
 const keyword = ref('')
@@ -34,7 +34,9 @@ const colorOf = (uid: string) => COLORS[[...uid].reduce((s, c) => s + c.charCode
 async function load() {
   loading.value = true
   try {
-    projects.value = (await projectsApi.list()).projects
+    projects.value = (await projectsApi.list()).projects as ProjectListItem[]
+  } catch (e) {
+    Message.error(e instanceof Error ? e.message : String(e))
   } finally {
     loading.value = false
   }
@@ -93,18 +95,6 @@ async function rename() {
   load()
 }
 
-function reset() {
-  Modal.confirm({
-    title: '重置示例数据？',
-    content: '将清空本地 Mock 数据库并恢复为初始示例数据。',
-    onOk: () => {
-      resetMockDatabase()
-      load()
-      Message.success('已重置')
-    },
-  })
-}
-
 onMounted(load)
 </script>
 
@@ -116,9 +106,7 @@ onMounted(load)
         <span>Sayrud 多维表格</span>
       </div>
       <div class="header-right">
-        <a-tag v-if="USE_MOCK" color="orangered" size="small">Mock 数据</a-tag>
-        <button v-if="USE_MOCK" class="tool-btn" @click="reset"><RotateCcw :size="14" /> 重置示例数据</button>
-        <a-avatar :size="28" :style="{ backgroundColor: '#3370ff' }">我</a-avatar>
+        <a-avatar :size="28" :style="{ backgroundColor: identity.color }" :title="identity.name">{{ identity.name.slice(-1) }}</a-avatar>
       </div>
     </header>
 

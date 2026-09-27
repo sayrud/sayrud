@@ -24,6 +24,8 @@ type SLFieldsStore interface {
 	SetType(ctx context.Context, fieldID int64, slFieldType SLFieldType, metadata SLFieldMetadata) error
 	SetMetadata(ctx context.Context, fieldID int64, metadata SLFieldMetadata) error
 	SetPosition(ctx context.Context, fieldID int64, position int64) error
+	// Move moves the field to the zero-based index among the table fields, and renumbers all the field positions.
+	Move(ctx context.Context, tableID, fieldID int64, index int) error
 	DeleteByID(ctx context.Context, fieldID int64) error
 	Count(ctx context.Context, tableID int64) (int64, error)
 }
@@ -47,7 +49,9 @@ type SLField struct {
 }
 
 func (slField *SLField) BeforeCreate(_ *gorm.DB) error {
-	slField.UID = "fld" + randstr.String(7)
+	if slField.UID == "" {
+		slField.UID = "fld" + randstr.String(7)
+	}
 	return nil
 }
 
@@ -59,13 +63,15 @@ type slFields struct {
 // It returns ErrSLTableNotFound if the table does not exist.
 func (db *slFields) ListByTableID(ctx context.Context, tableID int64) (SLFieldList, error) {
 	var slFields SLFieldList
-	if err := db.WithContext(ctx).Model(&SLField{}).Where("sl_table_id = ?", tableID).Order("position ASC").Find(&slFields).Error; err != nil {
+	if err := db.WithContext(ctx).Model(&SLField{}).Where("sl_table_id = ?", tableID).Order("position ASC, id ASC").Find(&slFields).Error; err != nil {
 		return nil, errors.Wrap(err, "find")
 	}
 	return slFields, nil
 }
 
 type CreateSLFieldOptions struct {
+	// UID is generated randomly if empty.
+	UID       string
 	SLTableID int64
 	Label     string
 	Type      SLFieldType
@@ -85,6 +91,7 @@ func (db *slFields) Create(ctx context.Context, options CreateSLFieldOptions) (*
 	}
 
 	slField := &SLField{
+		UID:       options.UID,
 		SLTableID: options.SLTableID,
 		Label:     options.Label,
 		Type:      options.Type,
@@ -157,6 +164,14 @@ func (db *slFields) SetPosition(ctx context.Context, fieldID int64, position int
 		}
 		return nil
 	})
+}
+
+func (db *slFields) Move(ctx context.Context, tableID, fieldID int64, index int) error {
+	fields, err := db.ListByTableID(ctx, tableID)
+	if err != nil {
+		return errors.Wrap(err, "list fields")
+	}
+	return movePositions(ctx, db.DB, &SLField{}, fields, func(f *SLField) int64 { return f.ID }, fieldID, index)
 }
 
 func (db *slFields) set(ctx context.Context, id int64, fields map[string]interface{}) error {

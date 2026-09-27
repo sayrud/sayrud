@@ -700,6 +700,65 @@
                 }
             }
         },
+        "/projects/{projectUID}/tables/{tableUID}/changesets": {
+            "get": {
+                "description": "Return the changesets whose revision is greater than since in revision order, for the client to catch up after missing broadcasts.",
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "List the missing changesets",
+                "operationId": "listChangesets",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Project UID",
+                        "name": "projectUID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Table UID",
+                        "name": "tableUID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "The latest revision the client has applied",
+                        "name": "since",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/ListChangesetsResp"
+                        }
+                    },
+                    "403": {
+                        "description": "Permission denied",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "404": {
+                        "description": "Project or table not found",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
         "/projects/{projectUID}/tables/{tableUID}/fields": {
             "get": {
                 "description": "List all the fields of the table, ordered by position.",
@@ -970,7 +1029,7 @@
         },
         "/projects/{projectUID}/tables/{tableUID}/fields/{fieldUID}/position": {
             "put": {
-                "description": "Set the position of the field, the fields at or after the position are moved back by one.",
+                "description": "Move the field to the zero-based index among the table fields.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1215,6 +1274,79 @@
                     },
                     "400": {
                         "description": "Field not found or value mismatches the field type",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "403": {
+                        "description": "Permission denied",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "404": {
+                        "description": "Project or table not found",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/projects/{projectUID}/tables/{tableUID}/records/fetch": {
+            "post": {
+                "description": "Return the records with the given UIDs in creation order, the deleted ones are omitted. It is used to reload the dirty records.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "Fetch records by UID",
+                "operationId": "fetchRecords",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Project UID",
+                        "name": "projectUID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Table UID",
+                        "name": "tableUID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Record UIDs",
+                        "name": "data",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/FetchRecords"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/SLRecord"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request body",
                         "schema": {
                             "type": "string"
                         }
@@ -1491,6 +1623,163 @@
                     }
                 }
             }
+        },
+        "/projects/{projectUID}/tables/{tableUID}/snapshot": {
+            "get": {
+                "description": "Return the fields, views and all the records of the table consistently at the latest revision.",
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "Get the table snapshot",
+                "operationId": "getTableSnapshot",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Project UID",
+                        "name": "projectUID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Table UID",
+                        "name": "tableUID",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/TableSnapshot"
+                        }
+                    },
+                    "403": {
+                        "description": "Permission denied",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "404": {
+                        "description": "Project or table not found",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/projects/{projectUID}/tables/{tableUID}/views": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "List views",
+                "operationId": "listViews",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Project UID",
+                        "name": "projectUID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Table UID",
+                        "name": "tableUID",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/SLView"
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Permission denied",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "404": {
+                        "description": "Project or table not found",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/projects/{projectUID}/ws": {
+            "get": {
+                "description": "Upgrade to WebSocket to submit changesets and receive the changes of the subscribed tables and the online members.\nMessages are JSON `{type, reqId, data}`. Client: SUBSCRIBE, UNSUBSCRIBE, USER_CHANGES, PRESENCE, PING.\nServer: HELLO, SUBSCRIBED, ACCEPT_COMMIT, REJECT_COMMIT, NEW_CHANGES, MEMBERS, TABLES_CHANGED, PROJECT_CHANGED, ERROR, PONG.",
+                "summary": "Collaborate on the project over WebSocket",
+                "operationId": "collaborate",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Project UID",
+                        "name": "projectUID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Anonymous identity of the browser",
+                        "name": "memberId",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Display name of the collaborator",
+                        "name": "name",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Avatar color of the collaborator, e.g. #3370ff",
+                        "name": "color",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "101": {
+                        "description": "Switching Protocols"
+                    },
+                    "403": {
+                        "description": "Permission denied",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "404": {
+                        "description": "Project not found",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
         }
     },
     "definitions": {
@@ -1574,6 +1863,68 @@
                 }
             }
         },
+        "Action": {
+            "type": "object",
+            "required": [
+                "action"
+            ],
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": [
+                        "record.add",
+                        "record.set",
+                        "record.delete",
+                        "field.add",
+                        "field.set",
+                        "field.setType",
+                        "field.move",
+                        "field.delete",
+                        "view.add",
+                        "view.set",
+                        "view.move",
+                        "view.delete",
+                        "table.dirty"
+                    ]
+                },
+                "dirty": {
+                    "$ref": "#/definitions/DirtyScope"
+                },
+                "field": {
+                    "$ref": "#/definitions/FieldAttrs"
+                },
+                "fieldUID": {
+                    "description": "FieldUID is generated by the client for field.add.",
+                    "type": "string"
+                },
+                "index": {
+                    "description": "Index is the zero-based position for field.move / view.move, and the optional insert position for field.add / view.add.",
+                    "type": "integer"
+                },
+                "recordUID": {
+                    "description": "RecordUID is generated by the client for record.add.",
+                    "type": "string"
+                },
+                "recordUIDs": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "values": {
+                    "description": "Values are the cell values keyed by field UID for record.add / record.set, a null value clears the cell.",
+                    "type": "object",
+                    "additionalProperties": true
+                },
+                "view": {
+                    "$ref": "#/definitions/ViewAttrs"
+                },
+                "viewUID": {
+                    "description": "ViewUID is generated by the client for view.add.",
+                    "type": "string"
+                }
+            }
+        },
         "BatchCreateRecords": {
             "type": "object",
             "required": [
@@ -1587,6 +1938,38 @@
                         "type": "object",
                         "additionalProperties": true
                     }
+                }
+            }
+        },
+        "Changeset": {
+            "type": "object",
+            "required": [
+                "clientId",
+                "operations",
+                "rev",
+                "signature",
+                "tableUID"
+            ],
+            "properties": {
+                "clientId": {
+                    "description": "ClientID is the connection that submits the changeset, it is empty for the changesets generated by the server.",
+                    "type": "string"
+                },
+                "operations": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/Operation"
+                    }
+                },
+                "rev": {
+                    "type": "integer"
+                },
+                "signature": {
+                    "description": "Signature is generated by the submitting client to recognize its own changeset, it is empty for the changesets generated by the server.",
+                    "type": "string"
+                },
+                "tableUID": {
+                    "type": "string"
                 }
             }
         },
@@ -1669,6 +2052,83 @@
                 }
             }
         },
+        "DirtyScope": {
+            "type": "object",
+            "properties": {
+                "allRecords": {
+                    "type": "boolean"
+                },
+                "fields": {
+                    "type": "boolean"
+                },
+                "records": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "views": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "FetchRecords": {
+            "type": "object",
+            "required": [
+                "uids"
+            ],
+            "properties": {
+                "uids": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "FieldAttrs": {
+            "type": "object",
+            "properties": {
+                "label": {
+                    "type": "string"
+                },
+                "metadata": {
+                    "type": "object",
+                    "additionalProperties": true
+                },
+                "type": {
+                    "type": "string",
+                    "enum": [
+                        "text",
+                        "single_select",
+                        "multi_select",
+                        "datetime",
+                        "number",
+                        "checkbox",
+                        "formula"
+                    ]
+                }
+            }
+        },
+        "ListChangesetsResp": {
+            "type": "object",
+            "required": [
+                "changesets",
+                "hasMore"
+            ],
+            "properties": {
+                "changesets": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/Changeset"
+                    }
+                },
+                "hasMore": {
+                    "description": "HasMore reports there are more changesets after the last one, the client should fetch again from its revision.",
+                    "type": "boolean"
+                }
+            }
+        },
         "ListProjectsResp": {
             "type": "object",
             "required": [
@@ -1721,6 +2181,24 @@
                 },
                 "total": {
                     "type": "integer"
+                }
+            }
+        },
+        "Operation": {
+            "type": "object",
+            "required": [
+                "actions",
+                "command"
+            ],
+            "properties": {
+                "actions": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/Action"
+                    }
+                },
+                "command": {
+                    "type": "string"
                 }
             }
         },
@@ -1998,6 +2476,45 @@
                 }
             }
         },
+        "SLView": {
+            "type": "object",
+            "required": [
+                "config",
+                "name",
+                "position",
+                "tableUID",
+                "type",
+                "uid"
+            ],
+            "properties": {
+                "config": {
+                    "description": "Config is maintained by the frontend, e.g. filter, sort, group, hidden fields and field widths.",
+                    "type": "object",
+                    "additionalProperties": true
+                },
+                "name": {
+                    "type": "string"
+                },
+                "position": {
+                    "type": "integer"
+                },
+                "tableUID": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string",
+                    "enum": [
+                        "grid",
+                        "kanban",
+                        "gallery",
+                        "form"
+                    ]
+                },
+                "uid": {
+                    "type": "string"
+                }
+            }
+        },
         "TableListItem": {
             "type": "object",
             "required": [
@@ -2026,6 +2543,42 @@
                 },
                 "updatedAt": {
                     "type": "string"
+                }
+            }
+        },
+        "TableSnapshot": {
+            "type": "object",
+            "required": [
+                "fields",
+                "records",
+                "rev",
+                "table",
+                "views"
+            ],
+            "properties": {
+                "fields": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/SLField"
+                    }
+                },
+                "records": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/SLRecord"
+                    }
+                },
+                "rev": {
+                    "type": "integer"
+                },
+                "table": {
+                    "$ref": "#/definitions/SLTable"
+                },
+                "views": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/SLView"
+                    }
                 }
             }
         },
@@ -2061,7 +2614,7 @@
             ],
             "properties": {
                 "position": {
-                    "description": "Position is the new position of the field, negative values are treated as 0.",
+                    "description": "Position is the zero-based index the field moves to, it is clamped into the valid range.",
                     "type": "integer"
                 }
             }
@@ -2098,6 +2651,27 @@
             "properties": {
                 "name": {
                     "type": "string"
+                }
+            }
+        },
+        "ViewAttrs": {
+            "type": "object",
+            "properties": {
+                "config": {
+                    "type": "object",
+                    "additionalProperties": true
+                },
+                "name": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string",
+                    "enum": [
+                        "grid",
+                        "kanban",
+                        "gallery",
+                        "form"
+                    ]
                 }
             }
         }

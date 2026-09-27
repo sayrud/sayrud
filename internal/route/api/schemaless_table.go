@@ -10,6 +10,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 
+	"github.com/wuhan005/sayrud/internal/collab"
 	"github.com/wuhan005/sayrud/internal/context"
 	"github.com/wuhan005/sayrud/internal/db"
 	"github.com/wuhan005/sayrud/internal/dbutil"
@@ -100,7 +101,7 @@ func (schemalessRoute) ListTables(ctx context.Context, project *db.Project) erro
 // @Failure 500 {string} string "Internal server error"
 // @ID createTable
 // @Router /projects/{projectUID}/tables [post]
-func (schemalessRoute) CreateTable(ctx context.Context, project *db.Project, f form.CreateTable) error {
+func (schemalessRoute) CreateTable(ctx context.Context, hub *collab.Hub, project *db.Project, f form.CreateTable) error {
 	slTable, err := db.SLTables.Create(ctx.Request().Context(), project.ID, db.CreateSLTableOptions{
 		Name: f.Name,
 	})
@@ -112,6 +113,7 @@ func (schemalessRoute) CreateTable(ctx context.Context, project *db.Project, f f
 		return ctx.ApiServerError()
 	}
 
+	hub.NotifyProject(project.UID, collab.MessageTablesChanged)
 	return ctx.ApiSuccess(dto.ToTable(project, slTable))
 }
 
@@ -144,13 +146,14 @@ func (schemalessRoute) GetTable(ctx context.Context, project *db.Project, table 
 // @Failure 500 {string} string "Internal server error"
 // @ID updateTable
 // @Router /projects/{projectUID}/tables/{tableUID} [put]
-func (schemalessRoute) UpdateTable(ctx context.Context, table *db.SLTable, f form.UpdateTable) error {
+func (schemalessRoute) UpdateTable(ctx context.Context, hub *collab.Hub, project *db.Project, table *db.SLTable, f form.UpdateTable) error {
 	if err := db.SLTables.Update(ctx.Request().Context(), table.ID, db.UpdateSLTableOptions{
 		Name: f.Name,
 	}); err != nil {
 		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to update sl table")
 		return ctx.ApiServerError()
 	}
+	hub.NotifyProject(project.UID, collab.MessageTablesChanged)
 	return ctx.Status(http.StatusNoContent)
 }
 
@@ -165,10 +168,11 @@ func (schemalessRoute) UpdateTable(ctx context.Context, table *db.SLTable, f for
 // @Failure 500 {string} string "Internal server error"
 // @ID deleteTable
 // @Router /projects/{projectUID}/tables/{tableUID} [delete]
-func (schemalessRoute) DeleteTable(ctx context.Context, table *db.SLTable) error {
+func (schemalessRoute) DeleteTable(ctx context.Context, hub *collab.Hub, project *db.Project, table *db.SLTable) error {
 	if err := db.SLTables.DeleteByID(ctx.Request().Context(), table.ID); err != nil {
 		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to delete sl table")
 		return ctx.ApiServerError()
 	}
+	hub.NotifyProject(project.UID, collab.MessageTablesChanged)
 	return ctx.Status(http.StatusNoContent)
 }

@@ -238,6 +238,20 @@ interface CellKey {
   f: string
 }
 const sel = ref<{ anchor: CellKey; focus: CellKey } | null>(null)
+
+// 当前聚焦的单元格作为协作光标广播给其他协作者。
+watch(
+  () => (sel.value ? `${sel.value.focus.r}:${sel.value.focus.f}` : ''),
+  (key) => {
+    const [r = '', f = ''] = key.split(':')
+    store.setCellPresence(r, f)
+  },
+)
+onBeforeUnmount(() => store.setCellPresence('', ''))
+
+function peersAt(recordUID: string, fieldUID: string) {
+  return store.peerCells.get(`${recordUID}:${fieldUID}`) ?? []
+}
 const editing = ref<{ key: CellKey; initial?: string; rect: { left: number; top: number; width: number; height: number }; anchor: DOMRect } | null>(null)
 const dragSelecting = ref(false)
 
@@ -1058,6 +1072,13 @@ defineExpose({ addRecord })
                 :lines="lines"
                 @toggle="toggleCheckbox(item.record, col.field)"
               />
+              <span
+                v-if="peersAt(item.record.uid, col.field.uid).length"
+                class="peer-cursor"
+                :style="{ '--peer': peersAt(item.record.uid, col.field.uid)[0]!.color }"
+              >
+                <span class="peer-name">{{ peersAt(item.record.uid, col.field.uid).map((m) => m.name).join('、') }}</span>
+              </span>
             </div>
           </div>
 
@@ -1313,6 +1334,28 @@ defineExpose({ addRecord })
 }
 .data-cell.search-current {
   background: var(--grid-search-current) !important;
+}
+.peer-cursor {
+  position: absolute;
+  inset: 0;
+  border: 2px solid var(--peer);
+  pointer-events: none;
+  z-index: 1;
+}
+.peer-name {
+  position: absolute;
+  top: 0;
+  right: 0;
+  max-width: 100%;
+  padding: 0 4px;
+  overflow: hidden;
+  border-bottom-left-radius: 3px;
+  background: var(--peer);
+  color: #fff;
+  font-size: 11px;
+  line-height: 15px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 .data-cell.active::before {
   content: '';

@@ -13,6 +13,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"gorm.io/gorm"
 
+	"github.com/wuhan005/sayrud/internal/collab"
 	"github.com/wuhan005/sayrud/internal/context"
 	"github.com/wuhan005/sayrud/internal/db"
 	"github.com/wuhan005/sayrud/internal/dbutil"
@@ -115,7 +116,7 @@ func fieldErrorResponse(err error) (statusCode int, msg string, ok bool) {
 // @Failure 500 {string} string "Internal server error"
 // @ID createFields
 // @Router /projects/{projectUID}/tables/{tableUID}/fields [post]
-func (schemalessRoute) CreateFields(ctx context.Context, table *db.SLTable, tx dbutil.Transactor, f form.CreateFields) error {
+func (schemalessRoute) CreateFields(ctx context.Context, hub *collab.Hub, project *db.Project, table *db.SLTable, tx dbutil.Transactor, f form.CreateFields) error {
 	var createdFields []*db.SLField
 	if err := tx.Transaction(func(tx *gorm.DB) error {
 		slFieldsStore := db.NewSLFieldsStore(tx)
@@ -165,6 +166,7 @@ func (schemalessRoute) CreateFields(ctx context.Context, table *db.SLTable, tx d
 		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to create sl fields")
 		return ctx.ApiServerError()
 	}
+	notifyDirty(ctx, hub, project, table, collab.DirtyScope{Fields: true})
 	return ctx.ApiSuccess(dto.ToFields(table, createdFields))
 }
 
@@ -185,7 +187,7 @@ func (schemalessRoute) CreateFields(ctx context.Context, table *db.SLTable, tx d
 // @Failure 500 {string} string "Internal server error"
 // @ID updateField
 // @Router /projects/{projectUID}/tables/{tableUID}/fields/{fieldUID} [put]
-func (schemalessRoute) UpdateField(ctx context.Context, table *db.SLTable, field *db.SLField, tx dbutil.Transactor, f form.UpdateField) error {
+func (schemalessRoute) UpdateField(ctx context.Context, hub *collab.Hub, project *db.Project, table *db.SLTable, field *db.SLField, tx dbutil.Transactor, f form.UpdateField) error {
 	var updatedField *db.SLField
 	if err := tx.Transaction(func(tx *gorm.DB) error {
 		slFieldsStore := db.NewSLFieldsStore(tx)
@@ -239,13 +241,14 @@ func (schemalessRoute) UpdateField(ctx context.Context, table *db.SLTable, field
 		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to update sl field")
 		return ctx.ApiServerError()
 	}
+	notifyDirty(ctx, hub, project, table, collab.DirtyScope{Fields: true, AllRecords: f.Type != nil || f.Metadata != nil})
 
 	return ctx.ApiSuccess(dto.ToField(table, updatedField))
 }
 
 // UpdateFieldPosition
 // @Summary Move a field
-// @Description Set the position of the field, the fields at or after the position are moved back by one.
+// @Description Move the field to the zero-based index among the table fields.
 // @Accept json
 // @Produce json
 // @Param projectUID path string true "Project UID"
@@ -258,11 +261,12 @@ func (schemalessRoute) UpdateField(ctx context.Context, table *db.SLTable, field
 // @Failure 500 {string} string "Internal server error"
 // @ID updateFieldPosition
 // @Router /projects/{projectUID}/tables/{tableUID}/fields/{fieldUID}/position [put]
-func (schemalessRoute) UpdateFieldPosition(ctx context.Context, field *db.SLField, f form.UpdateFieldPosition) error {
-	if err := db.SLFields.SetPosition(ctx.Request().Context(), field.ID, max(f.Position, 0)); err != nil {
-		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to set sl field position")
+func (schemalessRoute) UpdateFieldPosition(ctx context.Context, hub *collab.Hub, project *db.Project, table *db.SLTable, field *db.SLField, f form.UpdateFieldPosition) error {
+	if err := db.SLFields.Move(ctx.Request().Context(), table.ID, field.ID, int(f.Position)); err != nil {
+		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to move sl field")
 		return ctx.ApiServerError()
 	}
+	notifyDirty(ctx, hub, project, table, collab.DirtyScope{Fields: true})
 	return ctx.Status(http.StatusNoContent)
 }
 
@@ -278,11 +282,17 @@ func (schemalessRoute) UpdateFieldPosition(ctx context.Context, field *db.SLFiel
 // @Failure 500 {string} string "Internal server error"
 // @ID deleteField
 // @Router /projects/{projectUID}/tables/{tableUID}/fields/{fieldUID} [delete]
-func (schemalessRoute) DeleteField(ctx context.Context, field *db.SLField) error {
-	if err := db.SLFields.DeleteByID(ctx.Request().Context(), field.ID); err != nil {
+func (schemalessRoute) DeleteField(ctx context.Context, hub *collab.Hub, project *db.Project, table *db.SLTable, field *db.SLField, tx dbutil.Transactor) error {
+	if err := tx.Transaction(func(tx *gorm.DB) error {
+		if err := db.NewSLFieldsStore(tx).DeleteByID(ctx.Request().Context(), field.ID); err != nil {
+			return errors.Wrap(err, "delete field")
+		}
+		return db.NewSLRecordsStore(tx).RemoveFieldData(ctx.Request().Context(), table.ID, field.UID)
+	}); err != nil {
 		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to delete sl field")
 		return ctx.ApiServerError()
 	}
+	notifyDirty(ctx, hub, project, table, collab.DirtyScope{Fields: true, AllRecords: true})
 	return ctx.Status(http.StatusNoContent)
 }
 

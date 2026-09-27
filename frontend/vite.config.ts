@@ -13,7 +13,7 @@ export default defineConfig({
   server: {
     port: 5173,
     proxy: {
-      '/_': 'http://localhost:2830',
+      '/_': { target: 'http://localhost:2830', ws: true },
     },
   },
 })

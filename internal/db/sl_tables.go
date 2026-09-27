@@ -22,6 +22,9 @@ type SLTablesStore interface {
 	Update(ctx context.Context, tableID int64, options UpdateSLTableOptions) error
 	DeleteByID(ctx context.Context, tableID int64) error
 	CountByProjectID(ctx context.Context, projectID int64) (int64, error)
+	// IncreaseRev increases the revision of the table by one and returns the new revision.
+	// The table row stays locked until the transaction ends, so the changes of a table are serialized.
+	IncreaseRev(ctx context.Context, tableID int64) (int64, error)
 }
 
 func NewSLTablesStore(db *gorm.DB) SLTablesStore {
@@ -35,10 +38,14 @@ type SLTable struct {
 	UID       string `gorm:"uniqueIndex:idx_sl_table_uid, where:deleted_at IS NULL"`
 	ProjectID int64  `gorm:"index"`
 	Name      string
+	// Rev is the revision of the table data, it increases by one for each changeset.
+	Rev int64 `gorm:"not null;default:0"`
 }
 
 func (slTable *SLTable) BeforeCreate(_ *gorm.DB) error {
-	slTable.UID = "tbl" + randstr.String(13)
+	if slTable.UID == "" {
+		slTable.UID = "tbl" + randstr.String(13)
+	}
 	return nil
 }
 
@@ -62,7 +69,7 @@ func (db *slTables) Query(ctx context.Context, options QuerySLTableOptions) ([]*
 
 	limit, offset := options.LimitOffset()
 	var slTables []*SLTable
-	if err := q.Order("id DESC").Limit(limit).Offset(offset).Find(&slTables).Error; err != nil {
+	if err := q.Order("id ASC").Limit(limit).Offset(offset).Find(&slTables).Error; err != nil {
 		return nil, 0, errors.Wrap(err, "find")
 	}
 	return slTables, count, nil
@@ -128,6 +135,14 @@ func (db *slTables) DeleteByID(ctx context.Context, tableID int64) error {
 		return errors.Wrap(err, "delete")
 	}
 	return nil
+}
+
+func (db *slTables) IncreaseRev(ctx context.Context, tableID int64) (int64, error) {
+	var rev int64
+	if err := db.WithContext(ctx).Raw(`UPDATE sl_tables SET rev = rev + 1 WHERE id = ? RETURNING rev`, tableID).Scan(&rev).Error; err != nil {
+		return 0, errors.Wrap(err, "update")
+	}
+	return rev, nil
 }
 
 func (db *slTables) CountByProjectID(ctx context.Context, projectID int64) (int64, error) {

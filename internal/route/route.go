@@ -5,6 +5,7 @@ import (
 	"github.com/redis/go-redis/v9"
 	"gorm.io/gorm"
 
+	"github.com/wuhan005/sayrud/internal/collab"
 	"github.com/wuhan005/sayrud/internal/context"
 	"github.com/wuhan005/sayrud/internal/form"
 	"github.com/wuhan005/sayrud/internal/route/api"
@@ -22,6 +23,7 @@ func New(db *gorm.DB, redisClient *redis.Client) *flamego.Flame {
 		tracing.Middleware("sayrud"),
 		context.Contexter(db, redisClient),
 	)
+	f.Map(collab.NewHub(db))
 
 	f.Group("/_", func() {
 		f.Group("/auth", func() {
@@ -39,6 +41,8 @@ func New(db *gorm.DB, redisClient *redis.Client) *flamego.Flame {
 					Put(form.Bind(form.UpdateProject{}), api.Project.UpdateProject).
 					Delete(api.Project.DeleteProject)
 
+				f.Get("/ws", api.Collab.Serve)
+
 				f.Group("/tables", func() {
 					f.Combo("").
 						Get(api.Schemaless.ListTables).
@@ -50,6 +54,9 @@ func New(db *gorm.DB, redisClient *redis.Client) *flamego.Flame {
 							Get(api.Schemaless.GetTable).
 							Put(form.Bind(form.UpdateTable{}), api.Schemaless.UpdateTable).
 							Delete(api.Schemaless.DeleteTable)
+						f.Get("/snapshot", api.Collab.GetSnapshot)
+						f.Get("/changesets", api.Collab.ListChangesets)
+						f.Get("/views", api.Collab.ListViews)
 
 						f.Group("/fields", func() {
 							f.Combo("").
@@ -71,6 +78,7 @@ func New(db *gorm.DB, redisClient *redis.Client) *flamego.Flame {
 								Post(form.Bind(form.CreateRecord{}), api.Schemaless.CreateRecord)
 							f.Post("/batch", form.Bind(form.BatchCreateRecords{}), api.Schemaless.BatchCreateRecords)
 							f.Post("/query", form.Bind(form.QueryRecords{}), api.Schemaless.QueryRecords)
+							f.Post("/fetch", form.Bind(form.FetchRecords{}), api.Collab.FetchRecords)
 							f.Group("/{recordUID}", func() {
 								f.Combo("").
 									Get(api.Schemaless.GetRecord).

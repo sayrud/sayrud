@@ -12,6 +12,7 @@ import (
 	"github.com/thanhpk/randstr"
 	"gorm.io/gorm"
 
+	"github.com/wuhan005/sayrud/internal/collab"
 	"github.com/wuhan005/sayrud/internal/context"
 	"github.com/wuhan005/sayrud/internal/db"
 	"github.com/wuhan005/sayrud/internal/dbutil"
@@ -158,7 +159,7 @@ func (projectRoute) GetProject(ctx context.Context, project *db.Project) error {
 // @Failure 500 {string} string "Internal server error"
 // @ID updateProject
 // @Router /projects/{projectUID} [put]
-func (projectRoute) UpdateProject(ctx context.Context, project *db.Project, f form.UpdateProject) error {
+func (projectRoute) UpdateProject(ctx context.Context, hub *collab.Hub, project *db.Project, f form.UpdateProject) error {
 	if err := db.Projects.Update(ctx.Request().Context(), project.ID, db.UpdateProjectOptions{
 		Name: f.Name,
 	}); err != nil {
@@ -166,6 +167,7 @@ func (projectRoute) UpdateProject(ctx context.Context, project *db.Project, f fo
 		return ctx.ApiServerError()
 	}
 
+	hub.NotifyProject(project.UID, collab.MessageProjectChange)
 	return ctx.Status(http.StatusNoContent)
 }
 
@@ -180,7 +182,7 @@ func (projectRoute) UpdateProject(ctx context.Context, project *db.Project, f fo
 // @Failure 500 {string} string "Internal server error"
 // @ID deleteProject
 // @Router /projects/{projectUID} [delete]
-func (projectRoute) DeleteProject(ctx context.Context, project *db.Project, tx dbutil.Transactor) error {
+func (projectRoute) DeleteProject(ctx context.Context, hub *collab.Hub, project *db.Project, tx dbutil.Transactor) error {
 	if err := tx.Transaction(func(tx *gorm.DB) error {
 		projectsStore := db.NewProjectsStore(tx)
 
@@ -200,5 +202,6 @@ func (projectRoute) DeleteProject(ctx context.Context, project *db.Project, tx d
 		return ctx.ApiServerError()
 	}
 
+	hub.NotifyProject(project.UID, collab.MessageProjectChange)
 	return ctx.Status(http.StatusNoContent)
 }

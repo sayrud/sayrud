@@ -13,6 +13,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"gorm.io/gorm"
 
+	"github.com/wuhan005/sayrud/internal/collab"
 	"github.com/wuhan005/sayrud/internal/context"
 	"github.com/wuhan005/sayrud/internal/db"
 	"github.com/wuhan005/sayrud/internal/dbutil"
@@ -174,7 +175,7 @@ func recordErrorResponse(err error) (statusCode int, msg string, ok bool) {
 // @Failure 500 {string} string "Internal server error"
 // @ID createRecord
 // @Router /projects/{projectUID}/tables/{tableUID}/records [post]
-func (schemalessRoute) CreateRecord(ctx context.Context, table *db.SLTable, tx dbutil.Transactor, f form.CreateRecord) error {
+func (schemalessRoute) CreateRecord(ctx context.Context, hub *collab.Hub, project *db.Project, table *db.SLTable, tx dbutil.Transactor, f form.CreateRecord) error {
 	var slRecord *db.SLRecord
 	if err := tx.Transaction(func(tx *gorm.DB) error {
 		jsonBytes, err := routeutil.Validate(ctx.Request().Context(), tx, table.ID, f.Data)
@@ -194,6 +195,7 @@ func (schemalessRoute) CreateRecord(ctx context.Context, table *db.SLTable, tx d
 		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to create sl record")
 		return ctx.ApiServerError()
 	}
+	notifyDirty(ctx, hub, project, table, collab.DirtyScope{Records: []string{slRecord.UID}})
 	return ctx.ApiSuccess(dto.ToRecord(table, slRecord))
 }
 
@@ -212,7 +214,7 @@ func (schemalessRoute) CreateRecord(ctx context.Context, table *db.SLTable, tx d
 // @Failure 500 {string} string "Internal server error"
 // @ID batchCreateRecords
 // @Router /projects/{projectUID}/tables/{tableUID}/records/batch [post]
-func (schemalessRoute) BatchCreateRecords(ctx context.Context, table *db.SLTable, tx dbutil.Transactor, f form.BatchCreateRecords) error {
+func (schemalessRoute) BatchCreateRecords(ctx context.Context, hub *collab.Hub, project *db.Project, table *db.SLTable, tx dbutil.Transactor, f form.BatchCreateRecords) error {
 	var slRecords []*db.SLRecord
 	if err := tx.Transaction(func(tx *gorm.DB) error {
 		dataList := make([]json.RawMessage, 0, len(f.Data))
@@ -239,6 +241,7 @@ func (schemalessRoute) BatchCreateRecords(ctx context.Context, table *db.SLTable
 		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to batch create sl records")
 		return ctx.ApiServerError()
 	}
+	notifyDirty(ctx, hub, project, table, collab.DirtyScope{AllRecords: true})
 
 	return ctx.ApiSuccess(dto.ToRecords(table, slRecords))
 }
@@ -258,7 +261,7 @@ func (schemalessRoute) BatchCreateRecords(ctx context.Context, table *db.SLTable
 // @Failure 500 {string} string "Internal server error"
 // @ID updateRecord
 // @Router /projects/{projectUID}/tables/{tableUID}/records/{recordUID} [put]
-func (schemalessRoute) UpdateRecord(ctx context.Context, record *db.SLRecord, tx dbutil.Transactor, f form.UpdateRecord) error {
+func (schemalessRoute) UpdateRecord(ctx context.Context, hub *collab.Hub, project *db.Project, table *db.SLTable, record *db.SLRecord, tx dbutil.Transactor, f form.UpdateRecord) error {
 	if err := tx.Transaction(func(tx *gorm.DB) error {
 		jsonBytes, err := routeutil.Validate(ctx.Request().Context(), tx, record.SLTableID, f.Data)
 		if err != nil {
@@ -276,6 +279,7 @@ func (schemalessRoute) UpdateRecord(ctx context.Context, record *db.SLRecord, tx
 		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to update sl record")
 		return ctx.ApiServerError()
 	}
+	notifyDirty(ctx, hub, project, table, collab.DirtyScope{Records: []string{record.UID}})
 	return ctx.Status(http.StatusNoContent)
 }
 
@@ -291,10 +295,11 @@ func (schemalessRoute) UpdateRecord(ctx context.Context, record *db.SLRecord, tx
 // @Failure 500 {string} string "Internal server error"
 // @ID deleteRecord
 // @Router /projects/{projectUID}/tables/{tableUID}/records/{recordUID} [delete]
-func (schemalessRoute) DeleteRecord(ctx context.Context, record *db.SLRecord) error {
+func (schemalessRoute) DeleteRecord(ctx context.Context, hub *collab.Hub, project *db.Project, table *db.SLTable, record *db.SLRecord) error {
 	if err := db.SLRecords.DeleteByID(ctx.Request().Context(), record.ID); err != nil {
 		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to delete sl record")
 		return ctx.ApiServerError()
 	}
+	notifyDirty(ctx, hub, project, table, collab.DirtyScope{Records: []string{record.UID}})
 	return ctx.Status(http.StatusNoContent)
 }

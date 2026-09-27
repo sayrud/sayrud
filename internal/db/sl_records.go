@@ -26,12 +26,19 @@ var SLRecords SLRecordsStore
 type SLRecordsStore interface {
 	GetByID(ctx context.Context, slRecordID int64) (*SLRecord, error)
 	GetByUID(ctx context.Context, slRecordUID string) (*SLRecord, error)
+	// ListByUIDs returns the records of the table with the given UIDs, the missing ones are skipped.
+	ListByUIDs(ctx context.Context, slTableID int64, uids []string) ([]*SLRecord, error)
+	// ListAll returns all the records of the table in creation order.
+	ListAll(ctx context.Context, slTableID int64) ([]*SLRecord, error)
 	Query(ctx context.Context, slTableID int64, options QuerySLRecordsOptions) ([]*SLRecord, int64, error)
 	Import(ctx context.Context, slTableID int64, options ImportSLRecordsOptions) ([]*SLRecord, error)
 	Create(ctx context.Context, slTableID int64, jsonBytes json.RawMessage) (*SLRecord, error)
 	Update(ctx context.Context, slRecordID int64, jsonBytes json.RawMessage) error
 	CountByTableID(ctx context.Context, slTableID int64) (int64, error)
 	DeleteByID(ctx context.Context, slRecordID int64) error
+	DeleteByUIDs(ctx context.Context, slTableID int64, uids []string) error
+	// RemoveFieldData removes the value of the field from all the records of the table.
+	RemoveFieldData(ctx context.Context, slTableID int64, fieldUID string) error
 }
 
 func NewSLRecordsStore(db *gorm.DB) SLRecordsStore {
@@ -48,7 +55,9 @@ type SLRecord struct {
 }
 
 func (slRecord *SLRecord) BeforeCreate(_ *gorm.DB) error {
-	slRecord.UID = "rec" + randstr.String(11)
+	if slRecord.UID == "" {
+		slRecord.UID = "rec" + randstr.String(11)
+	}
 	return nil
 }
 
@@ -376,22 +385,31 @@ func (db *slRecords) getBy(ctx context.Context, where string, args ...interface{
 
 type ImportSLRecordsOptions struct {
 	Data []json.RawMessage
+	// UIDs are the UIDs of the records in the same order as Data, random UIDs are generated if it is empty.
+	UIDs []string
 }
 
 // Import creates the records in batch and returns them in the same order as options.Data.
 func (db *slRecords) Import(ctx context.Context, slTableID int64, options ImportSLRecordsOptions) ([]*SLRecord, error) {
 	records := make([]*SLRecord, 0, len(options.Data))
-	for _, jsonBytes := range options.Data {
-		records = append(records, &SLRecord{
+	for i, jsonBytes := range options.Data {
+		record := &SLRecord{
 			SLTableID: slTableID,
 			Data:      datatypes.JSON(jsonBytes),
-		})
+		}
+		if i < len(options.UIDs) {
+			record.UID = options.UIDs[i]
+		}
+		records = append(records, record)
 	}
 	if len(records) == 0 {
 		return records, nil
 	}
 
 	if err := db.WithContext(ctx).Create(&records).Error; err != nil {
+		if dbutil.IsUniqueViolation(err, "idx_sl_table_id_uid") {
+			return nil, ErrSLRecordExists
+		}
 		return nil, errors.Wrap(err, "create")
 	}
 	return records, nil
@@ -408,7 +426,47 @@ func (db *slRecords) Create(ctx context.Context, slTableID int64, jsonBytes json
 	return slRecord, nil
 }
 
-var ErrSLRecordNotFound = errors.New("sl_record does not exist")
+var (
+	ErrSLRecordNotFound = errors.New("sl_record does not exist")
+	ErrSLRecordExists   = errors.New("sl_record exists")
+)
+
+func (db *slRecords) ListByUIDs(ctx context.Context, slTableID int64, uids []string) ([]*SLRecord, error) {
+	var records []*SLRecord
+	if len(uids) == 0 {
+		return records, nil
+	}
+	if err := db.WithContext(ctx).Model(&SLRecord{}).Where("sl_table_id = ? AND uid IN ?", slTableID, uids).Order("id ASC").Find(&records).Error; err != nil {
+		return nil, errors.Wrap(err, "find")
+	}
+	return records, nil
+}
+
+func (db *slRecords) ListAll(ctx context.Context, slTableID int64) ([]*SLRecord, error) {
+	var records []*SLRecord
+	if err := db.WithContext(ctx).Model(&SLRecord{}).Where("sl_table_id = ?", slTableID).Order("id ASC").Find(&records).Error; err != nil {
+		return nil, errors.Wrap(err, "find")
+	}
+	return records, nil
+}
+
+func (db *slRecords) DeleteByUIDs(ctx context.Context, slTableID int64, uids []string) error {
+	if len(uids) == 0 {
+		return nil
+	}
+	if err := db.WithContext(ctx).Where("sl_table_id = ? AND uid IN ?", slTableID, uids).Delete(&SLRecord{}).Error; err != nil {
+		return errors.Wrap(err, "delete")
+	}
+	return nil
+}
+
+func (db *slRecords) RemoveFieldData(ctx context.Context, slTableID int64, fieldUID string) error {
+	if err := db.WithContext(ctx).Model(&SLRecord{}).Where("sl_table_id = ? AND jsonb_exists(data, ?)", slTableID, fieldUID).
+		Update("data", gorm.Expr("data - ?::TEXT", fieldUID)).Error; err != nil {
+		return errors.Wrap(err, "update")
+	}
+	return nil
+}
 
 func (db *slRecords) Update(ctx context.Context, slRecordID int64, jsonBytes json.RawMessage) error {
 	if err := db.WithContext(ctx).Model(&SLRecord{}).Where("id = ?", slRecordID).Updates(map[string]interface{}{

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Message } from '@arco-design/web-vue'
-import { House, PanelLeftOpen, Share2 } from '@lucide/vue'
+import { CloudCheck, CloudOff, House, LoaderCircle, PanelLeftOpen, Share2 } from '@lucide/vue'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
@@ -13,7 +13,6 @@ import GridView from '@/components/grid/GridView.vue'
 import KanbanView from '@/components/kanban/KanbanView.vue'
 import RecordModal from '@/components/record/RecordModal.vue'
 import ViewToolbar from '@/components/toolbar/ViewToolbar.vue'
-import { USE_MOCK } from '@/api/http'
 import { keepRecordInView } from '@/composables/useViewData'
 import { useBaseStore } from '@/stores/base'
 
@@ -52,6 +51,31 @@ async function sync() {
 }
 
 watch(() => [route.params.projectUID, route.params.tableUID, route.params.viewUID], sync, { immediate: true })
+
+// 其他协作者删除了当前数据表时，切换到第一张表。
+watch(
+  () => store.tables.map((t) => t.uid).join(),
+  () => {
+    const tableUID = String(route.params.tableUID || '')
+    if (tableUID && !store.loadingProject && !store.tables.some((t) => t.uid === tableUID)) {
+      Message.warning('当前数据表已被删除')
+      router.replace({ name: 'base', params: { projectUID: projectUID.value, tableUID: store.tables[0]?.uid ?? '' } })
+    }
+  },
+)
+
+const syncState = computed(() => {
+  if (store.connection !== 'open') return { icon: CloudOff, text: store.connection === 'connecting' ? '连接中…' : '已离线，修改将在重连后同步', cls: 'offline' }
+  if (store.pendingCount > 0 || store.refreshing) return { icon: LoaderCircle, text: store.refreshing ? '同步服务端数据…' : '保存中…', cls: 'saving' }
+  return { icon: CloudCheck, text: '已保存', cls: 'saved' }
+})
+
+const otherMembers = computed(() => store.onlineMembers.filter((m) => m.memberId !== store.identity.memberId))
+
+function memberTitle(m: { name: string; tableUID?: string }) {
+  const table = store.tables.find((t) => t.uid === m.tableUID)
+  return table ? `${m.name} · 正在查看「${table.name}」` : m.name
+}
 
 watch(
   () => [store.project?.name, store.activeTable?.name],
@@ -112,7 +136,10 @@ function onGlobalKey(e: KeyboardEvent) {
   }
 }
 onMounted(() => document.addEventListener('keydown', onGlobalKey))
-onBeforeUnmount(() => document.removeEventListener('keydown', onGlobalKey))
+onBeforeUnmount(() => {
+  document.removeEventListener('keydown', onGlobalKey)
+  store.closeProject()
+})
 </script>
 
 <template>
@@ -130,10 +157,21 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onGlobalKey))
         @blur="confirmName"
       />
       <span v-else class="base-name" title="点击重命名" @click="startEditName">{{ store.project?.name ?? '加载中…' }}</span>
-      <a-tag v-if="USE_MOCK" size="small" color="orangered">Mock</a-tag>
+      <span class="sync-state" :class="syncState.cls" :title="syncState.text">
+        <component :is="syncState.icon" :size="15" />
+        <span>{{ syncState.text }}</span>
+      </span>
       <span class="spacer" />
+      <div class="members">
+        <a-tooltip v-for="m in otherMembers.slice(0, 5)" :key="m.memberId" :content="memberTitle(m)">
+          <a-avatar :size="28" class="member" :style="{ backgroundColor: m.color }">{{ m.name.slice(-1) }}</a-avatar>
+        </a-tooltip>
+        <a-avatar v-if="otherMembers.length > 5" :size="28" class="member more">+{{ otherMembers.length - 5 }}</a-avatar>
+      </div>
       <a-button size="small" type="primary" @click="share"><template #icon><Share2 :size="14" /></template>分享</a-button>
-      <a-avatar :size="28" :style="{ backgroundColor: '#3370ff' }">我</a-avatar>
+      <a-tooltip :content="`${store.identity.name}（我）`">
+        <a-avatar :size="28" :style="{ backgroundColor: store.identity.color }">{{ store.identity.name.slice(-1) }}</a-avatar>
+      </a-tooltip>
     </header>
 
     <div class="base-body">
@@ -207,6 +245,39 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onGlobalKey))
 }
 .spacer {
   flex: 1;
+}
+.sync-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--color-text-3);
+  white-space: nowrap;
+}
+.sync-state.offline {
+  color: #f54a45;
+}
+.sync-state.saving svg {
+  animation: spin 1s linear infinite;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.members {
+  display: flex;
+  align-items: center;
+}
+.member {
+  margin-left: -6px;
+  border: 2px solid #fff;
+  box-sizing: content-box;
+}
+.member.more {
+  background: var(--color-fill-3);
+  color: var(--color-text-2);
+  font-size: 12px;
 }
 .base-body {
   flex: 1;

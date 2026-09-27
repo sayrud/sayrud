@@ -32,7 +32,7 @@ type UpdateField struct {
 } // @name UpdateField
 
 type UpdateFieldPosition struct {
-	// Position is the new position of the field, negative values are treated as 0.
+	// Position is the zero-based index the field moves to, it is clamped into the valid range.
 	Position int64 `json:"position" label:"字段位置"`
 } // @name UpdateFieldPosition
 
@@ -50,6 +50,10 @@ type UpdateRecord struct {
 	// Data replaces all the cell values of the record, keyed by field UID.
 	Data map[string]interface{} `json:"data" label:"字段数据"`
 } // @name UpdateRecord
+
+type FetchRecords struct {
+	UIDs []string `json:"uids" label:"记录 UID"`
+} // @name FetchRecords
 
 // QueryRecords filters, groups and sorts the records. Multiple filters are combined with AND.
 type QueryRecords struct {

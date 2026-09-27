@@ -1,7 +1,17 @@
 import axios, { type AxiosResponse } from 'axios'
 
 import { Api } from './api'
-import { ApiError } from './http'
+
+export const API_BASE = '/_'
+
+export class ApiError extends Error {
+  constructor(
+    public status: number,
+    message: string,
+  ) {
+    super(message)
+  }
+}
 
 export interface HttpResponse<T = unknown> {
   msg: string
@@ -9,7 +19,7 @@ export interface HttpResponse<T = unknown> {
 }
 
 const client = new Api({
-  baseURL: '/_',
+  baseURL: API_BASE,
   withCredentials: true,
 })
 
@@ -21,7 +31,7 @@ client.instance.interceptors.response.use(
       const { status, data } = error.response
       return Promise.reject(new ApiError(status, data?.msg || `请求失败（${status}）`))
     }
-    return Promise.reject(error)
+    return Promise.reject(new ApiError(0, '网络连接失败'))
   },
 )
 

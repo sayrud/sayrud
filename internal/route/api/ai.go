@@ -15,6 +15,7 @@ import (
 
 	"github.com/wuhan005/sayrud/internal/ai"
 	"github.com/wuhan005/sayrud/internal/ai/hunyuan"
+	"github.com/wuhan005/sayrud/internal/collab"
 	"github.com/wuhan005/sayrud/internal/context"
 	"github.com/wuhan005/sayrud/internal/db"
 	"github.com/wuhan005/sayrud/internal/dbutil"
@@ -78,7 +79,7 @@ func (aiRoute) Advice(ctx context.Context, f form.AIAdvice) error {
 // @Failure 500 {string} string "Internal server error"
 // @ID aiApply
 // @Router /projects/{projectUID}/ai/apply [post]
-func (aiRoute) Apply(ctx context.Context, project *db.Project, tx dbutil.Transactor, f form.AIApply) error {
+func (aiRoute) Apply(ctx context.Context, hub *collab.Hub, project *db.Project, tx dbutil.Transactor, f form.AIApply) error {
 	switch f.Action {
 	case ai.ActionTypeTables:
 		var applyTables ai.ApplyTables
@@ -117,5 +118,6 @@ func (aiRoute) Apply(ctx context.Context, project *db.Project, tx dbutil.Transac
 		return ctx.ApiError(http.StatusBadRequest, "操作类型不存在")
 	}
 
+	hub.NotifyProject(project.UID, collab.MessageTablesChanged)
 	return ctx.Status(http.StatusNoContent)
 }

@@ -1,0 +1,108 @@
+package collab
+
+import (
+	"encoding/json"
+)
+
+// Message is the envelope of the WebSocket messages in both directions.
+type Message struct {
+	Type string `json:"type"`
+	// ReqID is set by the client to match the reply of its request.
+	ReqID int64           `json:"reqId,omitempty"`
+	Data  json.RawMessage `json:"data,omitempty"`
+}
+
+// The message types sent by the client.
+const (
+	MessageSubscribe   = "SUBSCRIBE"
+	MessageUnsubscribe = "UNSUBSCRIBE"
+	MessageUserChanges = "USER_CHANGES"
+	MessagePresence    = "PRESENCE"
+	MessagePing        = "PING"
+)
+
+// The message types sent by the server.
+const (
+	MessageHello         = "HELLO"
+	MessageSubscribed    = "SUBSCRIBED"
+	MessageAcceptCommit  = "ACCEPT_COMMIT"
+	MessageRejectCommit  = "REJECT_COMMIT"
+	MessageNewChanges    = "NEW_CHANGES"
+	MessageMembers       = "MEMBERS"
+	MessageTablesChanged = "TABLES_CHANGED"
+	MessageProjectChange = "PROJECT_CHANGED"
+	MessageError         = "ERROR"
+	MessagePong          = "PONG"
+)
+
+type subscribeData struct {
+	TableUID string `json:"tableUID"`
+}
+
+type subscribedData struct {
+	TableUID string `json:"tableUID"`
+	// Rev is the latest revision of the table when subscribed, the client should fetch the missing changesets up to it.
+	Rev int64 `json:"rev"`
+}
+
+type userChangesData struct {
+	TableUID string `json:"tableUID"`
+	// LocalRev is the latest revision the client has applied, it is informational since the actions are applied by UID.
+	LocalRev   int64       `json:"localRev"`
+	Signature  string      `json:"signature"`
+	Operations []Operation `json:"operations"`
+}
+
+type acceptCommitData struct {
+	TableUID  string `json:"tableUID"`
+	Rev       int64  `json:"rev"`
+	Signature string `json:"signature"`
+}
+
+type rejectCommitData struct {
+	TableUID  string `json:"tableUID"`
+	Signature string `json:"signature"`
+	Message   string `json:"msg"`
+}
+
+// Member is a collaborator online in the project, with the cell it is focusing on.
+type Member struct {
+	ClientID string `json:"clientId"`
+	// MemberID identifies the browser, a member may open several connections.
+	MemberID  string `json:"memberId"`
+	Name      string `json:"name"`
+	Color     string `json:"color"`
+	TableUID  string `json:"tableUID,omitempty"`
+	ViewUID   string `json:"viewUID,omitempty"`
+	RecordUID string `json:"recordUID,omitempty"`
+	FieldUID  string `json:"fieldUID,omitempty"`
+}
+
+type presenceData struct {
+	TableUID  string `json:"tableUID"`
+	ViewUID   string `json:"viewUID"`
+	RecordUID string `json:"recordUID"`
+	FieldUID  string `json:"fieldUID"`
+}
+
+type helloData struct {
+	ClientID string `json:"clientId"`
+}
+
+type membersData struct {
+	Members []Member `json:"members"`
+}
+
+type projectEventData struct {
+	ProjectUID string `json:"projectUID"`
+}
+
+type errorData struct {
+	Message string `json:"msg"`
+}
+
+func newMessage(messageType string, reqID int64, data interface{}) []byte {
+	raw, _ := json.Marshal(data)
+	b, _ := json.Marshal(Message{Type: messageType, ReqID: reqID, Data: raw})
+	return b
+}

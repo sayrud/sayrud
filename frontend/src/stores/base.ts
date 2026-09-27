@@ -2,18 +2,14 @@ import { Message } from '@arco-design/web-vue'
 import { defineStore } from 'pinia'
 import { computed, reactive, ref, shallowRef, watch } from 'vue'
 
-import {
-  fieldsApi,
-  projectsApi,
-  recordsApi,
-  tablesApi,
-  viewsApi,
-  type CreateFieldInput,
-  type TableListItem,
-  type UpdateFieldInput,
-} from '@/api/bitable'
+import { projectsApi, syncApi, tablesApi, type TableListItem } from '@/api/bitable'
+import { getIdentity } from '@/collab/identity'
+import { ProjectSocket } from '@/collab/socket'
+import { TableSync } from '@/collab/tableSync'
+import type { Action, Member, Operation } from '@/collab/types'
 import type {
   CellValue,
+  FieldMetadata,
   FieldType,
   Project,
   RecordData,
@@ -27,13 +23,25 @@ import type {
 import { TableContext } from '@/utils/engine'
 import { defaultMetadata } from '@/utils/fieldTypes'
 import { defaultValueOf, isEmptyValue } from '@/utils/format'
-import { newOptionUID } from '@/utils/id'
+import { newFieldUID, newOptionUID, newRecordUID, newViewUID } from '@/utils/id'
 import { defaultViewConfig, viewTypeInfo } from '@/utils/view'
+
+export interface CreateFieldInput {
+  label: string
+  type: FieldType
+  metadata: FieldMetadata
+}
+
+export interface UpdateFieldInput {
+  label?: string
+  type?: FieldType
+  metadata?: FieldMetadata
+}
 
 interface HistoryEntry {
   label: string
-  undo: () => Promise<void>
-  redo: () => Promise<void>
+  undo: Operation[]
+  redo: Operation[]
 }
 
 export interface FieldEditorState {
@@ -61,16 +69,41 @@ function cleanData(data: RecordData): RecordData {
   return out
 }
 
+const op = (command: string, actions: Action[]): Operation => ({ command, actions })
+
+/** 删除字段 / 修改字段类型后，视图中引用该字段且不再适用的配置。视图配置由前端维护，因此由发起方一并提交。 */
+function cleanViewConfig(config: ViewConfig, fieldUID: string, mode: 'delete' | FieldType): ViewConfig | null {
+  const c: ViewConfig = JSON.parse(JSON.stringify(config))
+  const drop = <T extends { fieldUID: string }>(list: T[]) => list.filter((x) => x.fieldUID !== fieldUID)
+  c.filter = drop(c.filter)
+  delete c.summary[fieldUID]
+  if (mode === 'delete' || mode === 'formula') {
+    c.sort = drop(c.sort)
+    c.group = drop(c.group)
+  }
+  if (mode === 'delete') {
+    c.hiddenFields = c.hiddenFields.filter((x) => x !== fieldUID)
+    delete c.fieldWidths[fieldUID]
+    if (c.form) c.form.fields = c.form.fields.filter((x) => x.fieldUID !== fieldUID)
+  }
+  if (c.kanbanFieldUID === fieldUID && (mode === 'delete' || mode !== 'single_select')) c.kanbanFieldUID = undefined
+  return JSON.stringify(c) === JSON.stringify(config) ? null : c
+}
+
 export const useBaseStore = defineStore('base', () => {
+  const identity = getIdentity()
   const project = ref<Project | null>(null)
-  const tables = ref<TableListItem[]>([])
+  const tableList = ref<TableListItem[]>([])
   const activeTableUID = ref('')
-  const fields = ref<SLField[]>([])
-  const records = shallowRef<SLRecord[]>([])
-  const views = ref<SLView[]>([])
   const activeViewUID = ref('')
   const loadingProject = ref(false)
-  const loadingTable = ref(false)
+  const switchingTable = ref(false)
+
+  const socket = shallowRef<ProjectSocket | null>(null)
+  const members = ref<Member[]>([])
+  const activeSync = shallowRef<TableSync | null>(null)
+  const syncs = new Map<string, TableSync>()
+  let projectOffs: (() => void)[] = []
 
   const undoStack = ref<HistoryEntry[]>([])
   const redoStack = ref<HistoryEntry[]>([])
@@ -89,7 +122,15 @@ export const useBaseStore = defineStore('base', () => {
   })
 
   const pid = () => project.value!.uid
-  const tid = () => activeTableUID.value
+
+  const fields = computed<SLField[]>(() => activeSync.value?.fields.value ?? [])
+  const records = computed<SLRecord[]>(() => activeSync.value?.records.value ?? [])
+  const views = computed<SLView[]>(() => activeSync.value?.views.value ?? [])
+  const loadingTable = computed(() => switchingTable.value || !!activeSync.value?.loading.value)
+  /** 当前表的记录数以本地数据为准，其他表使用列表接口返回的数量。 */
+  const tables = computed<TableListItem[]>(() =>
+    tableList.value.map((t) => (t.uid === activeTableUID.value && activeSync.value && !activeSync.value.loading.value ? { ...t, count: records.value.length } : t)),
+  )
 
   const activeTable = computed(() => tables.value.find((t) => t.uid === activeTableUID.value) ?? null)
   const activeView = computed(() => views.value.find((v) => v.uid === activeViewUID.value) ?? null)
@@ -97,17 +138,112 @@ export const useBaseStore = defineStore('base', () => {
   const primaryField = computed(() => fields.value[0] ?? null)
   const recordMap = computed(() => new Map(records.value.map((r) => [r.uid, r])))
 
+  // ---- 协同状态 ----
+
+  const connection = computed(() => socket.value?.status.value ?? 'closed')
+  const pendingCount = computed(() => activeSync.value?.pendingCount.value ?? 0)
+  const refreshing = computed(() => !!activeSync.value?.refreshing.value)
+  const myClientId = computed(() => socket.value?.clientId.value ?? '')
+  /** 同一浏览器的多个连接合并显示。 */
+  const onlineMembers = computed(() => {
+    const seen = new Map<string, Member>()
+    for (const m of members.value) if (!seen.has(m.memberId)) seen.set(m.memberId, m)
+    return [...seen.values()]
+  })
+  /** 其他协作者在当前表中聚焦的单元格，key 为 `recordUID:fieldUID`。 */
+  const peerCells = computed(() => {
+    const map = new Map<string, Member[]>()
+    for (const m of members.value) {
+      if (m.clientId === myClientId.value || m.tableUID !== activeTableUID.value || !m.recordUID) continue
+      const key = `${m.recordUID}:${m.fieldUID ?? ''}`
+      map.set(key, [...(map.get(key) ?? []), m])
+    }
+    return map
+  })
+
+  const presence = { recordUID: '', fieldUID: '' }
+  let presenceTimer: ReturnType<typeof setTimeout> | undefined
+
+  function sendPresence() {
+    clearTimeout(presenceTimer)
+    presenceTimer = setTimeout(() => {
+      socket.value?.send('PRESENCE', {
+        tableUID: activeTableUID.value,
+        viewUID: activeViewUID.value,
+        recordUID: expandedRecord.value?.uid ?? presence.recordUID,
+        fieldUID: expandedRecord.value ? '' : presence.fieldUID,
+      })
+    }, 120)
+  }
+
+  /** 表格中当前聚焦的单元格，广播给其他协作者。 */
+  function setCellPresence(recordUID: string, fieldUID: string) {
+    if (presence.recordUID === recordUID && presence.fieldUID === fieldUID) return
+    presence.recordUID = recordUID
+    presence.fieldUID = fieldUID
+    sendPresence()
+  }
+
+  watch([activeTableUID, activeViewUID, () => expandedRecord.value?.uid], () => {
+    presence.recordUID = ''
+    presence.fieldUID = ''
+    sendPresence()
+  })
+
   // ---- 项目 / 数据表 ----
 
+  async function refreshTables() {
+    if (!project.value) return
+    try {
+      tableList.value = (await tablesApi.list(pid())).tables as TableListItem[]
+    } catch (e) {
+      toastError(e)
+    }
+  }
+
+  function closeProject() {
+    projectOffs.forEach((off) => off())
+    projectOffs = []
+    for (const sync of syncs.values()) sync.dispose()
+    syncs.clear()
+    activeSync.value = null
+    socket.value?.close()
+    socket.value = null
+    members.value = []
+    activeTableUID.value = ''
+    activeViewUID.value = ''
+  }
+
   async function openProject(projectUID: string) {
-    if (project.value?.uid === projectUID && tables.value.length) return
+    if (project.value?.uid === projectUID && socket.value) return
+    closeProject()
     loadingProject.value = true
     try {
-      project.value = await projectsApi.get(projectUID)
-      tables.value = (await tablesApi.list(projectUID)).tables
+      const [p, t] = await Promise.all([projectsApi.get(projectUID), tablesApi.list(projectUID)])
+      project.value = p
+      tableList.value = t.tables as TableListItem[]
     } finally {
       loadingProject.value = false
     }
+
+    const s = new ProjectSocket(projectUID, identity)
+    projectOffs = [
+      s.on<{ members: Member[] }>('MEMBERS', (data) => {
+        members.value = data.members
+      }),
+      s.on('open', sendPresence),
+      s.on('TABLES_CHANGED', () => void refreshTables()),
+      s.on('PROJECT_CHANGED', async () => {
+        try {
+          project.value = await projectsApi.get(projectUID)
+        } catch {
+          project.value = null
+          Message.warning('项目已被删除')
+        }
+      }),
+    ]
+    socket.value = s
+    s.connect()
   }
 
   async function renameProject(name: string) {
@@ -120,53 +256,111 @@ export const useBaseStore = defineStore('base', () => {
     }
   }
 
+  /** 获取数据表的同步实例，没有则创建并完成初始加载。 */
+  async function ensureSync(tableUID: string): Promise<TableSync> {
+    let sync = syncs.get(tableUID)
+    if (!sync) {
+      sync = new TableSync(socket.value!, pid(), tableUID, {
+        onReject: (msg) => Message.error(`同步失败：${msg}，已重新加载数据`),
+      })
+      syncs.set(tableUID, sync)
+      await sync.start()
+    } else if (sync.loading.value) {
+      await new Promise<void>((resolve) => {
+        const stop = watch(sync!.loading, (loading) => {
+          if (!loading) {
+            stop()
+            resolve()
+          }
+        })
+      })
+    }
+    return sync
+  }
+
+  /** 非当前表的同步实例在本地修改全部确认后释放。 */
+  function releaseSync(tableUID: string) {
+    const sync = syncs.get(tableUID)
+    if (!sync || tableUID === activeTableUID.value) return
+    const dispose = () => {
+      if (tableUID === activeTableUID.value || syncs.get(tableUID) !== sync) return
+      sync.dispose()
+      syncs.delete(tableUID)
+    }
+    if (sync.idle) {
+      dispose()
+      return
+    }
+    const stop = watch(sync.pendingCount, (n) => {
+      if (n === 0) {
+        stop()
+        dispose()
+      }
+    })
+  }
+
+  function submit(operations: Operation[], sync = activeSync.value) {
+    sync?.submit(operations)
+  }
+
   async function openTable(tableUID: string, viewUID?: string) {
     if (activeTableUID.value !== tableUID) {
-      loadingTable.value = true
+      const prev = activeTableUID.value
       activeTableUID.value = tableUID
       undoStack.value = []
       redoStack.value = []
       expandedRecord.value = null
+      switchingTable.value = true
       try {
-        const [f, r, v] = await Promise.all([
-          fieldsApi.list(pid(), tableUID),
-          recordsApi.list(pid(), tableUID),
-          viewsApi.list(pid(), tableUID),
-        ])
+        const sync = await ensureSync(tableUID)
         if (activeTableUID.value !== tableUID) return
-        fields.value = f
-        records.value = r.records
-        views.value = v
-        if (!v.length) {
-          views.value = [await viewsApi.create(pid(), tableUID, { name: '表格', type: 'grid' })]
+        activeSync.value = sync
+        if (!sync.views.value.length) {
+          submit([op('AddView', [{ action: 'view.add', viewUID: newViewUID(), view: { name: '表格', type: 'grid', config: defaultViewConfig() as unknown as Record<string, unknown> } }])])
         }
       } finally {
-        loadingTable.value = false
+        switchingTable.value = false
       }
+      if (prev) releaseSync(prev)
     }
     activeViewUID.value = views.value.find((v) => v.uid === viewUID)?.uid ?? views.value[0]?.uid ?? ''
   }
 
+  function addFieldAction(field: CreateFieldInput, index?: number, uid = newFieldUID()): Action {
+    return { action: 'field.add', fieldUID: uid, index, field: { label: field.label, type: field.type, metadata: field.metadata as unknown as Record<string, unknown> } }
+  }
+
+  function addViewAction(name: string, type: ViewType, config: ViewConfig, uid = newViewUID()): Action {
+    return { action: 'view.add', viewUID: uid, view: { name, type, config: config as unknown as Record<string, unknown> } }
+  }
+
   async function createTable(name: string) {
     const table = await tablesApi.create(pid(), name)
-    await fieldsApi.create(pid(), table.uid, [
-      { label: '文本', type: 'text', metadata: defaultMetadata('text') },
-      {
-        label: '单选',
-        type: 'single_select',
-        metadata: {
-          options: [
-            { uid: newOptionUID(), name: '选项 1', color: 0 },
-            { uid: newOptionUID(), name: '选项 2', color: 1 },
-          ],
-          default: '',
-        },
-      },
-      { label: '日期', type: 'datetime', metadata: defaultMetadata('datetime') },
-    ])
-    await recordsApi.batchCreate(pid(), table.uid, Array.from({ length: 5 }, () => ({})))
-    await viewsApi.create(pid(), table.uid, { name: '表格', type: 'grid' })
-    tables.value = [...tables.value, { ...table, count: 5 }]
+    tableList.value = [...tableList.value, { ...table, count: 5 }]
+    const sync = await ensureSync(table.uid)
+    submit(
+      [
+        op('AddTable', [
+          addFieldAction({ label: '文本', type: 'text', metadata: defaultMetadata('text') }),
+          addFieldAction({
+            label: '单选',
+            type: 'single_select',
+            metadata: {
+              options: [
+                { uid: newOptionUID(), name: '选项 1', color: 0 },
+                { uid: newOptionUID(), name: '选项 2', color: 1 },
+              ],
+              default: '',
+            },
+          }),
+          addFieldAction({ label: '日期', type: 'datetime', metadata: defaultMetadata('datetime') }),
+          ...Array.from({ length: 5 }, (): Action => ({ action: 'record.add', recordUID: newRecordUID(), values: {} })),
+          addViewAction('表格', 'grid', defaultViewConfig()),
+        ]),
+      ],
+      sync,
+    )
+    releaseSync(table.uid)
     return table
   }
 
@@ -175,7 +369,7 @@ export const useBaseStore = defineStore('base', () => {
     if (!n) return
     try {
       await tablesApi.update(pid(), tableUID, n)
-      tables.value = tables.value.map((t) => (t.uid === tableUID ? { ...t, name: n } : t))
+      tableList.value = tableList.value.map((t) => (t.uid === tableUID ? { ...t, name: n } : t))
     } catch (e) {
       toastError(e)
     }
@@ -183,137 +377,115 @@ export const useBaseStore = defineStore('base', () => {
 
   async function deleteTable(tableUID: string) {
     await tablesApi.delete(pid(), tableUID)
-    tables.value = tables.value.filter((t) => t.uid !== tableUID)
-    if (activeTableUID.value === tableUID) activeTableUID.value = ''
+    tableList.value = tableList.value.filter((t) => t.uid !== tableUID)
+    syncs.get(tableUID)?.dispose()
+    syncs.delete(tableUID)
+    if (activeTableUID.value === tableUID) {
+      activeTableUID.value = ''
+      activeSync.value = null
+    }
   }
 
   /** 复制数据表：字段、记录、视图全部复制，并重写公式与视图中的字段引用。 */
   async function duplicateTable(tableUID: string) {
-    const src = tables.value.find((t) => t.uid === tableUID)
+    const src = tableList.value.find((t) => t.uid === tableUID)
     if (!src) return
-    const [srcFields, srcRecords, srcViews] = await Promise.all([
-      fieldsApi.list(pid(), tableUID),
-      recordsApi.list(pid(), tableUID),
-      viewsApi.list(pid(), tableUID),
-    ])
+    const data = syncs.get(tableUID)?.data ?? (await syncApi.snapshot(pid(), tableUID))
     const table = await tablesApi.create(pid(), `${src.name} 副本`)
-    const created = await fieldsApi.create(
-      pid(),
-      table.uid,
-      srcFields.map((f) => ({
-        label: f.label,
-        type: f.type,
-        metadata: f.type === 'formula' ? { exp: '' } : f.metadata,
-      })),
-    )
-    const map = new Map(srcFields.map((f, i) => [f.uid, created[i]!.uid]))
-    const remap = (s: string) => s.replace(/fld[A-Za-z0-9]{7}/g, (m) => map.get(m) ?? m)
-    for (const [i, f] of srcFields.entries()) {
-      if (f.type === 'formula') {
-        await fieldsApi.update(pid(), table.uid, created[i]!.uid, { metadata: { exp: remap((f.metadata as { exp: string }).exp) } })
-      }
-    }
-    await recordsApi.batchCreate(
-      pid(),
-      table.uid,
-      srcRecords.records.map((r) => Object.fromEntries(Object.entries(r.data).map(([k, v]) => [map.get(k) ?? k, v]))),
-    )
-    for (const v of srcViews) {
-      const config = JSON.parse(remap(JSON.stringify(v.config))) as ViewConfig
-      config.fieldWidths = Object.fromEntries(Object.entries(v.config.fieldWidths).map(([k, w]) => [map.get(k) ?? k, w]))
-      config.summary = Object.fromEntries(Object.entries(v.config.summary).map(([k, s]) => [map.get(k) ?? k, s]))
-      await viewsApi.create(pid(), table.uid, { name: v.name, type: v.type, config })
-    }
-    tables.value = [...tables.value, { ...table, count: srcRecords.total }]
-    return table
-  }
+    tableList.value = [...tableList.value, { ...table, count: data.records.length }]
 
-  function bumpCount(delta: number) {
-    tables.value = tables.value.map((t) => (t.uid === tid() ? { ...t, count: t.count + delta } : t))
+    const map = new Map(data.fields.map((f) => [f.uid, newFieldUID()]))
+    const remap = (s: string) => s.replace(/fld[A-Za-z0-9]{7}/g, (m) => map.get(m) ?? m)
+    const remapKeys = <T>(obj: Record<string, T>) => Object.fromEntries(Object.entries(obj).map(([k, v]) => [map.get(k) ?? k, v]))
+    const actions: Action[] = [
+      ...data.fields.map((f) => {
+        const metadata = f.type === 'formula' ? { exp: remap((f.metadata as { exp: string }).exp) } : f.metadata
+        return addFieldAction({ label: f.label, type: f.type, metadata: metadata as FieldMetadata }, undefined, map.get(f.uid))
+      }),
+      ...data.records.map((r): Action => ({ action: 'record.add', recordUID: newRecordUID(), values: remapKeys(r.data) })),
+      ...data.views.map((v) => {
+        const config = JSON.parse(remap(JSON.stringify(v.config))) as ViewConfig
+        config.fieldWidths = remapKeys(v.config.fieldWidths)
+        config.summary = remapKeys(v.config.summary)
+        return addViewAction(v.name, v.type, config)
+      }),
+    ]
+    const sync = await ensureSync(table.uid)
+    submit([op('DuplicateTable', actions)], sync)
+    releaseSync(table.uid)
+    return table
   }
 
   // ---- 字段 ----
 
-  async function reloadFieldsAndRecords() {
-    const [f, r, v] = await Promise.all([
-      fieldsApi.list(pid(), tid()),
-      recordsApi.list(pid(), tid()),
-      viewsApi.list(pid(), tid()),
-    ])
-    fields.value = f
-    records.value = r.records
-    // 保留本地视图对象，只更新配置，避免编辑中的视图闪烁。
-    views.value = v
+  function fieldLabelError(label: string, fieldUID?: string): string | null {
+    if (!label) return '字段标题不能为空'
+    if (label === '_uid') return '字段名 _uid 不可用'
+    if (fields.value.some((f) => f.label === label && f.uid !== fieldUID)) return `字段「${label}」已存在`
+    return null
   }
 
   async function createField(input: CreateFieldInput, insertIndex?: number) {
-    try {
-      const [field] = await fieldsApi.create(pid(), tid(), [input])
-      if (!field) return null
-      if (insertIndex !== undefined && insertIndex < fields.value.length) {
-        await fieldsApi.setPosition(pid(), tid(), field.uid, insertIndex)
-        fields.value = await fieldsApi.list(pid(), tid())
-      } else {
-        fields.value = [...fields.value, field]
-      }
-      return fields.value.find((f) => f.uid === field.uid) ?? field
-    } catch (e) {
-      toastError(e)
+    const label = input.label.trim()
+    const error = fieldLabelError(label)
+    if (error) {
+      Message.error(error)
       return null
     }
+    const action = addFieldAction({ ...input, label }, insertIndex)
+    submit([op('AddField', [action])])
+    return fields.value.find((f) => f.uid === action.fieldUID) ?? null
   }
 
   async function updateField(fieldUID: string, input: UpdateFieldInput) {
     const old = fields.value.find((f) => f.uid === fieldUID)
     if (!old) return null
-    try {
-      const updated = await fieldsApi.update(pid(), tid(), fieldUID, input)
-      const typeChanged = input.type && input.type !== old.type
-      const optionsChanged =
-        !typeChanged &&
-        (old.type === 'single_select' || old.type === 'multi_select') &&
-        input.metadata !== undefined
-      if (typeChanged || optionsChanged) {
-        // 类型转换 / 删除选项会改写记录数据，以服务端为准重新拉取。
-        await reloadFieldsAndRecords()
-      } else {
-        fields.value = fields.value.map((f) => (f.uid === fieldUID ? updated : f))
+    const label = input.label?.trim()
+    if (label !== undefined) {
+      const error = fieldLabelError(label, fieldUID)
+      if (error) {
+        Message.error(error)
+        return null
       }
-      return updated
-    } catch (e) {
-      toastError(e)
-      return null
     }
+
+    const actions: Action[] = []
+    const typeChanged = !!input.type && input.type !== old.type
+    if (typeChanged) {
+      // 类型转换在服务端执行，完成后以 table.dirty 通知各客户端重新拉取字段与记录。
+      const metadata = input.metadata ?? defaultMetadata(input.type!)
+      actions.push({ action: 'field.setType', fieldUID, field: { type: input.type, metadata: metadata as unknown as Record<string, unknown> } })
+      if (label !== undefined) actions.push({ action: 'field.set', fieldUID, field: { label } })
+      for (const v of views.value) {
+        const config = cleanViewConfig(v.config, fieldUID, input.type!)
+        if (config) actions.push({ action: 'view.set', viewUID: v.uid, view: { config: config as unknown as Record<string, unknown> } })
+      }
+    } else if (label !== undefined || input.metadata !== undefined) {
+      actions.push({
+        action: 'field.set',
+        fieldUID,
+        field: { label, metadata: input.metadata as unknown as Record<string, unknown> | undefined },
+      })
+    }
+    submit([op(typeChanged ? 'SetFieldType' : 'SetFieldAttr', actions)])
+    return fields.value.find((f) => f.uid === fieldUID) ?? null
   }
 
   async function moveField(fieldUID: string, toIndex: number) {
-    const list = fields.value.filter((f) => f.uid !== fieldUID)
-    const field = fields.value.find((f) => f.uid === fieldUID)
-    if (!field) return
-    list.splice(toIndex, 0, field)
-    const prev = fields.value
-    fields.value = list.map((f, i) => ({ ...f, position: i }))
-    try {
-      await fieldsApi.setPosition(pid(), tid(), fieldUID, toIndex)
-    } catch (e) {
-      fields.value = prev
-      toastError(e)
-    }
+    submit([op('MoveField', [{ action: 'field.move', fieldUID, index: toIndex }])])
   }
 
   async function deleteField(fieldUID: string) {
-    try {
-      await fieldsApi.delete(pid(), tid(), fieldUID)
-      fields.value = fields.value.filter((f) => f.uid !== fieldUID)
-      records.value = records.value.map((r) => {
-        if (!(fieldUID in r.data)) return r
-        const { [fieldUID]: _removed, ...data } = r.data
-        return { ...r, data }
-      })
-      views.value = await viewsApi.list(pid(), tid())
-    } catch (e) {
-      toastError(e)
+    if (primaryField.value?.uid === fieldUID) {
+      Message.error('索引字段不可删除')
+      return
     }
+    const actions: Action[] = [{ action: 'field.delete', fieldUID }]
+    for (const v of views.value) {
+      const config = cleanViewConfig(v.config, fieldUID, 'delete')
+      if (config) actions.push({ action: 'view.set', viewUID: v.uid, view: { config: config as unknown as Record<string, unknown> } })
+    }
+    submit([op('DeleteField', actions)])
   }
 
   /** 给选择字段补充选项，返回名称到 UID 的映射。 */
@@ -332,8 +504,7 @@ export const useBaseStore = defineStore('base', () => {
       map.set(name, opt.uid)
     }
     if (options.length !== md.options.length) {
-      const updated = await fieldsApi.update(pid(), tid(), fieldUID, { metadata: { ...md, options } as SLField['metadata'] })
-      fields.value = fields.value.map((f) => (f.uid === fieldUID ? updated : f))
+      submit([op('AddOptions', [{ action: 'field.set', fieldUID, field: { metadata: { ...md, options } } }])])
     }
     return map
   }
@@ -354,47 +525,18 @@ export const useBaseStore = defineStore('base', () => {
     redoStack.value = []
   }
 
-  async function rawCreate(dataList: RecordData[]): Promise<SLRecord[]> {
-    const created =
-      dataList.length === 1
-        ? [await recordsApi.create(pid(), tid(), dataList[0]!)]
-        : await recordsApi.batchCreate(pid(), tid(), dataList)
-    records.value = [...records.value, ...created]
-    bumpCount(created.length)
-    return created
-  }
-
-  async function rawDelete(uids: string[]) {
-    const set = new Set(uids)
-    const prev = records.value
-    records.value = records.value.filter((r) => !set.has(r.uid))
-    try {
-      await Promise.all(uids.map((uid) => recordsApi.delete(pid(), tid(), uid)))
-      bumpCount(-uids.length)
-    } catch (e) {
-      records.value = prev
-      throw e
-    }
-  }
+  const addRecordActions = (list: { uid: string; data: RecordData }[]): Action[] =>
+    list.map((r) => ({ action: 'record.add', recordUID: r.uid, values: r.data }))
 
   async function createRecords(dataList: RecordData[], opts: { history?: boolean; withDefaults?: boolean } = {}) {
-    try {
-      const list = dataList.map((d) => (opts.withDefaults === false ? cleanData(d) : defaultsFor(d)))
-      let created = await rawCreate(list)
-      if (opts.history !== false) {
-        pushHistory({
-          label: '新增记录',
-          undo: async () => rawDelete(created.map((r) => r.uid)),
-          redo: async () => {
-            created = await rawCreate(list)
-          },
-        })
-      }
-      return created
-    } catch (e) {
-      toastError(e)
-      return []
+    const list = dataList.map((d) => ({ uid: newRecordUID(), data: opts.withDefaults === false ? cleanData(d) : defaultsFor(d) }))
+    if (!list.length) return []
+    const redo = [op('AddRecords', addRecordActions(list))]
+    submit(redo)
+    if (opts.history !== false) {
+      pushHistory({ label: '新增记录', undo: [op('DeleteRecords', [{ action: 'record.delete', recordUIDs: list.map((r) => r.uid) }])], redo })
     }
+    return list.map((r) => recordMap.value.get(r.uid)).filter(Boolean) as SLRecord[]
   }
 
   async function createRecord(data: RecordData = {}) {
@@ -402,38 +544,29 @@ export const useBaseStore = defineStore('base', () => {
     return r ?? null
   }
 
-  async function rawUpdate(items: { uid: string; data: RecordData }[]) {
-    const byUID = new Map(items.map((i) => [i.uid, i.data]))
-    const prev = records.value
-    const t = new Date().toISOString()
-    records.value = records.value.map((r) => (byUID.has(r.uid) ? { ...r, data: byUID.get(r.uid)!, updatedAt: t } : r))
-    try {
-      await Promise.all(items.map((i) => recordsApi.update(pid(), tid(), i.uid, i.data)))
-    } catch (e) {
-      records.value = prev
-      throw e
-    }
-  }
-
-  /** 批量修改记录的部分字段，支持撤销。 */
+  /** 批量修改记录的部分字段，只提交变化的单元格，支持撤销。 */
   async function updateRecords(patches: { uid: string; data: RecordData }[], label = '编辑记录') {
-    const before: { uid: string; data: RecordData }[] = []
-    const after: { uid: string; data: RecordData }[] = []
+    const before: Action[] = []
+    const after: Action[] = []
     for (const p of patches) {
       const r = recordMap.value.get(p.uid)
       if (!r) continue
       const next = cleanData({ ...r.data, ...p.data })
-      if (JSON.stringify(next) === JSON.stringify(r.data)) continue
-      before.push({ uid: r.uid, data: r.data })
-      after.push({ uid: r.uid, data: next })
+      const prevValues: Record<string, CellValue> = {}
+      const nextValues: Record<string, CellValue> = {}
+      for (const uid of Object.keys(p.data)) {
+        if (JSON.stringify(r.data[uid] ?? null) === JSON.stringify(next[uid] ?? null)) continue
+        prevValues[uid] = r.data[uid] ?? null
+        nextValues[uid] = next[uid] ?? null
+      }
+      if (!Object.keys(nextValues).length) continue
+      before.push({ action: 'record.set', recordUID: r.uid, values: prevValues })
+      after.push({ action: 'record.set', recordUID: r.uid, values: nextValues })
     }
     if (!after.length) return
-    try {
-      await rawUpdate(after)
-      pushHistory({ label, undo: () => rawUpdate(before), redo: () => rawUpdate(after) })
-    } catch (e) {
-      toastError(e)
-    }
+    const redo = [op('SetRecord', after)]
+    submit(redo)
+    pushHistory({ label, undo: [op('SetRecord', before)], redo })
   }
 
   function updateCell(recordUID: string, fieldUID: string, value: CellValue) {
@@ -443,22 +576,13 @@ export const useBaseStore = defineStore('base', () => {
   async function deleteRecords(uids: string[]) {
     const removed = uids.map((uid) => recordMap.value.get(uid)).filter(Boolean) as SLRecord[]
     if (!removed.length) return
-    try {
-      await rawDelete(removed.map((r) => r.uid))
-      selectedRecords.value = selectedRecords.value.filter((u) => !uids.includes(u))
-      if (expandedRecord.value && uids.includes(expandedRecord.value.uid)) expandedRecord.value = null
-      let restored: SLRecord[] = []
-      pushHistory({
-        label: '删除记录',
-        undo: async () => {
-          restored = await rawCreate(removed.map((r) => r.data))
-        },
-        redo: async () => rawDelete(restored.map((r) => r.uid)),
-      })
-      Message.success(`已删除 ${removed.length} 条记录`)
-    } catch (e) {
-      toastError(e)
-    }
+    const redo = [op('DeleteRecords', [{ action: 'record.delete', recordUIDs: removed.map((r) => r.uid) }])]
+    submit(redo)
+    selectedRecords.value = selectedRecords.value.filter((u) => !uids.includes(u))
+    if (expandedRecord.value && uids.includes(expandedRecord.value.uid)) expandedRecord.value = null
+    // 撤销时以原 UID 重新创建，其他协作者对这些记录的引用保持有效。
+    pushHistory({ label: '删除记录', undo: [op('AddRecords', addRecordActions(removed))], redo })
+    Message.success(`已删除 ${removed.length} 条记录`)
   }
 
   async function duplicateRecord(uid: string) {
@@ -472,44 +596,27 @@ export const useBaseStore = defineStore('base', () => {
     const entry = undoStack.value[undoStack.value.length - 1]
     if (!entry) return
     undoStack.value = undoStack.value.slice(0, -1)
-    try {
-      await entry.undo()
-      redoStack.value = [...redoStack.value, entry]
-      Message.info({ content: `已撤销：${entry.label}`, duration: 1200 })
-    } catch (e) {
-      toastError(e)
-    }
+    submit(entry.undo)
+    redoStack.value = [...redoStack.value, entry]
+    Message.info({ content: `已撤销：${entry.label}`, duration: 1200 })
   }
 
   async function redo() {
     const entry = redoStack.value[redoStack.value.length - 1]
     if (!entry) return
     redoStack.value = redoStack.value.slice(0, -1)
-    try {
-      await entry.redo()
-      undoStack.value = [...undoStack.value, entry]
-      Message.info({ content: `已重做：${entry.label}`, duration: 1200 })
-    } catch (e) {
-      toastError(e)
-    }
+    submit(entry.redo)
+    undoStack.value = [...undoStack.value, entry]
+    Message.info({ content: `已重做：${entry.label}`, duration: 1200 })
   }
 
   // ---- 视图 ----
 
-  const viewSaveTimers = new Map<string, ReturnType<typeof setTimeout>>()
-
   function updateViewConfig(patch: Partial<ViewConfig>, viewUID = activeViewUID.value) {
     const view = views.value.find((v) => v.uid === viewUID)
     if (!view) return
-    view.config = { ...view.config, ...patch }
-    clearTimeout(viewSaveTimers.get(viewUID))
-    const tableUID = tid()
-    viewSaveTimers.set(
-      viewUID,
-      setTimeout(() => {
-        viewsApi.update(pid(), tableUID, viewUID, { config: view.config }).catch(toastError)
-      }, 300),
-    )
+    const config = { ...view.config, ...patch }
+    submit([op('SetViewConfig', [{ action: 'view.set', viewUID, view: { config: config as unknown as Record<string, unknown> } }])])
   }
 
   async function createView(type: ViewType, name?: string, config?: Partial<ViewConfig>) {
@@ -521,26 +628,16 @@ export const useBaseStore = defineStore('base', () => {
     if (type === 'kanban' && !extra.kanbanFieldUID) {
       extra.kanbanFieldUID = fields.value.find((f) => f.type === 'single_select')?.uid
     }
-    try {
-      const view = await viewsApi.create(pid(), tid(), { name: n, type, config: defaultViewConfig(extra) })
-      views.value = [...views.value, view]
-      activeViewUID.value = view.uid
-      return view
-    } catch (e) {
-      toastError(e)
-      return null
-    }
+    const action = addViewAction(n, type, defaultViewConfig(extra))
+    submit([op('AddView', [action])])
+    activeViewUID.value = action.viewUID!
+    return views.value.find((v) => v.uid === action.viewUID) ?? null
   }
 
   async function renameView(viewUID: string, name: string) {
     const n = name.trim()
     if (!n) return
-    try {
-      const updated = await viewsApi.update(pid(), tid(), viewUID, { name: n })
-      views.value = views.value.map((v) => (v.uid === viewUID ? { ...v, name: updated.name } : v))
-    } catch (e) {
-      toastError(e)
-    }
+    submit([op('SetViewName', [{ action: 'view.set', viewUID, view: { name: n } }])])
   }
 
   async function duplicateView(viewUID: string) {
@@ -550,23 +647,24 @@ export const useBaseStore = defineStore('base', () => {
   }
 
   async function deleteView(viewUID: string) {
-    try {
-      await viewsApi.delete(pid(), tid(), viewUID)
-      views.value = views.value.filter((v) => v.uid !== viewUID)
-      if (activeViewUID.value === viewUID) activeViewUID.value = views.value[0]?.uid ?? ''
-    } catch (e) {
-      toastError(e)
+    if (views.value.length <= 1) {
+      Message.error('至少保留一个视图')
+      return
     }
+    submit([op('DeleteView', [{ action: 'view.delete', viewUID }])])
+    if (activeViewUID.value === viewUID) activeViewUID.value = views.value[0]?.uid ?? ''
   }
 
   async function moveView(viewUID: string, toIndex: number) {
-    const list = views.value.filter((v) => v.uid !== viewUID)
-    const v = views.value.find((x) => x.uid === viewUID)
-    if (!v) return
-    list.splice(toIndex, 0, v)
-    views.value = list.map((x, i) => ({ ...x, position: i }))
-    await viewsApi.update(pid(), tid(), viewUID, { position: toIndex }).catch(toastError)
+    submit([op('MoveView', [{ action: 'view.move', viewUID, index: toIndex }])])
   }
+
+  // 其他协作者删除了当前视图时，切换到第一个视图。
+  watch(views, (list) => {
+    if (activeViewUID.value && list.length && !list.some((v) => v.uid === activeViewUID.value)) {
+      activeViewUID.value = list[0]!.uid
+    }
+  })
 
   function expandRecord(uid: string, list: string[] = []) {
     expandedRecord.value = { uid, list }
@@ -577,6 +675,7 @@ export const useBaseStore = defineStore('base', () => {
   }
 
   return {
+    identity,
     project,
     tables,
     activeTableUID,
@@ -598,7 +697,16 @@ export const useBaseStore = defineStore('base', () => {
     ctx,
     primaryField,
     recordMap,
+    connection,
+    pendingCount,
+    refreshing,
+    myClientId,
+    members,
+    onlineMembers,
+    peerCells,
+    setCellPresence,
     openProject,
+    closeProject,
     renameProject,
     openTable,
     createTable,

@@ -1,0 +1,254 @@
+package collab
+
+import (
+	"context"
+	"encoding/json"
+	"sort"
+	"sync"
+
+	"github.com/pkg/errors"
+	"gorm.io/gorm"
+
+	"github.com/wuhan005/sayrud/internal/db"
+)
+
+// Hub routes the messages between the clients connected to the same server instance.
+//
+// The changesets of a table are committed and broadcast under a per-table lock, so the subscribers receive them in revision order.
+// NOTE: The hub is in memory, running multiple server instances requires a shared message bus such as Redis Pub/Sub.
+type Hub struct {
+	db *gorm.DB
+
+	mu       sync.Mutex
+	projects map[string]map[*Client]struct{}
+	locks    map[int64]*sync.Mutex
+}
+
+func NewHub(gormDB *gorm.DB) *Hub {
+	return &Hub{
+		db:       gormDB,
+		projects: make(map[string]map[*Client]struct{}),
+		locks:    make(map[int64]*sync.Mutex),
+	}
+}
+
+func (h *Hub) tableLock(tableID int64) *sync.Mutex {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	lock, ok := h.locks[tableID]
+	if !ok {
+		lock = &sync.Mutex{}
+		h.locks[tableID] = lock
+	}
+	return lock
+}
+
+func (h *Hub) register(c *Client) {
+	h.mu.Lock()
+	clients, ok := h.projects[c.projectUID]
+	if !ok {
+		clients = make(map[*Client]struct{})
+		h.projects[c.projectUID] = clients
+	}
+	clients[c] = struct{}{}
+	h.mu.Unlock()
+
+	c.send(newMessage(MessageHello, 0, helloData{ClientID: c.member.ClientID}))
+	h.broadcastMembers(c.projectUID)
+}
+
+func (h *Hub) unregister(c *Client) {
+	h.mu.Lock()
+	delete(h.projects[c.projectUID], c)
+	if len(h.projects[c.projectUID]) == 0 {
+		delete(h.projects, c.projectUID)
+	}
+	h.mu.Unlock()
+
+	h.broadcastMembers(c.projectUID)
+}
+
+func (h *Hub) clients(projectUID string) []*Client {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	clients := make([]*Client, 0, len(h.projects[projectUID]))
+	for c := range h.projects[projectUID] {
+		clients = append(clients, c)
+	}
+	return clients
+}
+
+func (h *Hub) broadcastMembers(projectUID string) {
+	clients := h.clients(projectUID)
+	members := make([]Member, 0, len(clients))
+	for _, c := range clients {
+		members = append(members, c.presence())
+	}
+	sort.Slice(members, func(i, j int) bool { return members[i].ClientID < members[j].ClientID })
+
+	message := newMessage(MessageMembers, 0, membersData{Members: members})
+	for _, c := range clients {
+		c.send(message)
+	}
+}
+
+// subscribe subscribes the client to the table changes, and returns the latest revision of the table.
+func (h *Hub) subscribe(ctx context.Context, c *Client, table *db.SLTable) (int64, error) {
+	// Hold the table lock so no changeset is committed between reading the revision and starting to receive the broadcasts.
+	lock := h.tableLock(table.ID)
+	lock.Lock()
+	defer lock.Unlock()
+
+	latest, err := db.SLTables.GetByID(ctx, table.ID)
+	if err != nil {
+		return 0, errors.Wrap(err, "get table")
+	}
+	c.subscribe(table.UID)
+	return latest.Rev, nil
+}
+
+// CommitResult is the result of committing a changeset.
+type CommitResult struct {
+	Rev int64
+	// Duplicate reports the changeset with the same signature has been committed before, e.g. resent after reconnecting.
+	Duplicate bool
+}
+
+// Commit applies the operations to the table and broadcasts the accepted changeset to the subscribers except the sender.
+// If the server changes other data when applying, e.g. converting the values of a field, a server changeset with the dirty
+// scope is committed right after it and broadcast to all the subscribers.
+//
+// onAccept is called before broadcasting, so the sender receives the acceptance before the following changesets.
+// It returns *OperationError if the changeset is rejected.
+func (h *Hub) Commit(ctx context.Context, project *db.Project, table *db.SLTable, sender *Client, signature string, operations []Operation, onAccept func(CommitResult)) error {
+	lock := h.tableLock(table.ID)
+	lock.Lock()
+	defer lock.Unlock()
+
+	if signature != "" {
+		changeset, err := db.SLChangesets.GetBySignature(ctx, table.ID, signature)
+		if err == nil {
+			onAccept(CommitResult{Rev: changeset.Rev, Duplicate: true})
+			return nil
+		} else if !errors.Is(err, db.ErrSLChangesetNotFound) {
+			return errors.Wrap(err, "get changeset by signature")
+		}
+	}
+
+	var clientID string
+	if sender != nil {
+		clientID = sender.member.ClientID
+	}
+
+	var changesets []*Changeset
+	if err := h.db.Transaction(func(tx *gorm.DB) error {
+		a, err := newApplier(ctx, tx, table)
+		if err != nil {
+			return err
+		}
+		applied, err := a.apply(operations)
+		if err != nil {
+			return err
+		}
+
+		changeset, err := appendChangeset(ctx, tx, table, signature, clientID, applied)
+		if err != nil {
+			return err
+		}
+		changesets = append(changesets, changeset)
+
+		if !a.dirty.IsEmpty() {
+			dirty := a.dirty
+			changeset, err := appendChangeset(ctx, tx, table, "", "", []Operation{{
+				Command: "Refresh",
+				Actions: []Action{{Action: ActionDirty, Dirty: &dirty}},
+			}})
+			if err != nil {
+				return err
+			}
+			changesets = append(changesets, changeset)
+		}
+		return nil
+	}); err != nil {
+		return err
+	}
+
+	onAccept(CommitResult{Rev: changesets[0].Rev})
+	for i, changeset := range changesets {
+		h.broadcastChangeset(project, changeset, ternary(i == 0, sender, nil))
+	}
+	return nil
+}
+
+// NotifyDirty commits a server changeset telling the subscribers to reload the data, which is changed out of the changesets,
+// e.g. by the REST API.
+func (h *Hub) NotifyDirty(ctx context.Context, project *db.Project, table *db.SLTable, scope DirtyScope) error {
+	lock := h.tableLock(table.ID)
+	lock.Lock()
+	defer lock.Unlock()
+
+	var changeset *Changeset
+	if err := h.db.Transaction(func(tx *gorm.DB) error {
+		var err error
+		changeset, err = appendChangeset(ctx, tx, table, "", "", []Operation{{
+			Command: "Refresh",
+			Actions: []Action{{Action: ActionDirty, Dirty: &scope}},
+		}})
+		return err
+	}); err != nil {
+		return err
+	}
+	h.broadcastChangeset(project, changeset, nil)
+	return nil
+}
+
+func appendChangeset(ctx context.Context, tx *gorm.DB, table *db.SLTable, signature, clientID string, operations []Operation) (*Changeset, error) {
+	rev, err := db.NewSLTablesStore(tx).IncreaseRev(ctx, table.ID)
+	if err != nil {
+		return nil, errors.Wrap(err, "increase rev")
+	}
+	raw, err := json.Marshal(operations)
+	if err != nil {
+		return nil, errors.Wrap(err, "encode operations")
+	}
+	if _, err := db.NewSLChangesetsStore(tx).Create(ctx, db.CreateSLChangesetOptions{
+		SLTableID:  table.ID,
+		Rev:        rev,
+		Signature:  signature,
+		ClientID:   clientID,
+		Operations: raw,
+	}); err != nil {
+		return nil, errors.Wrap(err, "create changeset")
+	}
+	return &Changeset{
+		TableUID:   table.UID,
+		Rev:        rev,
+		Signature:  signature,
+		ClientID:   clientID,
+		Operations: operations,
+	}, nil
+}
+
+func (h *Hub) broadcastChangeset(project *db.Project, changeset *Changeset, except *Client) {
+	message := newMessage(MessageNewChanges, 0, changeset)
+	for _, c := range h.clients(project.UID) {
+		if c != except && c.subscribed(changeset.TableUID) {
+			c.send(message)
+		}
+	}
+}
+
+// NotifyProject tells the clients of the project to reload the project or its table list.
+func (h *Hub) NotifyProject(projectUID, messageType string) {
+	message := newMessage(messageType, 0, projectEventData{ProjectUID: projectUID})
+	for _, c := range h.clients(projectUID) {
+		c.send(message)
+	}
+}
+
+func ternary[T any](condition bool, a, b T) T {
+	if condition {
+		return a
+	}
+	return b
+}

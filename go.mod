@@ -7,6 +7,7 @@ require (
 	github.com/cockroachdb/errors v1.8.2
 	github.com/dop251/goja v0.0.0-20240610225006-393f6d42497b
 	github.com/flamego/flamego v1.9.4
+	github.com/gorilla/websocket v1.5.3
 	github.com/lib/pq v1.9.0
 	github.com/pkg/errors v0.9.1
 	github.com/redis/go-redis/extra/redisotel/v9 v9.7.0
