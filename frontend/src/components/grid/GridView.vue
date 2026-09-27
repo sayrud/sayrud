@@ -81,10 +81,12 @@ const frozenWidth = computed(() => {
   const last = cols.value[frozenCount.value - 1]
   return last ? last.left + last.width : INDEX_W
 })
-const contentWidth = computed(() => {
+/** Right edge of the last column, the rows end here and leave the add-field column blank below the header. */
+const columnsWidth = computed(() => {
   const last = cols.value[cols.value.length - 1]
-  return (last ? last.left + last.width : INDEX_W) + ADD_COL_W
+  return last ? last.left + last.width : INDEX_W
 })
+const contentWidth = computed(() => columnsWidth.value + ADD_COL_W)
 
 // ---- Row layout ----
 
@@ -1039,7 +1041,7 @@ defineExpose({ addRecord })
     >
       <div class="grid-canvas" :style="{ width: contentWidth + 'px', minWidth: '100%', height: canvasHeight + 'px', minHeight: '100%' }">
         <!-- Header -->
-        <div class="grid-header" :style="{ height: HEADER_H + 'px', width: contentWidth + 'px' }">
+        <div class="grid-header" :style="{ height: HEADER_H + 'px', width: contentWidth + 'px', minWidth: '100%' }">
           <div class="cell index-cell header-index" :style="{ width: INDEX_W + 'px' }">
             <span class="row-check" :class="{ checked: allChecked, partial: someChecked }" @click="toggleAll">
               <Check v-if="allChecked" :size="11" :stroke-width="3" />
@@ -1081,7 +1083,7 @@ defineExpose({ addRecord })
             v-if="item.kind === 'record'"
             class="grid-row"
             :class="{ checked: store.selectedRecords.includes(item.record.uid) }"
-            :style="{ top: HEADER_H + item.top + 'px', height: item.height + 'px', width: contentWidth + 'px' }"
+            :style="{ top: HEADER_H + item.top + 'px', height: item.height + 'px', width: columnsWidth + 'px' }"
             @contextmenu="onRowContextMenu($event, item)"
           >
             <div class="cell index-cell" :style="{ width: INDEX_W + 'px' }">
@@ -1097,41 +1099,43 @@ defineExpose({ addRecord })
                 <Maximize2 :size="13" />
               </button>
             </div>
-            <div
-              v-for="col in cols"
-              :key="col.field.uid"
-              class="cell data-cell"
-              :class="[
-                cellClass(item, col),
-                { frozen: col.frozen, 'frozen-last': col.frozen && col.index === frozenCount - 1, multiline: lines > 1 },
-              ]"
-              :data-cell="`${item.record.uid}:${col.field.uid}`"
-              :style="{ width: col.width + 'px', left: col.frozen ? col.left + 'px' : undefined }"
-              @mousedown="onCellMouseDown($event, item, col)"
-              @mouseenter="onCellEnter(item, col)"
-              @dblclick="startEdit()"
-            >
-              <CellDisplay
-                :field="col.field"
-                :record="item.record"
-                :lines="lines"
-                @toggle="toggleCheckbox(item.record, col.field)"
-              />
-              <span
-                v-if="peersAt(item.record.uid, col.field.uid).length"
-                class="peer-cursor"
-                :style="{ '--peer': peersAt(item.record.uid, col.field.uid)[0]!.color }"
+            <template v-for="col in cols" :key="col.field.uid">
+              <div
+                class="cell data-cell"
+                :class="[
+                  cellClass(item, col),
+                  { frozen: col.frozen, 'frozen-last': col.frozen && col.index === frozenCount - 1, multiline: lines > 1 },
+                ]"
+                :data-cell="`${item.record.uid}:${col.field.uid}`"
+                :style="{ width: col.width + 'px', left: col.frozen ? col.left + 'px' : undefined }"
+                @mousedown="onCellMouseDown($event, item, col)"
+                @mouseenter="onCellEnter(item, col)"
+                @dblclick="startEdit()"
               >
-                <span class="peer-name">{{ peersAt(item.record.uid, col.field.uid).map((m) => m.name).join('、') }}</span>
-              </span>
-            </div>
+                <CellDisplay
+                  :field="col.field"
+                  :record="item.record"
+                  :lines="lines"
+                  @toggle="toggleCheckbox(item.record, col.field)"
+                />
+                <span
+                  v-if="peersAt(item.record.uid, col.field.uid).length"
+                  class="peer-cursor"
+                  :style="{ '--peer': peersAt(item.record.uid, col.field.uid)[0]!.color }"
+                >
+                  <span class="peer-name">{{ peersAt(item.record.uid, col.field.uid).map((m) => m.name).join('、') }}</span>
+                </span>
+              </div>
+              <!-- Cells clip their pseudo-elements by overflow: hidden, so the frozen shadow is on a sticky edge after the last frozen cell. -->
+              <div v-if="col.frozen && col.index === frozenCount - 1" class="frozen-edge" :style="{ left: frozenWidth + 'px' }" />
+            </template>
           </div>
 
           <div
             v-else-if="item.kind === 'group'"
             class="grid-group"
             :class="`level-${item.node.level}`"
-            :style="{ top: HEADER_H + item.top + 'px', height: item.height + 'px', width: contentWidth + 'px' }"
+            :style="{ top: HEADER_H + item.top + 'px', height: item.height + 'px', width: columnsWidth + 'px' }"
             @click="toggleGroup(item.node.id)"
           >
             <div class="group-inner" :style="{ width: viewportW + 'px', paddingLeft: 12 + item.node.level * 20 + 'px' }">
@@ -1149,7 +1153,7 @@ defineExpose({ addRecord })
           <div
             v-else
             class="grid-add-row"
-            :style="{ top: HEADER_H + item.top + 'px', height: item.height + 'px', width: contentWidth + 'px' }"
+            :style="{ top: HEADER_H + item.top + 'px', height: item.height + 'px', width: columnsWidth + 'px' }"
             @click="addRecord(item.preset)"
           >
             <div class="add-inner"><Plus :size="15" /> 新增记录</div>
@@ -1159,7 +1163,7 @@ defineExpose({ addRecord })
         <div class="grid-spacer" />
 
         <!-- Summary bar -->
-        <div class="grid-footer" :style="{ height: FOOTER_H + 'px', width: contentWidth + 'px' }">
+        <div class="grid-footer" :style="{ height: FOOTER_H + 'px', width: contentWidth + 'px', minWidth: '100%' }">
           <div class="cell index-cell footer-index" :style="{ width: INDEX_W + 'px' }">
             <span class="ellipsis">{{ rows.length }} 条记录</span>
           </div>
@@ -1295,18 +1299,37 @@ defineExpose({ addRecord })
 .grid-footer .index-cell {
   background: #fff;
 }
+.grid-scroll {
+  --frozen-shadow: linear-gradient(to right, rgba(31, 35, 41, 0.1), rgba(31, 35, 41, 0.03) 50%, transparent);
+}
 .frozen-last {
   border-right-color: #d0d3d6;
 }
-.scrolled-x .frozen-last::after {
+/* Sticks at the right of the frozen columns along with them, so the shadow moves in sync with scrolling. */
+.frozen-edge {
+  position: sticky;
+  z-index: 5;
+  flex: none;
+  width: 0;
+  height: 100%;
+}
+.scrolled-x .grid-header .frozen-last::after,
+.scrolled-x .grid-footer .frozen-last::after,
+.scrolled-x .frozen-edge::after {
   content: '';
   position: absolute;
   top: 0;
   bottom: 0;
-  right: -7px;
-  width: 6px;
+  width: 8px;
   pointer-events: none;
-  background: linear-gradient(to right, rgba(31, 35, 41, 0.08), transparent);
+  background: var(--frozen-shadow);
+}
+.scrolled-x .grid-header .frozen-last::after,
+.scrolled-x .grid-footer .frozen-last::after {
+  right: -9px;
+}
+.scrolled-x .frozen-edge::after {
+  left: 0;
 }
 .header-cell {
   gap: 6px;
@@ -1484,6 +1507,7 @@ defineExpose({ addRecord })
 .grid-group {
   position: absolute;
   left: 0;
+  border-right: 1px solid var(--grid-line);
   border-bottom: 1px solid var(--grid-line);
   background: var(--bg-base);
   cursor: pointer;
@@ -1526,6 +1550,7 @@ defineExpose({ addRecord })
 .grid-add-row {
   position: absolute;
   left: 0;
+  border-right: 1px solid var(--grid-line);
   border-bottom: 1px solid var(--grid-line);
   cursor: pointer;
   color: var(--text-caption);
