@@ -24,6 +24,7 @@ import { defaultFilterFor } from '@/utils/filters'
 import { ROW_HEIGHTS } from '@/utils/view'
 import FieldsPanel from './FieldsPanel.vue'
 import FilterPanel from './FilterPanel.vue'
+import RowHeightIcon from './RowHeightIcon.vue'
 import SortGroupPanel from './SortGroupPanel.vue'
 
 const props = defineProps<{ view: SLView }>()
@@ -195,7 +196,10 @@ function deleteSelected() {
         <button class="tool-btn"><Rows3 :size="15" /> 行高</button>
         <template #content>
           <a-doption v-for="(h, key) in ROW_HEIGHTS" :key="key" :value="key">
-            <span class="row-height-option" :class="{ active: cfg.rowHeight === key }">{{ h.label }}</span>
+            <span class="row-height-option" :class="{ active: cfg.rowHeight === key }">
+              <RowHeightIcon :height="key" />
+              {{ h.label }}
+            </span>
           </a-doption>
         </template>
       </a-dropdown>
@@ -286,6 +290,11 @@ function deleteSelected() {
 .empty {
   padding: 8px 0;
   font-size: 13px;
+}
+.row-height-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
 }
 .row-height-option.active {
   color: var(--color-primary);
