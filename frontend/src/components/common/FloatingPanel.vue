@@ -11,13 +11,13 @@ export interface Anchor {
 const props = withDefaults(
   defineProps<{
     anchor: Anchor
-    /** bottom：贴在锚点下方；point：以锚点为左上角（右键菜单）；cover：覆盖锚点（单元格编辑器）。 */
+    /** bottom: below the anchor; point: the anchor is the top left corner (context menus); cover: covers the anchor (cell editors). */
     placement?: 'bottom' | 'point' | 'cover'
     width?: number | string
     minWidth?: number
     offset?: number
     closeOnOutside?: boolean
-    /** 临时隐藏但保留状态，例如打开了二级弹窗。 */
+    /** Hides temporarily but keeps the state, e.g. when a secondary dialog is open. */
     hidden?: boolean
   }>(),
   { placement: 'bottom', offset: 4, closeOnOutside: true },
@@ -40,7 +40,7 @@ function place() {
   if (props.placement === 'bottom') top = a.y + (a.height ?? 0) + props.offset
   if (left + rect.width > vw - 8) left = Math.max(8, vw - rect.width - 8)
   if (top + rect.height > vh - 8) {
-    // 下方放不下时翻到锚点上方，仍放不下就贴底。
+    // Flip above the anchor if there is no room below, and stick to the bottom if there is still no room.
     const above = props.placement === 'bottom' ? a.y - rect.height - props.offset : a.y - rect.height
     top = above >= 8 ? above : Math.max(8, vh - rect.height - 8)
   }
@@ -51,7 +51,7 @@ function onMouseDown(e: MouseEvent) {
   if (!props.closeOnOutside) return
   const target = e.target as Node
   if (el.value?.contains(target)) return
-  // Arco 的下拉、日期面板等挂载在 body 上，点击它们不应关闭浮层。
+  // The dropdowns and date panels of Arco are mounted on body, clicking them should not close the panel.
   if ((target as Element).closest?.('.arco-trigger-popup, .arco-modal-container, .floating-panel')) return
   emit('close')
 }

@@ -4,13 +4,13 @@ import { useBaseStore } from '@/stores/base'
 import type { SLField, SLRecord, SLView } from '@/types/bitable'
 import { buildGroups, queryRecords, type GroupNode } from '@/utils/engine'
 
-/** 视图可见字段：按字段顺序，去掉隐藏字段；索引字段始终可见。 */
+/** Visible fields of the view in field order, the hidden ones are excluded but the primary field is always visible. */
 export function visibleFieldsOf(fields: SLField[], view: SLView | null): SLField[] {
   const hidden = new Set(view?.config.hiddenFields ?? [])
   return fields.filter((f, i) => i === 0 || !hidden.has(f.uid))
 }
 
-// 各视图中新建的记录，在切换视图前不被筛选条件隐藏。
+// Records created in each view, they are not hidden by the view filter until switching views.
 const keptRecords = reactive(new Map<string, Set<string>>())
 
 export function keepRecordInView(viewUID: string, recordUID: string) {
@@ -45,7 +45,7 @@ export function useViewData(view: Ref<SLView | null>) {
     return buildGroups(store.ctx, rows.value, v.config.group)
   })
 
-  /** 搜索时过滤卡片类视图（看板、画册）。 */
+  /** Filters the card views (kanban and gallery) by the search term. */
   const searchedRows = computed<SLRecord[]>(() => {
     const term = store.search.term.trim().toLowerCase()
     if (!term) return rows.value

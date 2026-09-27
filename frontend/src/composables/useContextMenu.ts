@@ -8,7 +8,7 @@ export interface MenuItem {
   danger?: boolean
   disabled?: boolean
   divider?: boolean
-  /** 右侧的快捷键提示。 */
+  /** Shortcut hint shown on the right. */
   hint?: string
   onClick?: () => void
 }
@@ -22,7 +22,7 @@ export interface MenuState {
 
 export const menuState = shallowRef<MenuState | null>(null)
 
-/** 在指定位置打开全局菜单；传入鼠标事件时使用事件坐标。 */
+/** Opens the global menu at the position, or at the event coordinates if a mouse event is given. */
 export function openMenu(pos: MouseEvent | { x: number; y: number }, items: MenuItem[], onClose?: () => void) {
   if (pos instanceof MouseEvent) {
     pos.preventDefault()

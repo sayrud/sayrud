@@ -47,12 +47,12 @@ interface HistoryEntry {
 export interface FieldEditorState {
   mode: 'create' | 'edit'
   fieldUID?: string
-  /** 新建字段插入的位置（字段下标），为空时追加到末尾。 */
+  /** Index to insert the new field at, the field is appended if empty. */
   insertIndex?: number
-  /** 新建字段默认类型。 */
+  /** Default type of the new field. */
   type?: FieldType
   anchor: { x: number; y: number; width?: number; height?: number }
-  /** 新建完成后的回调，比如看板视图直接把新字段设为分组字段。 */
+  /** Called after creating, e.g. the kanban view uses the new field for grouping. */
   onCreated?: (field: SLField) => void
 }
 
@@ -71,7 +71,8 @@ function cleanData(data: RecordData): RecordData {
 
 const op = (command: string, actions: Action[]): Operation => ({ command, actions })
 
-/** 删除字段 / 修改字段类型后，视图中引用该字段且不再适用的配置。视图配置由前端维护，因此由发起方一并提交。 */
+/** Returns the view config without the settings no longer applicable after deleting the field or changing its type, or null if unchanged.
+ * The view config is maintained by the frontend, so the client making the change submits it as well. */
 function cleanViewConfig(config: ViewConfig, fieldUID: string, mode: 'delete' | FieldType): ViewConfig | null {
   const c: ViewConfig = JSON.parse(JSON.stringify(config))
   const drop = <T extends { fieldUID: string }>(list: T[]) => list.filter((x) => x.fieldUID !== fieldUID)
@@ -110,10 +111,10 @@ export const useBaseStore = defineStore('base', () => {
 
   const expandedRecord = ref<{ uid: string; list: string[] } | null>(null)
   const fieldEditor = ref<FieldEditorState | null>(null)
-  /** 表格视图中通过复选框勾选的记录。 */
+  /** Records checked by the checkboxes in the grid view. */
   const selectedRecords = ref<string[]>([])
   const search = reactive({ term: '', index: 0, total: 0 })
-  /** 表头菜单等位置请求工具栏打开对应面板。 */
+  /** Requests the toolbar to open a panel, e.g. from the header menu. */
   const toolbarRequest = ref<{ panel: 'filter' | 'sort' | 'group' | 'fields'; fieldUID?: string } | null>(null)
 
   watch([activeTableUID, activeViewUID], () => {
@@ -127,7 +128,7 @@ export const useBaseStore = defineStore('base', () => {
   const records = computed<SLRecord[]>(() => activeSync.value?.records.value ?? [])
   const views = computed<SLView[]>(() => activeSync.value?.views.value ?? [])
   const loadingTable = computed(() => switchingTable.value || !!activeSync.value?.loading.value)
-  /** 当前表的记录数以本地数据为准，其他表使用列表接口返回的数量。 */
+  /** The record count of the current table is taken from the local data, the others from the list API. */
   const tables = computed<TableListItem[]>(() =>
     tableList.value.map((t) => (t.uid === activeTableUID.value && activeSync.value && !activeSync.value.loading.value ? { ...t, count: records.value.length } : t)),
   )
@@ -138,19 +139,19 @@ export const useBaseStore = defineStore('base', () => {
   const primaryField = computed(() => fields.value[0] ?? null)
   const recordMap = computed(() => new Map(records.value.map((r) => [r.uid, r])))
 
-  // ---- 协同状态 ----
+  // ---- Collaboration ----
 
   const connection = computed(() => socket.value?.status.value ?? 'closed')
   const pendingCount = computed(() => activeSync.value?.pendingCount.value ?? 0)
   const refreshing = computed(() => !!activeSync.value?.refreshing.value)
   const myClientId = computed(() => socket.value?.clientId.value ?? '')
-  /** 同一浏览器的多个连接合并显示。 */
+  /** Connections of the same browser are merged. */
   const onlineMembers = computed(() => {
     const seen = new Map<string, Member>()
     for (const m of members.value) if (!seen.has(m.memberId)) seen.set(m.memberId, m)
     return [...seen.values()]
   })
-  /** 其他协作者在当前表中聚焦的单元格，key 为 `recordUID:fieldUID`。 */
+  /** Cells focused by the other collaborators in the current table, keyed by `recordUID:fieldUID`. */
   const peerCells = computed(() => {
     const map = new Map<string, Member[]>()
     for (const m of members.value) {
@@ -176,7 +177,7 @@ export const useBaseStore = defineStore('base', () => {
     }, 120)
   }
 
-  /** 表格中当前聚焦的单元格，广播给其他协作者。 */
+  /** Broadcasts the focused cell of the grid to the other collaborators. */
   function setCellPresence(recordUID: string, fieldUID: string) {
     if (presence.recordUID === recordUID && presence.fieldUID === fieldUID) return
     presence.recordUID = recordUID
@@ -190,7 +191,7 @@ export const useBaseStore = defineStore('base', () => {
     sendPresence()
   })
 
-  // ---- 项目 / 数据表 ----
+  // ---- Projects / tables ----
 
   async function refreshTables() {
     if (!project.value) return
@@ -256,7 +257,7 @@ export const useBaseStore = defineStore('base', () => {
     }
   }
 
-  /** 获取数据表的同步实例，没有则创建并完成初始加载。 */
+  /** Returns the sync of the table, creating and loading it if absent. */
   async function ensureSync(tableUID: string): Promise<TableSync> {
     let sync = syncs.get(tableUID)
     if (!sync) {
@@ -278,7 +279,7 @@ export const useBaseStore = defineStore('base', () => {
     return sync
   }
 
-  /** 非当前表的同步实例在本地修改全部确认后释放。 */
+  /** Disposes the sync of a non-current table after all its local changes are acknowledged. */
   function releaseSync(tableUID: string) {
     const sync = syncs.get(tableUID)
     if (!sync || tableUID === activeTableUID.value) return
@@ -386,7 +387,7 @@ export const useBaseStore = defineStore('base', () => {
     }
   }
 
-  /** 复制数据表：字段、记录、视图全部复制，并重写公式与视图中的字段引用。 */
+  /** Duplicates the fields, records and views of the table, rewriting the field references in formulas and views. */
   async function duplicateTable(tableUID: string) {
     const src = tableList.value.find((t) => t.uid === tableUID)
     if (!src) return
@@ -416,7 +417,7 @@ export const useBaseStore = defineStore('base', () => {
     return table
   }
 
-  // ---- 字段 ----
+  // ---- Fields ----
 
   function fieldLabelError(label: string, fieldUID?: string): string | null {
     if (!label) return '字段标题不能为空'
@@ -452,7 +453,7 @@ export const useBaseStore = defineStore('base', () => {
     const actions: Action[] = []
     const typeChanged = !!input.type && input.type !== old.type
     if (typeChanged) {
-      // 类型转换在服务端执行，完成后以 table.dirty 通知各客户端重新拉取字段与记录。
+      // The values are converted by the server, which then notifies the clients to reload the fields and records by table.dirty.
       const metadata = input.metadata ?? defaultMetadata(input.type!)
       actions.push({ action: 'field.setType', fieldUID, field: { type: input.type, metadata: metadata as unknown as Record<string, unknown> } })
       if (label !== undefined) actions.push({ action: 'field.set', fieldUID, field: { label } })
@@ -488,7 +489,7 @@ export const useBaseStore = defineStore('base', () => {
     submit([op('DeleteField', actions)])
   }
 
-  /** 给选择字段补充选项，返回名称到 UID 的映射。 */
+  /** Adds the missing options to the select field, and returns the option UIDs keyed by name. */
   async function ensureOptions(fieldUID: string, names: string[]): Promise<Map<string, string>> {
     const field = fields.value.find((f) => f.uid === fieldUID)
     const map = new Map<string, string>()
@@ -509,7 +510,7 @@ export const useBaseStore = defineStore('base', () => {
     return map
   }
 
-  // ---- 记录 ----
+  // ---- Records ----
 
   function defaultsFor(extra: RecordData = {}): RecordData {
     const data: RecordData = {}
@@ -544,7 +545,7 @@ export const useBaseStore = defineStore('base', () => {
     return r ?? null
   }
 
-  /** 批量修改记录的部分字段，只提交变化的单元格，支持撤销。 */
+  /** Updates some fields of the records in batch, only the changed cells are submitted, and it can be undone. */
   async function updateRecords(patches: { uid: string; data: RecordData }[], label = '编辑记录') {
     const before: Action[] = []
     const after: Action[] = []
@@ -580,7 +581,7 @@ export const useBaseStore = defineStore('base', () => {
     submit(redo)
     selectedRecords.value = selectedRecords.value.filter((u) => !uids.includes(u))
     if (expandedRecord.value && uids.includes(expandedRecord.value.uid)) expandedRecord.value = null
-    // 撤销时以原 UID 重新创建，其他协作者对这些记录的引用保持有效。
+    // Undo recreates the records with the original UIDs, so the references of the other collaborators stay valid.
     pushHistory({ label: '删除记录', undo: [op('AddRecords', addRecordActions(removed))], redo })
     Message.success(`已删除 ${removed.length} 条记录`)
   }
@@ -610,7 +611,7 @@ export const useBaseStore = defineStore('base', () => {
     Message.info({ content: `已重做：${entry.label}`, duration: 1200 })
   }
 
-  // ---- 视图 ----
+  // ---- Views ----
 
   function updateViewConfig(patch: Partial<ViewConfig>, viewUID = activeViewUID.value) {
     const view = views.value.find((v) => v.uid === viewUID)
@@ -659,7 +660,7 @@ export const useBaseStore = defineStore('base', () => {
     submit([op('MoveView', [{ action: 'view.move', viewUID, index: toIndex }])])
   }
 
-  // 其他协作者删除了当前视图时，切换到第一个视图。
+  // Switch to the first view when the current one is deleted by another collaborator.
   watch(views, (list) => {
     if (activeViewUID.value && list.length && !list.some((v) => v.uid === activeViewUID.value)) {
       activeViewUID.value = list[0]!.uid

@@ -45,7 +45,7 @@ const columns = computed<Column[]>(() => {
 
 const allUIDs = computed(() => columns.value.flatMap((c) => c.records.map((r) => r.uid)))
 
-// ---- 卡片拖拽 ----
+// ---- Dragging cards ----
 const dragRecord = ref<string | null>(null)
 const overColumn = ref<string | null>(null)
 
@@ -66,7 +66,7 @@ function onColumnDrop(col: Column) {
   store.updateCell(uid, groupField.value.uid, col.key || null)
 }
 
-// ---- 列拖拽：调整选项顺序 ----
+// ---- Dragging columns to reorder the options ----
 const dragColumn = ref<string | null>(null)
 const overColumnHead = ref<string | null>(null)
 
@@ -92,7 +92,7 @@ async function addCard(col: Column) {
   }
 }
 
-// ---- 新建 / 重命名 / 删除分组 ----
+// ---- Creating / renaming / deleting groups ----
 const addingGroup = ref(false)
 const newGroupName = ref('')
 const newGroupInput = ref<HTMLInputElement>()

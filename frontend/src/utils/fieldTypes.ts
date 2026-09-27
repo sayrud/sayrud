@@ -5,7 +5,7 @@ import type { FieldMetadataMap, FieldType, SLField } from '@/types/bitable'
 
 export interface FieldTypeInfo {
   type: FieldType
-  /** 与后端 SLFieldType.Label() 一致。 */
+  /** The same as SLFieldType.Label() of the backend. */
   label: string
   icon: Component
   description: string
@@ -40,7 +40,7 @@ export function defaultMetadata<T extends FieldType>(type: T): FieldMetadataMap[
   return map[type]
 }
 
-/** 后端不允许按公式字段筛选、排序、分组（值不落库）。 */
+/** The backend can not filter, sort or group by formula fields, whose values are not stored. */
 export function isQueryable(field: SLField): boolean {
   return field.type !== 'formula'
 }

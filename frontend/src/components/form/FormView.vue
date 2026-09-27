@@ -14,7 +14,7 @@ const store = useBaseStore()
 
 const form = computed(() => props.view.config.form ?? { title: props.view.name, description: '', fields: [] })
 
-/** 表单字段配置：保留已保存的顺序，新增字段追加到末尾；公式字段不可填写。 */
+/** Form field config in the saved order, with the new fields appended, formula fields can not be filled. */
 const fieldConfigs = computed<FormFieldConfig[]>(() => {
   const saved = form.value.fields.filter((c) => store.fields.some((f) => f.uid === c.fieldUID))
   const known = new Set(saved.map((c) => c.fieldUID))
@@ -33,7 +33,7 @@ function patchField(uid: string, p: Partial<FormFieldConfig>) {
   saveForm({ fields: fieldConfigs.value.map((c) => (c.fieldUID === uid ? { ...c, ...p } : c)) })
 }
 
-// ---- 填写 ----
+// ---- Filling ----
 const values = reactive<RecordData>({})
 const errors = reactive<Record<string, boolean>>({})
 const submitted = ref(false)
@@ -83,7 +83,7 @@ function again() {
   reset()
 }
 
-// ---- 设置面板 ----
+// ---- Settings panel ----
 const settingsOpen = ref(true)
 const dragUID = ref('')
 const overUID = ref('')

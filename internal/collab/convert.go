@@ -25,7 +25,7 @@ type fieldConversion struct {
 	values map[string]interface{}
 }
 
-// convertField converts the record values of the field to the new type, the same way as Feishu: the values are converted to text first,
+// convertField converts the record values of the field to the new type: the values are converted to text first,
 // then parsed as the new type, except for a few direct conversions such as select to select and number to checkbox.
 func convertField(old *db.SLField, newType db.SLFieldType, metadata map[string]interface{}, records []*db.SLRecord) (*fieldConversion, error) {
 	conversion := &fieldConversion{metadata: metadata, values: make(map[string]interface{}, len(records))}

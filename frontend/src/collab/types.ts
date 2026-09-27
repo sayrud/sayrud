@@ -2,14 +2,14 @@ import type { Action, Changeset, DirtyScope, FieldAttrs, Operation, ViewAttrs } 
 
 export type { Action, Changeset, DirtyScope, FieldAttrs, Operation, ViewAttrs }
 
-/** WebSocket 消息信封，与后端 collab.Message 一致。 */
+/** Envelope of the WebSocket messages, the same as collab.Message of the backend. */
 export interface SocketMessage<T = unknown> {
   type: string
   reqId?: number
   data?: T
 }
 
-/** 在线协作者及其当前聚焦的单元格。 */
+/** An online collaborator with the cell it is focusing on. */
 export interface Member {
   clientId: string
   memberId: string

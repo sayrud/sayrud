@@ -21,7 +21,7 @@ const editing = computed(() =>
 
 const label = ref('')
 const type = ref<FieldType>('text')
-// 元数据结构随字段类型变化，表单内按宽松类型编辑，保存时再收窄。
+// The metadata structure varies with the field type, it is edited loosely in the form and narrowed when saving.
 const md = ref<Record<string, any>>({})
 const saving = ref(false)
 const formulaVisible = ref(false)
@@ -44,7 +44,7 @@ function changeType(t: FieldType) {
   const prev = md.value
   const next = { ...defaultMetadata(t) } as Record<string, unknown>
   const isSelect = (x: FieldType) => x === 'single_select' || x === 'multi_select'
-  // 单选、多选之间切换时保留选项。
+  // Keep the options when switching between single and multiple select.
   if (isSelect(t) && Array.isArray(prev.options)) next.options = prev.options
   if (editing.value?.type === t) Object.assign(next, JSON.parse(JSON.stringify(editing.value.metadata)))
   type.value = t
@@ -59,7 +59,7 @@ const options = computed<SelectOption[]>({
   get: () => (md.value.options as SelectOption[]) ?? [],
   set: (v) => {
     md.value = { ...md.value, options: v }
-    // 默认值必须仍在选项中。
+    // The default value must still be one of the options.
     if (type.value === 'single_select' && !v.some((o) => o.uid === md.value.default)) md.value.default = ''
     if (type.value === 'multi_select') {
       md.value.default = ((md.value.default as string[]) ?? []).filter((d) => v.some((o) => o.uid === d))

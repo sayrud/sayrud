@@ -7,14 +7,14 @@ export type FormulaValue = number | string | boolean | Date | null
 export class FormulaError extends Error {
   constructor(
     message: string,
-    /** 单元格中展示的错误码。 */
+    /** Error code shown in the cell. */
     public code = '#ERROR!',
   ) {
     super(message)
   }
 }
 
-// ---- 词法 ----
+// ---- Lexer ----
 
 type Token =
   | { t: 'num'; v: number }
@@ -100,7 +100,7 @@ function tokenize(src: string): Token[] {
   return tokens
 }
 
-// ---- 语法 ----
+// ---- Parser ----
 
 export type FormulaNode =
   | { k: 'lit'; v: FormulaValue }
@@ -139,7 +139,7 @@ function parse(tokens: Token[]): FormulaNode {
       const prec = PRECEDENCE[tok.v]!
       if (prec < minPrec) break
       next()
-      // ^ 右结合，其余左结合。
+      // ^ is right associative, the others are left associative.
       const right = parseExpr(tok.v === '^' ? prec : prec + 1)
       left = { k: 'bin', op: tok.v, l: left, r: right }
     }
@@ -199,7 +199,7 @@ function parse(tokens: Token[]): FormulaNode {
   return node
 }
 
-// ---- 求值 ----
+// ---- Evaluation ----
 
 function isBlank(v: FormulaValue): boolean {
   return v === null || v === ''
@@ -481,7 +481,7 @@ function evaluate(node: FormulaNode, resolve: RefResolver): FormulaValue {
   throw new FormulaError('公式语法错误')
 }
 
-// ---- 编译 ----
+// ---- Compilation ----
 
 export interface CompiledFormula {
   error?: string
@@ -523,7 +523,7 @@ export function compileFormula(exp: string): CompiledFormula {
   return compiled
 }
 
-// ---- 编辑器展示：{fldXXX} <-> [字段名] ----
+// ---- Editor display: {fldXXX} <-> [field label] ----
 
 export function expToDisplay(exp: string, fields: SLField[]): string {
   const byUID = new Map(fields.map((f) => [f.uid, f.label]))

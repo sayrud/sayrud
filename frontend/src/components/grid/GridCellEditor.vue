@@ -12,11 +12,11 @@ export type EditorMove = 'down' | 'right' | 'left' | 'none'
 const props = defineProps<{
   field: SLField
   record: SLRecord
-  /** 以键入字符开始编辑时的初始内容。 */
+  /** Initial content when editing starts by typing a character. */
   initial?: string
-  /** 相对表格画布的位置（文本类编辑器）。 */
+  /** Position relative to the grid canvas, for the text editors. */
   rect: { left: number; top: number; width: number; height: number }
-  /** 相对视口的位置（下拉类编辑器）。 */
+  /** Position relative to the viewport, for the dropdown editors. */
   anchor: Anchor
 }>()
 
@@ -68,6 +68,21 @@ function cancel() {
   emit('cancel')
 }
 
+/** The text editor scrolls only when its content exceeds this height. */
+const MAX_TEXT_HEIGHT = 320
+const BORDER = 2
+
+/** Keeps the width of the cell and grows the editor downward as the content wraps. */
+function autoSize() {
+  const el = inputEl.value
+  if (!(el instanceof HTMLTextAreaElement)) return
+  const min = props.rect.height - BORDER * 2
+  el.style.height = 'auto'
+  const height = el.scrollHeight
+  el.style.height = Math.min(Math.max(height, min), MAX_TEXT_HEIGHT) + 'px'
+  el.style.overflowY = height > MAX_TEXT_HEIGHT ? 'auto' : 'hidden'
+}
+
 function onKey(e: KeyboardEvent) {
   if (e.isComposing || e.keyCode === 229) return
   if (e.key === 'Enter' && !e.shiftKey && !e.altKey) {
@@ -81,13 +96,6 @@ function onKey(e: KeyboardEvent) {
     cancel()
   }
   e.stopPropagation()
-}
-
-function autoSize() {
-  const el = inputEl.value
-  if (!(el instanceof HTMLTextAreaElement)) return
-  el.style.height = 'auto'
-  el.style.height = Math.min(Math.max(el.scrollHeight, props.rect.height), 240) + 'px'
 }
 
 const dateValue = computed(() => (typeof value.value === 'string' && value.value ? new Date(value.value) : undefined))
@@ -104,7 +112,7 @@ function onDate(_v: unknown, date?: Date) {
   <div
     v-if="isTextual"
     class="text-editor"
-    :style="{ left: rect.left + 'px', top: rect.top + 'px', width: Math.max(rect.width, 160) + 'px', minHeight: rect.height + 'px' }"
+    :style="{ left: rect.left + 'px', top: rect.top + 'px', width: rect.width + 'px', minHeight: rect.height + 'px' }"
     @mousedown.stop
   >
     <textarea
@@ -161,22 +169,22 @@ function onDate(_v: unknown, date?: Date) {
 </template>
 
 <style scoped>
+/* Initially overlaps the selected cell exactly: the border is drawn inside the cell and the text aligns with the cell content, long text grows downward. */
 .text-editor {
   position: absolute;
   z-index: 20;
   display: flex;
+  align-items: flex-start;
+  box-sizing: border-box;
+  border: 2px solid var(--color-primary);
   background: #fff;
-  box-shadow:
-    0 0 0 2px var(--color-primary),
-    0 6px 16px rgba(31, 35, 41, 0.12);
-  border-radius: 2px;
 }
 .text-editor textarea,
 .text-editor input {
   flex: 1;
   width: 100%;
-  min-height: inherit;
-  padding: 5px 8px;
+  /* A single line (vertical padding + 22px line height) exactly fills a cell of the default row height. */
+  padding: 4px 6px 3px;
   border: none;
   outline: none;
   resize: none;
@@ -185,7 +193,15 @@ function onDate(_v: unknown, date?: Date) {
   color: var(--text-title);
   background: transparent;
 }
+.text-editor textarea {
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
 .text-editor input.number {
+  align-self: stretch;
+  padding-top: 0;
+  padding-bottom: 0;
   text-align: right;
 }
 .date-panel :deep(.arco-picker-container) {

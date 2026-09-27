@@ -1,4 +1,4 @@
-/* 飞书风格的设计变量，并覆盖 Arco 的主色与圆角。 */
+/* Design tokens, overriding the primary color and border radius of Arco. */
 body {
   --primary-1: 240, 244, 255;
   --primary-2: 225, 234, 255;
@@ -97,7 +97,7 @@ button {
   background: transparent;
 }
 
-/* 通用小组件 */
+/* Common widgets */
 .icon-btn {
   display: inline-flex;
   align-items: center;
@@ -166,8 +166,8 @@ button {
   text-overflow: ellipsis;
 }
 
-/* Arco 微调 */
-/* 下拉、日期面板等需要盖过自定义浮层 FloatingPanel（z-index: 1100）。 */
+/* Arco tweaks */
+/* Dropdowns and date panels must cover the custom FloatingPanel (z-index: 1100). */
 .arco-trigger-popup {
   z-index: 1200 !important;
 }

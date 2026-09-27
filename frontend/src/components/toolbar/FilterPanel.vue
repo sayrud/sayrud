@@ -38,7 +38,7 @@ function changeField(i: number, uid: string) {
 function changeOp(i: number, op: FilterOperation) {
   const cur = filters.value[i]!
   const f = fieldOf(cur.fieldUID)
-  // 单值与列表之间切换时转换已选的值。
+  // Convert the selected value when switching between a single value and a list.
   let value = cur.value
   if (isListOperation(op) && !isListOperation(cur.operation)) value = cur.value ? JSON.stringify([cur.value]) : ''
   else if (!isListOperation(op) && isListOperation(cur.operation)) {

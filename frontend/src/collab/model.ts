@@ -23,10 +23,10 @@ function moveTo<T>(list: T[], index: number, item: T): T[] {
 }
 
 /**
- * 在一份表数据上依次应用操作，返回新数据（未改动的部分保持引用不变）。
+ * Applies the operations to the table data in order and returns the new data, the unchanged parts keep their references.
  *
- * 所有 action 都是幂等的：重复新增会被跳过，修改 / 删除不存在的对象会被忽略。
- * 因此收到远端变更后，可以先应用远端操作，再重放本地尚未确认的操作，得到与服务端最终一致的结果。
+ * All the actions are idempotent: adding an existing object is skipped, and changing or deleting a missing object is ignored.
+ * So after receiving remote changes, applying the remote operations and then replaying the unacknowledged local ones converges with the server.
  */
 export function applyOperations(data: TableData, operations: Operation[], tableUID: string): TableData {
   const draft = new Draft(data, tableUID)
@@ -119,7 +119,7 @@ class Draft {
         this.views = renumber((this.views ?? this.base.views).filter((v) => v.uid !== a.viewUID))
         return
       default:
-        // table.dirty 由同步引擎处理。
+        // table.dirty is handled by the sync engine.
         return
     }
   }

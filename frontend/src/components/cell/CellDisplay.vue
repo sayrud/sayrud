@@ -11,9 +11,9 @@ const props = withDefaults(
   defineProps<{
     field: SLField
     record: SLRecord
-    /** 文本最多展示的行数。 */
+    /** Maximum number of text lines. */
     lines?: number
-    /** 卡片中展示时允许标签换行。 */
+    /** Allows the tags to wrap when shown in cards. */
     wrap?: boolean
   }>(),
   { lines: 1, wrap: false },

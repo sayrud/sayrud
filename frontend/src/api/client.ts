@@ -23,7 +23,7 @@ const client = new Api({
   withCredentials: true,
 })
 
-// 响应体 { msg, data } 整体作为 AxiosResponse 返回，调用方取 `.data` 即得到 Swagger 中声明的类型。
+// Return the whole `{ msg, data }` body as the AxiosResponse, so `.data` of the result is the type declared in Swagger.
 client.instance.interceptors.response.use(
   (response: AxiosResponse<HttpResponse>) => response.data as unknown as AxiosResponse,
   (error: unknown) => {

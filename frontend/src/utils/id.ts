@@ -7,7 +7,7 @@ export function randstr(length: number): string {
   return out
 }
 
-// 前缀与长度同后端 BeforeCreate 钩子。
+// The prefixes and lengths are the same as the BeforeCreate hooks of the backend.
 export const newTableUID = () => 'tbl' + randstr(13)
 export const newFieldUID = () => 'fld' + randstr(7)
 export const newRecordUID = () => 'rec' + randstr(11)

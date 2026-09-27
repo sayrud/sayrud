@@ -1,8 +1,8 @@
-// 选项标签调色板，贴近飞书多维表格的浅底深字配色。
+// Palette of the option tags, with dark text on light backgrounds.
 export interface TagColor {
   bg: string
   text: string
-  /** 看板列头等需要实色的场景。 */
+  /** Solid color for places like the kanban column headers. */
   solid: string
 }
 

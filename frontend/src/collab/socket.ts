@@ -17,7 +17,7 @@ interface PendingRequest {
 const HEARTBEAT_INTERVAL = 20_000
 const REQUEST_TIMEOUT = 20_000
 
-/** 项目级 WebSocket 连接：断线自动重连、请求按 reqId 匹配回复、按消息类型分发推送。 */
+/** WebSocket connection of a project, which reconnects automatically, matches the replies by reqId and dispatches the pushes by message type. */
 export class ProjectSocket {
   readonly status = ref<SocketStatus>('connecting')
   readonly clientId = ref('')
@@ -49,7 +49,7 @@ export class ProjectSocket {
     this.ws = null
   }
 
-  /** 主动断开并立即重连，用于请求超时等疑似半开连接的情况。 */
+  /** Closes the connection to reconnect immediately, used when the connection seems half-open, e.g. a request times out. */
   reconnect() {
     this.ws?.close()
   }
@@ -70,7 +70,7 @@ export class ProjectSocket {
     return true
   }
 
-  /** 发送请求并等待带相同 reqId 的回复（包括 REJECT_COMMIT / ERROR），连接断开或超时则 reject。 */
+  /** Sends a request and waits for the reply with the same reqId (including REJECT_COMMIT / ERROR), it rejects if the connection is closed or times out. */
   request<T = unknown>(type: string, data?: unknown, timeout = REQUEST_TIMEOUT): Promise<SocketMessage<T>> {
     return new Promise((resolve, reject) => {
       if (!this.isOpen) {

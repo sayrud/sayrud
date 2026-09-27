@@ -15,13 +15,13 @@ function pick<T>(list: T[]): T {
   return list[Math.floor(Math.random() * list.length)]!
 }
 
-/** 浏览器维度的匿名协作者身份，仅用于在线头像与单元格光标。 */
+/** Anonymous collaborator identity of the browser, only used for the online avatars and cell cursors. */
 export function getIdentity(): Identity {
   try {
     const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? 'null') as Identity | null
     if (saved?.memberId && saved.name && saved.color) return saved
   } catch {
-    // 忽略损坏的缓存，重新生成。
+    // Ignore the corrupted cache and generate a new identity.
   }
   const identity: Identity = { memberId: 'mem' + randstr(12), name: '匿名' + pick(ANIMALS), color: pick(COLORS) }
   localStorage.setItem(STORAGE_KEY, JSON.stringify(identity))

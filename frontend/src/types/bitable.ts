@@ -1,4 +1,4 @@
-// 与后端 internal/db/sl_*.go 对齐的多维表格数据结构。
+// Table data structures aligned with the backend management API.
 
 export interface Project {
   uid: string
@@ -28,7 +28,7 @@ export type FieldType =
 export interface SelectOption {
   uid: string
   name: string
-  /** 调色板下标，见 utils/colors.ts。 */
+  /** Index of the palette, see utils/colors.ts. */
   color: number
 }
 
@@ -38,7 +38,7 @@ export interface TextMetadata {
 
 export interface SingleSelectMetadata {
   options: SelectOption[]
-  /** 默认选项 UID，空字符串表示无默认值。 */
+  /** UID of the default option, empty means no default value. */
   default: string
 }
 
@@ -50,7 +50,7 @@ export interface MultiSelectMetadata {
 export interface DateTimeMetadata {
   format: string
   with_time: boolean
-  /** 空字符串表示无默认值，"now" 表示新建记录时的时间。 */
+  /** Empty means no default value, "now" means the creation time of the record. */
   default: string
 }
 
@@ -62,7 +62,7 @@ export interface NumberMetadata {
 export type CheckboxMetadata = Record<string, never>
 
 export interface FormulaMetadata {
-  /** 表达式中以 {fldXXXXXXX} 引用字段。 */
+  /** The expression references the fields by {fldXXXXXXX}. */
   exp: string
 }
 
@@ -89,7 +89,7 @@ export interface SLField<T extends FieldType = FieldType> {
   updatedAt: string
 }
 
-/** 单元格值：文本 string、单选 option UID、多选 option UID[]、日期 RFC3339、数字 number、复选框 boolean。 */
+/** Cell value: string for text, option UID for single select, option UID[] for multiple select, RFC 3339 string for date, number and boolean for checkbox. */
 export type CellValue = string | number | boolean | string[] | null | undefined
 
 export type RecordData = Record<string, CellValue>
@@ -102,9 +102,9 @@ export interface SLRecord {
   updatedAt: string
 }
 
-// ---- 查询 ----
+// ---- Query ----
 
-/** eq ~ like 与后端 FilterOperation 一致；empty / not_empty 为前端扩展。 */
+/** eq ~ like are the same as the backend FilterOperation, empty / not_empty are only supported by the frontend. */
 export type FilterOperation =
   | 'eq'
   | 'neq'
@@ -121,7 +121,7 @@ export type FilterOperation =
 export interface QueryFilter {
   fieldUID: string
   operation: FilterOperation
-  /** 与后端一致使用字符串；in / nin 为 JSON 数组字符串。 */
+  /** A string as the backend, a JSON array string for in / nin. */
   value: string
 }
 
@@ -141,7 +141,7 @@ export type FilterConjunction = 'and' | 'or'
 
 export interface QueryRecordsOptions {
   filter?: QueryFilter[]
-  /** 后端当前只支持 and。 */
+  /** The backend only supports and for now. */
   conjunction?: FilterConjunction
   order?: QuerySort[]
   group?: QueryGroup[]
@@ -149,7 +149,7 @@ export interface QueryRecordsOptions {
   offset?: number
 }
 
-// ---- 视图（后端暂无，Mock 扩展）----
+// ---- View ----
 
 export type ViewType = 'grid' | 'kanban' | 'gallery' | 'form'
 
@@ -187,7 +187,7 @@ export interface ViewConfig {
   hiddenFields: string[]
   fieldWidths: Record<string, number>
   rowHeight: RowHeight
-  /** 冻结的字段列数（不含行号列）。 */
+  /** Number of frozen field columns, excluding the row number column. */
   frozenCount: number
   summary: Record<string, SummaryType>
   kanbanFieldUID?: string

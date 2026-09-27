@@ -50,7 +50,7 @@ const OVERSCAN = 400
 const rowH = computed(() => ROW_HEIGHTS[props.view.config.rowHeight]?.px ?? 34)
 const lines = computed(() => ROW_HEIGHTS[props.view.config.rowHeight]?.lines ?? 1)
 
-// ---- 列 ----
+// ---- Columns ----
 
 const resizing = ref<{ uid: string; startX: number; startW: number; width: number } | null>(null)
 
@@ -86,7 +86,7 @@ const contentWidth = computed(() => {
   return (last ? last.left + last.width : INDEX_W) + ADD_COL_W
 })
 
-// ---- 行布局 ----
+// ---- Row layout ----
 
 const collapsedStore = reactive(new Map<string, Set<string>>())
 const collapsed = computed(() => {
@@ -167,7 +167,7 @@ const recordItems = computed(() => {
   return m
 })
 
-// ---- 虚拟滚动 ----
+// ---- Virtual scrolling ----
 
 const wrap = ref<HTMLElement>()
 const scroller = ref<HTMLElement>()
@@ -231,7 +231,7 @@ watch(
   },
 )
 
-// ---- 选区 ----
+// ---- Selection ----
 
 interface CellKey {
   r: string
@@ -239,7 +239,7 @@ interface CellKey {
 }
 const sel = ref<{ anchor: CellKey; focus: CellKey } | null>(null)
 
-// 当前聚焦的单元格作为协作光标广播给其他协作者。
+// Broadcast the focused cell to the other collaborators as the collaboration cursor.
 watch(
   () => (sel.value ? `${sel.value.focus.r}:${sel.value.focus.f}` : ''),
   (key) => {
@@ -280,7 +280,7 @@ function select(r: number, c: number, extend = false) {
   else sel.value = { anchor: k, focus: k }
 }
 
-// 选中单元格时焦点落在隐藏的 textarea 上，这样中文输入法可以直接在单元格上开始输入。
+// The focus is on a hidden textarea when a cell is selected, so IME input can start typing on the cell directly.
 const imeProxy = ref<HTMLTextAreaElement>()
 const composing = ref(false)
 
@@ -403,11 +403,55 @@ function moveBy(dr: number, dc: number, extend = false) {
   scrollIntoView(r, c)
 }
 
-// ---- 编辑 ----
+// ---- Editing ----
 
 const editingField = computed(() => (editing.value ? store.fields.find((f) => f.uid === editing.value!.key.f) : undefined))
 const editingRecord = computed(() => (editing.value ? store.recordMap.get(editing.value.key.r) : undefined))
 const isTextualEditing = computed(() => editingField.value?.type === 'text' || editingField.value?.type === 'number')
+
+// ---- Expanding the selected cell downward within its width to show the truncated content ----
+
+const EXPANDED_LINES = 8
+const EXPANDABLE_TYPES = new Set(['text', 'formula', 'multi_select'])
+const expandedKey = ref<CellKey | null>(null)
+let measureSeq = 0
+
+function measureExpanded() {
+  const seq = ++measureSeq
+  expandedKey.value = null
+  const rc = rect.value
+  if (!rc || editing.value || dragSelecting.value || rc.r1 !== rc.r2 || rc.c1 !== rc.c2) return
+  const key = keyAt(rc.r1, rc.c1)
+  if (!key || !EXPANDABLE_TYPES.has(cols.value[rc.c1]!.field.type)) return
+  nextTick(() => {
+    if (seq !== measureSeq) return
+    const content = scroller.value?.querySelector(`[data-cell="${key.r}:${key.f}"] .cell-display > *`) as HTMLElement | null
+    if (content && (content.scrollHeight > content.clientHeight + 1 || content.scrollWidth > content.clientWidth + 1)) {
+      expandedKey.value = key
+    }
+  })
+}
+
+watch([rect, editing, dragSelecting, () => store.records, cols, rowH], measureExpanded)
+
+const expanded = computed(() => {
+  const key = expandedKey.value
+  if (!key || editing.value) return null
+  const item = recordItems.value.get(key.r)
+  const col = cols.value[colIndex.value.get(key.f) ?? -1]
+  const record = store.recordMap.get(key.r)
+  if (!item || !col || !record) return null
+  return {
+    field: col.field,
+    record,
+    style: {
+      left: (col.frozen ? col.left + scrollLeft.value : col.left) + 'px',
+      top: HEADER_H + item.top + 'px',
+      width: col.width + 'px',
+      minHeight: item.height - 1 + 'px',
+    },
+  }
+})
 
 function startEdit(initial?: string) {
   const rc = rect.value
@@ -436,7 +480,8 @@ function startEdit(initial?: string) {
         left: col.frozen ? col.left + scrollLeft.value : col.left,
         top: HEADER_H + item.top,
         width: col.width,
-        height: item.height,
+        // The row height includes the 1px bottom border, the editor is as high as the cell content box.
+        height: item.height - 1,
       },
       anchor: cellEl.getBoundingClientRect(),
     }
@@ -467,7 +512,7 @@ function toggleCheckbox(record: SLRecord, field: SLField) {
   store.updateCell(record.uid, field.uid, !record.data[field.uid])
 }
 
-// ---- 键盘 ----
+// ---- Keyboard ----
 
 function onKeyDown(e: KeyboardEvent) {
   if (editing.value || e.isComposing || composing.value) return
@@ -568,7 +613,7 @@ function clearRange() {
   store.updateRecords([...byRecord].map(([uid, data]) => ({ uid, data })), '清空单元格')
 }
 
-// ---- 复制 / 粘贴 ----
+// ---- Copy / paste ----
 
 function gridFocused() {
   return !editing.value && (document.activeElement === imeProxy.value || document.activeElement === scroller.value)
@@ -668,7 +713,7 @@ async function pasteText(text: string) {
   if (a && b) sel.value = { anchor: a, focus: b }
 }
 
-// ---- 行操作 ----
+// ---- Row actions ----
 
 const allChecked = computed(
   () => layout.value.nav.length > 0 && layout.value.nav.every((r) => store.selectedRecords.includes(r.uid)),
@@ -739,7 +784,7 @@ function onRowContextMenu(e: MouseEvent, item: RecordItem) {
   openMenu(e, items)
 }
 
-// ---- 分组 ----
+// ---- Groups ----
 
 function toggleGroup(id: string) {
   const set = collapsed.value
@@ -756,7 +801,7 @@ function groupOptions(node: GroupNode) {
   return node.value.map((u) => findOption(node.field, u)).filter(Boolean)
 }
 
-// ---- 表头：拖拽排序、调整列宽、字段菜单 ----
+// ---- Header: dragging to reorder, resizing and field menu ----
 
 const colDrag = ref<{ uid: string; index: number; startX: number; x: number; y: number; active: boolean; drop: number } | null>(null)
 const dropLineX = ref<number | null>(null)
@@ -915,7 +960,7 @@ function openFieldMenu(e: MouseEvent, col: Col) {
   ])
 }
 
-// ---- 统计栏 ----
+// ---- Summary bar ----
 
 const summaries = computed(() => {
   const map = new Map<string, { type: SummaryType; text: string }>()
@@ -943,7 +988,7 @@ function openSummaryMenu(e: MouseEvent, col: Col) {
   )
 }
 
-// ---- 搜索 ----
+// ---- Search ----
 
 const searchHits = computed(() => {
   const term = store.search.term.trim().toLowerCase()
@@ -993,7 +1038,7 @@ defineExpose({ addRecord })
       @focus="focusGrid"
     >
       <div class="grid-canvas" :style="{ width: contentWidth + 'px', minWidth: '100%', height: canvasHeight + 'px', minHeight: '100%' }">
-        <!-- 表头 -->
+        <!-- Header -->
         <div class="grid-header" :style="{ height: HEADER_H + 'px', width: contentWidth + 'px' }">
           <div class="cell index-cell header-index" :style="{ width: INDEX_W + 'px' }">
             <span class="row-check" :class="{ checked: allChecked, partial: someChecked }" @click="toggleAll">
@@ -1030,7 +1075,7 @@ defineExpose({ addRecord })
           </div>
         </div>
 
-        <!-- 行 -->
+        <!-- Rows -->
         <template v-for="item in visibleItems" :key="item.key">
           <div
             v-if="item.kind === 'record'"
@@ -1113,7 +1158,7 @@ defineExpose({ addRecord })
 
         <div class="grid-spacer" />
 
-        <!-- 统计栏 -->
+        <!-- Summary bar -->
         <div class="grid-footer" :style="{ height: FOOTER_H + 'px', width: contentWidth + 'px' }">
           <div class="cell index-cell footer-index" :style="{ width: INDEX_W + 'px' }">
             <span class="ellipsis">{{ rows.length }} 条记录</span>
@@ -1144,6 +1189,10 @@ defineExpose({ addRecord })
           @compositionstart="composing = true"
           @compositionend="onProxyCompositionEnd"
         />
+
+        <div v-if="expanded" class="cell-expanded" :style="expanded.style">
+          <CellDisplay :field="expanded.field" :record="expanded.record" :lines="EXPANDED_LINES" />
+        </div>
 
         <GridCellEditor
           v-if="editing && editingField && editingRecord"
@@ -1334,6 +1383,25 @@ defineExpose({ addRecord })
 }
 .data-cell.search-current {
   background: var(--grid-search-current) !important;
+}
+.cell-expanded {
+  position: absolute;
+  z-index: 15;
+  box-sizing: border-box;
+  padding: 4px 6px 3px;
+  border: 2px solid var(--color-primary);
+  background: #fff;
+  color: var(--text-title);
+  pointer-events: none;
+}
+.cell-expanded :deep(.cell-display) {
+  height: auto;
+  align-items: flex-start;
+}
+/* Wrap the same way as the editor, so the text does not jump when starting to edit. */
+.cell-expanded :deep(.text) {
+  word-break: normal;
+  overflow-wrap: anywhere;
 }
 .peer-cursor {
   position: absolute;

@@ -18,7 +18,7 @@ export interface TableSnapshot {
   records: SLRecord[]
 }
 
-// 生成的类型把 metadata / config / data 描述为宽松的 Record，这里收窄为前端的精确类型。
+// The generated types describe metadata / config / data as loose records, narrow them to the precise frontend types.
 const asFields = (list: ApiField[]) => list as unknown as SLField[]
 const asRecords = (list: ApiRecord[]) => list as unknown as SLRecord[]
 const asViews = (list: ApiView[]) => list as unknown as SLView[]
@@ -52,7 +52,7 @@ export const syncApi = {
     const s = (await client.projects.getTableSnapshot(projectUID, tableUID)).data
     return { rev: s.rev, fields: asFields(s.fields), views: asViews(s.views), records: asRecords(s.records) }
   },
-  /** 拉取 since 之后的全部 changeset，自动翻页。 */
+  /** Fetches all the changesets after since, following the pages automatically. */
   changesets: async (projectUID: string, tableUID: string, since: number): Promise<Changeset[]> => {
     const all: Changeset[] = []
     for (;;) {

@@ -8,7 +8,7 @@ import { isQueryable } from '@/utils/fieldTypes'
 import { sortOrderLabels } from '@/utils/filters'
 import FieldSelect from './FieldSelect.vue'
 
-/** 排序与分组共用：两者都是「字段 + 方向」的有序列表。 */
+/** Shared by sort and group, both are ordered lists of field and direction. */
 const props = defineProps<{ view: SLView; kind: 'sort' | 'group' }>()
 const store = useBaseStore()
 

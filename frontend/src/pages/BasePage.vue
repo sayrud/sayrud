@@ -52,7 +52,7 @@ async function sync() {
 
 watch(() => [route.params.projectUID, route.params.tableUID, route.params.viewUID], sync, { immediate: true })
 
-// 其他协作者删除了当前数据表时，切换到第一张表。
+// Switch to the first table when the current one is deleted by another collaborator.
 watch(
   () => store.tables.map((t) => t.uid).join(),
   () => {
@@ -123,7 +123,7 @@ function share() {
   Message.success('链接已复制')
 }
 
-// 非表格视图下的全局撤销 / 重做；表格视图在自身键盘处理中已 preventDefault。
+// Global undo / redo for the non-grid views, the grid view handles them in its own keydown handler and prevents the default.
 function onGlobalKey(e: KeyboardEvent) {
   if (e.defaultPrevented) return
   const t = e.target as HTMLElement

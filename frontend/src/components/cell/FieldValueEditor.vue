@@ -13,7 +13,7 @@ import SelectTag from './SelectTag.vue'
 const props = defineProps<{
   field: SLField
   value: CellValue
-  /** 公式字段展示计算结果时需要。 */
+  /** Required to show the result of formula fields. */
   record?: SLRecord
   placeholder?: string
 }>()
@@ -21,7 +21,7 @@ const emit = defineEmits<{ change: [value: CellValue] }>()
 
 const md = computed(() => props.field.metadata as Record<string, unknown>)
 
-// 文本 / 数字使用草稿，失焦时提交。
+// Text and number use a draft which is committed on blur.
 const draft = ref('')
 function resetDraft() {
   if (props.field.type === 'number') {

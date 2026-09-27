@@ -61,7 +61,7 @@ watch(
 const singleSelectFields = computed(() => store.fields.filter((f) => f.type === 'single_select'))
 const kanbanField = computed(() => store.fields.find((f) => f.uid === cfg.value.kanbanFieldUID))
 
-// ---- 搜索 ----
+// ---- Search ----
 const searching = ref(false)
 const searchInput = ref<HTMLInputElement>()
 function openSearch() {

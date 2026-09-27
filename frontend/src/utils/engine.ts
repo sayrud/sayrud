@@ -18,10 +18,10 @@ export interface FormulaResult {
   error?: string
 }
 
-/** 绑定一组字段的求值上下文，负责公式计算、展示文本和排序键。 */
+/** Evaluation context bound to a set of fields, which calculates the formulas, display texts and sort keys. */
 export class TableContext {
   readonly byUID: Map<string, SLField>
-  // 记录更新时整体替换 data 对象，因此可以按 data 引用缓存公式结果。
+  // The data object is replaced as a whole when a record changes, so the formula results can be cached by the data reference.
   private formulaCache = new WeakMap<object, Map<string, FormulaResult>>()
 
   constructor(readonly fields: SLField[]) {
@@ -87,7 +87,7 @@ export class TableContext {
     }
   }
 
-  /** 单元格展示文本（含公式）。 */
+  /** Display text of the cell, including formulas. */
   text(record: SLRecord, field: SLField): string {
     if (field.type === 'formula') {
       const r = this.formula(record, field)
@@ -96,7 +96,7 @@ export class TableContext {
     return valueToText(field, record.data[field.uid])
   }
 
-  /** 排序键：null 表示空值，始终排在最后。 */
+  /** Sort key, null is an empty value which always comes last. */
   sortKey(record: SLRecord, field: SLField): number | string | null {
     const v = record.data[field.uid]
     switch (field.type) {
@@ -113,7 +113,7 @@ export class TableContext {
       }
       case 'multi_select': {
         if (!Array.isArray(v) || !v.length) return null
-        // 多选按首个选项的次序排序。
+        // Multiple select values are sorted by the order of the first option.
         const opts = optionsOf(field)
         const idx = opts.findIndex((o) => o.uid === v[0])
         return idx < 0 ? null : idx
@@ -131,7 +131,7 @@ export class TableContext {
   }
 }
 
-// ---- 筛选 ----
+// ---- Filter ----
 
 function parseList(value: string): string[] {
   try {
@@ -142,7 +142,7 @@ function parseList(value: string): string[] {
   }
 }
 
-/** 条件是否已填写完整；不完整的条件不参与筛选（与飞书一致）。 */
+/** Reports whether the condition is complete, the incomplete conditions are ignored when filtering. */
 export function isFilterComplete(filter: QueryFilter): boolean {
   if (filter.operation === 'empty' || filter.operation === 'not_empty') return true
   if (filter.operation === 'in' || filter.operation === 'nin') return parseList(filter.value).length > 0
@@ -194,7 +194,7 @@ export function matchFilter(ctx: TableContext, record: SLRecord, filter: QueryFi
       return cmp(op, Number(raw) - target)
     }
     case 'datetime': {
-      // 日期按天比较，符合"是 2026/01/01"这类直觉。
+      // Dates are compared by day, which matches the intuition of conditions like "is 2026/01/01".
       const target = dayjs(filter.value).startOf('day')
       if (!target.isValid()) return true
       if (op === 'neq') return empty || !dayjs(String(raw)).isSame(target, 'day')
@@ -232,7 +232,7 @@ function cmp(op: string, diff: number): boolean {
   }
 }
 
-// ---- 排序 / 分组 ----
+// ---- Sort / group ----
 
 export function compareRecords(ctx: TableContext, a: SLRecord, b: SLRecord, sorts: QuerySort[]): number {
   for (const s of sorts) {
@@ -241,7 +241,7 @@ export function compareRecords(ctx: TableContext, a: SLRecord, b: SLRecord, sort
     const ka = ctx.sortKey(a, field)
     const kb = ctx.sortKey(b, field)
     if (ka === kb) continue
-    // NULLS LAST，与后端一致。
+    // NULLS LAST, the same as the backend.
     if (ka === null) return 1
     if (kb === null) return -1
     const d = compareScalar(ka, kb)
@@ -255,11 +255,11 @@ export interface QueryInput {
   conjunction?: FilterConjunction
   sort?: QuerySort[]
   group?: QueryGroup[]
-  /** 不受筛选影响的记录，例如刚在当前视图新建、尚未填写的记录。 */
+  /** Records not affected by the filter, e.g. the ones just created in the current view and not filled yet. */
   keep?: Set<string>
 }
 
-/** 按筛选、分组、排序返回记录；无排序时保持创建顺序。 */
+/** Returns the records filtered, grouped and sorted, in creation order if there is no sort. */
 export function queryRecords(ctx: TableContext, records: SLRecord[], input: QueryInput): SLRecord[] {
   const filters = (input.filter ?? []).filter((f) => ctx.field(f.fieldUID) && isFilterComplete(f))
   let rows = records
@@ -284,11 +284,11 @@ export function queryRecords(ctx: TableContext, records: SLRecord[], input: Quer
 }
 
 export interface GroupNode {
-  /** 在整棵树中唯一，用于记录折叠状态。 */
+  /** Unique in the whole tree, used to remember the collapsed state. */
   id: string
   level: number
   field: SLField
-  /** 分组的原始值（多选为选项 UID 数组）。 */
+  /** Raw value of the group, an array of option UIDs for multiple select. */
   value: CellValue
   records: SLRecord[]
   children: GroupNode[]
@@ -310,7 +310,7 @@ function groupKey(ctx: TableContext, record: SLRecord, field: SLField): string {
   }
 }
 
-/** records 需已按分组字段排好序。 */
+/** The records must be sorted by the group fields. */
 export function buildGroups(ctx: TableContext, records: SLRecord[], groups: QueryGroup[], level = 0, parent = ''): GroupNode[] {
   const g = groups[level]
   const field = g && ctx.field(g.fieldUID)
@@ -341,7 +341,7 @@ export function buildGroups(ctx: TableContext, records: SLRecord[], groups: Quer
   return nodes
 }
 
-// ---- 统计 ----
+// ---- Summary ----
 
 export const SUMMARY_LABELS: Record<SummaryType, string> = {
   none: '不展示',
@@ -370,7 +370,7 @@ export function summaryTypesFor(field: SLField): SummaryType[] {
   return base
 }
 
-/** 平均值至少保留两位小数，如 "0%" -> "0.00%"。 */
+/** The average keeps at least two decimals, e.g. "0%" -> "0.00%". */
 function withDecimals(fmt: string): string {
   return fmt.includes('.') ? fmt : fmt.replace(/0(,000)?/, (m) => m + '.00')
 }
@@ -419,7 +419,7 @@ export function computeSummary(ctx: TableContext, records: SLRecord[], field: SL
   return ''
 }
 
-/** 分组标题展示的文本。 */
+/** Text shown in the group header. */
 export function groupLabel(node: GroupNode): string {
   const { field, value } = node
   if (value === null || value === undefined) return '空值'

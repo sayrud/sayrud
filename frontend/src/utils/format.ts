@@ -21,14 +21,14 @@ export function formatNumber(value: number | null | undefined, format: string): 
   return prefix + text + percent
 }
 
-/** 把用户输入的数字文本（可带千分位、货币符号、百分号）解析为数值。 */
+/** Parses the number text typed by the user, which may contain the thousands separator, currency symbol and percent sign. */
 export function parseNumber(text: string, format = '0'): number | null {
   const t = text.trim().replace(/[,¥$\s]/g, '')
   if (t === '') return null
   const isPercent = t.endsWith('%')
   const n = Number(isPercent ? t.slice(0, -1) : t)
   if (Number.isNaN(n)) return null
-  // 百分比格式下输入 "10" 视为 10%。
+  // "10" is treated as 10% in the percent format.
   if (isPercent || format.endsWith('%')) return n / 100
   return n
 }
@@ -60,7 +60,7 @@ export function findOption(field: SLField, uid: string): SelectOption | undefine
   return optionsOf(field).find((o) => o.uid === uid)
 }
 
-/** 非公式字段的单元格文本（复制、搜索、排序时使用）。 */
+/** Text of a non-formula cell, used for copying, searching and sorting. */
 export function valueToText(field: SLField, value: CellValue): string {
   if (isEmptyValue(value)) return ''
   switch (field.type) {
@@ -88,11 +88,11 @@ export function valueToText(field: SLField, value: CellValue): string {
 
 export interface ParsedValue {
   value: CellValue
-  /** 粘贴时匹配不到的选项名，需要先在字段中新建。 */
+  /** Option names not found when pasting, which need to be created in the field first. */
   newOptions: string[]
 }
 
-/** 把文本解析为指定字段类型的值，用于粘贴和类型转换。 */
+/** Parses the text as the value of the field type, used for pasting and type conversion. */
 export function textToValue(field: SLField, text: string): ParsedValue {
   const t = text.trim()
   switch (field.type) {
@@ -129,7 +129,7 @@ export function textToValue(field: SLField, text: string): ParsedValue {
   }
 }
 
-/** 把新选项名解析后的结果重新映射成 UID（在字段已补充选项之后调用）。 */
+/** Maps the new option names to UIDs, called after the options are added to the field. */
 export function resolveOptionNames(field: SLField, text: string): CellValue {
   return textToValue(field, text).value
 }
@@ -152,7 +152,7 @@ export function defaultValueOf(field: SLField): CellValue {
   }
 }
 
-/** TSV 解析，支持 Excel / 飞书复制出的带引号多行单元格。 */
+/** Parses TSV, supporting the quoted multi-line cells copied from spreadsheets. */
 export function parseTSV(text: string): string[][] {
   const rows: string[][] = []
   let row: string[] = []

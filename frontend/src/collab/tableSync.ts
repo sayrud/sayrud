@@ -11,7 +11,7 @@ interface Inflight {
   operations: Operation[]
 }
 
-/** 缓冲区中的条目：远端 changeset，或自己提交被接受后占据的修订号。 */
+/** Entry of the buffer: a remote changeset, or the revision taken by an accepted local changeset. */
 type BufferEntry = { kind: 'remote'; changeset: Changeset } | { kind: 'own'; signature: string }
 
 const GAP_WAIT = 800
@@ -25,7 +25,7 @@ function uuid(): string {
   return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20)}`
 }
 
-/** 只修改某个视图完整配置的操作，后一次会完全覆盖前一次。 */
+/** Key of an operation which only replaces the whole config of a view, a later one fully overrides an earlier one. */
 function configKey(op: Operation): string | null {
   const [a] = op.actions
   if (op.actions.length !== 1 || a!.action !== 'view.set' || !a!.view?.config || a!.view.name !== undefined) return null
@@ -33,28 +33,28 @@ function configKey(op: Operation): string | null {
 }
 
 export interface TableSyncHooks {
-  /** 提交被服务端拒绝，本地未确认的修改已丢弃并重新加载。 */
+  /** The changeset is rejected by the server, the unacknowledged local changes are dropped and the table is reloaded. */
   onReject?: (message: string) => void
-  /** 收到其他协作者或服务端的变更。 */
+  /** Changes are received from the other collaborators or the server. */
   onRemoteChange?: () => void
 }
 
 /**
- * 单张数据表的协同同步。
+ * Collaborative sync of a table.
  *
- * - 本地操作立即应用到界面（乐观更新），排队后以 changeset 形式提交，同一时刻只有一个在途提交；
- * - 服务端按表维护连续修订号，ACCEPT_COMMIT 确认自己的提交，NEW_CHANGES 推送他人的提交，二者都按修订号顺序处理；
- * - 远端变更到达时先应用远端操作，再重放本地未确认的操作（操作都是按 UID 定位的幂等操作）；
- * - 发现修订号缺口时通过 HTTP 补拉 changeset；服务端改写的数据（如字段类型转换）以 table.dirty 通知，按范围重新拉取。
+ * - Local operations are applied to the UI immediately (optimistic update), then queued and submitted as changesets, with at most one in flight;
+ * - The server keeps a consecutive revision per table, ACCEPT_COMMIT acknowledges the local changeset and NEW_CHANGES pushes the others, both are processed in revision order;
+ * - Remote operations are applied first and then the unacknowledged local operations are replayed, as all the operations are idempotent and located by UID;
+ * - Missing revisions are fetched over HTTP, and the data changed by the server (e.g. converting a field) is notified by table.dirty and reloaded by scope.
  */
 export class TableSync {
   readonly fields = shallowRef<SLField[]>([])
   readonly records = shallowRef<SLRecord[]>([])
   readonly views = shallowRef<SLView[]>([])
   readonly loading = ref(true)
-  /** 尚未被服务端确认的操作数。 */
+  /** Number of actions not acknowledged by the server yet. */
   readonly pendingCount = ref(0)
-  /** 正在按 dirty 通知重新拉取服务端数据。 */
+  /** Reloading the server data for a dirty notification. */
   readonly refreshing = ref(false)
 
   private rev = 0
@@ -64,7 +64,7 @@ export class TableSync {
   private inflight: Inflight | null = null
   private queue: Operation[] = []
   private readonly buffer = new Map<number, BufferEntry>()
-  /** 大于 0 时暂停处理缓冲区，避免在拉取服务端数据期间应用更新的变更后又被旧数据覆盖。 */
+  /** Pauses processing the buffer while positive, so newer changes applied during fetching are not overwritten by the older fetched data. */
   private blocked = 0
   private reloading = 0
   private gapTimer?: ReturnType<typeof setTimeout>
@@ -124,13 +124,13 @@ export class TableSync {
     this.pendingCount.value = this.pendingOperations().reduce((n, op) => n + op.actions.length, 0)
   }
 
-  /** 应用本地操作并排队提交。 */
+  /** Applies the local operations and queues them for submitting. */
   submit(operations: Operation[]) {
     const ops = operations.filter((op) => op.actions.length)
     if (!ops.length) return
     this.setData(applyOperations(this.data, ops, this.tableUID))
     for (const op of ops) {
-      // 尚未发出的同一视图配置修改（如拖动列宽）只保留最后一次。
+      // Only keep the last unsent config change of the same view, e.g. dragging a column width.
       const key = configKey(op)
       if (key) this.queue = this.queue.filter((queued) => configKey(queued) !== key)
       this.queue.push(op)
@@ -150,7 +150,7 @@ export class TableSync {
     if (reply.type !== 'SUBSCRIBED') return
     this.subscribed = true
     if (this.loaded && reply.data!.rev > this.rev) await this.fetchGap()
-    // 断线期间的在途提交用原签名重发，服务端按签名去重。
+    // Resend the in-flight changeset with the original signature after reconnecting, the server deduplicates by signature.
     if (this.inflight) this.sendInflight()
     else this.flush()
   }
@@ -187,7 +187,7 @@ export class TableSync {
         operations: inflight.operations,
       })
     } catch {
-      // 连接断开或超时，重连订阅后会重发。
+      // The connection is closed or timed out, it is resent after resubscribing.
       return
     }
     if (this.inflight !== inflight) return
@@ -209,7 +209,7 @@ export class TableSync {
     await this.loadSnapshot()
   }
 
-  /** 按修订号顺序处理缓冲区中连续的条目。 */
+  /** Processes the consecutive entries of the buffer in revision order. */
   private forward() {
     while (!this.blocked && this.buffer.has(this.rev + 1)) {
       const entry = this.buffer.get(this.rev + 1)!
@@ -247,14 +247,14 @@ export class TableSync {
         if (cs.rev > this.rev && !this.buffer.has(cs.rev)) this.buffer.set(cs.rev, { kind: 'remote', changeset: cs })
       }
     } catch {
-      // 下次收到变更或重连时再补拉。
+      // Fetch again on the next change or reconnection.
     } finally {
       this.fetchingGap = false
     }
     this.forward()
   }
 
-  /** 服务端改写了数据：按 dirty 范围重新拉取，再重放本地未确认的操作。 */
+  /** The server changed the data: reloads it by the dirty scope and replays the unacknowledged local operations. */
   private async reload(scope: DirtyScope) {
     this.blocked++
     this.reloading++
