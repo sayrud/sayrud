@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Message } from '@arco-design/web-vue'
-import { Pencil, TriangleAlert } from '@lucide/vue'
+import { Check, ChevronRight, Pencil, Search, TriangleAlert } from '@lucide/vue'
 import { computed, nextTick, onMounted, ref } from 'vue'
 
 import FloatingPanel from '@/components/common/FloatingPanel.vue'
@@ -50,6 +50,59 @@ function changeType(t: FieldType) {
   type.value = t
   md.value = next
   if (t === 'formula' && !String(next.exp ?? '')) formulaVisible.value = true
+}
+
+// ---- Field type menu, expanded beside the editor so it has more room than a dropdown below the input ----
+
+const TYPE_MENU_WIDTH = 240
+const typeTrigger = ref<HTMLElement>()
+const typeMenu = ref<{ x: number; y: number } | null>(null)
+const typeKeyword = ref('')
+const typeActive = ref(0)
+const typeSearch = ref<HTMLInputElement>()
+
+const filteredTypes = computed(() => {
+  const k = typeKeyword.value.trim().toLowerCase()
+  return FIELD_TYPES.filter((t) => !k || t.label.toLowerCase().includes(k) || t.type.includes(k))
+})
+
+function toggleTypeMenu() {
+  if (typeMenu.value) {
+    typeMenu.value = null
+    return
+  }
+  const trigger = typeTrigger.value!.getBoundingClientRect()
+  const editor = typeTrigger.value!.closest('.floating-panel')!.getBoundingClientRect()
+  // Flush against the editor, on the right if there is room, otherwise on the left.
+  const x = editor.right + TYPE_MENU_WIDTH <= window.innerWidth - 8 ? editor.right : editor.left - TYPE_MENU_WIDTH
+  typeKeyword.value = ''
+  typeActive.value = Math.max(0, FIELD_TYPES.findIndex((t) => t.type === type.value))
+  // The top of the menu aligns with the top of the trigger.
+  typeMenu.value = { x, y: trigger.top }
+  nextTick(() => typeSearch.value?.focus())
+}
+
+function selectType(t: FieldType) {
+  typeMenu.value = null
+  if (t !== type.value) changeType(t)
+}
+
+function onTypeSearchKey(e: KeyboardEvent) {
+  const n = filteredTypes.value.length
+  if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+    e.preventDefault()
+    if (n) typeActive.value = (typeActive.value + (e.key === 'ArrowDown' ? 1 : n - 1)) % n
+  } else if (e.key === 'Enter') {
+    e.preventDefault()
+    e.stopPropagation()
+    const t = filteredTypes.value[typeActive.value]
+    if (t) selectType(t.type)
+  }
+}
+
+/** Clicking elsewhere in the editor closes the type menu, the trigger toggles it by itself. */
+function onEditorMouseDown(e: MouseEvent) {
+  if (typeMenu.value && !typeTrigger.value?.contains(e.target as Node)) typeMenu.value = null
 }
 
 const typeChanged = computed(() => !!editing.value && editing.value.type !== type.value)
@@ -123,21 +176,18 @@ const numberExample = computed(() => formatNumber(1234.5678, String(md.value.for
 
 <template>
   <FloatingPanel :anchor="state.anchor" :width="340" :close-on-outside="!formulaVisible" :hidden="formulaVisible" @close="close">
-    <div class="field-editor" @keydown.enter.ctrl="save">
+    <div class="field-editor" @keydown.enter.ctrl="save" @mousedown="onEditorMouseDown">
       <div class="row">
         <div class="row-label">标题</div>
         <a-input ref="labelInput" v-model="label" :placeholder="fieldTypeInfo(type).label" :max-length="100" @press-enter="save" />
       </div>
       <div class="row">
         <div class="row-label">字段类型</div>
-        <a-select :model-value="type" :trigger-props="{ autoFitPopupMinWidth: true }" @change="(v) => changeType(v as FieldType)">
-          <template #label="{ data }">
-            <span class="type-option"><FieldTypeIcon :type="data.value" /> {{ data.label }}</span>
-          </template>
-          <a-option v-for="t in FIELD_TYPES" :key="t.type" :value="t.type" :label="t.label">
-            <span class="type-option"><FieldTypeIcon :type="t.type" /> {{ t.label }}</span>
-          </a-option>
-        </a-select>
+        <button ref="typeTrigger" type="button" class="type-trigger" :class="{ open: !!typeMenu }" @click="toggleTypeMenu">
+          <FieldTypeIcon :type="type" :size="16" />
+          <span class="type-trigger-label">{{ fieldTypeInfo(type).label }}</span>
+          <ChevronRight :size="16" class="type-trigger-arrow" />
+        </button>
         <div v-if="typeChanged && store.records.length" class="warn">
           <TriangleAlert :size="14" /> 修改字段类型会转换已有数据，无法转换的内容将被清空
         </div>
@@ -234,6 +284,38 @@ const numberExample = computed(() => formatNumber(1234.5678, String(md.value.for
       </div>
     </div>
 
+    <FloatingPanel
+      v-if="typeMenu"
+      :anchor="{ x: typeMenu.x, y: typeMenu.y }"
+      placement="point"
+      :width="TYPE_MENU_WIDTH"
+      @close="typeMenu = null"
+    >
+      <div class="type-menu">
+        <div class="type-search">
+          <Search :size="15" />
+          <input ref="typeSearch" v-model="typeKeyword" placeholder="搜索字段类型" @input="typeActive = 0" @keydown="onTypeSearchKey" />
+        </div>
+        <div class="type-list">
+          <div v-if="filteredTypes.length" class="type-group">常规</div>
+          <div
+            v-for="(t, i) in filteredTypes"
+            :key="t.type"
+            class="type-item"
+            :class="{ active: i === typeActive }"
+            :title="t.description"
+            @mouseenter="typeActive = i"
+            @click="selectType(t.type)"
+          >
+            <FieldTypeIcon :type="t.type" :size="16" />
+            <span class="type-item-label">{{ t.label }}</span>
+            <Check v-if="t.type === type" :size="15" class="type-check" />
+          </div>
+          <div v-if="!filteredTypes.length" class="type-empty">没有匹配的字段类型</div>
+        </div>
+      </div>
+    </FloatingPanel>
+
     <FormulaModal
       v-model:visible="formulaVisible"
       :exp="String(md.exp ?? '')"
@@ -262,10 +344,97 @@ const numberExample = computed(() => formatNumber(1234.5678, String(md.value.for
   font-size: 13px;
   color: var(--text-caption);
 }
-.type-option {
-  display: inline-flex;
+.type-trigger {
+  display: flex;
   align-items: center;
   gap: 8px;
+  width: 100%;
+  height: 36px;
+  padding: 0 10px;
+  border: none;
+  border-radius: 6px;
+  background: var(--color-fill-2);
+  color: var(--text-title);
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+}
+.type-trigger:hover,
+.type-trigger.open {
+  background: var(--color-fill-3);
+}
+.type-trigger :deep(.field-type-icon) {
+  color: var(--text-title);
+}
+.type-trigger-label {
+  flex: 1;
+}
+.type-trigger-arrow {
+  color: var(--text-caption);
+}
+.type-menu {
+  display: flex;
+  flex-direction: column;
+  max-height: min(480px, 80vh);
+}
+.type-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+  height: 44px;
+  padding: 0 14px;
+  border-bottom: 1px solid var(--line-divider);
+  color: var(--text-placeholder);
+}
+.type-search input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: var(--text-title);
+  font: inherit;
+}
+.type-search input::placeholder {
+  color: var(--text-placeholder);
+}
+.type-list {
+  overflow: auto;
+  padding: 6px;
+}
+.type-group {
+  padding: 6px 8px 4px;
+  font-size: 12px;
+  color: var(--text-caption);
+}
+.type-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 36px;
+  padding: 0 8px;
+  border-radius: 6px;
+  color: var(--text-title);
+  cursor: pointer;
+}
+.type-item.active {
+  background: var(--fill-hover);
+}
+.type-item :deep(.field-type-icon) {
+  color: var(--text-title);
+}
+.type-item-label {
+  flex: 1;
+}
+.type-check {
+  color: var(--color-primary);
+}
+.type-empty {
+  padding: 16px 8px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--text-placeholder);
 }
 .format-option {
   display: flex;
