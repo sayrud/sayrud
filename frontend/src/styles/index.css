@@ -73,6 +73,16 @@ body,
   height: 100%;
 }
 
+/*
+ * Disable the elastic bounce and the swipe navigation of trackpads at the root.
+ * Do not apply it to all elements: elements with overflow: hidden are scroll containers too, it would stop the wheel
+ * events over them from chaining to the scrollable ancestor.
+ */
+html,
+body {
+  overscroll-behavior: none;
+}
+
 button {
   font: inherit;
 }

@@ -1233,6 +1233,7 @@ defineExpose({ addRecord })
   flex: 1;
   min-width: 0;
   overflow: auto;
+  overscroll-behavior: none;
   outline: none;
   background: #fff;
 }
