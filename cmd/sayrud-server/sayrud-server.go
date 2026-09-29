@@ -16,9 +16,9 @@ import (
 
 	"github.com/wuhan005/sayrud/internal/conf"
 	"github.com/wuhan005/sayrud/internal/db"
+	"github.com/wuhan005/sayrud/internal/observability"
 	"github.com/wuhan005/sayrud/internal/redis"
 	"github.com/wuhan005/sayrud/internal/route"
-	"github.com/wuhan005/sayrud/internal/tracing"
 )
 
 func main() {
@@ -30,9 +30,9 @@ func main() {
 	}
 
 	ctx := context.Background()
-	cancel, err := tracing.Init(ctx)
+	metricsHandler, cancel, err := observability.Init(ctx)
 	if err != nil {
-		logrus.WithError(err).Fatal("Failed to initialize tracing")
+		logrus.WithError(err).Fatal("Failed to initialize observability")
 	}
 	defer cancel()
 
@@ -58,7 +58,11 @@ func main() {
 
 	ctx, cancel = context.WithCancel(ctx)
 	server := http.Server{
-		Handler:           route.New(db, redisClient),
+		Handler: route.New(route.Options{
+			DB:             db,
+			RedisClient:    redisClient,
+			MetricsHandler: metricsHandler,
+		}),
 		ReadHeaderTimeout: 10 * time.Second,
 	}
 	go func() {

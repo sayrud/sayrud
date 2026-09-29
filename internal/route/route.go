@@ -1,6 +1,8 @@
 package route
 
 import (
+	"net/http"
+
 	"github.com/flamego/flamego"
 	"github.com/redis/go-redis/v9"
 	"gorm.io/gorm"
@@ -8,22 +10,29 @@ import (
 	"github.com/wuhan005/sayrud/internal/collab"
 	"github.com/wuhan005/sayrud/internal/context"
 	"github.com/wuhan005/sayrud/internal/form"
+	"github.com/wuhan005/sayrud/internal/observability/tracing"
 	"github.com/wuhan005/sayrud/internal/route/api"
-	"github.com/wuhan005/sayrud/internal/tracing"
 )
+
+// Options contains the dependencies used by the application router.
+type Options struct {
+	DB             *gorm.DB
+	RedisClient    *redis.Client
+	MetricsHandler http.Handler
+}
 
 // New creates the router of the application.
 // @Title Sayrud API
 // @Version 1.0
 // @BasePath /_
-func New(db *gorm.DB, redisClient *redis.Client) *flamego.Flame {
+func New(opts Options) *flamego.Flame {
 	f := flamego.Classic()
 
 	f.Use(
 		tracing.Middleware("sayrud"),
-		context.Contexter(db, redisClient),
+		context.Contexter(opts.DB, opts.RedisClient),
 	)
-	f.Map(collab.NewHub(db))
+	f.Map(collab.NewHub(opts.DB))
 
 	f.Group("/_", func() {
 		f.Group("/auth", func() {
@@ -98,6 +107,9 @@ func New(db *gorm.DB, redisClient *redis.Client) *flamego.Flame {
 	})
 
 	f.Get("/healthz")
+	if opts.MetricsHandler != nil {
+		f.Get("/-/metrics", opts.MetricsHandler.ServeHTTP)
+	}
 
 	return f
 }

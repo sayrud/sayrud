@@ -19,9 +19,20 @@ var Redis struct {
 	Password string `mapstructure:"password"`
 }
 
-var Tracing struct {
+type TracingConfig struct {
+	Enabled  bool   `mapstructure:"enabled"`
 	Endpoint string `mapstructure:"endpoint"`
 	Token    string `mapstructure:"token"`
+}
+
+type MetricsConfig struct {
+	Enabled   bool     `mapstructure:"enabled"`
+	Whitelist []string `mapstructure:"whitelist"`
+}
+
+var Observability struct {
+	Tracing TracingConfig `mapstructure:"tracing"`
+	Metrics MetricsConfig `mapstructure:"metrics"`
 }
 
 func Init(configFilePath string) error {
@@ -39,6 +50,9 @@ func Init(configFilePath string) error {
 	}
 	if err := v.UnmarshalKey("redis", &Redis); err != nil {
 		return errors.Wrap(err, "parse redis")
+	}
+	if err := v.UnmarshalKey("observability", &Observability); err != nil {
+		return errors.Wrap(err, "parse observability")
 	}
 
 	return nil
