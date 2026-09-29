@@ -1,4 +1,4 @@
-import { Message } from '@arco-design/web-vue'
+import { Message, Modal } from '@arco-design/web-vue'
 import { defineStore } from 'pinia'
 import { computed, reactive, ref, shallowRef, watch } from 'vue'
 
@@ -575,15 +575,30 @@ export const useBaseStore = defineStore('base', () => {
   }
 
   async function deleteRecords(uids: string[]) {
-    const removed = uids.map((uid) => recordMap.value.get(uid)).filter(Boolean) as SLRecord[]
-    if (!removed.length) return
-    const redo = [op('DeleteRecords', [{ action: 'record.delete', recordUIDs: removed.map((r) => r.uid) }])]
-    submit(redo)
-    selectedRecords.value = selectedRecords.value.filter((u) => !uids.includes(u))
-    if (expandedRecord.value && uids.includes(expandedRecord.value.uid)) expandedRecord.value = null
-    // Undo recreates the records with the original UIDs, so the references of the other collaborators stay valid.
-    pushHistory({ label: '删除记录', undo: [op('AddRecords', addRecordActions(removed))], redo })
-    Message.success(`已删除 ${removed.length} 条记录`)
+    const recordUIDs = uids.filter((uid) => recordMap.value.has(uid))
+    if (!recordUIDs.length) return
+    const sync = activeSync.value
+    const tableUID = activeTableUID.value
+    Modal.warning({
+      title: `删除 ${recordUIDs.length} 条记录？`,
+      content: '所选记录将从当前数据表的所有视图中删除。',
+      hideCancel: false,
+      okText: '删除',
+      cancelText: '取消',
+      okButtonProps: { status: 'danger' },
+      onOk: () => {
+        if (activeSync.value !== sync || activeTableUID.value !== tableUID) return
+        const removed = recordUIDs.map((uid) => recordMap.value.get(uid)).filter(Boolean) as SLRecord[]
+        if (!removed.length) return
+        const redo = [op('DeleteRecords', [{ action: 'record.delete', recordUIDs: removed.map((r) => r.uid) }])]
+        submit(redo)
+        selectedRecords.value = selectedRecords.value.filter((u) => !recordUIDs.includes(u))
+        if (expandedRecord.value && recordUIDs.includes(expandedRecord.value.uid)) expandedRecord.value = null
+        // Undo recreates the records with the original UIDs, so the references of the other collaborators stay valid.
+        pushHistory({ label: '删除记录', undo: [op('AddRecords', addRecordActions(removed))], redo })
+        Message.success(`已删除 ${removed.length} 条记录`)
+      },
+    })
   }
 
   async function duplicateRecord(uid: string) {
