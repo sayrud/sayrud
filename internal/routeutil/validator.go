@@ -96,7 +96,7 @@ func IsStoredValue(field *db.SLField, value interface{}) bool {
 	if field.Type == db.FormulaFieldType || isEmptyValue(value) {
 		return false
 	}
-	return !(field.Type == db.CheckboxFieldType && value == false)
+	return field.Type != db.CheckboxFieldType || value != false
 }
 
 func isEmptyValue(value interface{}) bool {

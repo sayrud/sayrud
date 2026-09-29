@@ -25,7 +25,7 @@ type Error struct {
 
 func Bind(model interface{}) flamego.Handler {
 	// Ensure not pointer.
-	if reflect.TypeOf(model).Kind() == reflect.Ptr {
+	if reflect.TypeOf(model).Kind() == reflect.Pointer {
 		panic("form: pointer can not be accepted as binding model")
 	}
 
