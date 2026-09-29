@@ -3,6 +3,7 @@ package route
 import (
 	"net/http"
 
+	"github.com/MEDIGO/go-healthz"
 	"github.com/flamego/flamego"
 	"github.com/redis/go-redis/v9"
 	"gorm.io/gorm"
@@ -106,10 +107,12 @@ func New(opts Options) *flamego.Flame {
 		}, api.Auth.Authenticator)
 	})
 
-	f.Get("/healthz")
-	if opts.MetricsHandler != nil {
-		f.Get("/-/metrics", opts.MetricsHandler.ServeHTTP)
-	}
+	f.Group("/-", func() {
+		f.Get("/healthz", healthz.Handler().ServeHTTP)
+		if opts.MetricsHandler != nil {
+			f.Get("/metrics", opts.MetricsHandler.ServeHTTP)
+		}
+	})
 
 	return f
 }

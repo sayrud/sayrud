@@ -3,6 +3,7 @@ module github.com/wuhan005/sayrud
 go 1.27
 
 require (
+	github.com/MEDIGO/go-healthz v0.0.0-20250203150422-71f9bff772df
 	github.com/auxten/postgresql-parser v1.0.1
 	github.com/cockroachdb/errors v1.8.2
 	github.com/dop251/goja v0.0.0-20240610225006-393f6d42497b
@@ -18,7 +19,7 @@ require (
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/cast v1.6.0
 	github.com/spf13/viper v1.3.2
-	github.com/stretchr/testify v1.9.0
+	github.com/stretchr/testify v1.10.0
 	github.com/swaggo/swag v1.16.6
 	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common v1.1.48
 	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/hunyuan v1.0.975
