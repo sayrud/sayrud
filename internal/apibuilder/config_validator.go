@@ -17,12 +17,12 @@ type ConfigValidator interface {
 
 type ctxProjectID struct{}
 
-func WithProjectID(ctx context.Context, projectID uint) context.Context {
+func WithProjectID(ctx context.Context, projectID int64) context.Context {
 	return context.WithValue(ctx, ctxProjectID(struct{}{}), projectID)
 }
 
-func ParseProjectID(ctx context.Context) uint {
-	return cast.ToUint(ctx.Value(ctxProjectID(struct{}{})))
+func ParseProjectID(ctx context.Context) int64 {
+	return cast.ToInt64(ctx.Value(ctxProjectID(struct{}{})))
 }
 
 type ctxKind struct{}

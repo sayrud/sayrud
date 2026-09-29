@@ -69,7 +69,7 @@ func (d Dataset) ValidateConfig(ctx context.Context) error {
 		return ErrEmptyDatasetFields
 	}
 	// Check the fields UID belongs to the table.
-	slFields, err := db.SLFields.GetByTableID(ctx, table.ID)
+	slFields, err := db.SLFields.ListByTableID(ctx, table.ID)
 	if err != nil {
 		return errors.Wrap(err, "get sl fields by table ID")
 	}
