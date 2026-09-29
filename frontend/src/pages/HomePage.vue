@@ -95,16 +95,16 @@ async function rename() {
   load()
 }
 
-onMounted(load)
+onMounted(() => {
+  document.title = 'Sayrud'
+  load()
+})
 </script>
 
 <template>
   <div class="home">
     <header class="home-header">
-      <div class="brand">
-        <img src="/favicon.svg" alt="" />
-        <span>Sayrud 多维表格</span>
-      </div>
+      <img class="brand" src="@/assets/logo.svg" alt="Sayrud" />
       <div class="header-right">
         <a-avatar :size="28" :style="{ backgroundColor: identity.color }" :title="identity.name">{{ identity.name.slice(-1) }}</a-avatar>
       </div>
@@ -175,15 +175,8 @@ onMounted(load)
   border-bottom: 1px solid var(--line-border);
 }
 .brand {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-size: 16px;
-  font-weight: 600;
-}
-.brand img {
-  width: 26px;
-  height: 26px;
+  width: auto;
+  height: 32px;
 }
 .header-right {
   display: flex;

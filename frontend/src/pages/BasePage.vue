@@ -78,10 +78,11 @@ function memberTitle(m: { name: string; tableUID?: string }) {
 }
 
 watch(
-  () => [store.project?.name, store.activeTable?.name],
-  () => {
-    document.title = [store.activeTable?.name, store.project?.name, 'Sayrud'].filter(Boolean).join(' - ')
+  () => store.project?.name,
+  (name) => {
+    document.title = [name, 'Sayrud'].filter(Boolean).join(' - ')
   },
+  { immediate: true },
 )
 
 function selectTable(uid: string) {
