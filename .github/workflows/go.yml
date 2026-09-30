@@ -29,13 +29,20 @@ jobs:
         uses: actions/setup-go@v7
         with:
           go-version: 1.27.x
+          cache: true
+          cache-dependency-path: go.sum
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
       - name: Install Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
       - name: Build frontend
         run: |
-          npm install --global pnpm@10
           pnpm --dir frontend install --frozen-lockfile
           pnpm --dir frontend build
       - name: Run golangci-lint
@@ -71,19 +78,26 @@ jobs:
         ports:
           - 5432:5432
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
       - name: Install Go
         uses: actions/setup-go@v7
         with:
           go-version: 1.27.x
-      - name: Checkout code
-        uses: actions/checkout@v7
+          cache: true
+          cache-dependency-path: go.sum
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
       - name: Install Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
       - name: Build frontend
         run: |
-          npm install --global pnpm@10
           pnpm --dir frontend install --frozen-lockfile
           pnpm --dir frontend build
       - name: Run tests
