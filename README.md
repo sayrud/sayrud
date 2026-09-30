@@ -8,9 +8,11 @@
 <p align="center"><strong>Yet another collaborative spreadsheet.</strong></p>
 
 <p align="center">
-  <a href="https://github.com/sayrud/sayrud">GitHub</a> ·
-  <a href="docs/swagger.yaml">API</a> ·
-  <a href="README.zh-CN.md">简体中文</a>
+  <a href="README.zh-CN.md">简体中文</a> ·
+  <a href="https://sayrud.com/">Official Site</a> ·
+  <a href="https://docs.sayrud.com">Documents</a> ·
+  <a href="https://docs.sayrud.com/blog">Blog</a> ·
+  <a href="docs/swagger.yaml">API</a>
 </p>
 
 ## Features
@@ -49,7 +51,7 @@ docker compose up -d
 
 Bug reports and pull requests are welcome. Include steps to reproduce bugs, and keep each pull request focused on one change.
 
-For development, you need Go 1.27, Node.js 22.12 or later, and pnpm 10. The Go backend is in `cmd/` and `internal/`, and the Vue and TypeScript frontend is in `frontend/`.
+For development, you need Go 1.27, Node.js 22.13 or later, and pnpm 10. The Go backend is in `cmd/` and `internal/`, and the Vue and TypeScript frontend is in `frontend/`.
 
 Start only the databases and copy the local configuration. Build the frontend once before running Go commands:
 
@@ -68,6 +70,8 @@ In another terminal, run `pnpm --dir frontend dev` and open <http://localhost:51
 Before submitting a change:
 
 ```sh
+pnpm --dir frontend lint
+pnpm --dir frontend test
 pnpm --dir frontend build
 go test ./...
 ```

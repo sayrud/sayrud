@@ -8,9 +8,11 @@
 <p align="center"><strong>Yet another collaborative spreadsheet.</strong></p>
 
 <p align="center">
-  <a href="https://github.com/sayrud/sayrud">GitHub</a> ·
-  <a href="docs/swagger.yaml">API</a> ·
-  <a href="README.md">English</a>
+  <a href="README.md">English</a> ·
+  <a href="https://sayrud.com/">Official Site</a> ·
+  <a href="https://docs.sayrud.com">Documents</a> ·
+  <a href="https://docs.sayrud.com/blog">Blog</a> ·
+  <a href="docs/swagger.yaml">API</a>
 </p>
 
 ## 功能介绍
@@ -49,7 +51,7 @@ docker compose up -d
 
 欢迎提交 Issue 和 Pull Request。报告 Bug 时请附上复现步骤，提交代码时尽量一次只改一个问题。
 
-开发需要 Go 1.27、Node.js 22.12 或更新版本和 pnpm 10。Go 后端在 `cmd/` 和 `internal/`，Vue 和 TypeScript 前端在 `frontend/`。
+开发需要 Go 1.27、Node.js 22.13 或更新版本和 pnpm 10。Go 后端在 `cmd/` 和 `internal/`，Vue 和 TypeScript 前端在 `frontend/`。
 
 只启动数据库，复制本地配置，再构建一次前端：
 
@@ -68,6 +70,8 @@ REDIS_ADDRESS=127.0.0.1:6379 go run ./cmd/sayrud-server
 提交前运行：
 
 ```sh
+pnpm --dir frontend lint
+pnpm --dir frontend test
 pnpm --dir frontend build
 go test ./...
 ```
