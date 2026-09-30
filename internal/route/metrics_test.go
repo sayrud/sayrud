@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/prometheus/common/expfmt"
+	"github.com/prometheus/common/model"
 	"github.com/stretchr/testify/require"
 
 	"github.com/wuhan005/sayrud/internal/conf"
@@ -36,7 +37,7 @@ func TestMetricsEndpoint(t *testing.T) {
 
 			require.Equal(t, http.StatusOK, response.Code)
 			require.Contains(t, response.Header().Get("Content-Type"), "text/plain")
-			var parser expfmt.TextParser
+			parser := expfmt.NewTextParser(model.LegacyValidation)
 			families, err := parser.TextToMetricFamilies(strings.NewReader(response.Body.String()))
 			require.NoError(t, err)
 			family := families["route_requests_total"]
