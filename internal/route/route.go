@@ -8,6 +8,7 @@ import (
 	"github.com/redis/go-redis/v9"
 	"gorm.io/gorm"
 
+	"github.com/wuhan005/sayrud/frontend"
 	"github.com/wuhan005/sayrud/internal/collab"
 	"github.com/wuhan005/sayrud/internal/context"
 	"github.com/wuhan005/sayrud/internal/form"
@@ -114,5 +115,6 @@ func New(opts Options) *flamego.Flame {
 		}
 	})
 
+	f.NotFound(frontend.Handler().ServeHTTP)
 	return f
 }

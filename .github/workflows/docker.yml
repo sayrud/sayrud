@@ -4,6 +4,7 @@ on:
     branches: [ master ]
     paths:
       - '**.go'
+      - 'frontend/**'
       - 'go.mod'
       - 'go.sum'
       - 'Dockerfile'
@@ -47,4 +48,3 @@ jobs:
       - name: Push image
         run: |
           docker push ccr.ccs.tencentyun.com/qcloud-image/sayrud-server:${{ env.IMAGE_TAG }}
-

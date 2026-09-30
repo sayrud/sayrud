@@ -4,12 +4,14 @@ on:
     branches: [ master ]
     paths:
       - '**.go'
+      - 'frontend/**'
       - 'go.mod'
       - 'go.sum'
       - '.github/workflows/go.yml'
   pull_request:
     paths:
       - '**.go'
+      - 'frontend/**'
       - 'go.mod'
       - 'go.sum'
       - '.github/workflows/go.yml'
@@ -27,6 +29,15 @@ jobs:
         uses: actions/setup-go@v7
         with:
           go-version: 1.27.x
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Build frontend
+        run: |
+          npm install --global pnpm@10
+          pnpm --dir frontend install --frozen-lockfile
+          pnpm --dir frontend build
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@v9
         with:
@@ -66,6 +77,15 @@ jobs:
           go-version: 1.27.x
       - name: Checkout code
         uses: actions/checkout@v7
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Build frontend
+        run: |
+          npm install --global pnpm@10
+          pnpm --dir frontend install --frozen-lockfile
+          pnpm --dir frontend build
       - name: Run tests
         run: go test -v -race ./...
         env:
@@ -74,4 +94,3 @@ jobs:
           PGUSER: postgres
           PGPASSWORD: postgres
           PGSSLMODE: disable
-
