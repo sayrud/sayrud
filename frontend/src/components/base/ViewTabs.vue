@@ -132,7 +132,7 @@ function onDrop() {
   gap: 4px;
   height: 44px;
   padding: 0 12px;
-  background: #fff;
+  background: var(--bg-body);
   flex: none;
 }
 .tabs {

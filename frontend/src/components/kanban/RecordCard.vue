@@ -45,7 +45,7 @@ const bodyFields = computed(() =>
 .record-card {
   padding: 12px;
   border-radius: 8px;
-  background: #fff;
+  background: var(--bg-body);
   border: 1px solid var(--line-border);
   box-shadow: var(--shadow-card);
   cursor: pointer;
@@ -54,8 +54,8 @@ const bodyFields = computed(() =>
     border-color 0.15s;
 }
 .record-card:hover {
-  border-color: #c9cdd4;
-  box-shadow: 0 4px 12px rgba(31, 35, 41, 0.08);
+  border-color: var(--line-border-strong);
+  box-shadow: 0 4px 12px rgba(var(--shadow-rgb), 0.08);
 }
 .card-title {
   font-weight: 600;

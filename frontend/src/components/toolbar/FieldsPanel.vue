@@ -289,8 +289,8 @@ function addField(e: MouseEvent) {
   padding: 0 12px;
   border: 1px solid var(--line-border);
   border-radius: 6px;
-  background: #fff;
-  box-shadow: 0 6px 16px rgba(31, 35, 41, 0.12);
+  background: var(--bg-popover);
+  box-shadow: var(--shadow-popover);
   color: var(--text-title);
   pointer-events: none;
 }

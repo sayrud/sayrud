@@ -3,11 +3,13 @@ import { GripVertical, Plus, X } from '@lucide/vue'
 import { computed, nextTick, ref } from 'vue'
 
 import FloatingPanel, { type Anchor } from '@/components/common/FloatingPanel.vue'
+import { useThemeStore } from '@/stores/theme'
 import type { SelectOption } from '@/types/bitable'
 import { PALETTE_ROWS, TAG_COLORS, tagColor } from '@/utils/colors'
 import { newOptionUID } from '@/utils/id'
 
 const options = defineModel<SelectOption[]>({ required: true })
+const themeStore = useThemeStore()
 
 const listEl = ref<HTMLElement>()
 const palette = ref<{ uid: string; anchor: Anchor } | null>(null)
@@ -75,7 +77,7 @@ function onEnter(e: KeyboardEvent, i: number) {
         <span class="grip" draggable="true" @dragstart="dragIndex = i" @dragend="onDrop">
           <GripVertical :size="14" />
         </span>
-        <span class="color-dot" :style="{ background: tagColor(o.color).bg }" @click="openPalette($event, o.uid)" />
+        <span class="color-dot" :style="{ background: tagColor(o.color, themeStore.theme).bg }" @click="openPalette($event, o.uid)" />
         <input
           class="option-input"
           :value="o.name"
@@ -96,7 +98,7 @@ function onEnter(e: KeyboardEvent, i: number) {
             :key="i"
             class="palette-item"
             :class="{ selected: currentColor === i }"
-            :style="{ background: TAG_COLORS[i]!.bg }"
+            :style="{ background: tagColor(i, themeStore.theme).bg }"
             @click="(update(palette!.uid, { color: i }), (palette = null))"
           />
         </div>
@@ -140,7 +142,7 @@ function onEnter(e: KeyboardEvent, i: number) {
   width: 14px;
   height: 14px;
   border-radius: 50%;
-  box-shadow: inset 0 0 0 1px rgba(31, 35, 41, 0.12);
+  box-shadow: inset 0 0 0 1px var(--line-divider);
   cursor: pointer;
   flex: none;
 }

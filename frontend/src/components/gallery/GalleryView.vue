@@ -65,7 +65,7 @@ async function add() {
   justify-content: center;
   gap: 6px;
   min-height: 160px;
-  border: 1px dashed #c9cdd4;
+  border: 1px dashed var(--line-border-strong);
   border-radius: 8px;
   background: transparent;
   color: var(--text-caption);
@@ -74,7 +74,7 @@ async function add() {
 .add-card:hover {
   color: var(--color-primary);
   border-color: var(--color-primary);
-  background: #fff;
+  background: var(--bg-body);
 }
 .empty {
   margin-top: 40px;

@@ -109,7 +109,7 @@ defineExpose({ place })
 .floating-panel {
   position: fixed;
   z-index: 1100;
-  background: #fff;
+  background: var(--bg-popover);
   border-radius: 8px;
   border: 1px solid var(--line-border);
   box-shadow: var(--shadow-popover);

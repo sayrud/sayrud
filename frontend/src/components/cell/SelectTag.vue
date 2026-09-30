@@ -2,12 +2,14 @@
 import { X } from '@lucide/vue'
 import { computed } from 'vue'
 
+import { useThemeStore } from '@/stores/theme'
 import { tagColor } from '@/utils/colors'
 
 const props = defineProps<{ name: string; color: number; closable?: boolean }>()
 defineEmits<{ close: [] }>()
 
-const c = computed(() => tagColor(props.color))
+const themeStore = useThemeStore()
+const c = computed(() => tagColor(props.color, themeStore.theme))
 </script>
 
 <template>

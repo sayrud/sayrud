@@ -159,7 +159,7 @@ const formulaRecord = computed(() => props.record)
   border: 1px solid var(--line-border);
   border-radius: 6px;
   cursor: pointer;
-  background: #fff;
+  background: var(--bg-body);
   transition: border-color 0.15s;
 }
 .select-box:hover,

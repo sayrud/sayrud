@@ -273,13 +273,13 @@ const singleSelects = computed(() => store.fields.filter((f) => f.type === 'sing
   display: flex;
   flex-direction: column;
   border-radius: 10px;
-  background: #eff0f2;
+  background: var(--bg-kanban-column);
   border: 2px solid transparent;
   transition: border-color 0.15s;
 }
 .column.over {
   border-color: var(--color-primary);
-  background: #eaf0ff;
+  background: var(--bg-primary-soft);
 }
 .column.head-over {
   border-left-color: var(--color-primary);
@@ -331,7 +331,7 @@ const singleSelects = computed(() => store.fields.filter((f) => f.type === 'sing
 }
 .add-card:hover,
 .add-group:hover {
-  background: rgba(31, 35, 41, 0.06);
+  background: var(--fill-hover);
   color: var(--text-title);
 }
 .add-column {

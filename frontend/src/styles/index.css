@@ -34,22 +34,38 @@ body {
   --text-disabled: #bbbfc4;
 
   --line-border: #dee0e3;
+  --line-border-strong: #c9cdd4;
   --line-divider: rgba(31, 35, 41, 0.12);
   --grid-line: #e4e5e7;
+  --control-border: #bbbfc4;
 
   --fill-hover: rgba(31, 35, 41, 0.06);
   --fill-active: rgba(31, 35, 41, 0.1);
   --bg-base: #f5f6f7;
   --bg-body: #fff;
   --bg-sidebar: #f7f8fa;
+  --bg-popover: #fff;
+  --bg-primary-soft: #eaf0ff;
+  --bg-overlay: rgba(255, 255, 255, 0.9);
+  --bg-kanban-column: #eff0f2;
 
+  /* The frozen grid columns are sticky, their backgrounds must be opaque so the scrolled content does not show through. */
+  --grid-header: #fafafa;
+  --grid-header-hover: #f2f3f5;
+  --grid-header-selected: #eef3ff;
+  --grid-row-hover: #f7f8fa;
+  --grid-group-1: #f9fafb;
+  --grid-group-2: #fcfcfd;
   --grid-selected-row: #f0f4ff;
   --grid-range: rgba(51, 112, 255, 0.08);
   --grid-search: #fff3c7;
   --grid-search-current: #ffd76b;
 
-  --shadow-popover: 0 6px 24px rgba(31, 35, 41, 0.12), 0 2px 6px rgba(31, 35, 41, 0.06);
-  --shadow-card: 0 1px 2px rgba(31, 35, 41, 0.06), 0 1px 4px rgba(31, 35, 41, 0.04);
+  --shadow-rgb: 31, 35, 41;
+  --shadow-popover: 0 6px 24px rgba(var(--shadow-rgb), 0.12), 0 2px 6px rgba(var(--shadow-rgb), 0.06);
+  --shadow-card: 0 1px 2px rgba(var(--shadow-rgb), 0.06), 0 1px 4px rgba(var(--shadow-rgb), 0.04);
+  --scrollbar-thumb: rgba(31, 35, 41, 0.2);
+  --scrollbar-thumb-hover: rgba(31, 35, 41, 0.35);
 
   margin: 0;
   color: var(--text-body);
@@ -59,6 +75,68 @@ body {
     sans-serif;
   font-size: 14px;
   -webkit-font-smoothing: antialiased;
+}
+
+/* Dark theme. The selector is the same as Arco's and this file loads after arco.css, so these values win. */
+body[arco-theme='dark'] {
+  --primary-1: 12, 29, 77;
+  --primary-2: 19, 44, 118;
+  --primary-3: 28, 63, 168;
+  --primary-4: 36, 91, 219;
+  --primary-5: 51, 112, 255;
+  --primary-6: 76, 136, 255;
+  --primary-7: 110, 160, 255;
+  --primary-8: 150, 188, 255;
+  --primary-9: 190, 215, 255;
+  --primary-10: 232, 240, 255;
+  --arcoblue-6: 76, 136, 255;
+  --link-6: 76, 136, 255;
+
+  --color-primary: #4c88ff;
+  --color-primary-hover: #6ea0ff;
+  --color-primary-light: #223158;
+  --color-primary-lighter: #1d2740;
+  --color-danger: #f76965;
+
+  --text-title: #ebebec;
+  --text-body: #ebebec;
+  --text-caption: #a6a8ad;
+  --text-placeholder: #7c7f85;
+  --text-disabled: #55585d;
+
+  --line-border: #36373b;
+  --line-border-strong: #4a4c51;
+  --line-divider: rgba(255, 255, 255, 0.12);
+  --grid-line: #2f3034;
+  --control-border: #5f6166;
+
+  --fill-hover: rgba(255, 255, 255, 0.08);
+  --fill-active: rgba(255, 255, 255, 0.12);
+  --bg-base: #141517;
+  --bg-body: #1e1f22;
+  --bg-sidebar: #19191c;
+  --bg-popover: #2a2b2f;
+  --color-bg-popup: #2a2b2f;
+  --bg-primary-soft: #212c45;
+  --bg-overlay: rgba(30, 31, 34, 0.85);
+  --bg-kanban-column: #202124;
+
+  --grid-header: #232427;
+  --grid-header-hover: #2a2b2f;
+  --grid-header-selected: #222b40;
+  --grid-row-hover: #25262a;
+  --grid-group-1: #18191b;
+  --grid-group-2: #1b1c1f;
+  --grid-selected-row: #20293c;
+  --grid-range: rgba(76, 136, 255, 0.14);
+  --grid-search: #4a3f1a;
+  --grid-search-current: #7a5f12;
+
+  --shadow-rgb: 0, 0, 0;
+  --shadow-popover: 0 6px 24px rgba(0, 0, 0, 0.45), 0 2px 6px rgba(0, 0, 0, 0.3);
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.3), 0 1px 4px rgba(0, 0, 0, 0.2);
+  --scrollbar-thumb: rgba(255, 255, 255, 0.18);
+  --scrollbar-thumb-hover: rgba(255, 255, 255, 0.32);
 }
 
 *,
@@ -87,18 +165,25 @@ button {
   font: inherit;
 }
 
+/* The custom inputs take the colors of their containers instead of the browser defaults. Arco inputs override it with their own classes. */
+input,
+textarea {
+  color: inherit;
+  background-color: transparent;
+}
+
 ::-webkit-scrollbar {
   width: 10px;
   height: 10px;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(31, 35, 41, 0.2);
+  background: var(--scrollbar-thumb);
   border-radius: 10px;
   border: 2px solid transparent;
   background-clip: padding-box;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background-color: rgba(31, 35, 41, 0.35);
+  background-color: var(--scrollbar-thumb-hover);
 }
 ::-webkit-scrollbar-track {
   background: transparent;
@@ -193,6 +278,10 @@ button {
 }
 .arco-dropdown-option {
   border-radius: 6px;
+}
+/* Options with a suffix (e.g. the submenu arrow) keep the label on the left and the suffix on the right. */
+.arco-dropdown-option-has-suffix .arco-dropdown-option-content {
+  flex: 1;
 }
 .arco-select-dropdown {
   border-radius: 8px;

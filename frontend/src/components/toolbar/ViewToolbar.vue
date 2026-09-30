@@ -240,7 +240,7 @@ function deleteSelected() {
   height: 44px;
   padding: 0 12px;
   border-bottom: 1px solid var(--line-border);
-  background: #fff;
+  background: var(--bg-body);
   flex: none;
 }
 .add-btn {
@@ -267,7 +267,7 @@ function deleteSelected() {
   color: var(--color-danger);
 }
 .popup {
-  background: #fff;
+  background: var(--bg-popover);
   border-radius: 8px;
   border: 1px solid var(--line-border);
   box-shadow: var(--shadow-popover);

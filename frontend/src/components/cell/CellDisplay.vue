@@ -106,9 +106,9 @@ const isNumeric = computed(
   justify-content: center;
   width: 16px;
   height: 16px;
-  border: 1.5px solid #bbbfc4;
+  border: 1.5px solid var(--control-border);
   border-radius: 4px;
-  background: #fff;
+  background: var(--bg-body);
   color: #fff;
   cursor: pointer;
   transition: all 0.15s;
@@ -120,7 +120,7 @@ const isNumeric = computed(
   cursor: default;
 }
 .checkbox.readonly:not(.checked):hover {
-  border-color: #bbbfc4;
+  border-color: var(--control-border);
 }
 .checkbox.checked {
   background: var(--color-primary);

@@ -242,7 +242,7 @@ function confirm() {
   margin-top: 12px;
   padding: 8px 10px;
   border-radius: 6px;
-  background: #fff;
+  background: var(--bg-body);
   border: 1px solid var(--line-border);
   font-family: 'SF Mono', Menlo, Consolas, monospace;
   font-size: 13px;

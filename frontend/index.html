@@ -7,6 +7,16 @@
     <title>Sayrud</title>
   </head>
   <body>
+    <script>
+      // Applies the dark theme before the first paint to avoid a white flash, keep it in sync with src/utils/theme.ts.
+      try {
+        var mode = localStorage.getItem('sayrud.theme')
+        if (mode === 'dark' || (mode === 'system' && matchMedia('(prefers-color-scheme: dark)').matches)) {
+          document.body.setAttribute('arco-theme', 'dark')
+          document.documentElement.style.colorScheme = 'dark'
+        }
+      } catch (e) {}
+    </script>
     <div id="app"></div>
     <script type="module" src="/src/main.ts"></script>
   </body>

@@ -3,12 +3,16 @@ import { Message, type FieldRule, type FormInstance } from '@arco-design/web-vue
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
+import logoDark from '@/assets/logo-dark.svg'
+import logo from '@/assets/logo.svg'
 import { safeRedirect } from '@/router'
 import { useAuthStore } from '@/stores/auth'
+import { useThemeStore } from '@/stores/theme'
 
 const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
+const themeStore = useThemeStore()
 
 const isRegister = computed(() => route.name === 'register')
 const formRef = ref<FormInstance>()
@@ -68,7 +72,7 @@ onMounted(() => {
 <template>
   <div class="auth">
     <a-card class="auth-card" :bordered="false">
-      <img class="brand" src="@/assets/logo.svg" alt="Sayrud" />
+      <img class="brand" :src="themeStore.theme === 'dark' ? logoDark : logo" alt="Sayrud" />
       <a-typography-title :heading="4" class="title">{{ isRegister ? '注册账号' : '登录' }}</a-typography-title>
       <a-typography-paragraph type="secondary">
         {{ isRegister ? '创建账号后即可新建多维表格并邀请协作者' : '使用邮箱和密码登录 Sayrud' }}
@@ -125,7 +129,7 @@ onMounted(() => {
   width: 400px;
   max-width: 100%;
   border-radius: 12px;
-  box-shadow: 0 12px 40px rgba(31, 35, 41, 0.08);
+  box-shadow: 0 12px 40px rgba(var(--shadow-rgb), 0.08);
 }
 .auth-card :deep(.arco-card-body) {
   padding: 40px 40px 32px;

@@ -248,7 +248,7 @@ onBeforeUnmount(() => {
   height: 52px;
   padding: 0 16px 0 12px;
   border-bottom: 1px solid var(--line-border);
-  background: #fff;
+  background: var(--bg-body);
   flex: none;
 }
 .topbar > * {
@@ -320,7 +320,7 @@ onBeforeUnmount(() => {
   white-space: nowrap;
 }
 .sync-state.offline {
-  color: #f54a45;
+  color: var(--color-danger);
 }
 .sync-state.saving svg {
   animation: spin 1s linear infinite;
@@ -336,7 +336,7 @@ onBeforeUnmount(() => {
 }
 .member {
   margin-left: -6px;
-  border: 2px solid #fff;
+  border: 2px solid var(--bg-body);
   box-sizing: content-box;
 }
 .member.more {
@@ -358,7 +358,7 @@ onBeforeUnmount(() => {
 .main-head {
   display: flex;
   align-items: center;
-  background: #fff;
+  background: var(--bg-body);
   border-bottom: 1px solid var(--line-border);
 }
 .expand-side {

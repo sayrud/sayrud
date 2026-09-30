@@ -17,9 +17,9 @@ defineProps<{ checked: boolean; disabled?: boolean }>()
   justify-content: center;
   width: 16px;
   height: 16px;
-  border: 1.5px solid #bbbfc4;
+  border: 1.5px solid var(--control-border);
   border-radius: 4px;
-  background: #fff;
+  background: var(--bg-body);
   color: #fff;
   flex: none;
   transition:

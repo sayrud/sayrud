@@ -177,7 +177,7 @@ function onDate(_v: unknown, date?: Date) {
   align-items: flex-start;
   box-sizing: border-box;
   border: 2px solid var(--color-primary);
-  background: #fff;
+  background: var(--bg-body);
 }
 .text-editor textarea,
 .text-editor input {

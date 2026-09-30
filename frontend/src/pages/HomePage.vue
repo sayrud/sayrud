@@ -7,15 +7,19 @@ import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 
 import { membersApi, projectsApi, type ProjectListItem } from '@/api/bitable'
+import logoDark from '@/assets/logo-dark.svg'
+import logo from '@/assets/logo.svg'
 import UserMenu from '@/components/common/UserMenu.vue'
 import { openMenu, type MenuItem } from '@/composables/useContextMenu'
 import { useAuthStore } from '@/stores/auth'
+import { useThemeStore } from '@/stores/theme'
 import { ROLE_LABELS, roleAtLeast } from '@/utils/role'
 
 dayjs.extend(relativeTime)
 
 const router = useRouter()
 const auth = useAuthStore()
+const themeStore = useThemeStore()
 const projects = ref<ProjectListItem[]>([])
 const loading = ref(true)
 const keyword = ref('')
@@ -146,7 +150,7 @@ onMounted(() => {
 <template>
   <div class="home">
     <header class="home-header">
-      <img class="brand" src="@/assets/logo.svg" alt="Sayrud" />
+      <img class="brand" :src="themeStore.theme === 'dark' ? logoDark : logo" alt="Sayrud" />
       <div class="header-right">
         <UserMenu />
       </div>
@@ -229,7 +233,7 @@ onMounted(() => {
   justify-content: space-between;
   height: 56px;
   padding: 0 24px;
-  background: #fff;
+  background: var(--bg-body);
   border-bottom: 1px solid var(--line-border);
 }
 .brand {
@@ -273,7 +277,7 @@ onMounted(() => {
   position: absolute;
   left: 8px;
   top: 8px;
-  background: rgba(255, 255, 255, 0.9);
+  background: var(--bg-overlay);
 }
 .home-actions {
   display: flex;
@@ -316,7 +320,7 @@ onMounted(() => {
 }
 .card {
   position: relative;
-  background: #fff;
+  background: var(--bg-body);
   border-radius: 10px;
   border: 1px solid var(--line-border);
   overflow: hidden;
@@ -326,7 +330,7 @@ onMounted(() => {
     transform 0.2s;
 }
 .card:hover {
-  box-shadow: 0 8px 24px rgba(31, 35, 41, 0.1);
+  box-shadow: 0 8px 24px rgba(var(--shadow-rgb), 0.1);
   transform: translateY(-2px);
 }
 .card-cover {
@@ -352,7 +356,7 @@ onMounted(() => {
   position: absolute;
   top: 8px;
   right: 8px;
-  background: rgba(255, 255, 255, 0.9);
+  background: var(--bg-overlay);
   opacity: 0;
 }
 .card:hover .card-more {

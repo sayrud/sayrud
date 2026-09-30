@@ -222,7 +222,7 @@ function share() {
 .form-card {
   max-width: 680px;
   margin: 0 auto;
-  background: #fff;
+  background: var(--bg-body);
   border-radius: 12px;
   overflow: hidden;
   box-shadow: var(--shadow-card);
@@ -315,7 +315,7 @@ function share() {
   flex: none;
   padding: 16px;
   overflow: auto;
-  background: #fff;
+  background: var(--bg-body);
   border-left: 1px solid var(--line-border);
 }
 .settings-title {

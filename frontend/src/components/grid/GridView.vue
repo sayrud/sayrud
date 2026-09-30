@@ -1277,7 +1277,7 @@ defineExpose({ addRecord })
   overflow: auto;
   overscroll-behavior: none;
   outline: none;
-  background: #fff;
+  background: var(--bg-body);
 }
 .grid-canvas {
   position: relative;
@@ -1290,7 +1290,7 @@ defineExpose({ addRecord })
   z-index: 10;
   display: flex;
   flex: none;
-  background: #fafafa;
+  background: var(--grid-header);
 }
 .grid-header {
   top: 0;
@@ -1299,7 +1299,7 @@ defineExpose({ addRecord })
 .grid-footer {
   bottom: 0;
   border-top: 1px solid var(--grid-line);
-  background: #fff;
+  background: var(--bg-body);
 }
 .grid-spacer {
   flex: 1;
@@ -1319,7 +1319,7 @@ defineExpose({ addRecord })
 .index-cell {
   position: sticky;
   z-index: 5;
-  background: #fff;
+  background: var(--bg-body);
 }
 .index-cell {
   left: 0;
@@ -1331,21 +1331,21 @@ defineExpose({ addRecord })
 }
 .grid-header .cell,
 .grid-header .index-cell {
-  background: #fafafa;
+  background: var(--grid-header);
 }
 .grid-footer .cell,
 .grid-footer .index-cell {
-  background: #fff;
+  background: var(--bg-body);
 }
 /* The summary bar has no column borders, the transparent border keeps the cells aligned with the columns. */
 .grid-footer .cell {
   border-right-color: transparent;
 }
 .grid-scroll {
-  --frozen-shadow: linear-gradient(to right, rgba(31, 35, 41, 0.1), rgba(31, 35, 41, 0.03) 50%, transparent);
+  --frozen-shadow: linear-gradient(to right, rgba(var(--shadow-rgb), 0.1), rgba(var(--shadow-rgb), 0.03) 50%, transparent);
 }
 .frozen-last {
-  border-right-color: #d0d3d6;
+  border-right-color: var(--line-border-strong);
 }
 /* Sticks at the right of the frozen columns along with them, so the shadow moves in sync with scrolling. */
 .frozen-edge {
@@ -1382,10 +1382,10 @@ defineExpose({ addRecord })
   font-size: 13px;
 }
 .header-cell:hover {
-  background: #f2f3f5 !important;
+  background: var(--grid-header-hover) !important;
 }
 .header-cell.col-selected {
-  background: #eef3ff !important;
+  background: var(--grid-header-selected) !important;
 }
 .header-cell.dragging {
   opacity: 0.4;
@@ -1421,11 +1421,11 @@ defineExpose({ addRecord })
   left: 0;
   display: flex;
   border-bottom: 1px solid var(--grid-line);
-  background: #fff;
+  background: var(--bg-body);
 }
 .grid-row:hover,
 .grid-row:hover .cell {
-  background: #f7f8fa;
+  background: var(--grid-row-hover);
 }
 .grid-row.checked,
 .grid-row.checked .cell {
@@ -1442,7 +1442,7 @@ defineExpose({ addRecord })
   padding-bottom: 5px;
 }
 .data-cell.in-range {
-  background: #eaf0ff !important;
+  background: var(--bg-primary-soft) !important;
 }
 .data-cell.search-hit {
   background: var(--grid-search) !important;
@@ -1456,7 +1456,7 @@ defineExpose({ addRecord })
   box-sizing: border-box;
   padding: 4px 6px 3px;
   border: 2px solid var(--color-primary);
-  background: #fff;
+  background: var(--bg-body);
   color: var(--text-title);
   pointer-events: none;
 }
@@ -1505,9 +1505,9 @@ defineExpose({ addRecord })
   justify-content: center;
   width: 14px;
   height: 14px;
-  border: 1.5px solid #bbbfc4;
+  border: 1.5px solid var(--control-border);
   border-radius: 3px;
-  background: #fff;
+  background: var(--bg-body);
   color: #fff;
   cursor: pointer;
   flex: none;
@@ -1556,10 +1556,10 @@ defineExpose({ addRecord })
   user-select: none;
 }
 .grid-group.level-1 {
-  background: #f9fafb;
+  background: var(--grid-group-1);
 }
 .grid-group.level-2 {
-  background: #fcfcfd;
+  background: var(--grid-group-2);
 }
 .group-inner {
   position: sticky;
@@ -1598,7 +1598,7 @@ defineExpose({ addRecord })
   color: var(--text-caption);
 }
 .grid-add-row:hover {
-  background: #f7f8fa;
+  background: var(--grid-row-hover);
 }
 .add-inner {
   position: sticky;
@@ -1617,7 +1617,7 @@ defineExpose({ addRecord })
   font-size: 12px;
 }
 .footer-cell:hover {
-  background: #f7f8fa !important;
+  background: var(--grid-row-hover) !important;
 }
 .summary-label {
   color: var(--text-placeholder);
