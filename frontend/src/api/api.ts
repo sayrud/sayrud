@@ -66,6 +66,11 @@ export interface Action {
   viewUID?: string;
 }
 
+export interface AddProjectMember {
+  email: string;
+  role: "manager" | "editor" | "viewer";
+}
+
 export interface BatchCreateRecords {
   /** Data is the list of cell values keyed by field UID, one item for each record. */
   data: Record<string, any>[];
@@ -101,8 +106,6 @@ export interface CreateFields {
 
 export interface CreateProject {
   name: string;
-  /** SchemaName is the Postgres schema of the project, a random one is generated if empty. */
-  schemaName?: string;
 }
 
 export interface CreateRecord {
@@ -166,15 +169,20 @@ export interface Operation {
 }
 
 export interface Profile {
+  /** Color is the avatar color of the user. */
+  color: string;
   email: string;
   emailMd5: string;
+  id: number;
   userName: string;
 }
 
 export interface Project {
   createdAt: string;
   name: string;
-  schemaName: string;
+  owner: UserBrief;
+  /** Role is the permission of the signed-in user on the project. */
+  role: "owner" | "manager" | "editor" | "viewer";
   uid: string;
   updatedAt: string;
 }
@@ -182,10 +190,17 @@ export interface Project {
 export interface ProjectListItem {
   createdAt: string;
   name: string;
-  schemaName: string;
+  owner: UserBrief;
+  /** Role is the permission of the signed-in user on the project. */
+  role: "owner" | "manager" | "editor" | "viewer";
   tableCount: number;
   uid: string;
   updatedAt: string;
+}
+
+export interface ProjectMember {
+  role: "owner" | "manager" | "editor" | "viewer";
+  user: UserBrief;
 }
 
 export interface QueryRecords {
@@ -260,6 +275,18 @@ export interface SLView {
   uid: string;
 }
 
+export interface SignIn {
+  email: string;
+  password: string;
+}
+
+export interface SignUp {
+  email: string;
+  /** Password is limited to 64 characters since bcrypt only uses the first 72 bytes. */
+  password: string;
+  userName: string;
+}
+
 export interface TableListItem {
   count: number;
   createdAt: string;
@@ -296,8 +323,21 @@ export interface UpdateFieldPosition {
   position: number;
 }
 
+export interface UpdatePassword {
+  newPassword: string;
+  oldPassword: string;
+}
+
+export interface UpdateProfile {
+  userName: string;
+}
+
 export interface UpdateProject {
   name: string;
+}
+
+export interface UpdateProjectMember {
+  role: "manager" | "editor" | "viewer";
 }
 
 export interface UpdateRecord {
@@ -309,13 +349,31 @@ export interface UpdateTable {
   name: string;
 }
 
+export interface UserBrief {
+  color: string;
+  email: string;
+  emailMd5: string;
+  id: number;
+  userName: string;
+}
+
 export interface ViewAttrs {
   config?: Record<string, any>;
   name?: string;
   type?: "grid" | "kanban" | "gallery" | "form";
 }
 
+export type UpdatePasswordData = any;
+
 export type GetProfileData = Profile;
+
+export type UpdateProfileData = Profile;
+
+export type SignInData = Profile;
+
+export type SignOutData = any;
+
+export type SignUpData = Profile;
 
 export type ListProjectsData = ListProjectsResp;
 
@@ -330,6 +388,16 @@ export type DeleteProjectData = any;
 export type AiAdviceData = AIAdviceResp;
 
 export type AiApplyData = any;
+
+export type ListProjectMembersData = ProjectMember[];
+
+export type AddProjectMemberData = ProjectMember;
+
+export type LookupProjectMemberCandidateData = UserBrief;
+
+export type UpdateProjectMemberData = any;
+
+export type RemoveProjectMemberData = any;
 
 export type ListTablesData = ListTablesResp;
 
@@ -561,6 +629,22 @@ export class Api<
 > extends HttpClient<SecurityDataType> {
   auth = {
     /**
+     * @description The other sessions of the user are signed out.
+     *
+     * @name UpdatePassword
+     * @summary Change the password of the signed-in user
+     * @request PUT:/auth/password
+     */
+    updatePassword: (data: UpdatePassword, params: RequestParams = {}) =>
+      this.request<UpdatePasswordData, string>({
+        path: `/auth/password`,
+        method: "PUT",
+        body: data,
+        type: ContentType.Json,
+        ...params,
+      }),
+
+    /**
      * No description
      *
      * @name GetProfile
@@ -574,10 +658,75 @@ export class Api<
         format: "json",
         ...params,
       }),
+
+    /**
+     * No description
+     *
+     * @name UpdateProfile
+     * @summary Update the profile of the signed-in user
+     * @request PUT:/auth/profile
+     */
+    updateProfile: (data: UpdateProfile, params: RequestParams = {}) =>
+      this.request<UpdateProfileData, string>({
+        path: `/auth/profile`,
+        method: "PUT",
+        body: data,
+        type: ContentType.Json,
+        format: "json",
+        ...params,
+      }),
+
+    /**
+     * No description
+     *
+     * @name SignIn
+     * @summary Sign in with email and password
+     * @request POST:/auth/sign-in
+     */
+    signIn: (data: SignIn, params: RequestParams = {}) =>
+      this.request<SignInData, string>({
+        path: `/auth/sign-in`,
+        method: "POST",
+        body: data,
+        type: ContentType.Json,
+        format: "json",
+        ...params,
+      }),
+
+    /**
+     * @description Revoke the current session and clear the session cookie.
+     *
+     * @name SignOut
+     * @summary Sign out
+     * @request POST:/auth/sign-out
+     */
+    signOut: (params: RequestParams = {}) =>
+      this.request<SignOutData, string>({
+        path: `/auth/sign-out`,
+        method: "POST",
+        ...params,
+      }),
+
+    /**
+     * @description Create an account and sign in. The first user takes over the projects created before accounts were introduced.
+     *
+     * @name SignUp
+     * @summary Sign up with email and password
+     * @request POST:/auth/sign-up
+     */
+    signUp: (data: SignUp, params: RequestParams = {}) =>
+      this.request<SignUpData, string>({
+        path: `/auth/sign-up`,
+        method: "POST",
+        body: data,
+        type: ContentType.Json,
+        format: "json",
+        ...params,
+      }),
   };
   projects = {
     /**
-     * @description List the projects owned by the signed-in user, with the number of tables in each project.
+     * @description List the projects owned by or shared with the signed-in user, with the number of tables in each project.
      *
      * @name ListProjects
      * @summary List projects
@@ -589,6 +738,8 @@ export class Api<
         page?: number;
         /** Page size, defaults to 20 */
         pageSize?: number;
+        /** owned: created by the user, shared: shared with the user, both if empty */
+        scope?: "owned" | "shared";
       },
       params: RequestParams = {},
     ) =>
@@ -601,7 +752,7 @@ export class Api<
       }),
 
     /**
-     * @description Create a project owned by the signed-in user, along with its Postgres schema.
+     * @description Create a project owned by the signed-in user.
      *
      * @name CreateProject
      * @summary Create a project
@@ -633,7 +784,7 @@ export class Api<
       }),
 
     /**
-     * No description
+     * @description Requires the editor role.
      *
      * @name UpdateProject
      * @summary Update a project
@@ -653,7 +804,7 @@ export class Api<
       }),
 
     /**
-     * @description Delete the project and drop its Postgres schema.
+     * @description Delete the project along with its collaborators, only the owner can delete it.
      *
      * @name DeleteProject
      * @summary Delete a project
@@ -700,6 +851,104 @@ export class Api<
         method: "POST",
         body: data,
         type: ContentType.Json,
+        ...params,
+      }),
+
+    /**
+     * @description List the owner and the collaborators of the project, the owner comes first.
+     *
+     * @name ListProjectMembers
+     * @summary List the collaborators
+     * @request GET:/projects/{projectUID}/members
+     */
+    listProjectMembers: (projectUid: string, params: RequestParams = {}) =>
+      this.request<ListProjectMembersData, string>({
+        path: `/projects/${projectUid}/members`,
+        method: "GET",
+        format: "json",
+        ...params,
+      }),
+
+    /**
+     * @description Add the registered user as a collaborator, or change the role if it has been one. Requires the manager role.
+     *
+     * @name AddProjectMember
+     * @summary Add a collaborator
+     * @request POST:/projects/{projectUID}/members
+     */
+    addProjectMember: (
+      projectUid: string,
+      data: AddProjectMember,
+      params: RequestParams = {},
+    ) =>
+      this.request<AddProjectMemberData, string>({
+        path: `/projects/${projectUid}/members`,
+        method: "POST",
+        body: data,
+        type: ContentType.Json,
+        format: "json",
+        ...params,
+      }),
+
+    /**
+     * @description Find the registered user by the exact email, requires the manager role.
+     *
+     * @name LookupProjectMemberCandidate
+     * @summary Find a user to invite
+     * @request GET:/projects/{projectUID}/members/lookup
+     */
+    lookupProjectMemberCandidate: (
+      projectUid: string,
+      query: {
+        /** Email of the user */
+        email: string;
+      },
+      params: RequestParams = {},
+    ) =>
+      this.request<LookupProjectMemberCandidateData, string>({
+        path: `/projects/${projectUid}/members/lookup`,
+        method: "GET",
+        query: query,
+        format: "json",
+        ...params,
+      }),
+
+    /**
+     * @description Requires the manager role, the owner and the signed-in user itself can not be changed.
+     *
+     * @name UpdateProjectMember
+     * @summary Change the role of a collaborator
+     * @request PUT:/projects/{projectUID}/members/{userID}
+     */
+    updateProjectMember: (
+      projectUid: string,
+      userId: number,
+      data: UpdateProjectMember,
+      params: RequestParams = {},
+    ) =>
+      this.request<UpdateProjectMemberData, string>({
+        path: `/projects/${projectUid}/members/${userId}`,
+        method: "PUT",
+        body: data,
+        type: ContentType.Json,
+        ...params,
+      }),
+
+    /**
+     * @description Requires the manager role, except that a collaborator can remove itself to leave the project. The owner can not be removed.
+     *
+     * @name RemoveProjectMember
+     * @summary Remove a collaborator
+     * @request DELETE:/projects/{projectUID}/members/{userID}
+     */
+    removeProjectMember: (
+      projectUid: string,
+      userId: number,
+      params: RequestParams = {},
+    ) =>
+      this.request<RemoveProjectMemberData, string>({
+        path: `/projects/${projectUid}/members/${userId}`,
+        method: "DELETE",
         ...params,
       }),
 
@@ -1165,28 +1414,16 @@ export class Api<
       }),
 
     /**
-     * @description Upgrade to WebSocket to submit changesets and receive the changes of the subscribed tables and the online members. Messages are JSON `{type, reqId, data}`. Client: SUBSCRIBE, UNSUBSCRIBE, USER_CHANGES, PRESENCE, PING. Server: HELLO, SUBSCRIBED, ACCEPT_COMMIT, REJECT_COMMIT, NEW_CHANGES, MEMBERS, TABLES_CHANGED, PROJECT_CHANGED, ERROR, PONG.
+     * @description Upgrade to WebSocket to submit changesets and receive the changes of the subscribed tables and the online members. Messages are JSON `{type, reqId, data}`. Client: SUBSCRIBE, UNSUBSCRIBE, USER_CHANGES, PRESENCE, PING. Server: HELLO, SUBSCRIBED, ACCEPT_COMMIT, REJECT_COMMIT, NEW_CHANGES, MEMBERS, TABLES_CHANGED, PROJECT_CHANGED, PERMISSION_CHANGED, ERROR, PONG. The changesets of the viewers are rejected.
      *
      * @name Collaborate
      * @summary Collaborate on the project over WebSocket
      * @request GET:/projects/{projectUID}/ws
      */
-    collaborate: (
-      projectUid: string,
-      query?: {
-        /** Anonymous identity of the browser */
-        memberId?: string;
-        /** Display name of the collaborator */
-        name?: string;
-        /** Avatar color of the collaborator, e.g. #3370ff */
-        color?: string;
-      },
-      params: RequestParams = {},
-    ) =>
+    collaborate: (projectUid: string, params: RequestParams = {}) =>
       this.request<any, void | string>({
         path: `/projects/${projectUid}/ws`,
         method: "GET",
-        query: query,
         ...params,
       }),
   };

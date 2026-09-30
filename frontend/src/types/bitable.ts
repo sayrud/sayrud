@@ -1,11 +1,30 @@
 // Table data structures aligned with the backend management API.
 
+/** Permission on a project: owner, can manage, can edit or can view. */
+export type ProjectRole = 'owner' | 'manager' | 'editor' | 'viewer'
+/** Roles that can be granted to a collaborator. */
+export type MemberRole = Exclude<ProjectRole, 'owner'>
+
+export interface UserBrief {
+  id: number
+  email: string
+  emailMd5: string
+  userName: string
+  color: string
+}
+
 export interface Project {
   uid: string
   name: string
-  schemaName: string
   createdAt: string
   updatedAt: string
+  role: ProjectRole
+  owner: UserBrief | null
+}
+
+export interface ProjectMember {
+  user: UserBrief
+  role: ProjectRole
 }
 
 export interface SLTable {

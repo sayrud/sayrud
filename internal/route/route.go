@@ -5,12 +5,12 @@ import (
 
 	"github.com/MEDIGO/go-healthz"
 	"github.com/flamego/flamego"
-	"github.com/redis/go-redis/v9"
 	"gorm.io/gorm"
 
 	"github.com/wuhan005/sayrud/frontend"
 	"github.com/wuhan005/sayrud/internal/collab"
 	"github.com/wuhan005/sayrud/internal/context"
+	"github.com/wuhan005/sayrud/internal/db"
 	"github.com/wuhan005/sayrud/internal/form"
 	"github.com/wuhan005/sayrud/internal/observability/tracing"
 	"github.com/wuhan005/sayrud/internal/route/api"
@@ -19,7 +19,6 @@ import (
 // Options contains the dependencies used by the application router.
 type Options struct {
 	DB             *gorm.DB
-	RedisClient    *redis.Client
 	MetricsHandler http.Handler
 }
 
@@ -32,14 +31,25 @@ func New(opts Options) *flamego.Flame {
 
 	f.Use(
 		tracing.Middleware("sayrud"),
-		context.Contexter(opts.DB, opts.RedisClient),
+		context.Contexter(opts.DB),
 	)
 	f.Map(collab.NewHub(opts.DB))
 
+	canEdit := api.Project.RequireRole(db.ProjectRoleEditor)
+	canManage := api.Project.RequireRole(db.ProjectRoleManager)
+	isOwner := api.Project.RequireRole(db.ProjectRoleOwner)
+
 	f.Group("/_", func() {
 		f.Group("/auth", func() {
-			f.Get("/profile", api.Auth.Profile)
-		}, api.Auth.Authenticator)
+			f.Post("/sign-up", form.Bind(form.SignUp{}), api.Auth.SignUp)
+			f.Post("/sign-in", form.Bind(form.SignIn{}), api.Auth.SignIn)
+			f.Post("/sign-out", api.Auth.SignOut)
+
+			f.Combo("/profile", api.Auth.Authenticator).
+				Get(api.Auth.Profile).
+				Put(form.Bind(form.UpdateProfile{}), api.Auth.UpdateProfile)
+			f.Put("/password", api.Auth.Authenticator, form.Bind(form.UpdatePassword{}), api.Auth.UpdatePassword)
+		})
 
 		f.Group("/projects", func() {
 			f.Combo("").
@@ -49,22 +59,32 @@ func New(opts Options) *flamego.Flame {
 			f.Group("/{projectUID}", func() {
 				f.Combo("").
 					Get(api.Project.GetProject).
-					Put(form.Bind(form.UpdateProject{}), api.Project.UpdateProject).
-					Delete(api.Project.DeleteProject)
+					Put(canEdit, form.Bind(form.UpdateProject{}), api.Project.UpdateProject).
+					Delete(isOwner, api.Project.DeleteProject)
+
+				f.Group("/members", func() {
+					f.Combo("").
+						Get(api.Project.ListMembers).
+						Post(canManage, form.Bind(form.AddProjectMember{}), api.Project.AddMember)
+					f.Get("/lookup", canManage, api.Project.LookupMemberCandidate)
+					f.Combo("/{userID}").
+						Put(canManage, form.Bind(form.UpdateProjectMember{}), api.Project.UpdateMember).
+						Delete(api.Project.RemoveMember)
+				})
 
 				f.Get("/ws", api.Collab.Serve)
 
 				f.Group("/tables", func() {
 					f.Combo("").
 						Get(api.Schemaless.ListTables).
-						Post(form.Bind(form.CreateTable{}), api.Schemaless.CreateTable)
+						Post(canEdit, form.Bind(form.CreateTable{}), api.Schemaless.CreateTable)
 					f.Get("/types", api.Schemaless.FieldTypes)
 
 					f.Group("/{tableUID}", func() {
 						f.Combo("").
 							Get(api.Schemaless.GetTable).
-							Put(form.Bind(form.UpdateTable{}), api.Schemaless.UpdateTable).
-							Delete(api.Schemaless.DeleteTable)
+							Put(canEdit, form.Bind(form.UpdateTable{}), api.Schemaless.UpdateTable).
+							Delete(canEdit, api.Schemaless.DeleteTable)
 						f.Get("/snapshot", api.Collab.GetSnapshot)
 						f.Get("/changesets", api.Collab.ListChangesets)
 						f.Get("/views", api.Collab.ListViews)
@@ -72,13 +92,13 @@ func New(opts Options) *flamego.Flame {
 						f.Group("/fields", func() {
 							f.Combo("").
 								Get(api.Schemaless.ListFields).
-								Post(form.Bind(form.CreateFields{}), api.Schemaless.CreateFields)
+								Post(canEdit, form.Bind(form.CreateFields{}), api.Schemaless.CreateFields)
 
 							f.Group("/{fieldUID}", func() {
 								f.Combo("").
-									Put(form.Bind(form.UpdateField{}), api.Schemaless.UpdateField).
-									Delete(api.Schemaless.DeleteField)
-								f.Put("/position", form.Bind(form.UpdateFieldPosition{}), api.Schemaless.UpdateFieldPosition)
+									Put(canEdit, form.Bind(form.UpdateField{}), api.Schemaless.UpdateField).
+									Delete(canEdit, api.Schemaless.DeleteField)
+								f.Put("/position", canEdit, form.Bind(form.UpdateFieldPosition{}), api.Schemaless.UpdateFieldPosition)
 							}, api.Schemaless.Fielder)
 						})
 
@@ -86,23 +106,23 @@ func New(opts Options) *flamego.Flame {
 						f.Group("/records", func() {
 							f.Combo("").
 								Get(api.Schemaless.ListRecords).
-								Post(form.Bind(form.CreateRecord{}), api.Schemaless.CreateRecord)
-							f.Post("/batch", form.Bind(form.BatchCreateRecords{}), api.Schemaless.BatchCreateRecords)
+								Post(canEdit, form.Bind(form.CreateRecord{}), api.Schemaless.CreateRecord)
+							f.Post("/batch", canEdit, form.Bind(form.BatchCreateRecords{}), api.Schemaless.BatchCreateRecords)
 							f.Post("/query", form.Bind(form.QueryRecords{}), api.Schemaless.QueryRecords)
 							f.Post("/fetch", form.Bind(form.FetchRecords{}), api.Collab.FetchRecords)
 							f.Group("/{recordUID}", func() {
 								f.Combo("").
 									Get(api.Schemaless.GetRecord).
-									Put(form.Bind(form.UpdateRecord{}), api.Schemaless.UpdateRecord).
-									Delete(api.Schemaless.DeleteRecord)
+									Put(canEdit, form.Bind(form.UpdateRecord{}), api.Schemaless.UpdateRecord).
+									Delete(canEdit, api.Schemaless.DeleteRecord)
 							}, api.Schemaless.Recorder)
 						})
 					}, api.Schemaless.Tabler)
 				})
 
 				f.Group("/ai", func() {
-					f.Post("/advice", form.Bind(form.AIAdvice{}), api.AI.Advice)
-					f.Post("/apply", form.Bind(form.AIApply{}), api.AI.Apply)
+					f.Post("/advice", canEdit, form.Bind(form.AIAdvice{}), api.AI.Advice)
+					f.Post("/apply", canEdit, form.Bind(form.AIApply{}), api.AI.Apply)
 				})
 			}, api.Project.Projecter)
 		}, api.Auth.Authenticator)

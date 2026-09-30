@@ -3,11 +3,11 @@ package context
 import (
 	"encoding/json"
 	"fmt"
+	"net"
 	"net/http"
 	"os"
 
 	"github.com/flamego/flamego"
-	"github.com/redis/go-redis/v9"
 	"github.com/sirupsen/logrus"
 	"go.opentelemetry.io/otel/trace"
 	"gorm.io/gorm"
@@ -66,16 +66,20 @@ func (c *Context) ServerError() {
 	c.ResponseWriter().WriteHeader(http.StatusBadGateway)
 }
 
+// IP returns the client IP from the IP_HEADER header if configured, or the remote address without the port.
 func (c *Context) IP() string {
-	ipHeader := os.Getenv("IP_HEADER")
-	if ipHeader != "" {
-		return c.Request().Header.Get(ipHeader)
+	ip := c.Request().RemoteAddr
+	if ipHeader := os.Getenv("IP_HEADER"); ipHeader != "" {
+		ip = c.Request().Header.Get(ipHeader)
 	}
-	return c.Request().RemoteAddr
+	if host, _, err := net.SplitHostPort(ip); err == nil {
+		return host
+	}
+	return ip
 }
 
 // Contexter initializes a classic context for a request.
-func Contexter(gormDB *gorm.DB, redisClient *redis.Client) flamego.Handler {
+func Contexter(gormDB *gorm.DB) flamego.Handler {
 	return func(ctx flamego.Context) {
 		c := Context{
 			Context: ctx,
@@ -97,7 +101,6 @@ func Contexter(gormDB *gorm.DB, redisClient *redis.Client) flamego.Handler {
 		}
 
 		c.MapTo(gormDB, (*dbutil.Transactor)(nil))
-		c.Map(redisClient)
 		c.Map(c)
 	}
 }

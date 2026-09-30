@@ -115,7 +115,7 @@ function share() {
     <div class="form-scroll">
       <div class="form-actions">
         <a-button size="small" @click="share"><template #icon><Share2 :size="14" /></template>分享表单</a-button>
-        <button class="icon-btn" :title="settingsOpen ? '收起设置' : '展开设置'" @click="settingsOpen = !settingsOpen">
+        <button v-if="store.canEdit" class="icon-btn" :title="settingsOpen ? '收起设置' : '展开设置'" @click="settingsOpen = !settingsOpen">
           <component :is="settingsOpen ? PanelRightClose : PanelRightOpen" :size="16" />
         </button>
       </div>
@@ -127,13 +127,15 @@ function share() {
               class="form-title"
               :value="form.title"
               placeholder="表单标题"
+              :readonly="!store.canEdit"
               @change="(e) => saveForm({ title: (e.target as HTMLInputElement).value })"
             />
             <textarea
               class="form-desc"
               :value="form.description"
               rows="2"
-              placeholder="添加表单描述（选填）"
+              :placeholder="store.canEdit ? '添加表单描述（选填）' : ''"
+              :readonly="!store.canEdit"
               @change="(e) => saveForm({ description: (e.target as HTMLTextAreaElement).value })"
             />
           </div>
@@ -150,9 +152,10 @@ function share() {
             />
             <div v-if="errors[c.fieldUID]" class="error-text">此项为必填项</div>
           </div>
-          <div v-if="!shown.length" class="no-field">表单中还没有字段，请在右侧设置中开启</div>
+          <div v-if="!shown.length" class="no-field">{{ store.canEdit ? '表单中还没有字段，请在右侧设置中开启' : '表单中还没有字段' }}</div>
           <div class="form-submit">
-            <a-button type="primary" long size="large" :loading="submitting" @click="submit">提交</a-button>
+            <a-button type="primary" long size="large" :loading="submitting" :disabled="!store.canEdit" @click="submit">提交</a-button>
+            <div v-if="!store.canEdit" class="readonly-tip">你只有查看权限，可预览表单但无法提交</div>
           </div>
         </template>
         <div v-else class="success">
@@ -164,7 +167,7 @@ function share() {
       </div>
     </div>
 
-    <aside v-if="settingsOpen" class="settings">
+    <aside v-if="settingsOpen && store.canEdit" class="settings">
       <div class="settings-title">表单字段</div>
       <div class="settings-tip">拖拽调整顺序，点击眼睛显示或隐藏字段</div>
       <div
@@ -286,6 +289,12 @@ function share() {
 }
 .form-submit {
   padding: 20px 40px 36px;
+}
+.readonly-tip {
+  margin-top: 8px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--text-placeholder);
 }
 .success {
   display: flex;

@@ -3,15 +3,17 @@ import { defineStore } from 'pinia'
 import { computed, reactive, ref, shallowRef, watch } from 'vue'
 
 import { projectsApi, syncApi, tablesApi, type TableListItem } from '@/api/bitable'
-import { getIdentity } from '@/collab/identity'
+import { ApiError } from '@/api/client'
 import { ProjectSocket } from '@/collab/socket'
 import { TableSync } from '@/collab/tableSync'
 import type { Action, Member, Operation } from '@/collab/types'
+import { useAuthStore } from '@/stores/auth'
 import type {
   CellValue,
   FieldMetadata,
   FieldType,
   Project,
+  ProjectRole,
   RecordData,
   SelectOption,
   SLField,
@@ -24,6 +26,7 @@ import { TableContext } from '@/utils/engine'
 import { defaultMetadata } from '@/utils/fieldTypes'
 import { defaultValueOf, isEmptyValue } from '@/utils/format'
 import { newFieldUID, newOptionUID, newRecordUID, newViewUID } from '@/utils/id'
+import { ROLE_LABELS, roleAtLeast } from '@/utils/role'
 import { defaultViewConfig, viewTypeInfo } from '@/utils/view'
 
 export interface CreateFieldInput {
@@ -92,8 +95,11 @@ function cleanViewConfig(config: ViewConfig, fieldUID: string, mode: 'delete' | 
 }
 
 export const useBaseStore = defineStore('base', () => {
-  const identity = getIdentity()
+  const auth = useAuthStore()
+  const identity = computed(() => auth.identity)
   const project = ref<Project | null>(null)
+  /** Reason the current user can not access the project, e.g. it is removed from the collaborators. */
+  const accessDenied = ref<string | null>(null)
   const tableList = ref<TableListItem[]>([])
   const activeTableUID = ref('')
   const activeViewUID = ref('')
@@ -124,9 +130,33 @@ export const useBaseStore = defineStore('base', () => {
 
   const pid = () => project.value!.uid
 
+  // ---- Permissions ----
+
+  const role = computed<ProjectRole | null>(() => project.value?.role ?? null)
+  const canEdit = computed(() => roleAtLeast(role.value, 'editor'))
+  const canManage = computed(() => roleAtLeast(role.value, 'manager'))
+  /** View settings changed by a viewer, they are only applied locally and never submitted. */
+  const localViewConfigs = ref<Record<string, ViewConfig>>({})
+  let deniedToastAt = 0
+  let localConfigTipShown = false
+
+  /** Returns whether the user can edit, and tells the user otherwise. */
+  function ensureEditable(): boolean {
+    if (canEdit.value) return true
+    if (Date.now() - deniedToastAt > 2000) {
+      deniedToastAt = Date.now()
+      Message.warning('你只有查看权限，无法编辑')
+    }
+    return false
+  }
+
   const fields = computed<SLField[]>(() => activeSync.value?.fields.value ?? [])
   const records = computed<SLRecord[]>(() => activeSync.value?.records.value ?? [])
-  const views = computed<SLView[]>(() => activeSync.value?.views.value ?? [])
+  const views = computed<SLView[]>(() => {
+    const list = activeSync.value?.views.value ?? []
+    if (canEdit.value) return list
+    return list.map((v) => (localViewConfigs.value[v.uid] ? { ...v, config: localViewConfigs.value[v.uid]! } : v))
+  })
   const loadingTable = computed(() => switchingTable.value || !!activeSync.value?.loading.value)
   /** The record count of the current table is taken from the local data, the others from the list API. */
   const tables = computed<TableListItem[]>(() =>
@@ -213,6 +243,27 @@ export const useBaseStore = defineStore('base', () => {
     members.value = []
     activeTableUID.value = ''
     activeViewUID.value = ''
+    localViewConfigs.value = {}
+    localConfigTipShown = false
+    accessDenied.value = null
+  }
+
+  /** Applies the role changed by a manager: reloads the project, or stops collaborating if removed. */
+  async function onPermissionChanged(data: { projectUID: string; role: ProjectRole | '' }) {
+    if (!project.value || data.projectUID !== project.value.uid) return
+    if (!data.role) {
+      socket.value?.close()
+      accessDenied.value = '你已被移出该多维表格，请联系所有者重新添加'
+      return
+    }
+    try {
+      project.value = await projectsApi.get(project.value.uid)
+    } catch (e) {
+      toastError(e)
+      return
+    }
+    if (canEdit.value) localViewConfigs.value = {}
+    Message.info(`你的权限已变更为「${ROLE_LABELS[data.role]}」`)
   }
 
   async function openProject(projectUID: string) {
@@ -223,12 +274,16 @@ export const useBaseStore = defineStore('base', () => {
       const [p, t] = await Promise.all([projectsApi.get(projectUID), tablesApi.list(projectUID)])
       project.value = p
       tableList.value = t.tables as TableListItem[]
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 403) accessDenied.value = e.message
+      throw e
     } finally {
       loadingProject.value = false
     }
 
-    const s = new ProjectSocket(projectUID, identity)
+    const s = new ProjectSocket(projectUID)
     projectOffs = [
+      s.on<{ projectUID: string; role: ProjectRole | '' }>('PERMISSION_CHANGED', (data) => void onPermissionChanged(data)),
       s.on<{ members: Member[] }>('MEMBERS', (data) => {
         members.value = data.members
       }),
@@ -248,7 +303,7 @@ export const useBaseStore = defineStore('base', () => {
   }
 
   async function renameProject(name: string) {
-    if (!project.value || !name.trim() || name === project.value.name) return
+    if (!project.value || !name.trim() || name === project.value.name || !ensureEditable()) return
     try {
       await projectsApi.update(pid(), name.trim())
       project.value = { ...project.value, name: name.trim() }
@@ -301,6 +356,7 @@ export const useBaseStore = defineStore('base', () => {
   }
 
   function submit(operations: Operation[], sync = activeSync.value) {
+    if (!ensureEditable()) return
     sync?.submit(operations)
   }
 
@@ -316,7 +372,7 @@ export const useBaseStore = defineStore('base', () => {
         const sync = await ensureSync(tableUID)
         if (activeTableUID.value !== tableUID) return
         activeSync.value = sync
-        if (!sync.views.value.length) {
+        if (!sync.views.value.length && canEdit.value) {
           submit([op('AddView', [{ action: 'view.add', viewUID: newViewUID(), view: { name: '表格', type: 'grid', config: defaultViewConfig() as unknown as Record<string, unknown> } }])])
         }
       } finally {
@@ -336,6 +392,7 @@ export const useBaseStore = defineStore('base', () => {
   }
 
   async function createTable(name: string) {
+    if (!ensureEditable()) throw new Error('没有编辑权限')
     const table = await tablesApi.create(pid(), name)
     tableList.value = [...tableList.value, { ...table, count: 5 }]
     const sync = await ensureSync(table.uid)
@@ -367,7 +424,7 @@ export const useBaseStore = defineStore('base', () => {
 
   async function renameTable(tableUID: string, name: string) {
     const n = name.trim()
-    if (!n) return
+    if (!n || !ensureEditable()) return
     try {
       await tablesApi.update(pid(), tableUID, n)
       tableList.value = tableList.value.map((t) => (t.uid === tableUID ? { ...t, name: n } : t))
@@ -377,6 +434,7 @@ export const useBaseStore = defineStore('base', () => {
   }
 
   async function deleteTable(tableUID: string) {
+    if (!ensureEditable()) return
     await tablesApi.delete(pid(), tableUID)
     tableList.value = tableList.value.filter((t) => t.uid !== tableUID)
     syncs.get(tableUID)?.dispose()
@@ -390,7 +448,7 @@ export const useBaseStore = defineStore('base', () => {
   /** Duplicates the fields, records and views of the table, rewriting the field references in formulas and views. */
   async function duplicateTable(tableUID: string) {
     const src = tableList.value.find((t) => t.uid === tableUID)
-    if (!src) return
+    if (!src || !ensureEditable()) return
     const data = syncs.get(tableUID)?.data ?? (await syncApi.snapshot(pid(), tableUID))
     const table = await tablesApi.create(pid(), `${src.name} 副本`)
     tableList.value = [...tableList.value, { ...table, count: data.records.length }]
@@ -530,6 +588,7 @@ export const useBaseStore = defineStore('base', () => {
     list.map((r) => ({ action: 'record.add', recordUID: r.uid, values: r.data }))
 
   async function createRecords(dataList: RecordData[], opts: { history?: boolean; withDefaults?: boolean } = {}) {
+    if (!ensureEditable()) return []
     const list = dataList.map((d) => ({ uid: newRecordUID(), data: opts.withDefaults === false ? cleanData(d) : defaultsFor(d) }))
     if (!list.length) return []
     const redo = [op('AddRecords', addRecordActions(list))]
@@ -547,6 +606,7 @@ export const useBaseStore = defineStore('base', () => {
 
   /** Updates some fields of the records in batch, only the changed cells are submitted, and it can be undone. */
   async function updateRecords(patches: { uid: string; data: RecordData }[], label = '编辑记录') {
+    if (!ensureEditable()) return
     const before: Action[] = []
     const after: Action[] = []
     for (const p of patches) {
@@ -576,7 +636,7 @@ export const useBaseStore = defineStore('base', () => {
 
   async function deleteRecords(uids: string[]) {
     const recordUIDs = uids.filter((uid) => recordMap.value.has(uid))
-    if (!recordUIDs.length) return
+    if (!recordUIDs.length || !ensureEditable()) return
     const sync = activeSync.value
     const tableUID = activeTableUID.value
     Modal.warning({
@@ -632,10 +692,19 @@ export const useBaseStore = defineStore('base', () => {
     const view = views.value.find((v) => v.uid === viewUID)
     if (!view) return
     const config = { ...view.config, ...patch }
+    if (!canEdit.value) {
+      localViewConfigs.value = { ...localViewConfigs.value, [viewUID]: config }
+      if (!localConfigTipShown) {
+        localConfigTipShown = true
+        Message.info({ content: '你只有查看权限，视图设置仅自己可见，刷新后恢复', duration: 3000 })
+      }
+      return
+    }
     submit([op('SetViewConfig', [{ action: 'view.set', viewUID, view: { config: config as unknown as Record<string, unknown> } }])])
   }
 
   async function createView(type: ViewType, name?: string, config?: Partial<ViewConfig>) {
+    if (!ensureEditable()) return null
     const info = viewTypeInfo(type)
     const base = name ?? info.label.replace('视图', '')
     let n = base
@@ -663,6 +732,7 @@ export const useBaseStore = defineStore('base', () => {
   }
 
   async function deleteView(viewUID: string) {
+    if (!ensureEditable()) return
     if (views.value.length <= 1) {
       Message.error('至少保留一个视图')
       return
@@ -687,12 +757,18 @@ export const useBaseStore = defineStore('base', () => {
   }
 
   function openFieldEditor(state: FieldEditorState) {
+    if (!ensureEditable()) return
     fieldEditor.value = state
   }
 
   return {
     identity,
     project,
+    accessDenied,
+    role,
+    canEdit,
+    canManage,
+    ensureEditable,
     tables,
     activeTableUID,
     fields,

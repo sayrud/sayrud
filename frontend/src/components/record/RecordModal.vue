@@ -89,7 +89,7 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKey))
           <span v-if="index >= 0" class="pos">{{ index + 1 }} / {{ list.length }}</span>
         </div>
         <span class="spacer" />
-        <button class="icon-btn" @click="openMore"><Ellipsis :size="16" /></button>
+        <button v-if="store.canEdit" class="icon-btn" @click="openMore"><Ellipsis :size="16" /></button>
         <button class="icon-btn" @click="close"><X :size="16" /></button>
       </div>
     </template>
@@ -107,6 +107,7 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKey))
             :value="record.data[f.uid]"
             :record="record"
             placeholder="空"
+            :readonly="!store.canEdit"
             @change="(v) => store.updateCell(record!.uid, f.uid, v)"
           />
         </div>
@@ -129,6 +130,7 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKey))
                 :value="record.data[f.uid]"
                 :record="record"
                 placeholder="空"
+                :readonly="!store.canEdit"
                 @change="(v) => store.updateCell(record!.uid, f.uid, v)"
               />
             </div>
@@ -136,7 +138,7 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKey))
         </template>
       </template>
 
-      <button class="add-field" @click="addField"><Plus :size="14" /> 添加字段</button>
+      <button v-if="store.canEdit" class="add-field" @click="addField"><Plus :size="14" /> 添加字段</button>
 
       <div class="meta">
         创建于 {{ dayjs(record.createdAt).format('YYYY/MM/DD HH:mm') }} · 最后修改于

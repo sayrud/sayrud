@@ -19,9 +19,13 @@ const props = withDefaults(
   { lines: 1, wrap: false },
 )
 
-defineEmits<{ toggle: [] }>()
+const emit = defineEmits<{ toggle: [] }>()
 
 const store = useBaseStore()
+
+function toggle() {
+  if (store.canEdit) emit('toggle')
+}
 const value = computed(() => props.record.data[props.field.uid])
 
 const options = computed<SelectOption[]>(() => {
@@ -48,7 +52,7 @@ const isNumeric = computed(
 <template>
   <div class="cell-display" :class="[`type-${field.type}`, { numeric: isNumeric, wrap }]">
     <template v-if="field.type === 'checkbox'">
-      <span class="checkbox" :class="{ checked: !!value }" @click.stop="$emit('toggle')">
+      <span class="checkbox" :class="{ checked: !!value, readonly: !store.canEdit }" @click.stop="toggle">
         <Check v-if="value" :size="12" :stroke-width="3" />
       </span>
     </template>
@@ -111,6 +115,12 @@ const isNumeric = computed(
 }
 .checkbox:hover {
   border-color: var(--color-primary);
+}
+.checkbox.readonly {
+  cursor: default;
+}
+.checkbox.readonly:not(.checked):hover {
+  border-color: #bbbfc4;
 }
 .checkbox.checked {
   background: var(--color-primary);

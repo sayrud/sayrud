@@ -28,9 +28,11 @@ Sayrud is a self-hosted spreadsheet database for organizing projects, tasks, and
 
 ## Deployment
 
-You need Docker and Docker Compose 2.23.1 or later. The image includes both the frontend and backend. Compose starts Sayrud, PostgreSQL, and Redis together.
+You need Docker and Docker Compose 2.23.1 or later. The image includes both the frontend and backend. Compose starts
+Sayrud, PostgreSQL, and Redis together.
 
-For production, set `POSTGRES_PASSWORD` in a local `.env` file before the first startup. The default password, `change-me`, is for local use.
+For production, set `POSTGRES_PASSWORD` in a local `.env` file before the first startup. The default password,
+`change-me`, is for local use.
 
 ```sh
 git clone https://github.com/sayrud/sayrud.git
@@ -38,7 +40,7 @@ cd sayrud
 docker compose up -d
 ```
 
-Open <http://localhost:2830>. Data is stored in the `postgres_data` volume. All visitors currently share one default user; use a private network or access control in front of the service.
+Open <http://localhost:2830> and sign up with an email and password. Data is stored in the `postgres_data` volume.
 
 To update:
 
@@ -49,9 +51,11 @@ docker compose up -d
 
 ## Contributing
 
-Bug reports and pull requests are welcome. Include steps to reproduce bugs, and keep each pull request focused on one change.
+Bug reports and pull requests are welcome. Include steps to reproduce bugs, and keep each pull request focused on one
+change.
 
-For development, you need Go 1.27, Node.js 22.13 or later, and pnpm 10. The Go backend is in `cmd/` and `internal/`, and the Vue and TypeScript frontend is in `frontend/`.
+For development, you need Go 1.27, Node.js 22.13 or later, and pnpm 10. The Go backend is in `cmd/` and `internal/`, and
+the Vue and TypeScript frontend is in `frontend/`.
 
 Start only the databases and copy the local configuration. Build the frontend once before running Go commands:
 
@@ -63,9 +67,11 @@ pnpm --dir frontend build
 REDIS_ADDRESS=127.0.0.1:6379 go run ./cmd/sayrud-server
 ```
 
-If you change `POSTGRES_PASSWORD`, use the same password in the PostgreSQL connection in `config/sayrud.yaml`. Run `docker compose stop sayrud` if the Compose application is already using port `2830`.
+If you change `POSTGRES_PASSWORD`, use the same password in the PostgreSQL connection in `config/sayrud.yaml`. Run
+`docker compose stop sayrud` if the Compose application is already using port `2830`.
 
-In another terminal, run `pnpm --dir frontend dev` and open <http://localhost:5173>. Vite proxies API and WebSocket requests to the backend. Production builds embed `frontend/dist` with `go:embed`.
+In another terminal, run `pnpm --dir frontend dev` and open <http://localhost:5173>. Vite proxies API and WebSocket
+requests to the backend. Production builds embed `frontend/dist` with `go:embed`.
 
 Before submitting a change:
 

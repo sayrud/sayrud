@@ -1,10 +1,13 @@
 <script setup lang="ts">
 import { Message } from '@arco-design/web-vue'
-import { CloudCheck, CloudOff, House, LoaderCircle, PanelLeftOpen, Share2 } from '@lucide/vue'
+import { CloudCheck, CloudOff, Eye, House, LoaderCircle, PanelLeftOpen, Share2 } from '@lucide/vue'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
+import ShareDialog from '@/components/base/ShareDialog.vue'
 import TableSidebar from '@/components/base/TableSidebar.vue'
+import UserAvatar from '@/components/common/UserAvatar.vue'
+import UserMenu from '@/components/common/UserMenu.vue'
 import ViewTabs from '@/components/base/ViewTabs.vue'
 import FieldEditorPopover from '@/components/field/FieldEditorPopover.vue'
 import FormView from '@/components/form/FormView.vue'
@@ -20,7 +23,8 @@ const route = useRoute()
 const router = useRouter()
 const store = useBaseStore()
 
-const sidebarCollapsed = ref(false)
+const sidebarCollapsed = ref(window.innerWidth < 768)
+const shareVisible = ref(false)
 const gridRef = ref<InstanceType<typeof GridView>>()
 const editingName = ref(false)
 const nameText = ref('')
@@ -34,6 +38,7 @@ async function sync() {
   try {
     await store.openProject(pid)
   } catch (e) {
+    if (store.accessDenied) return
     Message.error(e instanceof Error ? e.message : '项目不存在')
     router.replace('/')
     return
@@ -110,6 +115,7 @@ async function addRecord() {
 }
 
 function startEditName() {
+  if (!store.canEdit) return
   editingName.value = true
   nameText.value = store.project?.name ?? ''
   nextTick(() => nameInput.value?.select())
@@ -117,11 +123,6 @@ function startEditName() {
 function confirmName() {
   editingName.value = false
   store.renameProject(nameText.value)
-}
-
-function share() {
-  navigator.clipboard?.writeText(location.href).catch(() => undefined)
-  Message.success('链接已复制')
 }
 
 // Global undo / redo for the non-grid views, the grid view handles them in its own keydown handler and prevents the default.
@@ -148,37 +149,62 @@ onBeforeUnmount(() => {
     <header class="topbar">
       <button class="icon-btn" title="返回首页" @click="router.push('/')"><House :size="17" /></button>
       <img src="/favicon.svg" class="logo" alt="" />
-      <input
-        v-if="editingName"
-        ref="nameInput"
-        v-model="nameText"
-        class="name-input"
-        @keydown.enter="confirmName"
-        @keydown.esc="editingName = false"
-        @blur="confirmName"
-      />
-      <span v-else class="base-name" title="点击重命名" @click="startEditName">{{ store.project?.name ?? '加载中…' }}</span>
-      <span class="sync-state" :class="syncState.cls" :title="syncState.text">
-        <component :is="syncState.icon" :size="15" />
-        <span>{{ syncState.text }}</span>
-      </span>
-      <span class="spacer" />
-      <div class="members">
-        <a-tooltip v-for="m in otherMembers.slice(0, 5)" :key="m.memberId" :content="memberTitle(m)">
-          <a-avatar :size="28" class="member" :style="{ backgroundColor: m.color }">{{ m.name.slice(-1) }}</a-avatar>
+      <template v-if="!store.accessDenied">
+        <input
+          v-if="editingName"
+          ref="nameInput"
+          v-model="nameText"
+          class="name-input"
+          @keydown.enter="confirmName"
+          @keydown.esc="editingName = false"
+          @blur="confirmName"
+        />
+        <span
+          v-else
+          class="base-name"
+          :class="{ readonly: !store.canEdit }"
+          :title="store.canEdit ? '点击重命名' : undefined"
+          @click="startEditName"
+          >{{ store.project?.name ?? '加载中…' }}</span
+        >
+        <a-tooltip v-if="store.project && !store.canEdit" content="你只有查看权限，如需编辑请联系所有者或管理者">
+          <a-tag size="small">
+            <template #icon><Eye :size="12" /></template>
+            可查看
+          </a-tag>
         </a-tooltip>
-        <a-avatar v-if="otherMembers.length > 5" :size="28" class="member more">+{{ otherMembers.length - 5 }}</a-avatar>
-      </div>
-      <a-button size="small" type="primary" @click="share"><template #icon><Share2 :size="14" /></template>分享</a-button>
-      <a-tooltip :content="`${store.identity.name}（我）`">
-        <a-avatar :size="28" :style="{ backgroundColor: store.identity.color }">{{ store.identity.name.slice(-1) }}</a-avatar>
-      </a-tooltip>
+        <span class="sync-state" :class="syncState.cls" :title="syncState.text">
+          <component :is="syncState.icon" :size="15" />
+          <span class="sync-text">{{ syncState.text }}</span>
+        </span>
+      </template>
+      <span class="spacer" />
+      <template v-if="!store.accessDenied">
+        <div class="members">
+          <a-tooltip v-for="m in otherMembers.slice(0, 5)" :key="m.memberId" :content="memberTitle(m)">
+            <UserAvatar :name="m.name" :color="m.color" :size="28" class="member" />
+          </a-tooltip>
+          <a-avatar v-if="otherMembers.length > 5" :size="28" class="member more">+{{ otherMembers.length - 5 }}</a-avatar>
+        </div>
+        <a-button size="small" type="primary" :disabled="!store.project" @click="shareVisible = true">
+          <template #icon><Share2 :size="14" /></template>分享
+        </a-button>
+      </template>
+      <UserMenu />
     </header>
 
-    <div class="base-body">
+    <div v-if="store.accessDenied" class="denied">
+      <a-result status="403" title="无法访问该多维表格" :subtitle="store.accessDenied">
+        <template #extra>
+          <a-button type="primary" @click="router.replace('/')">返回首页</a-button>
+        </template>
+      </a-result>
+    </div>
+
+    <div v-else class="base-body">
       <TableSidebar v-if="!sidebarCollapsed" @select="selectTable" @collapse="sidebarCollapsed = true" />
       <main class="main">
-        <div class="main-head">
+        <div v-if="sidebarCollapsed || store.activeTableUID" class="main-head">
           <button v-if="sidebarCollapsed" class="icon-btn expand-side" title="展开侧边栏" @click="sidebarCollapsed = false">
             <PanelLeftOpen :size="16" />
           </button>
@@ -193,13 +219,18 @@ onBeforeUnmount(() => {
             <GalleryView v-else-if="view.type === 'gallery'" :view="view" />
             <FormView v-else-if="view.type === 'form'" :key="view.uid" :view="view" />
           </template>
-          <a-empty v-else-if="!store.tables.length" class="loading" description="还没有数据表，点击左侧的「+」新建数据表" />
+          <a-empty
+            v-else-if="!store.tables.length"
+            class="empty-state"
+            :description="store.canEdit ? '还没有数据表，点击左侧的「+」新建数据表' : '还没有数据表'"
+          />
         </div>
       </main>
     </div>
 
     <FieldEditorPopover v-if="store.fieldEditor" :key="JSON.stringify(store.fieldEditor.anchor)" />
     <RecordModal />
+    <ShareDialog v-model:visible="shareVisible" />
   </div>
 </template>
 
@@ -220,19 +251,52 @@ onBeforeUnmount(() => {
   background: #fff;
   flex: none;
 }
+.topbar > * {
+  flex: none;
+}
 .logo {
   width: 24px;
   height: 24px;
 }
-.base-name {
+.topbar > .base-name {
+  flex: 0 1 auto;
+  min-width: 0;
   padding: 2px 6px;
   border-radius: 6px;
   font-size: 16px;
   font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   cursor: text;
+}
+.topbar > .spacer {
+  flex: 1;
+}
+@media (max-width: 640px) {
+  .topbar {
+    gap: 6px;
+    padding: 0 12px 0 8px;
+  }
+  .sync-text,
+  .members {
+    display: none;
+  }
 }
 .base-name:hover {
   background: var(--fill-hover);
+}
+.base-name.readonly {
+  cursor: default;
+}
+.base-name.readonly:hover {
+  background: none;
+}
+.denied {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 .name-input {
   width: 240px;
@@ -314,6 +378,13 @@ onBeforeUnmount(() => {
 .loading {
   flex: 1;
   display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.empty-state {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
 }

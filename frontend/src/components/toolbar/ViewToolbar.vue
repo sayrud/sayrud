@@ -93,12 +93,14 @@ function deleteSelected() {
   <div class="toolbar">
     <template v-if="store.selectedRecords.length && isGrid">
       <span class="selected-info">已选择 {{ store.selectedRecords.length }} 条记录</span>
-      <button class="tool-btn danger" @click="deleteSelected"><Trash :size="15" /> 删除</button>
+      <button v-if="store.canEdit" class="tool-btn danger" @click="deleteSelected"><Trash :size="15" /> 删除</button>
       <button class="tool-btn" @click="store.selectedRecords = []"><X :size="15" /> 取消选择</button>
     </template>
     <template v-else>
-      <button v-if="!isForm" class="tool-btn add-btn" @click="emit('addRecord')"><Plus :size="16" /> 添加记录</button>
-      <span v-if="!isForm" class="divider" />
+      <template v-if="!isForm && store.canEdit">
+        <button class="tool-btn add-btn" @click="emit('addRecord')"><Plus :size="16" /> 添加记录</button>
+        <span class="divider" />
+      </template>
 
       <a-trigger
         v-if="isKanban"
@@ -207,12 +209,14 @@ function deleteSelected() {
 
     <span class="spacer" />
 
-    <a-tooltip content="撤销 (⌘Z)" mini>
-      <button class="icon-btn" :disabled="!store.undoStack.length" @click="store.undo()"><Undo2 :size="16" /></button>
-    </a-tooltip>
-    <a-tooltip content="重做 (⌘⇧Z)" mini>
-      <button class="icon-btn" :disabled="!store.redoStack.length" @click="store.redo()"><Redo2 :size="16" /></button>
-    </a-tooltip>
+    <template v-if="store.canEdit">
+      <a-tooltip content="撤销 (⌘Z)" mini>
+        <button class="icon-btn" :disabled="!store.undoStack.length" @click="store.undo()"><Undo2 :size="16" /></button>
+      </a-tooltip>
+      <a-tooltip content="重做 (⌘⇧Z)" mini>
+        <button class="icon-btn" :disabled="!store.redoStack.length" @click="store.redo()"><Redo2 :size="16" /></button>
+      </a-tooltip>
+    </template>
 
     <div v-if="searching" class="search-box">
       <Search :size="14" class="search-icon" />

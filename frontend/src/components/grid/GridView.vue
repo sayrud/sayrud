@@ -138,10 +138,13 @@ const layout = computed(() => {
       nav.push(record)
       top += h
     })
+  const canAdd = store.canEdit
   if (!groups.value.length) {
     pushRecords(rows.value)
-    items.push({ kind: 'add', key: '__add', top, height: ADD_ROW_H, preset: {} })
-    top += ADD_ROW_H
+    if (canAdd) {
+      items.push({ kind: 'add', key: '__add', top, height: ADD_ROW_H, preset: {} })
+      top += ADD_ROW_H
+    }
   } else {
     const walk = (nodes: GroupNode[], preset: RecordData) => {
       for (const node of nodes) {
@@ -152,8 +155,10 @@ const layout = computed(() => {
         if (node.children.length) walk(node.children, p)
         else {
           pushRecords(node.records)
-          items.push({ kind: 'add', key: '__add' + node.id, top, height: ADD_ROW_H, preset: p })
-          top += ADD_ROW_H
+          if (canAdd) {
+            items.push({ kind: 'add', key: '__add' + node.id, top, height: ADD_ROW_H, preset: p })
+            top += ADD_ROW_H
+          }
         }
       }
     }
@@ -457,7 +462,7 @@ const expanded = computed(() => {
 
 function startEdit(initial?: string) {
   const rc = rect.value
-  if (!rc) return
+  if (!rc || !store.canEdit) return
   const col = cols.value[rc.a.c]
   const rec = layout.value.nav[rc.a.r]
   if (!col || !rec) return
@@ -606,6 +611,7 @@ function rangeCells(): { record: SLRecord; field: SLField }[] {
 }
 
 function clearRange() {
+  if (!store.ensureEditable()) return
   const byRecord = new Map<string, RecordData>()
   for (const { record, field } of rangeCells()) {
     if (field.type === 'formula') continue
@@ -652,11 +658,15 @@ function onCopy(e: ClipboardEvent) {
 function onCut(e: ClipboardEvent) {
   if (!gridFocused()) return
   onCopy(e)
-  clearRange()
+  if (store.canEdit) clearRange()
 }
 
 function onPaste(e: ClipboardEvent) {
   if (!gridFocused() || !rect.value) return
+  if (!store.ensureEditable()) {
+    e.preventDefault()
+    return
+  }
   const text = e.clipboardData?.getData('text/plain')
   if (!text) return
   e.preventDefault()
@@ -775,6 +785,10 @@ function onRowContextMenu(e: MouseEvent, item: RecordItem) {
   const rc = rect.value
   const rangeRows = rc && rc.r2 > rc.r1 && item.nav >= rc.r1 && item.nav <= rc.r2 ? layout.value.nav.slice(rc.r1, rc.r2 + 1) : null
   const toDelete = multi ? [...store.selectedRecords] : rangeRows ? rangeRows.map((r) => r.uid) : [item.record.uid]
+  if (!store.canEdit) {
+    openMenu(e, [{ label: '展开记录', icon: Maximize2, hint: '空格', onClick: () => expand(item.record) }])
+    return
+  }
   const items: MenuItem[] = [
     { label: '展开记录', icon: Maximize2, hint: '空格', onClick: () => expand(item.record) },
     {
@@ -838,7 +852,7 @@ function onHeaderMouseMove(e: MouseEvent) {
   if (!d) return
   d.x = e.clientX
   d.y = e.clientY
-  if (!d.active && Math.abs(e.clientX - d.startX) > 4 && d.index > 0) d.active = true
+  if (!d.active && Math.abs(e.clientX - d.startX) > 4 && d.index > 0 && store.canEdit) d.active = true
   if (!d.active) return
   const cells = [...(scroller.value?.querySelectorAll<HTMLElement>('.header-cell[data-col]') ?? [])]
   let drop = cells.length
@@ -900,6 +914,7 @@ function headerAnchor(uid: string) {
 }
 
 function editField(field: SLField) {
+  if (!store.canEdit) return
   store.openFieldEditor({ mode: 'edit', fieldUID: field.uid, anchor: headerAnchor(field.uid) })
 }
 
@@ -918,11 +933,15 @@ function openFieldMenu(e: MouseEvent, col: Col) {
   const isPrimary = globalIndex(f.uid) === 0
   const queryable = isQueryable(f)
   const cfg = props.view.config
-  openMenu(e.type === 'contextmenu' ? e : { x: (e.currentTarget as HTMLElement).getBoundingClientRect().left, y: (e.currentTarget as HTMLElement).getBoundingClientRect().bottom + 4 }, [
-    { label: '编辑字段', icon: Pencil, onClick: () => editField(f) },
+  const pos = e.type === 'contextmenu' ? e : { x: (e.currentTarget as HTMLElement).getBoundingClientRect().left, y: (e.currentTarget as HTMLElement).getBoundingClientRect().bottom + 4 }
+  // Changing the fields needs the edit permission, the view settings are local for the viewers.
+  const editOnly = new Set<MenuItem>()
+  const edit = (item: MenuItem) => (editOnly.add(item), item)
+  const items: MenuItem[] = [
+    edit({ label: '编辑字段', icon: Pencil, onClick: () => editField(f) }),
     { divider: true },
-    { label: '向左插入字段', icon: ArrowLeftToLine, disabled: isPrimary, onClick: () => addField(undefined, globalIndex(f.uid), f.uid) },
-    { label: '向右插入字段', icon: ArrowRightToLine, onClick: () => addField(undefined, globalIndex(f.uid) + 1, f.uid) },
+    edit({ label: '向左插入字段', icon: ArrowLeftToLine, disabled: isPrimary, onClick: () => addField(undefined, globalIndex(f.uid), f.uid) }),
+    edit({ label: '向右插入字段', icon: ArrowRightToLine, onClick: () => addField(undefined, globalIndex(f.uid) + 1, f.uid) }),
     { divider: true },
     {
       label: '升序排列',
@@ -961,7 +980,7 @@ function openFieldMenu(e: MouseEvent, col: Col) {
       onClick: () => store.updateViewConfig({ hiddenFields: [...cfg.hiddenFields, f.uid] }),
     },
     { divider: true },
-    {
+    edit({
       label: '删除字段',
       icon: Trash,
       danger: true,
@@ -975,8 +994,9 @@ function openFieldMenu(e: MouseEvent, col: Col) {
           okButtonProps: { status: 'danger' },
           onOk: () => store.deleteField(f.uid),
         }),
-    },
-  ])
+    }),
+  ]
+  openMenu(pos, store.canEdit ? items : items.filter((item) => !editOnly.has(item)))
 }
 
 // ---- Summary bar ----
@@ -1090,7 +1110,7 @@ defineExpose({ addRecord })
             <span class="resize-handle" @mousedown="onResizeStart($event, col)" />
           </div>
           <div class="cell header-add" :style="{ width: ADD_COL_W + 'px' }">
-            <button class="icon-btn" title="添加字段" @click="addField($event)"><Plus :size="16" /></button>
+            <button v-if="store.canEdit" class="icon-btn" title="添加字段" @click="addField($event)"><Plus :size="16" /></button>
           </div>
         </div>
 

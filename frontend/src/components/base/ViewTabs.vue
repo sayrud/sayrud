@@ -16,6 +16,7 @@ const renameText = ref('')
 const vFocus = { mounted: (el: HTMLInputElement) => (el.focus(), el.select()) }
 
 function startRename(v: SLView) {
+  if (!store.canEdit) return
   renaming.value = v.uid
   renameText.value = v.name
 }
@@ -26,6 +27,7 @@ function confirmRename() {
 }
 
 function openActions(e: MouseEvent, v: SLView) {
+  if (!store.canEdit) return
   openMenu(e, [
     { label: '重命名视图', icon: Pencil, onClick: () => startRename(v) },
     {
@@ -83,7 +85,7 @@ function onDrop() {
         :key="v.uid"
         class="tab"
         :class="{ active: v.uid === store.activeViewUID, over: overUID === v.uid && dragUID !== v.uid }"
-        draggable="true"
+        :draggable="store.canEdit"
         @click="emit('select', v.uid)"
         @dblclick="startRename(v)"
         @contextmenu="openActions($event, v)"
@@ -106,7 +108,7 @@ function onDrop() {
         <span v-else class="tab-name">{{ v.name }}</span>
       </div>
     </div>
-    <a-dropdown trigger="click" position="bl" @select="(t) => create(t as ViewType)">
+    <a-dropdown v-if="store.canEdit" trigger="click" position="bl" @select="(t) => create(t as ViewType)">
       <button class="tool-btn add-view"><Plus :size="15" /> 新建视图</button>
       <template #content>
         <a-doption v-for="t in VIEW_TYPES" :key="t.type" :value="t.type">

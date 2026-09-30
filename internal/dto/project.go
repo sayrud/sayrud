@@ -8,21 +8,27 @@ import (
 
 // Project is the project returned by the management API.
 type Project struct {
-	UID        string    `json:"uid"`
-	Name       string    `json:"name"`
-	SchemaName string    `json:"schemaName"`
-	CreatedAt  time.Time `json:"createdAt"`
-	UpdatedAt  time.Time `json:"updatedAt"`
+	UID       string    `json:"uid"`
+	Name      string    `json:"name"`
+	CreatedAt time.Time `json:"createdAt"`
+	UpdatedAt time.Time `json:"updatedAt"`
+	// Role is the permission of the signed-in user on the project.
+	Role  string     `json:"role" enums:"owner,manager,editor,viewer"`
+	Owner *UserBrief `json:"owner"`
 } // @name Project
 
-func ToProject(project *db.Project) *Project {
-	return &Project{
-		UID:        project.UID,
-		Name:       project.Name,
-		SchemaName: project.SchemaName,
-		CreatedAt:  project.CreatedAt,
-		UpdatedAt:  project.UpdatedAt,
+func ToProject(project *db.Project, role db.ProjectRole, owner *db.User) *Project {
+	p := &Project{
+		UID:       project.UID,
+		Name:      project.Name,
+		CreatedAt: project.CreatedAt,
+		UpdatedAt: project.UpdatedAt,
+		Role:      string(role),
 	}
+	if owner != nil {
+		p.Owner = ToUserBrief(owner)
+	}
+	return p
 }
 
 // ProjectListItem is the project in the project list, with the number of its tables.
@@ -36,3 +42,9 @@ type ListProjectsResp struct {
 	Projects []*ProjectListItem `json:"projects"`
 	Total    int64              `json:"total"`
 } // @name ListProjectsResp
+
+// ProjectMember is a user who can access the project, including the owner.
+type ProjectMember struct {
+	User *UserBrief `json:"user"`
+	Role string     `json:"role" enums:"owner,manager,editor,viewer"`
+} // @name ProjectMember

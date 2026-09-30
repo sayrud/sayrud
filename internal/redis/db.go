@@ -31,7 +31,14 @@ func Init() (*redis.Client, error) {
 	if err := redisotel.InstrumentMetrics(rdb); err != nil {
 		return nil, errors.Wrap(err, "instrument metrics")
 	}
+
+	SetRedisStore(rdb)
 	return rdb, nil
+}
+
+// SetRedisStore sets the Redis stores.
+func SetRedisStore(client *redis.Client) {
+	AuthAttempts = NewAuthAttemptsStore(client)
 }
 
 func Get() *redis.Client {

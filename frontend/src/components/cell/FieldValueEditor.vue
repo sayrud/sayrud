@@ -16,6 +16,8 @@ const props = defineProps<{
   /** Required to show the result of formula fields. */
   record?: SLRecord
   placeholder?: string
+  /** Shows the value only, e.g. for the viewers. */
+  readonly?: boolean
 }>()
 const emit = defineEmits<{ change: [value: CellValue] }>()
 
@@ -71,8 +73,12 @@ const formulaRecord = computed(() => props.record)
 
 <template>
   <div class="field-editor" :class="`type-${field.type}`">
+    <div v-if="readonly && record" class="readonly readonly-value">
+      <CellDisplay :field="field" :record="record" :lines="8" wrap />
+    </div>
+
     <a-textarea
-      v-if="field.type === 'text'"
+      v-else-if="field.type === 'text'"
       v-model="draft"
       :placeholder="placeholder ?? '请输入'"
       :auto-size="{ minRows: 1, maxRows: 8 }"
@@ -184,5 +190,11 @@ const formulaRecord = computed(() => props.record)
   border-radius: 6px;
   background: var(--bg-base);
   color: var(--text-caption);
+}
+.readonly-value {
+  color: var(--text-title);
+}
+.readonly-value :deep(.cell-display.numeric) {
+  justify-content: flex-start;
 }
 </style>

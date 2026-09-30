@@ -39,6 +39,7 @@ async function create() {
 }
 
 function startRename(uid: string, name: string) {
+  if (!store.canEdit) return
   renaming.value = uid
   renameText.value = name
 }
@@ -50,6 +51,7 @@ function confirmRename() {
 }
 
 function openActions(e: MouseEvent, uid: string, name: string) {
+  if (!store.canEdit) return
   const r = (e.currentTarget as HTMLElement).getBoundingClientRect()
   openMenu(e.type === 'contextmenu' ? e : { x: r.left, y: r.bottom + 4 }, [
     { label: '重命名', icon: Pencil, onClick: () => startRename(uid, name) },
@@ -99,7 +101,7 @@ function openActions(e: MouseEvent, uid: string, name: string) {
         <input v-model="keyword" placeholder="搜索" @keydown.esc="keyword = ''" />
         <button v-if="keyword" class="icon-btn sm clear" title="清空" @click="keyword = ''"><X :size="13" /></button>
       </label>
-      <a-tooltip content="新建数据表" mini>
+      <a-tooltip v-if="store.canEdit" content="新建数据表" mini>
         <button class="icon-btn" :disabled="creating" @click="create"><Plus :size="17" /></button>
       </a-tooltip>
       <a-tooltip content="收起侧边栏" mini>
@@ -111,7 +113,7 @@ function openActions(e: MouseEvent, uid: string, name: string) {
         v-for="t in tables"
         :key="t.uid"
         class="table-item"
-        :class="{ active: t.uid === store.activeTableUID }"
+        :class="{ active: t.uid === store.activeTableUID, editable: store.canEdit }"
         @click="emit('select', t.uid)"
         @dblclick="startRename(t.uid, t.name)"
         @contextmenu="openActions($event, t.uid, t.name)"
@@ -130,7 +132,9 @@ function openActions(e: MouseEvent, uid: string, name: string) {
         <template v-else>
           <span class="table-name ellipsis">{{ t.name }}</span>
           <span class="table-count">{{ t.count }}</span>
-          <button class="icon-btn sm more" @click.stop="openActions($event, t.uid, t.name)"><Ellipsis :size="14" /></button>
+          <button v-if="store.canEdit" class="icon-btn sm more" @click.stop="openActions($event, t.uid, t.name)">
+            <Ellipsis :size="14" />
+          </button>
         </template>
       </div>
     </div>
@@ -216,7 +220,7 @@ function openActions(e: MouseEvent, uid: string, name: string) {
   font-size: 12px;
   color: var(--text-placeholder);
 }
-.table-item:hover .table-count {
+.table-item.editable:hover .table-count {
   display: none;
 }
 .more {

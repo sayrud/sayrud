@@ -31,8 +31,10 @@ const (
 	MessageMembers       = "MEMBERS"
 	MessageTablesChanged = "TABLES_CHANGED"
 	MessageProjectChange = "PROJECT_CHANGED"
-	MessageError         = "ERROR"
-	MessagePong          = "PONG"
+	// MessagePermissionChanged tells the user its role on the project is changed, the role is empty if it is removed.
+	MessagePermissionChanged = "PERMISSION_CHANGED"
+	MessageError             = "ERROR"
+	MessagePong              = "PONG"
 )
 
 type subscribeData struct {
@@ -95,6 +97,11 @@ type membersData struct {
 
 type projectEventData struct {
 	ProjectUID string `json:"projectUID"`
+}
+
+type permissionChangedData struct {
+	ProjectUID string `json:"projectUID"`
+	Role       string `json:"role"`
 }
 
 type errorData struct {

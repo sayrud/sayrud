@@ -182,7 +182,7 @@ const singleSelects = computed(() => store.fields.filter((f) => f.type === 'sing
     <div class="empty-title">看板视图需要一个单选字段作为分组依据</div>
     <div class="empty-actions">
       <a-button v-if="singleSelects.length" type="primary" @click="pickGroupField">使用「{{ singleSelects[0]!.label }}」分组</a-button>
-      <a-button @click="createGroupField">新建单选字段</a-button>
+      <a-button v-if="store.canEdit" @click="createGroupField">新建单选字段</a-button>
     </div>
   </div>
 
@@ -198,7 +198,7 @@ const singleSelects = computed(() => store.fields.filter((f) => f.type === 'sing
     >
       <div
         class="column-head"
-        :draggable="!!col.key"
+        :draggable="!!col.key && store.canEdit"
         @dragstart="(e: DragEvent) => { if (col.key) { dragColumn = col.key; e.dataTransfer?.setData('text/plain', col.key) } }"
         @dragend="(dragColumn = null), (overColumnHead = null)"
       >
@@ -218,8 +218,10 @@ const singleSelects = computed(() => store.fields.filter((f) => f.type === 'sing
           <span class="count">{{ col.records.length }}</span>
         </template>
         <span class="spacer" />
-        <button class="icon-btn sm" title="新建记录" @click="addCard(col)"><Plus :size="14" /></button>
-        <button v-if="col.option" class="icon-btn sm" @click="openColumnMenu($event, col)"><Ellipsis :size="14" /></button>
+        <template v-if="store.canEdit">
+          <button class="icon-btn sm" title="新建记录" @click="addCard(col)"><Plus :size="14" /></button>
+          <button v-if="col.option" class="icon-btn sm" @click="openColumnMenu($event, col)"><Ellipsis :size="14" /></button>
+        </template>
       </div>
       <div class="column-body">
         <RecordCard
@@ -227,17 +229,17 @@ const singleSelects = computed(() => store.fields.filter((f) => f.type === 'sing
           :key="r.uid"
           :record="r"
           :fields="cardFields"
-          draggable="true"
+          :draggable="store.canEdit"
           :class="{ dragging: dragRecord === r.uid }"
           @dragstart="onCardDragStart($event, r)"
           @dragend="(dragRecord = null), (overColumn = null)"
           @open="store.expandRecord(r.uid, allUIDs)"
         />
-        <button class="add-card" @click="addCard(col)"><Plus :size="14" /> 新建记录</button>
+        <button v-if="store.canEdit" class="add-card" @click="addCard(col)"><Plus :size="14" /> 新建记录</button>
       </div>
     </div>
 
-    <div class="column add-column">
+    <div v-if="store.canEdit" class="column add-column">
       <input
         v-if="addingGroup"
         ref="newGroupInput"

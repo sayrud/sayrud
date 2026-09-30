@@ -25,9 +25,11 @@ func TestBundledFrontend(t *testing.T) {
 		t.Fatalf("index: status %d, headers %v", index.Code, index.Header())
 	}
 
-	page := request(http.MethodGet, "/base/project/table/view")
-	if page.Code != http.StatusOK || page.Body.String() != index.Body.String() {
-		t.Fatal("direct Vue Router navigation did not serve the index")
+	for _, path := range []string{"/base/project/table/view", "/login", "/register"} {
+		page := request(http.MethodGet, path)
+		if page.Code != http.StatusOK || page.Body.String() != index.Body.String() {
+			t.Fatalf("direct Vue Router navigation to %s did not serve the index", path)
+		}
 	}
 
 	asset := regexp.MustCompile(`src="(/assets/[^" ]+\.js)"`).FindStringSubmatch(index.Body.String())

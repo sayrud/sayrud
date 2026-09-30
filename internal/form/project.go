@@ -6,10 +6,17 @@ package form
 
 type CreateProject struct {
 	Name string `json:"name" valid:"required" label:"项目名称"`
-	// SchemaName is the Postgres schema of the project, a random one is generated if empty.
-	SchemaName string `json:"schemaName,omitempty" label:"项目表名"`
 } // @name CreateProject
 
 type UpdateProject struct {
 	Name string `json:"name" valid:"required" label:"项目名称"`
 } // @name UpdateProject
+
+type AddProjectMember struct {
+	Email string `json:"email" valid:"required" label:"邮箱"`
+	Role  string `json:"role" valid:"required" label:"权限" enums:"manager,editor,viewer"`
+} // @name AddProjectMember
+
+type UpdateProjectMember struct {
+	Role string `json:"role" valid:"required" label:"权限" enums:"manager,editor,viewer"`
+} // @name UpdateProjectMember

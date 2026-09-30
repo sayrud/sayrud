@@ -38,7 +38,7 @@ cd sayrud
 docker compose up -d
 ```
 
-打开 <http://localhost:2830>。数据保存在 `postgres_data` 卷中。当前所有访问者共用一个默认用户，请在内网使用，或在服务前加一层访问控制。
+打开 <http://localhost:2830>，用邮箱和密码注册账号。数据保存在 `postgres_data` 卷中。
 
 更新镜像：
 
@@ -51,7 +51,8 @@ docker compose up -d
 
 欢迎提交 Issue 和 Pull Request。报告 Bug 时请附上复现步骤，提交代码时尽量一次只改一个问题。
 
-开发需要 Go 1.27、Node.js 22.13 或更新版本和 pnpm 10。Go 后端在 `cmd/` 和 `internal/`，Vue 和 TypeScript 前端在 `frontend/`。
+开发需要 Go 1.27、Node.js 22.13 或更新版本和 pnpm 10。Go 后端在 `cmd/` 和 `internal/`，Vue 和 TypeScript 前端在
+`frontend/`。
 
 只启动数据库，复制本地配置，再构建一次前端：
 
@@ -63,9 +64,11 @@ pnpm --dir frontend build
 REDIS_ADDRESS=127.0.0.1:6379 go run ./cmd/sayrud-server
 ```
 
-自定义 `POSTGRES_PASSWORD` 后，需要将 `config/sayrud.yaml` 中的 PostgreSQL 连接密码改为相同值。Compose 应用若占用了 `2830` 端口，先运行 `docker compose stop sayrud`。
+自定义 `POSTGRES_PASSWORD` 后，需要将 `config/sayrud.yaml` 中的 PostgreSQL 连接密码改为相同值。Compose 应用若占用了 `2830`
+端口，先运行 `docker compose stop sayrud`。
 
-另开一个终端运行 `pnpm --dir frontend dev`，打开 <http://localhost:5173>。Vite 会将 API 和 WebSocket 请求代理到后端。生产构建通过 `go:embed` 打包 `frontend/dist`。
+另开一个终端运行 `pnpm --dir frontend dev`，打开 <http://localhost:5173>。Vite 会将 API 和 WebSocket 请求代理到后端。生产构建通过
+`go:embed` 打包 `frontend/dist`。
 
 提交前运行：
 

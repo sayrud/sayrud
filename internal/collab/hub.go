@@ -246,6 +246,24 @@ func (h *Hub) NotifyProject(projectUID, messageType string) {
 	}
 }
 
+// SetUserRole applies the new role of the user to its connections of the project and notifies them.
+// An empty role means the user is removed from the project, and the connections are closed after the notification.
+func (h *Hub) SetUserRole(projectUID string, userID int64, role db.ProjectRole) {
+	message := newMessage(MessagePermissionChanged, 0, permissionChangedData{ProjectUID: projectUID, Role: string(role)})
+	for _, c := range h.clients(projectUID) {
+		if c.userID != userID {
+			continue
+		}
+		c.mu.Lock()
+		c.canEdit = role.AtLeast(db.ProjectRoleEditor)
+		c.mu.Unlock()
+		c.send(message)
+		if role == "" {
+			c.close()
+		}
+	}
+}
+
 func ternary[T any](condition bool, a, b T) T {
 	if condition {
 		return a

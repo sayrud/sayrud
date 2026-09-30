@@ -1,4 +1,4 @@
-import type { FieldType, Project, SLField, SLRecord, SLTable, SLView } from '@/types/bitable'
+import type { FieldType, MemberRole, Project, ProjectMember, SLField, SLRecord, SLTable, SLView, UserBrief } from '@/types/bitable'
 import type { Changeset } from '@/collab/types'
 import type { SLField as ApiField, SLRecord as ApiRecord, SLView as ApiView } from './api'
 import { client } from './client'
@@ -24,7 +24,7 @@ const asRecords = (list: ApiRecord[]) => list as unknown as SLRecord[]
 const asViews = (list: ApiView[]) => list as unknown as SLView[]
 
 export const projectsApi = {
-  list: async () => (await client.projects.listProjects({ pageSize: 1000 })).data,
+  list: async () => (await client.projects.listProjects({ pageSize: 1000 })).data as { projects: ProjectListItem[]; total: number },
   get: async (projectUID: string) => (await client.projects.getProject(projectUID)).data as Project,
   create: async (name: string) => (await client.projects.createProject({ name })).data as Project,
   update: async (projectUID: string, name: string) => {
@@ -32,6 +32,20 @@ export const projectsApi = {
   },
   delete: async (projectUID: string) => {
     await client.projects.deleteProject(projectUID)
+  },
+}
+
+export const membersApi = {
+  list: async (projectUID: string) => (await client.projects.listProjectMembers(projectUID)).data as ProjectMember[],
+  lookup: async (projectUID: string, email: string) =>
+    (await client.projects.lookupProjectMemberCandidate(projectUID, { email })).data as UserBrief,
+  add: async (projectUID: string, email: string, role: MemberRole) =>
+    (await client.projects.addProjectMember(projectUID, { email, role })).data as ProjectMember,
+  update: async (projectUID: string, userID: number, role: MemberRole) => {
+    await client.projects.updateProjectMember(projectUID, userID, { role })
+  },
+  remove: async (projectUID: string, userID: number) => {
+    await client.projects.removeProjectMember(projectUID, userID)
   },
 }
 

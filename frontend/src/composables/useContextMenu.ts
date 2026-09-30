@@ -30,8 +30,15 @@ export function openMenu(pos: MouseEvent | { x: number; y: number }, items: Menu
   }
   const x = pos instanceof MouseEvent ? pos.clientX : pos.x
   const y = pos instanceof MouseEvent ? pos.clientY : pos.y
+  // Items may be omitted by permissions, drop the dividers left at the ends or next to each other.
+  const compact: MenuItem[] = []
+  for (const item of items) {
+    if (item.divider && (!compact.length || compact[compact.length - 1]!.divider)) continue
+    compact.push(item)
+  }
+  if (compact[compact.length - 1]?.divider) compact.pop()
   menuState.value?.onClose?.()
-  menuState.value = { x, y, items, onClose }
+  menuState.value = { x, y, items: compact, onClose }
 }
 
 export function closeMenu() {

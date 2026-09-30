@@ -6,11 +6,9 @@ package db
 
 import (
 	"context"
-	"strings"
 
 	"github.com/pkg/errors"
 	"github.com/thanhpk/randstr"
-	escape "github.com/tj/go-pg-escape"
 	"gorm.io/gorm"
 
 	"github.com/wuhan005/sayrud/internal/dbutil"
@@ -23,7 +21,7 @@ var Projects ProjectsStore
 
 // ProjectsStore is the persistent interface for projects.
 type ProjectsStore interface {
-	// ListByUserID returns the paginated projects owned by the user, along with the total count.
+	// ListByUserID returns the paginated projects owned by or shared with the user, along with the total count.
 	ListByUserID(ctx context.Context, userID int64, options ListByUserIDOptions) ([]*Project, int64, error)
 	// GetByID returns the project with the given ID.
 	// It returns ErrProjectNotFound if the project does not exist.
@@ -32,18 +30,12 @@ type ProjectsStore interface {
 	// It returns ErrProjectNotFound if the project does not exist.
 	GetByUID(ctx context.Context, projectUID string) (*Project, error)
 	// Create creates a new project with the given options.
-	// It returns ErrProjectSchemaNameExists if the schema name has been used.
 	Create(ctx context.Context, opts CreateProjectOptions) (*Project, error)
 	// Update updates the project with the given ID.
 	// It returns ErrProjectNotFound if the project does not exist.
 	Update(ctx context.Context, projectID int64, opts UpdateProjectOptions) error
 	// DeleteByID deletes the project with the given ID.
 	DeleteByID(ctx context.Context, projectID int64) error
-	// CreateSchema creates the Postgres schema of the project.
-	// It returns ErrProjectSchemaNameExists if the schema already exists.
-	CreateSchema(ctx context.Context, projectID int64) error
-	// DeleteSchema drops the Postgres schema of the project along with all the views in it, the public schema can't be deleted.
-	DeleteSchema(ctx context.Context, projectID int64) error
 }
 
 func NewProjectsStore(db *gorm.DB) ProjectsStore {
@@ -60,13 +52,6 @@ type Project struct {
 	OwnerUserID int64 `json:"-"`
 	// Name is the display name of the project.
 	Name string `json:"name"`
-	// SchemaName is the unique name of the Postgres schema of the project.
-	SchemaName string `gorm:"uniqueIndex:idx_projects_schema_name, where:deleted_at IS NULL" json:"schemaName"`
-
-	// CustomDomain is the custom domain serving the project APIs.
-	CustomDomain string `json:"customDomain"`
-	// RoutePrefix is the path prefix of the project APIs.
-	RoutePrefix string `json:"routePrefix"`
 }
 
 func (project *Project) BeforeCreate(_ *gorm.DB) error {
@@ -79,22 +64,42 @@ type projects struct {
 	*gorm.DB
 }
 
+// ProjectScope selects the projects of a user by ownership.
+type ProjectScope string
+
+const (
+	ProjectScopeAll    ProjectScope = ""
+	ProjectScopeOwned  ProjectScope = "owned"
+	ProjectScopeShared ProjectScope = "shared"
+)
+
 // ListByUserIDOptions are the options of listing the projects of a user.
 type ListByUserIDOptions struct {
 	// Pagination is the page and page size of the list.
 	dbutil.Pagination
+	// Scope selects the owned or shared projects, both are listed if empty.
+	Scope ProjectScope
 }
 
 func (db *projects) ListByUserID(ctx context.Context, userID int64, options ListByUserIDOptions) ([]*Project, int64, error) {
 	var total int64
-	q := db.WithContext(ctx).Model(&Project{}).Where("owner_user_id = ?", userID)
+	shared := db.WithContext(ctx).Model(&ProjectMember{}).Select("project_id").Where("user_id = ?", userID)
+	q := db.WithContext(ctx).Model(&Project{})
+	switch options.Scope {
+	case ProjectScopeOwned:
+		q = q.Where("owner_user_id = ?", userID)
+	case ProjectScopeShared:
+		q = q.Where("id IN (?)", shared)
+	default:
+		q = q.Where("owner_user_id = ? OR id IN (?)", userID, shared)
+	}
 	if err := q.Count(&total).Error; err != nil {
 		return nil, 0, errors.Wrap(err, "count")
 	}
 
 	limit, offset := dbutil.LimitOffset(options.Page, options.PageSize)
 	var projects []*Project
-	return projects, total, q.Limit(limit).Offset(offset).Find(&projects).Error
+	return projects, total, q.Order("id ASC").Limit(limit).Offset(offset).Find(&projects).Error
 }
 
 func (db *projects) GetByID(ctx context.Context, projectID int64) (*Project, error) {
@@ -111,22 +116,14 @@ type CreateProjectOptions struct {
 	OwnerUserID int64
 	// Name is the display name of the project.
 	Name string
-	// SchemaName is the unique name of the Postgres schema of the project.
-	SchemaName string
 }
-
-var ErrProjectSchemaNameExists = errors.New("project schema name exists")
 
 func (db *projects) Create(ctx context.Context, opts CreateProjectOptions) (*Project, error) {
 	project := &Project{
 		OwnerUserID: opts.OwnerUserID,
 		Name:        opts.Name,
-		SchemaName:  opts.SchemaName,
 	}
 	if err := db.WithContext(ctx).Create(project).Error; err != nil {
-		if dbutil.IsUniqueViolation(err, "idx_projects_schema_name") {
-			return nil, ErrProjectSchemaNameExists
-		}
 		return nil, err
 	}
 	return project, nil
@@ -169,54 +166,4 @@ func (db *projects) DeleteByID(ctx context.Context, projectID int64) error {
 		return err
 	}
 	return nil
-}
-
-func (db *projects) CreateSchema(ctx context.Context, projectID int64) error {
-	project, err := db.GetByID(ctx, projectID)
-	if err != nil {
-		return errors.Wrap(err, "get by ID")
-	}
-
-	schemaName := project.SchemaName
-	if err := db.Exec(escape.Escape("CREATE SCHEMA %I", schemaName)).Error; err != nil {
-		if strings.Contains(err.Error(), "already exists") {
-			return ErrProjectSchemaNameExists
-		}
-		return err
-	}
-	return nil
-}
-
-func (db *projects) DeleteSchema(ctx context.Context, projectID int64) error {
-	project, err := db.GetByID(ctx, projectID)
-	if err != nil {
-		return errors.Wrap(err, "get by ID")
-	}
-
-	schemaName := project.SchemaName
-	if schemaName == "public" {
-		return errors.New("can't delete public schema")
-	}
-
-	return db.Transaction(func(tx *gorm.DB) error {
-
-		// Drop all the tables in schema.
-		if err := tx.Debug().Exec(`
-do $$ declare
-    r record;
-begin
-    for r in (select viewname, schemaname from pg_catalog.pg_views where schemaname = ?) loop
-        execute 'drop view if exists ' || quote_ident(r.schemaname) || '.' || quote_ident(r.viewname) || ' cascade';
-    end loop;
-end $$;
-`, schemaName).Error; err != nil {
-			return errors.Wrap(err, "drop schema tables")
-		}
-
-		if err := tx.Exec(escape.Escape("DROP SCHEMA IF EXISTS %I", schemaName)).Error; err != nil {
-			return errors.Wrap(err, "drop schema")
-		}
-
-		return nil
-	})
 }

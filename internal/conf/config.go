@@ -13,6 +13,11 @@ var Postgres struct {
 	DSN string `mapstructure:"dsn"`
 }
 
+var Auth struct {
+	// DisableSignUp stops new users from signing up, the existing users can still sign in.
+	DisableSignUp bool `mapstructure:"disable_sign_up"`
+}
+
 var Redis struct {
 	Address  string `mapstructure:"address"`
 	Username string `mapstructure:"username"`
@@ -47,6 +52,9 @@ func Init(configFilePath string) error {
 	}
 	if err := v.UnmarshalKey("postgres", &Postgres); err != nil {
 		return errors.Wrap(err, "parse postgres")
+	}
+	if err := v.UnmarshalKey("auth", &Auth); err != nil {
+		return errors.Wrap(err, "parse auth")
 	}
 	if err := v.UnmarshalKey("redis", &Redis); err != nil {
 		return errors.Wrap(err, "parse redis")

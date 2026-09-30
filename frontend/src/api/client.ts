@@ -23,12 +23,20 @@ const client = new Api({
   withCredentials: true,
 })
 
+let unauthorizedHandler: (() => void) | null = null
+
+/** Sets the callback of the 401 responses, e.g. the session expires, except the ones of signing in. */
+export function onUnauthorized(handler: () => void) {
+  unauthorizedHandler = handler
+}
+
 // Return the whole `{ msg, data }` body as the AxiosResponse, so `.data` of the result is the type declared in Swagger.
 client.instance.interceptors.response.use(
   (response: AxiosResponse<HttpResponse>) => response.data as unknown as AxiosResponse,
   (error: unknown) => {
     if (axios.isAxiosError<Partial<HttpResponse>>(error) && error.response) {
       const { status, data } = error.response
+      if (status === 401 && !error.config?.url?.startsWith('/auth/sign-')) unauthorizedHandler?.()
       return Promise.reject(new ApiError(status, data?.msg || `请求失败（${status}）`))
     }
     return Promise.reject(new ApiError(0, '网络连接失败'))

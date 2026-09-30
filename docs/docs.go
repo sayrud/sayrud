@@ -15,6 +15,56 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
+        "/auth/password": {
+            "put": {
+                "description": "The other sessions of the user are signed out.",
+                "consumes": [
+                    "application/json"
+                ],
+                "summary": "Change the password of the signed-in user",
+                "operationId": "updatePassword",
+                "parameters": [
+                    {
+                        "description": "Passwords",
+                        "name": "data",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/UpdatePassword"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "description": "Invalid request body or wrong current password",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "401": {
+                        "description": "Not signed in",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "429": {
+                        "description": "Too many attempts",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
         "/auth/profile": {
             "get": {
                 "produces": [
@@ -29,6 +79,194 @@ const docTemplate = `{
                             "$ref": "#/definitions/Profile"
                         }
                     },
+                    "401": {
+                        "description": "Not signed in",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "Update the profile of the signed-in user",
+                "operationId": "updateProfile",
+                "parameters": [
+                    {
+                        "description": "Profile",
+                        "name": "data",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/UpdateProfile"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/Profile"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request body",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "401": {
+                        "description": "Not signed in",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/sign-in": {
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "Sign in with email and password",
+                "operationId": "signIn",
+                "parameters": [
+                    {
+                        "description": "Credential",
+                        "name": "data",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/SignIn"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/Profile"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request body",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "401": {
+                        "description": "Wrong email or password",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "429": {
+                        "description": "Too many attempts",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/sign-out": {
+            "post": {
+                "description": "Revoke the current session and clear the session cookie.",
+                "summary": "Sign out",
+                "operationId": "signOut",
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/sign-up": {
+            "post": {
+                "description": "Create an account and sign in. The first user takes over the projects created before accounts were introduced.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "Sign up with email and password",
+                "operationId": "signUp",
+                "parameters": [
+                    {
+                        "description": "Account to create",
+                        "name": "data",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/SignUp"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/Profile"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request body",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "403": {
+                        "description": "Signing up is disabled",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "409": {
+                        "description": "Email has been used",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "429": {
+                        "description": "Too many attempts",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
@@ -40,7 +278,7 @@ const docTemplate = `{
         },
         "/projects": {
             "get": {
-                "description": "List the projects owned by the signed-in user, with the number of tables in each project.",
+                "description": "List the projects owned by or shared with the signed-in user, with the number of tables in each project.",
                 "produces": [
                     "application/json"
                 ],
@@ -58,6 +296,16 @@ const docTemplate = `{
                         "description": "Page size, defaults to 20",
                         "name": "pageSize",
                         "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "owned",
+                            "shared"
+                        ],
+                        "type": "string",
+                        "description": "owned: created by the user, shared: shared with the user, both if empty",
+                        "name": "scope",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -65,6 +313,12 @@ const docTemplate = `{
                         "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/ListProjectsResp"
+                        }
+                    },
+                    "401": {
+                        "description": "Not signed in",
+                        "schema": {
+                            "type": "string"
                         }
                     },
                     "500": {
@@ -76,7 +330,7 @@ const docTemplate = `{
                 }
             },
             "post": {
-                "description": "Create a project owned by the signed-in user, along with its Postgres schema.",
+                "description": "Create a project owned by the signed-in user.",
                 "consumes": [
                     "application/json"
                 ],
@@ -109,8 +363,8 @@ const docTemplate = `{
                             "type": "string"
                         }
                     },
-                    "409": {
-                        "description": "Schema name already exists",
+                    "401": {
+                        "description": "Not signed in",
                         "schema": {
                             "type": "string"
                         }
@@ -168,6 +422,7 @@ const docTemplate = `{
                 }
             },
             "put": {
+                "description": "Requires the editor role.",
                 "consumes": [
                     "application/json"
                 ],
@@ -225,7 +480,7 @@ const docTemplate = `{
                 }
             },
             "delete": {
-                "description": "Delete the project and drop its Postgres schema.",
+                "description": "Delete the project along with its collaborators, only the owner can delete it.",
                 "produces": [
                     "application/json"
                 ],
@@ -369,6 +624,281 @@ const docTemplate = `{
                     },
                     "404": {
                         "description": "Project not found",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/projects/{projectUID}/members": {
+            "get": {
+                "description": "List the owner and the collaborators of the project, the owner comes first.",
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "List the collaborators",
+                "operationId": "listProjectMembers",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Project UID",
+                        "name": "projectUID",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/ProjectMember"
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Permission denied",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "404": {
+                        "description": "Project not found",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Add the registered user as a collaborator, or change the role if it has been one. Requires the manager role.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "Add a collaborator",
+                "operationId": "addProjectMember",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Project UID",
+                        "name": "projectUID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Collaborator",
+                        "name": "data",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/AddProjectMember"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/ProjectMember"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request body",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "403": {
+                        "description": "Permission denied",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "404": {
+                        "description": "User not found",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/projects/{projectUID}/members/lookup": {
+            "get": {
+                "description": "Find the registered user by the exact email, requires the manager role.",
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "Find a user to invite",
+                "operationId": "lookupProjectMemberCandidate",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Project UID",
+                        "name": "projectUID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Email of the user",
+                        "name": "email",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/UserBrief"
+                        }
+                    },
+                    "403": {
+                        "description": "Permission denied",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "404": {
+                        "description": "User not found",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/projects/{projectUID}/members/{userID}": {
+            "put": {
+                "description": "Requires the manager role, the owner and the signed-in user itself can not be changed.",
+                "consumes": [
+                    "application/json"
+                ],
+                "summary": "Change the role of a collaborator",
+                "operationId": "updateProjectMember",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Project UID",
+                        "name": "projectUID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "User ID of the collaborator",
+                        "name": "userID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Role",
+                        "name": "data",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/UpdateProjectMember"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "description": "Invalid request body",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "403": {
+                        "description": "Permission denied",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "404": {
+                        "description": "Collaborator not found",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Requires the manager role, except that a collaborator can remove itself to leave the project. The owner can not be removed.",
+                "summary": "Remove a collaborator",
+                "operationId": "removeProjectMember",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Project UID",
+                        "name": "projectUID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "User ID of the collaborator",
+                        "name": "userID",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "description": "The owner can not be removed",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "403": {
+                        "description": "Permission denied",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "404": {
+                        "description": "Collaborator not found",
                         "schema": {
                             "type": "string"
                         }
@@ -1740,7 +2270,7 @@ const docTemplate = `{
         },
         "/projects/{projectUID}/ws": {
             "get": {
-                "description": "Upgrade to WebSocket to submit changesets and receive the changes of the subscribed tables and the online members.\nMessages are JSON ` + "`" + `{type, reqId, data}` + "`" + `. Client: SUBSCRIBE, UNSUBSCRIBE, USER_CHANGES, PRESENCE, PING.\nServer: HELLO, SUBSCRIBED, ACCEPT_COMMIT, REJECT_COMMIT, NEW_CHANGES, MEMBERS, TABLES_CHANGED, PROJECT_CHANGED, ERROR, PONG.",
+                "description": "Upgrade to WebSocket to submit changesets and receive the changes of the subscribed tables and the online members.\nMessages are JSON ` + "`" + `{type, reqId, data}` + "`" + `. Client: SUBSCRIBE, UNSUBSCRIBE, USER_CHANGES, PRESENCE, PING.\nServer: HELLO, SUBSCRIBED, ACCEPT_COMMIT, REJECT_COMMIT, NEW_CHANGES, MEMBERS, TABLES_CHANGED, PROJECT_CHANGED, PERMISSION_CHANGED, ERROR, PONG.\nThe changesets of the viewers are rejected.",
                 "summary": "Collaborate on the project over WebSocket",
                 "operationId": "collaborate",
                 "parameters": [
@@ -1750,24 +2280,6 @@ const docTemplate = `{
                         "name": "projectUID",
                         "in": "path",
                         "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Anonymous identity of the browser",
-                        "name": "memberId",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Display name of the collaborator",
-                        "name": "name",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Avatar color of the collaborator, e.g. #3370ff",
-                        "name": "color",
-                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -1933,6 +2445,26 @@ const docTemplate = `{
                 }
             }
         },
+        "AddProjectMember": {
+            "type": "object",
+            "required": [
+                "email",
+                "role"
+            ],
+            "properties": {
+                "email": {
+                    "type": "string"
+                },
+                "role": {
+                    "type": "string",
+                    "enum": [
+                        "manager",
+                        "editor",
+                        "viewer"
+                    ]
+                }
+            }
+        },
         "BatchCreateRecords": {
             "type": "object",
             "required": [
@@ -2031,10 +2563,6 @@ const docTemplate = `{
             ],
             "properties": {
                 "name": {
-                    "type": "string"
-                },
-                "schemaName": {
-                    "description": "SchemaName is the Postgres schema of the project, a random one is generated if empty.",
                     "type": "string"
                 }
             }
@@ -2213,16 +2741,25 @@ const docTemplate = `{
         "Profile": {
             "type": "object",
             "required": [
+                "color",
                 "email",
                 "emailMd5",
+                "id",
                 "userName"
             ],
             "properties": {
+                "color": {
+                    "description": "Color is the avatar color of the user.",
+                    "type": "string"
+                },
                 "email": {
                     "type": "string"
                 },
                 "emailMd5": {
                     "type": "string"
+                },
+                "id": {
+                    "type": "integer"
                 },
                 "userName": {
                     "type": "string"
@@ -2234,7 +2771,8 @@ const docTemplate = `{
             "required": [
                 "createdAt",
                 "name",
-                "schemaName",
+                "owner",
+                "role",
                 "uid",
                 "updatedAt"
             ],
@@ -2245,8 +2783,18 @@ const docTemplate = `{
                 "name": {
                     "type": "string"
                 },
-                "schemaName": {
-                    "type": "string"
+                "owner": {
+                    "$ref": "#/definitions/UserBrief"
+                },
+                "role": {
+                    "description": "Role is the permission of the signed-in user on the project.",
+                    "type": "string",
+                    "enum": [
+                        "owner",
+                        "manager",
+                        "editor",
+                        "viewer"
+                    ]
                 },
                 "uid": {
                     "type": "string"
@@ -2261,7 +2809,8 @@ const docTemplate = `{
             "required": [
                 "createdAt",
                 "name",
-                "schemaName",
+                "owner",
+                "role",
                 "tableCount",
                 "uid",
                 "updatedAt"
@@ -2273,8 +2822,18 @@ const docTemplate = `{
                 "name": {
                     "type": "string"
                 },
-                "schemaName": {
-                    "type": "string"
+                "owner": {
+                    "$ref": "#/definitions/UserBrief"
+                },
+                "role": {
+                    "description": "Role is the permission of the signed-in user on the project.",
+                    "type": "string",
+                    "enum": [
+                        "owner",
+                        "manager",
+                        "editor",
+                        "viewer"
+                    ]
                 },
                 "tableCount": {
                     "type": "integer"
@@ -2284,6 +2843,27 @@ const docTemplate = `{
                 },
                 "updatedAt": {
                     "type": "string"
+                }
+            }
+        },
+        "ProjectMember": {
+            "type": "object",
+            "required": [
+                "role",
+                "user"
+            ],
+            "properties": {
+                "role": {
+                    "type": "string",
+                    "enum": [
+                        "owner",
+                        "manager",
+                        "editor",
+                        "viewer"
+                    ]
+                },
+                "user": {
+                    "$ref": "#/definitions/UserBrief"
                 }
             }
         },
@@ -2523,6 +3103,41 @@ const docTemplate = `{
                 }
             }
         },
+        "SignIn": {
+            "type": "object",
+            "required": [
+                "email",
+                "password"
+            ],
+            "properties": {
+                "email": {
+                    "type": "string"
+                },
+                "password": {
+                    "type": "string"
+                }
+            }
+        },
+        "SignUp": {
+            "type": "object",
+            "required": [
+                "email",
+                "password",
+                "userName"
+            ],
+            "properties": {
+                "email": {
+                    "type": "string"
+                },
+                "password": {
+                    "description": "Password is limited to 64 characters since bcrypt only uses the first 72 bytes.",
+                    "type": "string"
+                },
+                "userName": {
+                    "type": "string"
+                }
+            }
+        },
         "TableListItem": {
             "type": "object",
             "required": [
@@ -2627,6 +3242,32 @@ const docTemplate = `{
                 }
             }
         },
+        "UpdatePassword": {
+            "type": "object",
+            "required": [
+                "newPassword",
+                "oldPassword"
+            ],
+            "properties": {
+                "newPassword": {
+                    "type": "string"
+                },
+                "oldPassword": {
+                    "type": "string"
+                }
+            }
+        },
+        "UpdateProfile": {
+            "type": "object",
+            "required": [
+                "userName"
+            ],
+            "properties": {
+                "userName": {
+                    "type": "string"
+                }
+            }
+        },
         "UpdateProject": {
             "type": "object",
             "required": [
@@ -2635,6 +3276,22 @@ const docTemplate = `{
             "properties": {
                 "name": {
                     "type": "string"
+                }
+            }
+        },
+        "UpdateProjectMember": {
+            "type": "object",
+            "required": [
+                "role"
+            ],
+            "properties": {
+                "role": {
+                    "type": "string",
+                    "enum": [
+                        "manager",
+                        "editor",
+                        "viewer"
+                    ]
                 }
             }
         },
@@ -2658,6 +3315,33 @@ const docTemplate = `{
             ],
             "properties": {
                 "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "UserBrief": {
+            "type": "object",
+            "required": [
+                "color",
+                "email",
+                "emailMd5",
+                "id",
+                "userName"
+            ],
+            "properties": {
+                "color": {
+                    "type": "string"
+                },
+                "email": {
+                    "type": "string"
+                },
+                "emailMd5": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "userName": {
                     "type": "string"
                 }
             }

@@ -1,7 +1,6 @@
 import { ref } from 'vue'
 
 import { API_BASE } from '@/api/client'
-import type { Identity } from './identity'
 import type { SocketMessage } from './types'
 
 export type SocketStatus = 'connecting' | 'open' | 'closed'
@@ -31,10 +30,7 @@ export class ProjectSocket {
   private readonly pending = new Map<number, PendingRequest>()
   private readonly handlers = new Map<string, Set<Handler>>()
 
-  constructor(
-    private readonly projectUID: string,
-    private readonly identity: Identity,
-  ) {}
+  constructor(private readonly projectUID: string) {}
 
   connect() {
     this.closedByUser = false
@@ -90,8 +86,7 @@ export class ProjectSocket {
 
   private open() {
     const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:'
-    const query = new URLSearchParams({ memberId: this.identity.memberId, name: this.identity.name, color: this.identity.color })
-    const ws = new WebSocket(`${protocol}//${location.host}${API_BASE}/projects/${this.projectUID}/ws?${query}`)
+    const ws = new WebSocket(`${protocol}//${location.host}${API_BASE}/projects/${this.projectUID}/ws`)
     this.ws = ws
     this.status.value = 'connecting'
 

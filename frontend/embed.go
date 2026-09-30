@@ -25,7 +25,7 @@ func Handler() http.Handler {
 			return
 		}
 
-		if strings.HasPrefix(r.URL.Path, "/base/") {
+		if strings.HasPrefix(r.URL.Path, "/base/") || r.URL.Path == "/login" || r.URL.Path == "/register" {
 			r = r.Clone(r.Context())
 			r.URL.Path = "/"
 		}

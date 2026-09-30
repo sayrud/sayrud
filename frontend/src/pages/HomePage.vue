@@ -1,22 +1,26 @@
 <script setup lang="ts">
 import { Message, Modal } from '@arco-design/web-vue'
-import { Ellipsis, Pencil, Plus, Search, Table2, Trash } from '@lucide/vue'
+import { Ellipsis, Link, LogOut, Pencil, Plus, Search, Table2, Trash } from '@lucide/vue'
 import dayjs from 'dayjs'
 import relativeTime from 'dayjs/plugin/relativeTime'
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 
-import { projectsApi, type ProjectListItem } from '@/api/bitable'
-import { openMenu } from '@/composables/useContextMenu'
-import { getIdentity } from '@/collab/identity'
+import { membersApi, projectsApi, type ProjectListItem } from '@/api/bitable'
+import UserMenu from '@/components/common/UserMenu.vue'
+import { openMenu, type MenuItem } from '@/composables/useContextMenu'
+import { useAuthStore } from '@/stores/auth'
+import { ROLE_LABELS, roleAtLeast } from '@/utils/role'
 
 dayjs.extend(relativeTime)
 
 const router = useRouter()
-const identity = getIdentity()
+const auth = useAuthStore()
 const projects = ref<ProjectListItem[]>([])
 const loading = ref(true)
 const keyword = ref('')
+type Scope = 'all' | 'owned' | 'shared'
+const scope = ref<Scope>('all')
 
 const createVisible = ref(false)
 const createName = ref('')
@@ -25,8 +29,13 @@ const renameName = ref('')
 
 const filtered = computed(() => {
   const k = keyword.value.trim().toLowerCase()
-  return k ? projects.value.filter((p) => p.name.toLowerCase().includes(k)) : projects.value
+  return projects.value.filter(
+    (p) =>
+      (scope.value === 'all' || (scope.value === 'owned') === (p.role === 'owner')) &&
+      (!k || p.name.toLowerCase().includes(k)),
+  )
 })
+const sharedCount = computed(() => projects.value.filter((p) => p.role !== 'owner').length)
 
 const COLORS = ['#3370ff', '#ff8800', '#14c0a7', '#7f3bf5', '#f14bab', '#34c724']
 const colorOf = (uid: string) => COLORS[[...uid].reduce((s, c) => s + c.charCodeAt(0), 0) % COLORS.length]
@@ -34,7 +43,7 @@ const colorOf = (uid: string) => COLORS[[...uid].reduce((s, c) => s + c.charCode
 async function load() {
   loading.value = true
   try {
-    projects.value = (await projectsApi.list()).projects as ProjectListItem[]
+    projects.value = (await projectsApi.list()).projects
   } catch (e) {
     Message.error(e instanceof Error ? e.message : String(e))
   } finally {
@@ -56,24 +65,37 @@ async function create() {
 
 function openActions(e: MouseEvent, p: ProjectListItem) {
   const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
-  openMenu({ x: rect.left, y: rect.bottom + 4 }, [
+  const items: MenuItem[] = [
     {
+      label: '复制链接',
+      icon: Link,
+      onClick: () =>
+        navigator.clipboard?.writeText(`${location.origin}/base/${p.uid}`).then(
+          () => Message.success('链接已复制，仅协作者可以访问'),
+          () => Message.error('复制失败'),
+        ),
+    },
+  ]
+  if (roleAtLeast(p.role, 'editor')) {
+    items.push({
       label: '重命名',
       icon: Pencil,
       onClick: () => {
         renaming.value = p
         renameName.value = p.name
       },
-    },
-    { divider: true },
-    {
+    })
+  }
+  items.push({ divider: true })
+  if (p.role === 'owner') {
+    items.push({
       label: '删除',
       icon: Trash,
       danger: true,
       onClick: () =>
         Modal.warning({
           title: `删除「${p.name}」？`,
-          content: '删除后其中的数据表、字段和记录将无法恢复。',
+          content: '删除后其中的数据表、字段和记录将无法恢复，所有协作者都将无法访问。',
           hideCancel: false,
           okText: '删除',
           okButtonProps: { status: 'danger' },
@@ -83,8 +105,28 @@ function openActions(e: MouseEvent, p: ProjectListItem) {
             load()
           },
         }),
-    },
-  ])
+    })
+  } else {
+    items.push({
+      label: '退出协作',
+      icon: LogOut,
+      danger: true,
+      onClick: () =>
+        Modal.warning({
+          title: `退出「${p.name}」的协作？`,
+          content: '退出后你将无法访问该多维表格，除非被重新添加。',
+          hideCancel: false,
+          okText: '退出',
+          okButtonProps: { status: 'danger' },
+          onOk: async () => {
+            await membersApi.remove(p.uid, auth.user!.id)
+            Message.success('已退出协作')
+            load()
+          },
+        }),
+    })
+  }
+  openMenu({ x: rect.left, y: rect.bottom + 4 }, items)
   e.stopPropagation()
 }
 
@@ -106,13 +148,20 @@ onMounted(() => {
     <header class="home-header">
       <img class="brand" src="@/assets/logo.svg" alt="Sayrud" />
       <div class="header-right">
-        <a-avatar :size="28" :style="{ backgroundColor: identity.color }" :title="identity.name">{{ identity.name.slice(-1) }}</a-avatar>
+        <UserMenu />
       </div>
     </header>
 
     <main class="home-main">
       <div class="home-title">
-        <h1>我的多维表格</h1>
+        <div class="title-left">
+          <h1>多维表格</h1>
+          <a-radio-group v-model="scope" type="button" class="scope-tabs">
+            <a-radio value="all">全部</a-radio>
+            <a-radio value="owned">我创建的</a-radio>
+            <a-radio value="shared">与我共享{{ sharedCount ? ` ${sharedCount}` : '' }}</a-radio>
+          </a-radio-group>
+        </div>
         <div class="home-actions">
           <a-input v-model="keyword" placeholder="搜索" allow-clear class="search">
             <template #prefix><Search :size="14" /></template>
@@ -126,7 +175,7 @@ onMounted(() => {
 
       <a-spin :loading="loading" class="spin">
         <div class="grid">
-          <div class="card create" @click="createVisible = true">
+          <div v-if="scope !== 'shared'" class="card create" @click="createVisible = true">
             <div class="create-icon"><Plus :size="28" /></div>
             <div class="create-text">新建多维表格</div>
           </div>
@@ -138,15 +187,24 @@ onMounted(() => {
           >
             <div class="card-cover" :style="{ background: colorOf(p.uid) }">
               <Table2 :size="30" color="#fff" />
+              <a-tag v-if="p.role !== 'owner'" size="small" class="role-badge">{{ ROLE_LABELS[p.role] }}</a-tag>
             </div>
             <div class="card-body">
               <div class="card-name ellipsis">{{ p.name }}</div>
-              <div class="card-meta">{{ p.tableCount }} 张数据表 · 创建于 {{ dayjs(p.createdAt).fromNow() }}</div>
+              <div class="card-meta ellipsis">
+                <template v-if="p.role === 'owner'">{{ p.tableCount }} 张数据表 · 创建于 {{ dayjs(p.createdAt).fromNow() }}</template>
+                <template v-else>所有者：{{ p.owner?.userName ?? '未知' }} · {{ p.tableCount }} 张数据表</template>
+              </div>
             </div>
             <button class="icon-btn card-more" @click="openActions($event, p)"><Ellipsis :size="16" /></button>
           </div>
         </div>
-        <a-empty v-if="!loading && !filtered.length && keyword" description="没有匹配的多维表格" />
+        <a-empty v-if="!loading && !filtered.length && keyword" class="home-empty" description="没有匹配的多维表格" />
+        <a-empty
+          v-else-if="!loading && !filtered.length && scope === 'shared'"
+          class="home-empty"
+          description="还没有人与你共享多维表格，对方在「分享」中添加你的邮箱后会显示在这里"
+        />
       </a-spin>
     </main>
 
@@ -190,24 +248,66 @@ onMounted(() => {
 }
 .home-title {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
+  gap: 16px;
   margin-bottom: 24px;
 }
 .home-title h1 {
   margin: 0;
   font-size: 22px;
   font-weight: 600;
+  white-space: nowrap;
+}
+.title-left {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+.scope-tabs {
+  flex: none;
+  white-space: nowrap;
+}
+.role-badge {
+  position: absolute;
+  left: 8px;
+  top: 8px;
+  background: rgba(255, 255, 255, 0.9);
 }
 .home-actions {
   display: flex;
+  flex: 1;
+  justify-content: flex-end;
   gap: 12px;
+  min-width: 0;
 }
 .search {
-  width: 220px;
+  flex: 0 1 220px;
+  min-width: 0;
+}
+@media (max-width: 640px) {
+  .home-header {
+    padding: 0 16px;
+  }
+  .home-main {
+    padding: 20px 16px;
+  }
+  .title-left {
+    gap: 12px;
+  }
+  .home-actions {
+    flex-basis: 100%;
+  }
+  .search {
+    flex: 1;
+  }
 }
 .spin {
   display: block;
+}
+.home-empty {
+  padding: 80px 0;
 }
 .grid {
   display: grid;

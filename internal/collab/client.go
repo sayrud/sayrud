@@ -23,18 +23,19 @@ const (
 	sendBufferSize = 256
 )
 
+// upgrader uses the default same-origin check of gorilla, so other sites can not connect with the session cookie of the user.
 var upgrader = websocket.Upgrader{
 	ReadBufferSize:  4096,
 	WriteBufferSize: 4096,
-	// The management API allows all origins as well, see context.Contexter.
-	CheckOrigin: func(*http.Request) bool { return true },
 }
 
-// Identity is the anonymous collaborator identity provided by the browser.
+// Identity is the signed-in collaborator of a connection.
 type Identity struct {
+	UserID   int64
 	MemberID string
 	Name     string
 	Color    string
+	CanEdit  bool
 }
 
 // Client is a WebSocket connection of a project.
@@ -43,12 +44,14 @@ type Client struct {
 	conn       *websocket.Conn
 	project    *db.Project
 	projectUID string
+	userID     int64
 	out        chan []byte
 	closeOnce  sync.Once
 
-	mu     sync.Mutex
-	member Member
-	tables map[string]*db.SLTable
+	mu      sync.Mutex
+	member  Member
+	canEdit bool
+	tables  map[string]*db.SLTable
 }
 
 // Serve upgrades the request to WebSocket and serves the connection until it is closed.
@@ -63,6 +66,7 @@ func (h *Hub) Serve(w http.ResponseWriter, r *http.Request, project *db.Project,
 		conn:       conn,
 		project:    project,
 		projectUID: project.UID,
+		userID:     identity.UserID,
 		out:        make(chan []byte, sendBufferSize),
 		member: Member{
 			ClientID: "cli" + randstr.String(12),
@@ -70,7 +74,8 @@ func (h *Hub) Serve(w http.ResponseWriter, r *http.Request, project *db.Project,
 			Name:     identity.Name,
 			Color:    identity.Color,
 		},
-		tables: make(map[string]*db.SLTable),
+		canEdit: identity.CanEdit,
+		tables:  make(map[string]*db.SLTable),
 	}
 
 	h.register(c)
@@ -252,6 +257,14 @@ func (c *Client) handle(ctx context.Context, message Message) {
 func (c *Client) commit(ctx context.Context, reqID int64, data userChangesData) {
 	reject := func(msg string) {
 		c.send(newMessage(MessageRejectCommit, reqID, rejectCommitData{TableUID: data.TableUID, Signature: data.Signature, Message: msg}))
+	}
+
+	c.mu.Lock()
+	canEdit := c.canEdit
+	c.mu.Unlock()
+	if !canEdit {
+		reject("你没有编辑权限")
+		return
 	}
 
 	table := c.subscribedTable(data.TableUID)

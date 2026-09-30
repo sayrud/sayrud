@@ -41,8 +41,7 @@ func main() {
 		logrus.WithError(err).Fatal("Failed to initialize database")
 	}
 
-	redisClient, err := redis.Init()
-	if err != nil {
+	if _, err := redis.Init(); err != nil {
 		logrus.WithError(err).Fatal("Failed to initialize redis")
 	}
 
@@ -60,7 +59,6 @@ func main() {
 	server := http.Server{
 		Handler: route.New(route.Options{
 			DB:             db,
-			RedisClient:    redisClient,
 			MetricsHandler: metricsHandler,
 		}),
 		ReadHeaderTimeout: 10 * time.Second,

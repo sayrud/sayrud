@@ -36,7 +36,7 @@ async function add() {
         class="gallery-card"
         @open="store.expandRecord(r.uid, uids)"
       />
-      <button class="add-card" @click="add"><Plus :size="20" /> 添加记录</button>
+      <button v-if="store.canEdit" class="add-card" @click="add"><Plus :size="20" /> 添加记录</button>
     </div>
     <div v-if="!searchedRows.length && store.search.term" class="empty">没有匹配「{{ store.search.term }}」的记录</div>
   </div>

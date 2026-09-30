@@ -4,8 +4,6 @@ import (
 	"database/sql"
 	"encoding/json"
 	"net/http"
-	"regexp"
-	"unicode/utf8"
 
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
@@ -23,36 +21,25 @@ var Collab collabRoute
 
 type collabRoute struct{}
 
-var colorPattern = regexp.MustCompile(`^#[0-9a-fA-F]{6}$`)
-
 // Serve
 // @Summary Collaborate on the project over WebSocket
 // @Description Upgrade to WebSocket to submit changesets and receive the changes of the subscribed tables and the online members.
 // @Description Messages are JSON `{type, reqId, data}`. Client: SUBSCRIBE, UNSUBSCRIBE, USER_CHANGES, PRESENCE, PING.
-// @Description Server: HELLO, SUBSCRIBED, ACCEPT_COMMIT, REJECT_COMMIT, NEW_CHANGES, MEMBERS, TABLES_CHANGED, PROJECT_CHANGED, ERROR, PONG.
+// @Description Server: HELLO, SUBSCRIBED, ACCEPT_COMMIT, REJECT_COMMIT, NEW_CHANGES, MEMBERS, TABLES_CHANGED, PROJECT_CHANGED, PERMISSION_CHANGED, ERROR, PONG.
+// @Description The changesets of the viewers are rejected.
 // @Param projectUID path string true "Project UID"
-// @Param memberId query string false "Anonymous identity of the browser"
-// @Param name query string false "Display name of the collaborator"
-// @Param color query string false "Avatar color of the collaborator, e.g. #3370ff"
 // @Success 101 "Switching Protocols"
 // @Failure 403 {string} string "Permission denied"
 // @Failure 404 {string} string "Project not found"
 // @ID collaborate
 // @Router /projects/{projectUID}/ws [get]
-func (collabRoute) Serve(ctx context.Context, hub *collab.Hub, project *db.Project) error {
-	name := ctx.Query("name")
-	if name == "" || utf8.RuneCountInString(name) > 32 {
-		name = "匿名用户"
-	}
-	color := ctx.Query("color")
-	if !colorPattern.MatchString(color) {
-		color = "#3370ff"
-	}
-
+func (collabRoute) Serve(ctx context.Context, hub *collab.Hub, project *db.Project, user *db.User, role db.ProjectRole) error {
 	if err := hub.Serve(ctx.ResponseWriter(), ctx.Request().Request, project, collab.Identity{
-		MemberID: ctx.Query("memberId"),
-		Name:     name,
-		Color:    color,
+		UserID:   user.ID,
+		MemberID: dto.MemberID(user.ID),
+		Name:     user.UserName,
+		Color:    dto.UserColor(user.ID),
+		CanEdit:  role.AtLeast(db.ProjectRoleEditor),
 	}); err != nil {
 		// The upgrader has written the error response.
 		logrus.WithContext(ctx.Request().Context()).WithError(err).Warn("Failed to serve WebSocket")

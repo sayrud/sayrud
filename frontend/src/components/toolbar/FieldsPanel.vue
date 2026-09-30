@@ -16,8 +16,8 @@ const list = computed(() => {
   const k = keyword.value.trim().toLowerCase()
   return store.fields.filter((f) => !k || f.label.toLowerCase().includes(k))
 })
-/** Reordering a filtered list is ambiguous, so dragging is only enabled without the keyword. */
-const sortable = computed(() => !keyword.value.trim())
+/** Reordering a filtered list is ambiguous, so dragging is only enabled without the keyword. The field order is shared, viewers can not change it. */
+const sortable = computed(() => !keyword.value.trim() && store.canEdit)
 
 function toggle(uid: string, visible: boolean) {
   const set = new Set(props.view.config.hiddenFields)
@@ -182,7 +182,7 @@ function addField(e: MouseEvent) {
       <div v-if="dropLineTop !== null" class="drop-line" :style="{ top: dropLineTop + 'px' }" />
     </div>
     <div class="footer">
-      <button class="tool-btn" @click="addField"><Plus :size="14" /> 新增字段</button>
+      <button v-if="store.canEdit" class="tool-btn" @click="addField"><Plus :size="14" /> 新增字段</button>
       <span class="spacer" />
       <button class="tool-btn" @click="setAll(true)">全部显示</button>
       <button class="tool-btn" @click="setAll(false)">全部隐藏</button>
