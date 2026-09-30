@@ -22,6 +22,7 @@ const editing = computed(() =>
 const label = ref('')
 const type = ref<FieldType>('text')
 // The metadata structure varies with the field type, it is edited loosely in the form and narrowed when saving.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Dynamic form metadata is narrowed when saving.
 const md = ref<Record<string, any>>({})
 const saving = ref(false)
 const formulaVisible = ref(false)
