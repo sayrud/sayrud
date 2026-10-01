@@ -32,7 +32,7 @@ func bindMessage(t *testing.T, lang, body string) string {
 }
 
 func TestBind_Language(t *testing.T) {
-	assert.Contains(t, bindMessage(t, i18n.LangEnUS, `{"password":"x"}`), "Email")
+	assert.Contains(t, bindMessage(t, i18n.LangEn, `{"password":"x"}`), "Email")
 	assert.Contains(t, bindMessage(t, i18n.LangZhCN, `{"password":"x"}`), "邮箱")
-	assert.Equal(t, "Invalid request body", bindMessage(t, i18n.LangEnUS, `{`))
+	assert.Equal(t, "Invalid request body", bindMessage(t, i18n.LangEn, `{`))
 }

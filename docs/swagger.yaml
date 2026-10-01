@@ -998,8 +998,16 @@ definitions:
     properties:
       language:
         enum:
+        - en
         - zh-CN
-        - en-US
+        - zh-TW
+        - ja
+        - ko
+        - es
+        - pt-BR
+        - fr
+        - de
+        - ru
         type: string
       theme:
         enum:
@@ -1055,8 +1063,16 @@ definitions:
       language:
         description: Language is the language of the user interface.
         enum:
+        - en
         - zh-CN
-        - en-US
+        - zh-TW
+        - ja
+        - ko
+        - es
+        - pt-BR
+        - fr
+        - de
+        - ru
         type: string
       theme:
         description: Theme is the appearance of the user interface.

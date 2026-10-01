@@ -198,7 +198,7 @@ type UserSettings struct {
 	// Theme is the appearance of the user interface.
 	Theme string `json:"theme" enums:"light,dark,system"`
 	// Language is the language of the user interface.
-	Language string `json:"language" enums:"zh-CN,en-US"`
+	Language string `json:"language" enums:"en,zh-CN,zh-TW,ja,ko,es,pt-BR,fr,de,ru"`
 } // @name UserSettings
 
 // DefaultUserSettings returns the defaults before the user saves any settings.
@@ -210,10 +210,6 @@ func isTheme(theme string) bool {
 	return theme == ThemeLight || theme == ThemeDark || theme == ThemeSystem
 }
 
-func isLanguage(language string) bool {
-	return language == i18n.LangZhCN || language == i18n.LangEnUS
-}
-
 // ParseUserSettings applies the JSON object on top of the defaults, the missing or invalid fields take the defaults.
 func ParseUserSettings(raw []byte, defaults UserSettings) UserSettings {
 	s := defaults
@@ -223,7 +219,7 @@ func ParseUserSettings(raw []byte, defaults UserSettings) UserSettings {
 	if !isTheme(s.Theme) {
 		s.Theme = defaults.Theme
 	}
-	if !isLanguage(s.Language) {
+	if !i18n.IsSupported(s.Language) {
 		s.Language = defaults.Language
 	}
 	return s
@@ -234,7 +230,7 @@ func (s UserSettings) Validate() error {
 	if !isTheme(s.Theme) {
 		return i18n.Errorf("settings::invalid_theme")
 	}
-	if !isLanguage(s.Language) {
+	if !i18n.IsSupported(s.Language) {
 		return i18n.Errorf("settings::invalid_language")
 	}
 	return nil

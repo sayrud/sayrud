@@ -16,7 +16,9 @@
           document.documentElement.style.colorScheme = 'dark'
         }
         var lang = localStorage.getItem('sayrud.lang')
-        if (lang === 'zh-CN' || lang === 'en-US') document.documentElement.lang = lang
+        if (['en', 'zh-CN', 'zh-TW', 'ja', 'ko', 'es', 'pt-BR', 'fr', 'de', 'ru'].indexOf(lang) >= 0) {
+          document.documentElement.lang = lang
+        }
       } catch (e) {}
     </script>
     <div id="app"></div>

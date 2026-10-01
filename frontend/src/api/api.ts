@@ -468,7 +468,17 @@ export interface UpdateTable {
 }
 
 export interface UpdateUserSettings {
-  language?: "zh-CN" | "en-US";
+  language?:
+    | "en"
+    | "zh-CN"
+    | "zh-TW"
+    | "ja"
+    | "ko"
+    | "es"
+    | "pt-BR"
+    | "fr"
+    | "de"
+    | "ru";
   theme?: "light" | "dark" | "system";
 }
 
@@ -492,7 +502,17 @@ export interface UserSession {
 
 export interface UserSettings {
   /** Language is the language of the user interface. */
-  language: "zh-CN" | "en-US";
+  language:
+    | "en"
+    | "zh-CN"
+    | "zh-TW"
+    | "ja"
+    | "ko"
+    | "es"
+    | "pt-BR"
+    | "fr"
+    | "de"
+    | "ru";
   /** Theme is the appearance of the user interface. */
   theme: "light" | "dark" | "system";
 }

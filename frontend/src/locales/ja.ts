@@ -1,6 +1,7 @@
+// Placeholder copied from en.ts, to be translated.
 import type zhCN from './zh-CN'
 
-const enUS: typeof zhCN = {
+const ja: typeof zhCN = {
   common: {
     language: 'Language',
     save: 'Save',
@@ -857,4 +858,4 @@ const enUS: typeof zhCN = {
   },
 }
 
-export default enUS
+export default ja

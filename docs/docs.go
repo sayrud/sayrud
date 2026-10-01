@@ -4726,8 +4726,16 @@ const docTemplate = `{
                 "language": {
                     "type": "string",
                     "enum": [
+                        "en",
                         "zh-CN",
-                        "en-US"
+                        "zh-TW",
+                        "ja",
+                        "ko",
+                        "es",
+                        "pt-BR",
+                        "fr",
+                        "de",
+                        "ru"
                     ]
                 },
                 "theme": {
@@ -4810,8 +4818,16 @@ const docTemplate = `{
                     "description": "Language is the language of the user interface.",
                     "type": "string",
                     "enum": [
+                        "en",
                         "zh-CN",
-                        "en-US"
+                        "zh-TW",
+                        "ja",
+                        "ko",
+                        "es",
+                        "pt-BR",
+                        "fr",
+                        "de",
+                        "ru"
                     ]
                 },
                 "theme": {

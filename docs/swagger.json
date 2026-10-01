@@ -4718,8 +4718,16 @@
                 "language": {
                     "type": "string",
                     "enum": [
+                        "en",
                         "zh-CN",
-                        "en-US"
+                        "zh-TW",
+                        "ja",
+                        "ko",
+                        "es",
+                        "pt-BR",
+                        "fr",
+                        "de",
+                        "ru"
                     ]
                 },
                 "theme": {
@@ -4802,8 +4810,16 @@
                     "description": "Language is the language of the user interface.",
                     "type": "string",
                     "enum": [
+                        "en",
                         "zh-CN",
-                        "en-US"
+                        "zh-TW",
+                        "ja",
+                        "ko",
+                        "es",
+                        "pt-BR",
+                        "fr",
+                        "de",
+                        "ru"
                     ]
                 },
                 "theme": {

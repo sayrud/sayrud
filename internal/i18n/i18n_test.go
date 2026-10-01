@@ -25,14 +25,22 @@ func serveLang(t *testing.T, setup func(r *http.Request)) string {
 }
 
 func TestMiddleware(t *testing.T) {
-	assert.Equal(t, LangEnUS, serveLang(t, func(r *http.Request) {
-		r.AddCookie(&http.Cookie{Name: CookieName, Value: LangEnUS})
+	assert.Equal(t, LangEn, serveLang(t, func(r *http.Request) {
+		r.AddCookie(&http.Cookie{Name: CookieName, Value: LangEn})
 		r.Header.Set("Accept-Language", "zh-CN")
 	}))
-	assert.Equal(t, LangEnUS, serveLang(t, func(r *http.Request) {
-		r.Header.Set("Accept-Language", "en-US,en;q=0.9")
-	}))
 	assert.Equal(t, LangZhCN, serveLang(t, func(*http.Request) {}))
+	for header, want := range map[string]string{
+		"en-US,en;q=0.9": LangEn,
+		"ja-JP":          LangJa,
+		"zh-TW":          LangZhTW,
+		"zh-HK":          LangZhTW,
+		"pt-PT":          LangPtBR,
+		"de-AT,de;q=0.9": LangDe,
+		"it":             LangZhCN,
+	} {
+		assert.Equal(t, want, serveLang(t, func(r *http.Request) { r.Header.Set("Accept-Language", header) }), header)
+	}
 }
 
 type stubLocale struct{ lang string }
@@ -44,17 +52,19 @@ func (l stubLocale) Translate(key string, _ ...interface{}) string {
 }
 
 func TestLocalize(t *testing.T) {
-	msg, ok := Localize(stubLocale{LangEnUS}, errors.Wrap(Errorf("common::internal_error"), "save"))
+	msg, ok := Localize(stubLocale{LangEn}, errors.Wrap(Errorf("common::internal_error"), "save"))
 	assert.True(t, ok)
-	assert.Equal(t, "en-US:common::internal_error", msg)
+	assert.Equal(t, "en:common::internal_error", msg)
 
-	_, ok = Localize(stubLocale{LangEnUS}, errors.New("plain"))
+	_, ok = Localize(stubLocale{LangEn}, errors.New("plain"))
 	assert.False(t, ok)
 }
 
 func TestValidLanguage(t *testing.T) {
-	assert.Equal(t, language.English, ValidLanguage(stubLocale{LangEnUS}))
+	assert.Equal(t, language.English, ValidLanguage(stubLocale{LangEn}))
 	assert.Equal(t, language.Chinese, ValidLanguage(stubLocale{LangZhCN}))
+	assert.Equal(t, language.Chinese, ValidLanguage(stubLocale{LangZhTW}))
+	assert.Equal(t, language.English, ValidLanguage(stubLocale{LangJa}))
 	assert.Equal(t, language.Chinese, ValidLanguage(nil))
 }
 

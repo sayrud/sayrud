@@ -1,10 +1,14 @@
 import assert from 'node:assert/strict'
+import { readdirSync } from 'node:fs'
+import { join } from 'node:path'
 import test from 'node:test'
 
-import enUS from '../src/locales/en-US.ts'
+import { LOCALES } from '../src/i18n/detect.ts'
 import zhCN from '../src/locales/zh-CN.ts'
 
 type Messages = { [key: string]: string | Messages }
+
+const DIR = join(import.meta.dirname, '../src/locales')
 
 function leaves(m: Messages, prefix = ''): Map<string, string> {
   const out = new Map<string, string>()
@@ -18,13 +22,19 @@ function leaves(m: Messages, prefix = ''): Map<string, string> {
 
 const params = (s: string) => [...new Set([...s.matchAll(/\{(\w+)\}/g)].map((m) => m[1]))].sort()
 
-test('zh-CN and en-US have the same keys and parameters', () => {
+test('there is a message file for each locale', () => {
+  const files = readdirSync(DIR).map((f) => f.replace(/\.ts$/, ''))
+  assert.deepEqual(files.sort(), [...LOCALES].sort())
+})
+
+test('all locales have the same keys and parameters as zh-CN', async () => {
   const zh = leaves(zhCN as Messages)
-  const en = leaves(enUS as Messages)
-  assert.deepEqual([...en.keys()].sort(), [...zh.keys()].sort())
-  for (const [key, value] of zh) {
-    assert.ok(value.length > 0, `empty zh-CN message ${key}`)
-    assert.ok(en.get(key)!.length > 0, `empty en-US message ${key}`)
-    assert.deepEqual(params(en.get(key)!), params(value), `parameters of ${key}`)
+  for (const locale of LOCALES) {
+    const messages = leaves((await import(`../src/locales/${locale}.ts`)).default as Messages)
+    assert.deepEqual([...messages.keys()].sort(), [...zh.keys()].sort(), `keys of ${locale}`)
+    for (const [key, value] of zh) {
+      assert.ok(messages.get(key)!.length > 0, `empty ${locale} message ${key}`)
+      assert.deepEqual(params(messages.get(key)!), params(value), `parameters of ${key} in ${locale}`)
+    }
   }
 })

@@ -49,16 +49,19 @@ func loadMessages(t *testing.T, lang string) map[string]string {
 var verbRe = regexp.MustCompile(`%[-+# 0]*\d*(?:\.\d+)?[a-zA-Z]`)
 
 func TestLocalesConsistent(t *testing.T) {
-	zh, en := loadMessages(t, LangZhCN), loadMessages(t, LangEnUS)
-	for key, value := range zh {
-		enValue, ok := en[key]
-		if !assert.True(t, ok, "missing in en-US: %s", key) {
-			continue
+	zh := loadMessages(t, LangZhCN)
+	for _, lang := range Languages {
+		messages := loadMessages(t, lang.Name)
+		for key, value := range zh {
+			other, ok := messages[key]
+			if !assert.True(t, ok, "missing in %s: %s", lang.Name, key) {
+				continue
+			}
+			assert.Equal(t, verbRe.FindAllString(value, -1), verbRe.FindAllString(other, -1), "verbs of %s in %s", key, lang.Name)
 		}
-		assert.Equal(t, verbRe.FindAllString(value, -1), verbRe.FindAllString(enValue, -1), "verbs of %s", key)
-	}
-	for key := range en {
-		assert.Contains(t, zh, key, "missing in zh-CN: %s", key)
+		for key := range messages {
+			assert.Contains(t, zh, key, "missing in zh-CN: %s (defined in %s)", key, lang.Name)
+		}
 	}
 }
 

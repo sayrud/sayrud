@@ -21,11 +21,68 @@ var localeFS embed.FS
 type Locale = flamei18n.Locale
 
 const (
+	LangEn   = "en"
 	LangZhCN = "zh-CN"
-	LangEnUS = "en-US"
+	LangZhTW = "zh-TW"
+	LangJa   = "ja"
+	LangKo   = "ko"
+	LangEs   = "es"
+	LangPtBR = "pt-BR"
+	LangFr   = "fr"
+	LangDe   = "de"
+	LangRu   = "ru"
+
 	// CookieName is the cookie of the language, written by the frontend and read by the backend.
 	CookieName = "lang"
 )
+
+// Languages are the supported languages, the names are written in their own languages.
+var Languages = []flamei18n.Language{
+	{Name: LangEn, Description: "English"},
+	{Name: LangZhCN, Description: "简体中文"},
+	{Name: LangZhTW, Description: "繁體中文"},
+	{Name: LangJa, Description: "日本語"},
+	{Name: LangKo, Description: "한국어"},
+	{Name: LangEs, Description: "Español"},
+	{Name: LangPtBR, Description: "Português"},
+	{Name: LangFr, Description: "Français"},
+	{Name: LangDe, Description: "Deutsch"},
+	{Name: LangRu, Description: "Русский"},
+}
+
+// IsSupported reports whether the language is one of Languages.
+func IsSupported(lang string) bool {
+	for _, l := range Languages {
+		if l.Name == lang {
+			return true
+		}
+	}
+	return false
+}
+
+var matcher = func() language.Matcher {
+	tags := make([]language.Tag, len(Languages))
+	for i, l := range Languages {
+		tags[i] = language.MustParse(l.Name)
+	}
+	return language.NewMatcher(tags)
+}()
+
+// normalizeAcceptLanguage rewrites Accept-Language to the best supported language name.
+// flamego/i18n looks up the locale by the matched tag, which keeps the region of the request
+// as an extension (e.g. "en-u-rg-uszzzz" for "en-US") and fails to find the locale.
+func normalizeAcceptLanguage(r *http.Request) {
+	header := r.Header.Get("Accept-Language")
+	if header == "" {
+		return
+	}
+	tags, _, _ := language.ParseAcceptLanguage(header)
+	if _, index, confidence := matcher.Match(tags...); confidence != language.No {
+		r.Header.Set("Accept-Language", Languages[index].Name)
+	} else {
+		r.Header.Del("Accept-Language")
+	}
+}
 
 // Middleware injects the Locale of the request, which is decided by ?lang, the cookie and Accept-Language in order, and defaults to Simplified Chinese.
 func Middleware() flamego.Handler {
@@ -33,15 +90,19 @@ func Middleware() flamego.Handler {
 	if err != nil {
 		panic("i18n: " + err.Error())
 	}
-	return flamei18n.I18n(flamei18n.Options{
+	handler := flamei18n.I18n(flamei18n.Options{
 		FileSystem: http.FS(sub),
-		Languages: []flamei18n.Language{
-			{Name: LangZhCN, Description: "简体中文"},
-			{Name: LangEnUS, Description: "English"},
-		},
-		Default: LangZhCN,
+		Languages:  Languages,
+		Default:    LangZhCN,
+		NameFormat: "locale_%s.ini",
 		// The frontend writes the cookie when switching the language, so it can not be HttpOnly.
 		Cookie: flamei18n.CookieOptions{Name: CookieName, HTTPOnly: false},
+	})
+	return flamego.ContextInvoker(func(c flamego.Context) {
+		normalizeAcceptLanguage(c.Request().Request)
+		if _, err := c.Invoke(handler); err != nil {
+			panic("i18n: " + err.Error())
+		}
 	})
 }
 
@@ -69,12 +130,12 @@ func Localize(l Locale, err error) (string, bool) {
 	return l.Translate(e.Key, e.Args...), true
 }
 
-// ValidLanguage returns the language of the govalid error templates.
+// ValidLanguage returns the language of the govalid error templates, which only has Chinese and English.
 func ValidLanguage(l Locale) language.Tag {
-	if l != nil && l.Lang() == LangEnUS {
-		return language.English
+	if l == nil || l.Lang() == LangZhCN || l.Lang() == LangZhTW {
+		return language.Chinese
 	}
-	return language.Chinese
+	return language.English
 }
 
 // FieldLabelKey returns the message key of the label of the form field, e.g. "form_field::new_password" for NewPassword.

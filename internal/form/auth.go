@@ -18,7 +18,7 @@ type UpdateProfile struct {
 
 type UpdateUserSettings struct {
 	Theme    *string `json:"theme,omitempty" enums:"light,dark,system"`
-	Language *string `json:"language,omitempty" enums:"zh-CN,en-US"`
+	Language *string `json:"language,omitempty" enums:"en,zh-CN,zh-TW,ja,ko,es,pt-BR,fr,de,ru"`
 } // @name UpdateUserSettings
 
 type DeleteAccount struct {
