@@ -48,13 +48,11 @@ const { t } = useI18n()
     </SettingsSection>
 
     <SettingsSection :title="t('common.language')" :description="t('settings.preferences.languageDescription')">
-      <a-select
-        class="locales"
-        :model-value="localeStore.locale"
-        @change="(v) => localeStore.setLocale(v as AppLocale)"
-      >
-        <a-option v-for="o in LOCALE_OPTIONS" :key="o.value" :value="o.value">{{ o.label }}</a-option>
-      </a-select>
+      <div class="locales">
+        <a-select :model-value="localeStore.locale" @change="(v) => localeStore.setLocale(v as AppLocale)">
+          <a-option v-for="o in LOCALE_OPTIONS" :key="o.value" :value="o.value">{{ o.label }}</a-option>
+        </a-select>
+      </div>
     </SettingsSection>
   </div>
 </template>
@@ -67,8 +65,8 @@ const { t } = useI18n()
   padding: 8px 0 16px;
 }
 .locales {
-  width: 240px;
-  margin: 8px 0 16px;
+  width: 200px;
+  padding: 8px 0 16px;
 }
 .themes :deep(.arco-radio) {
   margin: 0;
