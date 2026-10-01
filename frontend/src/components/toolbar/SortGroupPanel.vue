@@ -1,12 +1,15 @@
 <script setup lang="ts">
 import { GripVertical, Plus, Trash } from '@lucide/vue'
 import { computed, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 
 import { useBaseStore } from '@/stores/base'
 import type { SLView, SortOrder } from '@/types/bitable'
 import { isQueryable } from '@/utils/fieldTypes'
 import { sortOrderLabels } from '@/utils/filters'
 import FieldSelect from './FieldSelect.vue'
+
+const { t } = useI18n()
 
 /** Shared by sort and group, both are ordered lists of field and direction. */
 const props = defineProps<{ view: SLView; kind: 'sort' | 'group' }>()
@@ -49,10 +52,10 @@ function onDrop() {
 <template>
   <div class="sg-panel">
     <div class="panel-head">
-      <span class="panel-title">{{ kind === 'sort' ? '设置排序条件' : '设置分组条件' }}</span>
-      <span v-if="kind === 'group'" class="text-caption tip">最多 3 级分组</span>
+      <span class="panel-title">{{ kind === 'sort' ? t('toolbar.sortTitle') : t('toolbar.groupTitle') }}</span>
+      <span v-if="kind === 'group'" class="text-caption tip">{{ t('toolbar.groupMax') }}</span>
     </div>
-    <div v-if="!items.length" class="empty">{{ kind === 'sort' ? '暂未添加排序条件' : '暂未添加分组条件' }}</div>
+    <div v-if="!items.length" class="empty">{{ kind === 'sort' ? t('toolbar.sortEmpty') : t('toolbar.groupEmpty') }}</div>
     <div
       v-for="(item, i) in items"
       :key="item.fieldUID"
@@ -83,9 +86,9 @@ function onDrop() {
       <button class="icon-btn" @click="save(items.filter((_x, j) => j !== i))"><Trash :size="14" /></button>
     </div>
     <button class="add" :disabled="items.length >= MAX || used.length >= fields.length" @click="add">
-      <Plus :size="14" /> {{ kind === 'sort' ? '添加排序' : '添加分组' }}
+      <Plus :size="14" /> {{ kind === 'sort' ? t('toolbar.addSort') : t('toolbar.addGroup') }}
     </button>
-    <div v-if="fields.length < store.fields.length" class="note">公式字段暂不支持{{ kind === 'sort' ? '排序' : '分组' }}</div>
+    <div v-if="fields.length < store.fields.length" class="note">{{ kind === 'sort' ? t('toolbar.formulaNoSort') : t('toolbar.formulaNoGroup') }}</div>
   </div>
 </template>
 

@@ -2,6 +2,7 @@ import { Message } from '@arco-design/web-vue'
 import { computed, onMounted, reactive, ref } from 'vue'
 
 import { adminApi, type SystemSettings } from '@/api/admin'
+import { t } from '@/i18n'
 import { useSiteStore } from '@/stores/site'
 
 /** Shared by the admin settings pages: loads the settings, edits the draft and refreshes the site information after saving. */
@@ -26,7 +27,7 @@ export function useSystemSettings() {
       original.value = await adminApi.saveSettings({ ...draft, siteName: draft.siteName.trim() })
       reset()
       await site.refresh()
-      Message.success('已保存')
+      Message.success(t('common.saved'))
     } catch (e) {
       Message.error(e instanceof Error ? e.message : String(e))
     } finally {

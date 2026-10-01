@@ -1,14 +1,18 @@
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
+
 defineProps<{ dirty: boolean; saving: boolean }>()
 defineEmits<{ save: []; reset: [] }>()
 </script>
 
 <template>
   <div class="save-bar">
-    <span v-if="dirty" class="text-desc save-hint">有未保存的修改</span>
+    <span v-if="dirty" class="text-desc save-hint">{{ t('console.unsaved') }}</span>
     <a-space>
-      <a-button :disabled="!dirty || saving" @click="$emit('reset')">重置</a-button>
-      <a-button type="primary" :disabled="!dirty" :loading="saving" @click="$emit('save')">保存</a-button>
+      <a-button :disabled="!dirty || saving" @click="$emit('reset')">{{ t('console.reset') }}</a-button>
+      <a-button type="primary" :disabled="!dirty" :loading="saving" @click="$emit('save')">{{ t('common.save') }}</a-button>
     </a-space>
   </div>
 </template>

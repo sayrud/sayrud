@@ -1,5 +1,7 @@
 import dayjs from 'dayjs'
 
+import { lazyLabels, t } from '@/i18n'
+
 import type {
   CellValue,
   FilterConjunction,
@@ -63,11 +65,11 @@ export class TableContext {
 
   private formulaInput(record: SLRecord, uid: string, stack: Set<string>): FormulaValue {
     const f = this.byUID.get(uid)
-    if (!f) throw new FormulaError('引用的字段不存在', '#REF!')
+    if (!f) throw new FormulaError(t('formula.error.refNotFound'), '#REF!')
     if (f.type === 'formula') {
-      if (stack.has(uid)) throw new FormulaError('公式循环引用', '#CIRCULAR!')
+      if (stack.has(uid)) throw new FormulaError(t('formula.error.circular'), '#CIRCULAR!')
       const r = this.evalFormula(record, f, stack)
-      if (r.error) throw new FormulaError('引用的公式有误', r.error)
+      if (r.error) throw new FormulaError(t('formula.error.refInvalid'), r.error)
       return r.value
     }
     const v = record.data[uid]
@@ -343,24 +345,24 @@ export function buildGroups(ctx: TableContext, records: SLRecord[], groups: Quer
 
 // ---- Summary ----
 
-export const SUMMARY_LABELS: Record<SummaryType, string> = {
-  none: '不展示',
-  count_all: '记录总数',
-  count_filled: '已填写',
-  count_empty: '未填写',
-  count_unique: '唯一值',
-  percent_filled: '已填写占比',
-  percent_empty: '未填写占比',
-  sum: '求和',
-  average: '平均值',
-  max: '最大值',
-  min: '最小值',
-  checked: '已勾选',
-  unchecked: '未勾选',
-  percent_checked: '已勾选占比',
-  earliest: '最早',
-  latest: '最晚',
-}
+export const SUMMARY_LABELS: Record<SummaryType, string> = lazyLabels({
+  none: () => t('summary.none'),
+  count_all: () => t('summary.countAll'),
+  count_filled: () => t('summary.countFilled'),
+  count_empty: () => t('summary.countEmpty'),
+  count_unique: () => t('summary.countUnique'),
+  percent_filled: () => t('summary.percentFilled'),
+  percent_empty: () => t('summary.percentEmpty'),
+  sum: () => t('summary.sum'),
+  average: () => t('summary.average'),
+  max: () => t('summary.max'),
+  min: () => t('summary.min'),
+  checked: () => t('summary.checked'),
+  unchecked: () => t('summary.unchecked'),
+  percent_checked: () => t('summary.percentChecked'),
+  earliest: () => t('summary.earliest'),
+  latest: () => t('summary.latest'),
+})
 
 export function summaryTypesFor(field: SLField): SummaryType[] {
   const base: SummaryType[] = ['none', 'count_all', 'count_filled', 'count_empty', 'count_unique', 'percent_filled', 'percent_empty']
@@ -422,9 +424,9 @@ export function computeSummary(ctx: TableContext, records: SLRecord[], field: SL
 /** Text shown in the group header. */
 export function groupLabel(node: GroupNode): string {
   const { field, value } = node
-  if (value === null || value === undefined) return '空值'
-  if (field.type === 'single_select') return findOption(field, String(value))?.name ?? '空值'
-  if (field.type === 'checkbox') return value ? '已勾选' : '未勾选'
+  if (value === null || value === undefined) return t('group.empty')
+  if (field.type === 'single_select') return findOption(field, String(value))?.name ?? t('group.empty')
+  if (field.type === 'checkbox') return value ? t('group.checked') : t('group.unchecked')
   if (field.type === 'formula') return String(value)
-  return valueToText(field, value) || '空值'
+  return valueToText(field, value) || t('group.empty')
 }

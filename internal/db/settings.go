@@ -14,6 +14,7 @@ import (
 
 	"github.com/wuhan005/sayrud/internal/conf"
 	"github.com/wuhan005/sayrud/internal/dbutil"
+	"github.com/wuhan005/sayrud/internal/i18n"
 )
 
 var _ SettingsStore = (*settings)(nil)
@@ -152,16 +153,16 @@ func ParseSystemSettings(raw []byte, defaults SystemSettings) SystemSettings {
 	return s
 }
 
-// Validate returns the error message shown to the user.
+// Validate returns the *i18n.Error to be translated.
 func (s SystemSettings) Validate() error {
 	if n := utf8.RuneCountInString(strings.TrimSpace(s.SiteName)); n == 0 || n > SiteNameMaxLength {
-		return errors.Errorf("站点名称需为 1–%d 个字符", SiteNameMaxLength)
+		return i18n.Errorf("settings::site_name_length", SiteNameMaxLength)
 	}
 	if s.PasswordMinLength < PasswordMinLengthMin || s.PasswordMinLength > PasswordMinLengthMax {
-		return errors.Errorf("密码最小长度需在 %d–%d 之间", PasswordMinLengthMin, PasswordMinLengthMax)
+		return i18n.Errorf("settings::password_min_length_range", PasswordMinLengthMin, PasswordMinLengthMax)
 	}
 	if s.SessionTTLDays < SessionTTLDaysMin || s.SessionTTLDays > SessionTTLDaysMax {
-		return errors.Errorf("登录有效期需在 %d–%d 天之间", SessionTTLDaysMin, SessionTTLDaysMax)
+		return i18n.Errorf("settings::session_ttl_range", SessionTTLDaysMin, SessionTTLDaysMax)
 	}
 	return nil
 }
@@ -196,15 +197,21 @@ const (
 type UserSettings struct {
 	// Theme is the appearance of the user interface.
 	Theme string `json:"theme" enums:"light,dark,system"`
+	// Language is the language of the user interface.
+	Language string `json:"language" enums:"zh-CN,en-US"`
 } // @name UserSettings
 
 // DefaultUserSettings returns the defaults before the user saves any settings.
 func DefaultUserSettings() UserSettings {
-	return UserSettings{Theme: ThemeLight}
+	return UserSettings{Theme: ThemeLight, Language: i18n.LangZhCN}
 }
 
 func isTheme(theme string) bool {
 	return theme == ThemeLight || theme == ThemeDark || theme == ThemeSystem
+}
+
+func isLanguage(language string) bool {
+	return language == i18n.LangZhCN || language == i18n.LangEnUS
 }
 
 // ParseUserSettings applies the JSON object on top of the defaults, the missing or invalid fields take the defaults.
@@ -216,15 +223,32 @@ func ParseUserSettings(raw []byte, defaults UserSettings) UserSettings {
 	if !isTheme(s.Theme) {
 		s.Theme = defaults.Theme
 	}
+	if !isLanguage(s.Language) {
+		s.Language = defaults.Language
+	}
 	return s
 }
 
-// Validate returns the error message shown to the user.
+// Validate returns the *i18n.Error to be translated.
 func (s UserSettings) Validate() error {
 	if !isTheme(s.Theme) {
-		return errors.New("不支持的外观")
+		return i18n.Errorf("settings::invalid_theme")
+	}
+	if !isLanguage(s.Language) {
+		return i18n.Errorf("settings::invalid_language")
 	}
 	return nil
+}
+
+// Apply returns the settings overridden by the non-nil fields.
+func (s UserSettings) Apply(theme, language *string) UserSettings {
+	if theme != nil {
+		s.Theme = *theme
+	}
+	if language != nil {
+		s.Language = *language
+	}
+	return s
 }
 
 func (db *settings) GetUser(ctx context.Context, userID int64) (*UserSettings, error) {

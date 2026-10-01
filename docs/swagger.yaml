@@ -996,14 +996,17 @@ definitions:
     type: object
   UpdateUserSettings:
     properties:
+      language:
+        enum:
+        - zh-CN
+        - en-US
+        type: string
       theme:
         enum:
         - light
         - dark
         - system
         type: string
-    required:
-    - theme
     type: object
   UserBrief:
     properties:
@@ -1049,6 +1052,12 @@ definitions:
     type: object
   UserSettings:
     properties:
+      language:
+        description: Language is the language of the user interface.
+        enum:
+        - zh-CN
+        - en-US
+        type: string
       theme:
         description: Theme is the appearance of the user interface.
         enum:
@@ -1057,6 +1066,7 @@ definitions:
         - system
         type: string
     required:
+    - language
     - theme
     type: object
   ViewAttrs:

@@ -1,6 +1,7 @@
 import dayjs from 'dayjs'
 
 import type { SLField } from '@/types/bitable'
+import { t } from '../i18n/translate.ts'
 
 export type FormulaValue = number | string | boolean | Date | null
 
@@ -39,7 +40,7 @@ function tokenize(src: string): Token[] {
     }
     if (/[0-9.]/.test(c)) {
       const m = /^(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?/.exec(src.slice(i))
-      if (!m) throw new FormulaError(`无法识别的数字：${src.slice(i, i + 8)}`)
+      if (!m) throw new FormulaError(t('formula.error.invalidNumber', { text: src.slice(i, i + 8) }))
       tokens.push({ t: 'num', v: Number(m[0]) })
       i += m[0].length
       continue
@@ -56,14 +57,14 @@ function tokenize(src: string): Token[] {
           j++
         }
       }
-      if (j >= src.length) throw new FormulaError('字符串缺少结束引号')
+      if (j >= src.length) throw new FormulaError(t('formula.error.unclosedString'))
       tokens.push({ t: 'str', v: s })
       i = j + 1
       continue
     }
     if (c === '{') {
       const j = src.indexOf('}', i)
-      if (j < 0) throw new FormulaError('字段引用缺少 }')
+      if (j < 0) throw new FormulaError(t('formula.error.unclosedField'))
       tokens.push({ t: 'ref', v: src.slice(i + 1, j) })
       i = j + 1
       continue
@@ -95,7 +96,7 @@ function tokenize(src: string): Token[] {
       i += op.length
       continue
     }
-    throw new FormulaError(`无法识别的字符：${c}`)
+    throw new FormulaError(t('formula.error.invalidChar', { char: c }))
   }
   return tokens
 }
@@ -157,7 +158,7 @@ function parse(tokens: Token[]): FormulaNode {
 
   function parsePrimary(): FormulaNode {
     const tok = next()
-    if (!tok) throw new FormulaError('公式不完整')
+    if (!tok) throw new FormulaError(t('formula.error.incomplete'))
     switch (tok.t) {
       case 'num':
       case 'str':
@@ -166,13 +167,13 @@ function parse(tokens: Token[]): FormulaNode {
         return { k: 'ref', uid: tok.v }
       case 'lp': {
         const e = parseExpr(1)
-        if (next()?.t !== 'rp') throw new FormulaError('缺少右括号')
+        if (next()?.t !== 'rp') throw new FormulaError(t('formula.error.missingParen'))
         return e
       }
       case 'ident': {
         if (tok.v === 'TRUE') return { k: 'lit', v: true }
         if (tok.v === 'FALSE') return { k: 'lit', v: false }
-        if (peek()?.t !== 'lp') throw new FormulaError(`未知标识符：${tok.v}`)
+        if (peek()?.t !== 'lp') throw new FormulaError(t('formula.error.unknownIdentifier', { name: tok.v }))
         next()
         const args: FormulaNode[] = []
         if (peek()?.t !== 'rp') {
@@ -180,22 +181,22 @@ function parse(tokens: Token[]): FormulaNode {
             args.push(parseExpr(1))
             const sep = next()
             if (sep?.t === 'rp') break
-            if (sep?.t !== 'comma') throw new FormulaError(`函数 ${tok.v} 参数格式错误`)
+            if (sep?.t !== 'comma') throw new FormulaError(t('formula.error.invalidArgs', { name: tok.v }))
           }
         } else {
           next()
         }
-        if (!FUNCTIONS[tok.v]) throw new FormulaError(`未知函数：${tok.v}`)
+        if (!FUNCTIONS[tok.v]) throw new FormulaError(t('formula.error.unknownFunction', { name: tok.v }))
         return { k: 'call', name: tok.v, args }
       }
       default:
-        throw new FormulaError('公式语法错误')
+        throw new FormulaError(t('formula.error.syntax'))
     }
   }
 
-  if (tokens.length === 0) throw new FormulaError('公式为空')
+  if (tokens.length === 0) throw new FormulaError(t('formula.error.empty'))
   const node = parseExpr(1)
-  if (pos < tokens.length) throw new FormulaError('公式语法错误')
+  if (pos < tokens.length) throw new FormulaError(t('formula.error.syntax'))
   return node
 }
 
@@ -211,7 +212,7 @@ function toNumber(v: FormulaValue): number {
   if (typeof v === 'boolean') return v ? 1 : 0
   if (v instanceof Date) return v.getTime()
   const n = Number(v.replace(/,/g, ''))
-  if (Number.isNaN(n)) throw new FormulaError(`"${v}" 不是数字`, '#VALUE!')
+  if (Number.isNaN(n)) throw new FormulaError(t('formula.error.notNumber', { value: String(v) }), '#VALUE!')
   return n
 }
 
@@ -234,7 +235,7 @@ function toDate(v: FormulaValue): Date | null {
   if (v instanceof Date) return v
   if (typeof v === 'number') return new Date(v)
   const d = dayjs(String(v))
-  if (!d.isValid()) throw new FormulaError(`"${v}" 不是日期`, '#VALUE!')
+  if (!d.isValid()) throw new FormulaError(t('formula.error.notDate', { value: String(v) }), '#VALUE!')
   return d.toDate()
 }
 
@@ -269,74 +270,64 @@ function nums(args: FormulaValue[]): number[] {
 
 function arity(name: string, args: FormulaValue[], min: number, max = min) {
   if (args.length < min || args.length > max) {
-    throw new FormulaError(`函数 ${name} 参数数量错误`)
+    throw new FormulaError(t('formula.error.argCount', { name }))
   }
 }
 
-export const FUNCTIONS: Record<string, { fn: Fn; lazy?: boolean; desc: string; usage: string; category: string }> = {
-  SUM: { category: '数学', usage: 'SUM(数值1, 数值2, ...)', desc: '求和', fn: (a) => nums(a).reduce((s, n) => s + n, 0) },
+export type FormulaCategory = 'math' | 'logic' | 'text' | 'date'
+
+const FUNCTION_DEFS: Record<string, { fn: Fn; lazy?: boolean; category: FormulaCategory }> = {
+  SUM: { category: 'math', fn: (a) => nums(a).reduce((s, n) => s + n, 0) },
   AVERAGE: {
-    category: '数学',
-    usage: 'AVERAGE(数值1, 数值2, ...)',
-    desc: '平均值',
+    category: 'math',
     fn: (a) => {
       const n = nums(a)
       return n.length ? n.reduce((s, x) => s + x, 0) / n.length : 0
     },
   },
-  MAX: { category: '数学', usage: 'MAX(数值1, 数值2, ...)', desc: '最大值', fn: (a) => (nums(a).length ? Math.max(...nums(a)) : 0) },
-  MIN: { category: '数学', usage: 'MIN(数值1, 数值2, ...)', desc: '最小值', fn: (a) => (nums(a).length ? Math.min(...nums(a)) : 0) },
+  MAX: { category: 'math', fn: (a) => (nums(a).length ? Math.max(...nums(a)) : 0) },
+  MIN: { category: 'math', fn: (a) => (nums(a).length ? Math.min(...nums(a)) : 0) },
   ROUND: {
-    category: '数学',
-    usage: 'ROUND(数值, 小数位数)',
-    desc: '四舍五入到指定小数位',
+    category: 'math',
     fn: (a) => {
       arity('ROUND', a, 1, 2)
       const p = 10 ** toNumber(a[1] ?? 0)
       return Math.round(toNumber(a[0]!) * p) / p
     },
   },
-  ABS: { category: '数学', usage: 'ABS(数值)', desc: '绝对值', fn: (a) => (arity('ABS', a, 1), Math.abs(toNumber(a[0]!))) },
-  INT: { category: '数学', usage: 'INT(数值)', desc: '向下取整', fn: (a) => (arity('INT', a, 1), Math.floor(toNumber(a[0]!))) },
+  ABS: { category: 'math', fn: (a) => (arity('ABS', a, 1), Math.abs(toNumber(a[0]!))) },
+  INT: { category: 'math', fn: (a) => (arity('INT', a, 1), Math.floor(toNumber(a[0]!))) },
   MOD: {
-    category: '数学',
-    usage: 'MOD(被除数, 除数)',
-    desc: '取余',
+    category: 'math',
     fn: (a) => {
       arity('MOD', a, 2)
       const d = toNumber(a[1]!)
-      if (d === 0) throw new FormulaError('除数不能为 0', '#DIV/0!')
+      if (d === 0) throw new FormulaError(t('formula.error.divByZero'), '#DIV/0!')
       return toNumber(a[0]!) % d
     },
   },
-  POWER: { category: '数学', usage: 'POWER(底数, 指数)', desc: '乘方', fn: (a) => (arity('POWER', a, 2), toNumber(a[0]!) ** toNumber(a[1]!)) },
-  SQRT: { category: '数学', usage: 'SQRT(数值)', desc: '平方根', fn: (a) => (arity('SQRT', a, 1), Math.sqrt(toNumber(a[0]!))) },
+  POWER: { category: 'math', fn: (a) => (arity('POWER', a, 2), toNumber(a[0]!) ** toNumber(a[1]!)) },
+  SQRT: { category: 'math', fn: (a) => (arity('SQRT', a, 1), Math.sqrt(toNumber(a[0]!))) },
   IF: {
-    category: '逻辑',
-    usage: 'IF(条件, 条件为真时的值, 条件为假时的值)',
-    desc: '条件判断',
+    category: 'logic',
     lazy: true,
     fn: () => null,
   },
-  AND: { category: '逻辑', usage: 'AND(条件1, 条件2, ...)', desc: '全部为真时返回 TRUE', fn: (a) => a.every(toBool) },
-  OR: { category: '逻辑', usage: 'OR(条件1, 条件2, ...)', desc: '任一为真时返回 TRUE', fn: (a) => a.some(toBool) },
-  NOT: { category: '逻辑', usage: 'NOT(条件)', desc: '取反', fn: (a) => (arity('NOT', a, 1), !toBool(a[0]!)) },
-  ISBLANK: { category: '逻辑', usage: 'ISBLANK(值)', desc: '是否为空', fn: (a) => (arity('ISBLANK', a, 1), isBlank(a[0]!)) },
-  CONCATENATE: { category: '文本', usage: 'CONCATENATE(文本1, 文本2, ...)', desc: '拼接文本', fn: (a) => a.map(formulaToText).join('') },
-  LEN: { category: '文本', usage: 'LEN(文本)', desc: '文本长度', fn: (a) => (arity('LEN', a, 1), formulaToText(a[0]!).length) },
-  LOWER: { category: '文本', usage: 'LOWER(文本)', desc: '转小写', fn: (a) => (arity('LOWER', a, 1), formulaToText(a[0]!).toLowerCase()) },
-  UPPER: { category: '文本', usage: 'UPPER(文本)', desc: '转大写', fn: (a) => (arity('UPPER', a, 1), formulaToText(a[0]!).toUpperCase()) },
-  TRIM: { category: '文本', usage: 'TRIM(文本)', desc: '去除首尾空白', fn: (a) => (arity('TRIM', a, 1), formulaToText(a[0]!).trim()) },
+  AND: { category: 'logic', fn: (a) => a.every(toBool) },
+  OR: { category: 'logic', fn: (a) => a.some(toBool) },
+  NOT: { category: 'logic', fn: (a) => (arity('NOT', a, 1), !toBool(a[0]!)) },
+  ISBLANK: { category: 'logic', fn: (a) => (arity('ISBLANK', a, 1), isBlank(a[0]!)) },
+  CONCATENATE: { category: 'text', fn: (a) => a.map(formulaToText).join('') },
+  LEN: { category: 'text', fn: (a) => (arity('LEN', a, 1), formulaToText(a[0]!).length) },
+  LOWER: { category: 'text', fn: (a) => (arity('LOWER', a, 1), formulaToText(a[0]!).toLowerCase()) },
+  UPPER: { category: 'text', fn: (a) => (arity('UPPER', a, 1), formulaToText(a[0]!).toUpperCase()) },
+  TRIM: { category: 'text', fn: (a) => (arity('TRIM', a, 1), formulaToText(a[0]!).trim()) },
   LEFT: {
-    category: '文本',
-    usage: 'LEFT(文本, 字符数)',
-    desc: '从左侧截取',
+    category: 'text',
     fn: (a) => (arity('LEFT', a, 1, 2), formulaToText(a[0]!).slice(0, toNumber(a[1] ?? 1))),
   },
   RIGHT: {
-    category: '文本',
-    usage: 'RIGHT(文本, 字符数)',
-    desc: '从右侧截取',
+    category: 'text',
     fn: (a) => {
       arity('RIGHT', a, 1, 2)
       const s = formulaToText(a[0]!)
@@ -345,9 +336,7 @@ export const FUNCTIONS: Record<string, { fn: Fn; lazy?: boolean; desc: string; u
     },
   },
   MID: {
-    category: '文本',
-    usage: 'MID(文本, 起始位置, 字符数)',
-    desc: '从中间截取（位置从 1 开始）',
+    category: 'text',
     fn: (a) => {
       arity('MID', a, 3)
       const start = toNumber(a[1]!) - 1
@@ -355,31 +344,23 @@ export const FUNCTIONS: Record<string, { fn: Fn; lazy?: boolean; desc: string; u
     },
   },
   CONTAINS: {
-    category: '文本',
-    usage: 'CONTAINS(文本, 查找内容)',
-    desc: '是否包含',
+    category: 'text',
     fn: (a) => (arity('CONTAINS', a, 2), formulaToText(a[0]!).includes(formulaToText(a[1]!))),
   },
   SUBSTITUTE: {
-    category: '文本',
-    usage: 'SUBSTITUTE(文本, 旧文本, 新文本)',
-    desc: '替换文本',
+    category: 'text',
     fn: (a) => (arity('SUBSTITUTE', a, 3), formulaToText(a[0]!).split(formulaToText(a[1]!)).join(formulaToText(a[2]!))),
   },
   TODAY: {
-    category: '日期',
-    usage: 'TODAY()',
-    desc: '今天的日期',
+    category: 'date',
     fn: () => dayjs().startOf('day').toDate(),
   },
-  NOW: { category: '日期', usage: 'NOW()', desc: '当前日期时间', fn: () => new Date() },
-  YEAR: { category: '日期', usage: 'YEAR(日期)', desc: '年份', fn: (a) => (arity('YEAR', a, 1), a[0] ? dayjs(toDate(a[0])).year() : null) },
-  MONTH: { category: '日期', usage: 'MONTH(日期)', desc: '月份', fn: (a) => (arity('MONTH', a, 1), a[0] ? dayjs(toDate(a[0])).month() + 1 : null) },
-  DAY: { category: '日期', usage: 'DAY(日期)', desc: '日', fn: (a) => (arity('DAY', a, 1), a[0] ? dayjs(toDate(a[0])).date() : null) },
+  NOW: { category: 'date', fn: () => new Date() },
+  YEAR: { category: 'date', fn: (a) => (arity('YEAR', a, 1), a[0] ? dayjs(toDate(a[0])).year() : null) },
+  MONTH: { category: 'date', fn: (a) => (arity('MONTH', a, 1), a[0] ? dayjs(toDate(a[0])).month() + 1 : null) },
+  DAY: { category: 'date', fn: (a) => (arity('DAY', a, 1), a[0] ? dayjs(toDate(a[0])).date() : null) },
   WEEKDAY: {
-    category: '日期',
-    usage: 'WEEKDAY(日期)',
-    desc: '星期几（周一为 1）',
+    category: 'date',
     fn: (a) => {
       arity('WEEKDAY', a, 1)
       const d = toDate(a[0]!)
@@ -387,9 +368,7 @@ export const FUNCTIONS: Record<string, { fn: Fn; lazy?: boolean; desc: string; u
     },
   },
   DATEDIF: {
-    category: '日期',
-    usage: 'DATEDIF(开始日期, 结束日期, "D" | "M" | "Y")',
-    desc: '两个日期的间隔',
+    category: 'date',
     fn: (a) => {
       arity('DATEDIF', a, 2, 3)
       const s = toDate(a[0]!)
@@ -397,24 +376,50 @@ export const FUNCTIONS: Record<string, { fn: Fn; lazy?: boolean; desc: string; u
       if (!s || !e) return null
       const unit = formulaToText(a[2] ?? 'D').toUpperCase()
       const map: Record<string, 'day' | 'month' | 'year'> = { D: 'day', M: 'month', Y: 'year' }
-      if (!map[unit]) throw new FormulaError('DATEDIF 单位应为 D、M 或 Y')
+      if (!map[unit]) throw new FormulaError(t('formula.error.dateUnit', { name: 'DATEDIF' }))
       return dayjs(e).startOf('day').diff(dayjs(s).startOf('day'), map[unit])
     },
   },
   DATEADD: {
-    category: '日期',
-    usage: 'DATEADD(日期, 数量, "D" | "M" | "Y")',
-    desc: '日期加减',
+    category: 'date',
     fn: (a) => {
       arity('DATEADD', a, 2, 3)
       const d = toDate(a[0]!)
       if (!d) return null
       const unit = formulaToText(a[2] ?? 'D').toUpperCase()
       const map: Record<string, 'day' | 'month' | 'year'> = { D: 'day', M: 'month', Y: 'year' }
-      if (!map[unit]) throw new FormulaError('DATEADD 单位应为 D、M 或 Y')
+      if (!map[unit]) throw new FormulaError(t('formula.error.dateUnit', { name: 'DATEADD' }))
       return dayjs(d).add(toNumber(a[1]!), map[unit]).toDate()
     },
   },
+}
+
+export interface FormulaFunction {
+  fn: Fn
+  lazy?: boolean
+  category: FormulaCategory
+  /** The usage, e.g. SUM(number1, number2, ...). */
+  readonly usage: string
+  readonly desc: string
+}
+
+export const FUNCTIONS: Record<string, FormulaFunction> = Object.fromEntries(
+  Object.entries(FUNCTION_DEFS).map(([name, f]) => [
+    name,
+    {
+      ...f,
+      get usage() {
+        return t(`formula.fn.${name}.usage`)
+      },
+      get desc() {
+        return t(`formula.fn.${name}.desc`)
+      },
+    },
+  ]),
+)
+
+export function formulaCategoryLabel(category: FormulaCategory): string {
+  return t(`formula.category.${category}`)
 }
 
 export type RefResolver = (fieldUID: string) => FormulaValue
@@ -431,7 +436,7 @@ function evaluate(node: FormulaNode, resolve: RefResolver): FormulaValue {
     }
     case 'call': {
       if (node.name === 'IF') {
-        if (node.args.length < 2 || node.args.length > 3) throw new FormulaError('函数 IF 参数数量错误')
+        if (node.args.length < 2 || node.args.length > 3) throw new FormulaError(t('formula.error.argCount', { name: 'IF' }))
         const cond = toBool(evaluate(node.args[0]!, resolve))
         if (cond) return evaluate(node.args[1]!, resolve)
         return node.args[2] ? evaluate(node.args[2], resolve) : null
@@ -455,7 +460,7 @@ function evaluate(node: FormulaNode, resolve: RefResolver): FormulaValue {
           return toNumber(l) * toNumber(r)
         case '/': {
           const d = toNumber(r)
-          if (d === 0) throw new FormulaError('除数不能为 0', '#DIV/0!')
+          if (d === 0) throw new FormulaError(t('formula.error.divByZero'), '#DIV/0!')
           return toNumber(l) / d
         }
         case '%':
@@ -478,7 +483,7 @@ function evaluate(node: FormulaNode, resolve: RefResolver): FormulaValue {
       }
     }
   }
-  throw new FormulaError('公式语法错误')
+  throw new FormulaError(t('formula.error.syntax'))
 }
 
 // ---- Compilation ----

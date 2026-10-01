@@ -2,6 +2,7 @@
 import { Message } from '@arco-design/web-vue'
 import { Check, ChevronRight, Pencil, Search, TriangleAlert } from '@lucide/vue'
 import { computed, nextTick, onMounted, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 
 import FloatingPanel from '@/components/common/FloatingPanel.vue'
 import { useBaseStore } from '@/stores/base'
@@ -12,6 +13,8 @@ import { expToDisplay } from '@/utils/formula'
 import FieldTypeIcon from './FieldTypeIcon.vue'
 import FormulaModal from './FormulaModal.vue'
 import OptionsEditor from './OptionsEditor.vue'
+
+const { t } = useI18n()
 
 const store = useBaseStore()
 const state = computed(() => store.fieldEditor!)
@@ -137,7 +140,7 @@ async function save() {
   if (type.value === 'single_select' || type.value === 'multi_select') {
     const names = namedOptions.value.map((o) => o.name.trim())
     if (new Set(names).size !== names.length) {
-      Message.warning('选项名称不能重复')
+      Message.warning(t('fieldEditor.duplicateOption'))
       return
     }
     metadata.options = namedOptions.value.map((o) => ({ ...o, name: o.name.trim() }))
@@ -179,31 +182,31 @@ const numberExample = computed(() => formatNumber(1234.5678, String(md.value.for
   <FloatingPanel :anchor="state.anchor" :width="340" :close-on-outside="!formulaVisible" :hidden="formulaVisible" @close="close">
     <div class="field-editor" @keydown.enter.ctrl="save" @mousedown="onEditorMouseDown">
       <div class="row">
-        <div class="row-label">标题</div>
+        <div class="row-label">{{ t('fieldEditor.title') }}</div>
         <a-input ref="labelInput" v-model="label" :placeholder="fieldTypeInfo(type).label" :max-length="100" @press-enter="save" />
       </div>
       <div class="row">
-        <div class="row-label">字段类型</div>
+        <div class="row-label">{{ t('fieldEditor.type') }}</div>
         <button ref="typeTrigger" type="button" class="type-trigger" :class="{ open: !!typeMenu }" @click="toggleTypeMenu">
           <FieldTypeIcon :type="type" :size="16" />
           <span class="type-trigger-label">{{ fieldTypeInfo(type).label }}</span>
           <ChevronRight :size="16" class="type-trigger-arrow" />
         </button>
         <div v-if="typeChanged && store.records.length" class="warn">
-          <TriangleAlert :size="14" /> 修改字段类型会转换已有数据，无法转换的内容将被清空
+          <TriangleAlert :size="14" /> {{ t('fieldEditor.typeChangeWarning') }}
         </div>
       </div>
 
       <template v-if="type === 'text'">
         <div class="row">
-          <div class="row-label">默认值</div>
-          <a-input v-model="md.default" placeholder="新增记录时自动填入" allow-clear />
+          <div class="row-label">{{ t('fieldEditor.default') }}</div>
+          <a-input v-model="md.default" :placeholder="t('fieldEditor.defaultPlaceholder')" allow-clear />
         </div>
       </template>
 
       <template v-else-if="type === 'number'">
         <div class="row">
-          <div class="row-label">格式</div>
+          <div class="row-label">{{ t('fieldEditor.format') }}</div>
           <a-select v-model="md.format">
             <a-option v-for="f in NUMBER_FORMATS" :key="f.value" :value="f.value">
               <span class="format-option">
@@ -211,13 +214,13 @@ const numberExample = computed(() => formatNumber(1234.5678, String(md.value.for
               </span>
             </a-option>
           </a-select>
-          <div class="hint">示例：{{ numberExample }}</div>
+          <div class="hint">{{ t('fieldEditor.example', { example: numberExample }) }}</div>
         </div>
         <div class="row">
-          <div class="row-label">默认值</div>
+          <div class="row-label">{{ t('fieldEditor.default') }}</div>
           <a-input-number
             :model-value="(md.default as number | null) ?? undefined"
-            placeholder="不设置"
+            :placeholder="t('fieldEditor.notSet')"
             allow-clear
             @update:model-value="(v: number | undefined) => (md.default = v ?? null)"
           />
@@ -226,21 +229,21 @@ const numberExample = computed(() => formatNumber(1234.5678, String(md.value.for
 
       <template v-else-if="type === 'single_select' || type === 'multi_select'">
         <div class="row">
-          <div class="row-label">选项</div>
+          <div class="row-label">{{ t('fieldEditor.options') }}</div>
           <OptionsEditor v-model="options" />
         </div>
         <div class="row">
-          <div class="row-label">默认值</div>
+          <div class="row-label">{{ t('fieldEditor.default') }}</div>
           <a-select
             v-if="type === 'single_select'"
             :model-value="(md.default as string) || undefined"
-            placeholder="不设置"
+            :placeholder="t('fieldEditor.notSet')"
             allow-clear
             @update:model-value="(v: unknown) => (md.default = (v as string) ?? '')"
           >
             <a-option v-for="o in namedOptions" :key="o.uid" :value="o.uid">{{ o.name }}</a-option>
           </a-select>
-          <a-select v-else v-model="md.default" placeholder="不设置" multiple allow-clear>
+          <a-select v-else v-model="md.default" :placeholder="t('fieldEditor.notSet')" multiple allow-clear>
             <a-option v-for="o in namedOptions" :key="o.uid" :value="o.uid">{{ o.name }}</a-option>
           </a-select>
         </div>
@@ -248,40 +251,40 @@ const numberExample = computed(() => formatNumber(1234.5678, String(md.value.for
 
       <template v-else-if="type === 'datetime'">
         <div class="row">
-          <div class="row-label">日期格式</div>
+          <div class="row-label">{{ t('fieldEditor.dateFormat') }}</div>
           <a-select v-model="md.format">
             <a-option v-for="f in DATE_FORMATS" :key="f.value" :value="f.value">{{ f.label }}</a-option>
           </a-select>
         </div>
         <div class="row inline">
-          <span>包含时间</span>
+          <span>{{ t('fieldEditor.withTime') }}</span>
           <a-switch v-model="md.with_time" size="small" />
         </div>
         <div class="row">
-          <div class="row-label">默认值</div>
+          <div class="row-label">{{ t('fieldEditor.default') }}</div>
           <a-radio-group v-model="md.default">
-            <a-radio value="">无</a-radio>
-            <a-radio value="now">添加记录时的日期</a-radio>
+            <a-radio value="">{{ t('fieldEditor.none') }}</a-radio>
+            <a-radio value="now">{{ t('fieldEditor.dateNow') }}</a-radio>
           </a-radio-group>
         </div>
       </template>
 
       <template v-else-if="type === 'formula'">
         <div class="row">
-          <div class="row-label">公式</div>
+          <div class="row-label">{{ t('fieldType.formula') }}</div>
           <div class="formula-box" @click="formulaVisible = true">
             <span v-if="formulaDisplay" class="formula-text">{{ formulaDisplay }}</span>
-            <span v-else class="placeholder">点击编辑公式</span>
+            <span v-else class="placeholder">{{ t('fieldEditor.editFormula') }}</span>
             <Pencil :size="14" class="formula-edit" />
           </div>
         </div>
       </template>
 
-      <div v-if="isPrimary" class="hint primary-hint">这是索引字段，每条记录的标题来自该字段，不可删除或隐藏。</div>
+      <div v-if="isPrimary" class="hint primary-hint">{{ t('fieldEditor.primaryHint') }}</div>
 
       <div class="footer">
-        <a-button size="small" @click="close">取消</a-button>
-        <a-button size="small" type="primary" :loading="saving" @click="save">确定</a-button>
+        <a-button size="small" @click="close">{{ t('common.cancel') }}</a-button>
+        <a-button size="small" type="primary" :loading="saving" @click="save">{{ t('common.confirm') }}</a-button>
       </div>
     </div>
 
@@ -295,10 +298,10 @@ const numberExample = computed(() => formatNumber(1234.5678, String(md.value.for
       <div class="type-menu">
         <div class="type-search">
           <Search :size="15" />
-          <input ref="typeSearch" v-model="typeKeyword" placeholder="搜索字段类型" @input="typeActive = 0" @keydown="onTypeSearchKey" />
+          <input ref="typeSearch" v-model="typeKeyword" :placeholder="t('fieldEditor.searchType')" @input="typeActive = 0" @keydown="onTypeSearchKey" />
         </div>
         <div class="type-list">
-          <div v-if="filteredTypes.length" class="type-group">常规</div>
+          <div v-if="filteredTypes.length" class="type-group">{{ t('fieldEditor.basic') }}</div>
           <div
             v-for="(t, i) in filteredTypes"
             :key="t.type"
@@ -312,7 +315,7 @@ const numberExample = computed(() => formatNumber(1234.5678, String(md.value.for
             <span class="type-item-label">{{ t.label }}</span>
             <Check v-if="t.type === type" :size="15" class="type-check" />
           </div>
-          <div v-if="!filteredTypes.length" class="type-empty">没有匹配的字段类型</div>
+          <div v-if="!filteredTypes.length" class="type-empty">{{ t('fieldEditor.noType') }}</div>
         </div>
       </div>
     </FloatingPanel>

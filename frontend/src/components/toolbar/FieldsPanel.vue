@@ -1,10 +1,13 @@
 <script setup lang="ts">
 import { GripVertical, Plus, Search } from '@lucide/vue'
 import { computed, onBeforeUnmount, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 
 import FieldTypeIcon from '@/components/field/FieldTypeIcon.vue'
 import { useBaseStore } from '@/stores/base'
 import type { SLField, SLView } from '@/types/bitable'
+
+const { t } = useI18n()
 
 const props = defineProps<{ view: SLView }>()
 const emit = defineEmits<{ close: [] }>()
@@ -158,7 +161,7 @@ function addField(e: MouseEvent) {
 
 <template>
   <div class="fields-panel">
-    <a-input v-model="keyword" size="small" placeholder="搜索字段" allow-clear>
+    <a-input v-model="keyword" size="small" :placeholder="t('toolbar.searchField')" allow-clear>
       <template #prefix><Search :size="13" /></template>
     </a-input>
     <div ref="listEl" class="list" :class="{ sorting: !!drag }">
@@ -174,7 +177,7 @@ function addField(e: MouseEvent) {
         </span>
         <FieldTypeIcon :type="f.type" />
         <span class="label ellipsis">{{ f.label }}</span>
-        <a-tooltip v-if="store.fields[0]?.uid === f.uid" content="索引字段不可隐藏">
+        <a-tooltip v-if="store.fields[0]?.uid === f.uid" :content="t('toolbar.primaryNotHidable')">
           <a-switch size="small" :model-value="true" disabled />
         </a-tooltip>
         <a-switch v-else size="small" :model-value="!hidden.has(f.uid)" @change="(v) => toggle(f.uid, !!v)" />
@@ -182,10 +185,10 @@ function addField(e: MouseEvent) {
       <div v-if="dropLineTop !== null" class="drop-line" :style="{ top: dropLineTop + 'px' }" />
     </div>
     <div class="footer">
-      <button v-if="store.canEdit" class="tool-btn" @click="addField"><Plus :size="14" /> 新增字段</button>
+      <button v-if="store.canEdit" class="tool-btn" @click="addField"><Plus :size="14" /> {{ t('grid.addField') }}</button>
       <span class="spacer" />
-      <button class="tool-btn" @click="setAll(true)">全部显示</button>
-      <button class="tool-btn" @click="setAll(false)">全部隐藏</button>
+      <button class="tool-btn" @click="setAll(true)">{{ t('toolbar.showAll') }}</button>
+      <button class="tool-btn" @click="setAll(false)">{{ t('toolbar.hideAll') }}</button>
     </div>
 
     <Teleport to="body">

@@ -8,13 +8,15 @@
   </head>
   <body>
     <script>
-      // Applies the dark theme before the first paint to avoid a white flash, keep it in sync with src/utils/theme.ts.
+      // Applies the dark theme before the first paint to avoid a white flash, keep it in sync with src/utils/theme.ts and src/i18n/detect.ts.
       try {
         var mode = localStorage.getItem('sayrud.theme')
         if (mode === 'dark' || (mode === 'system' && matchMedia('(prefers-color-scheme: dark)').matches)) {
           document.body.setAttribute('arco-theme', 'dark')
           document.documentElement.style.colorScheme = 'dark'
         }
+        var lang = localStorage.getItem('sayrud.lang')
+        if (lang === 'zh-CN' || lang === 'en-US') document.documentElement.lang = lang
       } catch (e) {}
     </script>
     <div id="app"></div>

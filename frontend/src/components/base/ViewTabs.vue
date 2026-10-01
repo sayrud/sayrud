@@ -2,11 +2,14 @@
 import { Modal } from '@arco-design/web-vue'
 import { Copy, Pencil, Plus, Trash } from '@lucide/vue'
 import { ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 
 import { openMenu } from '@/composables/useContextMenu'
 import { useBaseStore } from '@/stores/base'
 import type { SLView, ViewType } from '@/types/bitable'
 import { VIEW_TYPES, viewTypeInfo } from '@/utils/view'
+
+const { t } = useI18n()
 
 const emit = defineEmits<{ select: [viewUID: string] }>()
 const store = useBaseStore()
@@ -29,9 +32,9 @@ function confirmRename() {
 function openActions(e: MouseEvent, v: SLView) {
   if (!store.canEdit) return
   openMenu(e, [
-    { label: '重命名视图', icon: Pencil, onClick: () => startRename(v) },
+    { label: t('viewTabs.rename'), icon: Pencil, onClick: () => startRename(v) },
     {
-      label: '复制视图',
+      label: t('viewTabs.duplicate'),
       icon: Copy,
       onClick: async () => {
         const nv = await store.duplicateView(v.uid)
@@ -40,16 +43,16 @@ function openActions(e: MouseEvent, v: SLView) {
     },
     { divider: true },
     {
-      label: '删除视图',
+      label: t('viewTabs.delete'),
       icon: Trash,
       danger: true,
       disabled: store.views.length <= 1,
       onClick: () =>
         Modal.warning({
-          title: `删除视图「${v.name}」？`,
-          content: '删除视图不会删除数据表中的记录。',
+          title: t('viewTabs.deleteTitle', { name: v.name }),
+          content: t('viewTabs.deleteContent'),
           hideCancel: false,
-          okText: '删除',
+          okText: t('common.delete'),
           okButtonProps: { status: 'danger' },
           onOk: async () => {
             await store.deleteView(v.uid)
@@ -108,15 +111,15 @@ function onDrop() {
         <span v-else class="tab-name">{{ v.name }}</span>
       </div>
     </div>
-    <a-dropdown v-if="store.canEdit" trigger="click" position="bl" @select="(t) => create(t as ViewType)">
-      <button class="tool-btn add-view"><Plus :size="15" /> 新建视图</button>
+    <a-dropdown v-if="store.canEdit" trigger="click" position="bl" @select="(type) => create(type as ViewType)">
+      <button class="tool-btn add-view"><Plus :size="15" /> {{ t('viewTabs.create') }}</button>
       <template #content>
-        <a-doption v-for="t in VIEW_TYPES" :key="t.type" :value="t.type">
+        <a-doption v-for="vt in VIEW_TYPES" :key="vt.type" :value="vt.type">
           <div class="view-option">
-            <component :is="t.icon" :size="16" :color="t.color" />
+            <component :is="vt.icon" :size="16" :color="vt.color" />
             <div>
-              <div>{{ t.label }}</div>
-              <div class="view-desc">{{ t.description }}</div>
+              <div>{{ vt.label }}</div>
+              <div class="view-desc">{{ vt.description }}</div>
             </div>
           </div>
         </a-doption>

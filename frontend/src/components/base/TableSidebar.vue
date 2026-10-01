@@ -2,9 +2,12 @@
 import { Message, Modal } from '@arco-design/web-vue'
 import { ChevronsLeft, Copy, Ellipsis, Pencil, Plus, Search, Table2, Trash, X } from '@lucide/vue'
 import { computed, nextTick, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 
 import { openMenu } from '@/composables/useContextMenu'
 import { useBaseStore } from '@/stores/base'
+
+const { t } = useI18n()
 
 const emit = defineEmits<{ select: [tableUID: string]; collapse: [] }>()
 const store = useBaseStore()
@@ -16,7 +19,7 @@ const creating = ref(false)
 
 const tables = computed(() => {
   const k = keyword.value.trim().toLowerCase()
-  return k ? store.tables.filter((t) => t.name.toLowerCase().includes(k)) : store.tables
+  return k ? store.tables.filter((tb) => tb.name.toLowerCase().includes(k)) : store.tables
 })
 
 const vFocus = { mounted: (el: HTMLInputElement) => (el.focus(), el.select()) }
@@ -25,12 +28,13 @@ async function create() {
   if (creating.value) return
   creating.value = true
   try {
-    let name = '数据表'
-    for (let i = 1; store.tables.some((t) => t.name === name); i++) name = `数据表 ${i}`
-    const t = await store.createTable(name)
-    emit('select', t.uid)
+    const base = t('tableSidebar.defaultName')
+    let name = base
+    for (let i = 1; store.tables.some((tb) => tb.name === name); i++) name = `${base} ${i}`
+    const table = await store.createTable(name)
+    emit('select', table.uid)
     await nextTick()
-    startRename(t.uid, t.name)
+    startRename(table.uid, table.name)
   } catch (e) {
     Message.error(e instanceof Error ? e.message : String(e))
   } finally {
@@ -54,16 +58,16 @@ function openActions(e: MouseEvent, uid: string, name: string) {
   if (!store.canEdit) return
   const r = (e.currentTarget as HTMLElement).getBoundingClientRect()
   openMenu(e.type === 'contextmenu' ? e : { x: r.left, y: r.bottom + 4 }, [
-    { label: '重命名', icon: Pencil, onClick: () => startRename(uid, name) },
+    { label: t('common.rename'), icon: Pencil, onClick: () => startRename(uid, name) },
     {
-      label: '复制数据表',
+      label: t('tableSidebar.duplicate'),
       icon: Copy,
       onClick: async () => {
-        const hide = Message.loading({ content: '正在复制…', duration: 0 })
+        const hide = Message.loading({ content: t('tableSidebar.duplicating'), duration: 0 })
         try {
-          const t = await store.duplicateTable(uid)
-          if (t) emit('select', t.uid)
-          Message.success('复制成功')
+          const table = await store.duplicateTable(uid)
+          if (table) emit('select', table.uid)
+          Message.success(t('tableSidebar.duplicated'))
         } finally {
           hide.close()
         }
@@ -71,16 +75,16 @@ function openActions(e: MouseEvent, uid: string, name: string) {
     },
     { divider: true },
     {
-      label: '删除数据表',
+      label: t('tableSidebar.delete'),
       icon: Trash,
       danger: true,
       disabled: store.tables.length <= 1,
       onClick: () =>
         Modal.warning({
-          title: `删除数据表「${name}」？`,
-          content: '表中的字段、记录和视图将被一并删除。',
+          title: t('tableSidebar.deleteTitle', { name }),
+          content: t('tableSidebar.deleteContent'),
           hideCancel: false,
-          okText: '删除',
+          okText: t('common.delete'),
           okButtonProps: { status: 'danger' },
           onOk: async () => {
             await store.deleteTable(uid)
@@ -98,13 +102,13 @@ function openActions(e: MouseEvent, uid: string, name: string) {
     <div class="side-head">
       <label class="side-search">
         <Search :size="15" class="search-icon" />
-        <input v-model="keyword" placeholder="搜索" @keydown.esc="keyword = ''" />
-        <button v-if="keyword" class="icon-btn sm clear" title="清空" @click="keyword = ''"><X :size="13" /></button>
+        <input v-model="keyword" :placeholder="t('common.search')" @keydown.esc="keyword = ''" />
+        <button v-if="keyword" class="icon-btn sm clear" :title="t('common.clear')" @click="keyword = ''"><X :size="13" /></button>
       </label>
-      <a-tooltip v-if="store.canEdit" content="新建数据表" mini>
+      <a-tooltip v-if="store.canEdit" :content="t('tableSidebar.create')" mini>
         <button class="icon-btn" :disabled="creating" @click="create"><Plus :size="17" /></button>
       </a-tooltip>
-      <a-tooltip content="收起侧边栏" mini>
+      <a-tooltip :content="t('tableSidebar.collapse')" mini>
         <button class="icon-btn" @click="emit('collapse')"><ChevronsLeft :size="17" /></button>
       </a-tooltip>
     </div>

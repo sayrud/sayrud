@@ -13,6 +13,6 @@ const (
 type ApplyTables []*ApplyTable
 
 type ApplyTable struct {
-	TableName  string `json:"tableName" valid:"required" label:"数据表名"`
-	TableLabel string `json:"tableLabel" valid:"required" label:"数据表标签"`
+	TableName  string `json:"tableName" valid:"required"`
+	TableLabel string `json:"tableLabel" valid:"required"`
 }

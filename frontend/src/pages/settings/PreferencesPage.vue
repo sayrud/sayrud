@@ -1,19 +1,24 @@
 <script setup lang="ts">
 import { Check } from '@lucide/vue'
+import { useI18n } from 'vue-i18n'
 
 import PageHeader from '@/components/console/PageHeader.vue'
 import SettingsSection from '@/components/console/SettingsSection.vue'
+import { type AppLocale, LOCALE_OPTIONS } from '@/i18n'
+import { useLocaleStore } from '@/stores/locale'
 import { useThemeStore } from '@/stores/theme'
 import { THEME_OPTIONS, type ThemeMode } from '@/utils/theme'
 
 const themeStore = useThemeStore()
+const localeStore = useLocaleStore()
+const { t } = useI18n()
 </script>
 
 <template>
   <div>
-    <PageHeader title="偏好设置" description="随账号同步，在你登录的所有设备上生效" />
+    <PageHeader :title="t('settings.preferences.title')" :description="t('settings.preferences.description')" />
 
-    <SettingsSection title="外观" description="选择界面的颜色主题，跟随系统时会随操作系统的深浅色自动切换">
+    <SettingsSection :title="t('settings.preferences.appearance')" :description="t('settings.preferences.appearanceDescription')">
       <a-radio-group
         :model-value="themeStore.mode"
         class="themes"
@@ -41,6 +46,16 @@ const themeStore = useThemeStore()
         </a-radio>
       </a-radio-group>
     </SettingsSection>
+
+    <SettingsSection :title="t('common.language')" :description="t('settings.preferences.languageDescription')">
+      <a-select
+        class="locales"
+        :model-value="localeStore.locale"
+        @change="(v) => localeStore.setLocale(v as AppLocale)"
+      >
+        <a-option v-for="o in LOCALE_OPTIONS" :key="o.value" :value="o.value">{{ o.label }}</a-option>
+      </a-select>
+    </SettingsSection>
   </div>
 </template>
 
@@ -50,6 +65,10 @@ const themeStore = useThemeStore()
   flex-wrap: wrap;
   gap: 16px;
   padding: 8px 0 16px;
+}
+.locales {
+  width: 240px;
+  margin: 8px 0 16px;
 }
 .themes :deep(.arco-radio) {
   margin: 0;

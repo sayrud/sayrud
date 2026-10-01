@@ -11,6 +11,8 @@ import {
 } from '@lucide/vue'
 import type { Component } from 'vue'
 
+import { t } from '@/i18n'
+
 export interface NavItem {
   /** Route name. */
   name: string
@@ -23,41 +25,63 @@ export interface NavGroup {
   items: NavItem[]
 }
 
+function navItem(name: string, icon: Component, label: () => string): NavItem {
+  return {
+    name,
+    icon,
+    get label() {
+      return label()
+    },
+  }
+}
+
 export const SETTINGS_NAV: NavGroup[] = [
   {
-    title: '个人',
+    get title() {
+      return t('consoleNav.settingsPersonal')
+    },
     items: [
-      { name: 'settings-profile', label: '个人信息', icon: UserRound },
-      { name: 'settings-preferences', label: '偏好设置', icon: Palette },
+      navItem('settings-profile', UserRound, () => t('consoleNav.profile')),
+      navItem('settings-preferences', Palette, () => t('consoleNav.preferences')),
     ],
   },
   {
-    title: '安全',
+    get title() {
+      return t('consoleNav.settingsSecurity')
+    },
     items: [
-      { name: 'settings-security', label: '账号与安全', icon: ShieldCheck },
-      { name: 'settings-devices', label: '登录设备', icon: MonitorSmartphone },
+      navItem('settings-security', ShieldCheck, () => t('consoleNav.security')),
+      navItem('settings-devices', MonitorSmartphone, () => t('consoleNav.devices')),
     ],
   },
 ]
 
 export const ADMIN_NAV: NavGroup[] = [
   {
-    title: '概览',
-    items: [{ name: 'admin-overview', label: '概览', icon: LayoutDashboard }],
+    get title() {
+      return t('consoleNav.overview')
+    },
+    items: [navItem('admin-overview', LayoutDashboard, () => t('consoleNav.overview'))],
   },
   {
-    title: '组织管理',
-    items: [{ name: 'admin-users', label: '成员管理', icon: UsersRound }],
+    get title() {
+      return t('consoleNav.organization')
+    },
+    items: [navItem('admin-users', UsersRound, () => t('consoleNav.users'))],
   },
   {
-    title: '数据管理',
-    items: [{ name: 'admin-projects', label: '多维表格', icon: Table2 }],
+    get title() {
+      return t('consoleNav.data')
+    },
+    items: [navItem('admin-projects', Table2, () => t('consoleNav.projects'))],
   },
   {
-    title: '系统设置',
+    get title() {
+      return t('consoleNav.system')
+    },
     items: [
-      { name: 'admin-security', label: '安全与注册', icon: LockKeyhole },
-      { name: 'admin-site', label: '站点信息', icon: Globe },
+      navItem('admin-security', LockKeyhole, () => t('consoleNav.adminSecurity')),
+      navItem('admin-site', Globe, () => t('consoleNav.site')),
     ],
   },
 ]

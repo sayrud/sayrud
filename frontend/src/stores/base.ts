@@ -4,6 +4,7 @@ import { computed, reactive, ref, shallowRef, watch } from 'vue'
 
 import { projectsApi, syncApi, tablesApi, type TableListItem } from '@/api/bitable'
 import { ApiError } from '@/api/client'
+import { t } from '@/i18n'
 import { ProjectSocket } from '@/collab/socket'
 import { TableSync } from '@/collab/tableSync'
 import type { Action, Member, Operation } from '@/collab/types'
@@ -145,7 +146,7 @@ export const useBaseStore = defineStore('base', () => {
     if (canEdit.value) return true
     if (Date.now() - deniedToastAt > 2000) {
       deniedToastAt = Date.now()
-      Message.warning('你只有查看权限，无法编辑')
+      Message.warning(t('base.viewOnly'))
     }
     return false
   }
@@ -253,7 +254,7 @@ export const useBaseStore = defineStore('base', () => {
     if (!project.value || data.projectUID !== project.value.uid) return
     if (!data.role) {
       socket.value?.close()
-      accessDenied.value = '你已被移出该多维表格，请联系所有者重新添加'
+      accessDenied.value = t('base.removed')
       return
     }
     try {
@@ -263,7 +264,7 @@ export const useBaseStore = defineStore('base', () => {
       return
     }
     if (canEdit.value) localViewConfigs.value = {}
-    Message.info(`你的权限已变更为「${ROLE_LABELS[data.role]}」`)
+    Message.info(t('base.roleChanged', { role: ROLE_LABELS[data.role] }))
   }
 
   async function openProject(projectUID: string) {
@@ -294,7 +295,7 @@ export const useBaseStore = defineStore('base', () => {
           project.value = await projectsApi.get(projectUID)
         } catch {
           project.value = null
-          Message.warning('项目已被删除')
+          Message.warning(t('base.projectDeleted'))
         }
       }),
     ]
@@ -317,7 +318,7 @@ export const useBaseStore = defineStore('base', () => {
     let sync = syncs.get(tableUID)
     if (!sync) {
       sync = new TableSync(socket.value!, pid(), tableUID, {
-        onReject: (msg) => Message.error(`同步失败：${msg}，已重新加载数据`),
+        onReject: (msg) => Message.error(t('base.syncFailed', { msg })),
       })
       syncs.set(tableUID, sync)
       await sync.start()
@@ -373,7 +374,7 @@ export const useBaseStore = defineStore('base', () => {
         if (activeTableUID.value !== tableUID) return
         activeSync.value = sync
         if (!sync.views.value.length && canEdit.value) {
-          submit([op('AddView', [{ action: 'view.add', viewUID: newViewUID(), view: { name: '表格', type: 'grid', config: defaultViewConfig() as unknown as Record<string, unknown> } }])])
+          submit([op('AddView', [{ action: 'view.add', viewUID: newViewUID(), view: { name: viewTypeInfo('grid').defaultName, type: 'grid', config: defaultViewConfig() as unknown as Record<string, unknown> } }])])
         }
       } finally {
         switchingTable.value = false
@@ -392,28 +393,28 @@ export const useBaseStore = defineStore('base', () => {
   }
 
   async function createTable(name: string) {
-    if (!ensureEditable()) throw new Error('没有编辑权限')
+    if (!ensureEditable()) throw new Error(t('base.noEditPermission'))
     const table = await tablesApi.create(pid(), name)
     tableList.value = [...tableList.value, { ...table, count: 5 }]
     const sync = await ensureSync(table.uid)
     submit(
       [
         op('AddTable', [
-          addFieldAction({ label: '文本', type: 'text', metadata: defaultMetadata('text') }),
+          addFieldAction({ label: t('base.defaultTextField'), type: 'text', metadata: defaultMetadata('text') }),
           addFieldAction({
-            label: '单选',
+            label: t('base.defaultSelectField'),
             type: 'single_select',
             metadata: {
               options: [
-                { uid: newOptionUID(), name: '选项 1', color: 0 },
-                { uid: newOptionUID(), name: '选项 2', color: 1 },
+                { uid: newOptionUID(), name: t('base.defaultOption', { n: 1 }), color: 0 },
+                { uid: newOptionUID(), name: t('base.defaultOption', { n: 2 }), color: 1 },
               ],
               default: '',
             },
           }),
-          addFieldAction({ label: '日期', type: 'datetime', metadata: defaultMetadata('datetime') }),
+          addFieldAction({ label: t('base.defaultDateField'), type: 'datetime', metadata: defaultMetadata('datetime') }),
           ...Array.from({ length: 5 }, (): Action => ({ action: 'record.add', recordUID: newRecordUID(), values: {} })),
-          addViewAction('表格', 'grid', defaultViewConfig()),
+          addViewAction(viewTypeInfo('grid').defaultName, 'grid', defaultViewConfig()),
         ]),
       ],
       sync,
@@ -450,7 +451,7 @@ export const useBaseStore = defineStore('base', () => {
     const src = tableList.value.find((t) => t.uid === tableUID)
     if (!src || !ensureEditable()) return
     const data = syncs.get(tableUID)?.data ?? (await syncApi.snapshot(pid(), tableUID))
-    const table = await tablesApi.create(pid(), `${src.name} 副本`)
+    const table = await tablesApi.create(pid(), t('base.copyName', { name: src.name }))
     tableList.value = [...tableList.value, { ...table, count: data.records.length }]
 
     const map = new Map(data.fields.map((f) => [f.uid, newFieldUID()]))
@@ -478,9 +479,9 @@ export const useBaseStore = defineStore('base', () => {
   // ---- Fields ----
 
   function fieldLabelError(label: string, fieldUID?: string): string | null {
-    if (!label) return '字段标题不能为空'
-    if (label === '_uid') return '字段名 _uid 不可用'
-    if (fields.value.some((f) => f.label === label && f.uid !== fieldUID)) return `字段「${label}」已存在`
+    if (!label) return t('base.fieldTitleRequired')
+    if (label === '_uid') return t('base.fieldUidReserved')
+    if (fields.value.some((f) => f.label === label && f.uid !== fieldUID)) return t('base.fieldExists', { label })
     return null
   }
 
@@ -536,7 +537,7 @@ export const useBaseStore = defineStore('base', () => {
 
   async function deleteField(fieldUID: string) {
     if (primaryField.value?.uid === fieldUID) {
-      Message.error('索引字段不可删除')
+      Message.error(t('base.primaryFieldUndeletable'))
       return
     }
     const actions: Action[] = [{ action: 'field.delete', fieldUID }]
@@ -594,7 +595,7 @@ export const useBaseStore = defineStore('base', () => {
     const redo = [op('AddRecords', addRecordActions(list))]
     submit(redo)
     if (opts.history !== false) {
-      pushHistory({ label: '新增记录', undo: [op('DeleteRecords', [{ action: 'record.delete', recordUIDs: list.map((r) => r.uid) }])], redo })
+      pushHistory({ label: t('base.historyAddRecords'), undo: [op('DeleteRecords', [{ action: 'record.delete', recordUIDs: list.map((r) => r.uid) }])], redo })
     }
     return list.map((r) => recordMap.value.get(r.uid)).filter(Boolean) as SLRecord[]
   }
@@ -605,7 +606,7 @@ export const useBaseStore = defineStore('base', () => {
   }
 
   /** Updates some fields of the records in batch, only the changed cells are submitted, and it can be undone. */
-  async function updateRecords(patches: { uid: string; data: RecordData }[], label = '编辑记录') {
+  async function updateRecords(patches: { uid: string; data: RecordData }[], label = t('base.historyEditRecords')) {
     if (!ensureEditable()) return
     const before: Action[] = []
     const after: Action[] = []
@@ -640,11 +641,11 @@ export const useBaseStore = defineStore('base', () => {
     const sync = activeSync.value
     const tableUID = activeTableUID.value
     Modal.warning({
-      title: `删除 ${recordUIDs.length} 条记录？`,
-      content: '所选记录将从当前数据表的所有视图中删除。',
+      title: t('base.deleteRecordsTitle', { n: recordUIDs.length }, recordUIDs.length),
+      content: t('base.deleteRecordsContent'),
       hideCancel: false,
-      okText: '删除',
-      cancelText: '取消',
+      okText: t('common.delete'),
+      cancelText: t('common.cancel'),
       okButtonProps: { status: 'danger' },
       onOk: () => {
         if (activeSync.value !== sync || activeTableUID.value !== tableUID) return
@@ -655,8 +656,8 @@ export const useBaseStore = defineStore('base', () => {
         selectedRecords.value = selectedRecords.value.filter((u) => !recordUIDs.includes(u))
         if (expandedRecord.value && recordUIDs.includes(expandedRecord.value.uid)) expandedRecord.value = null
         // Undo recreates the records with the original UIDs, so the references of the other collaborators stay valid.
-        pushHistory({ label: '删除记录', undo: [op('AddRecords', addRecordActions(removed))], redo })
-        Message.success(`已删除 ${removed.length} 条记录`)
+        pushHistory({ label: t('base.historyDeleteRecords'), undo: [op('AddRecords', addRecordActions(removed))], redo })
+        Message.success(t('base.recordsDeleted', { n: removed.length }, removed.length))
       },
     })
   }
@@ -674,7 +675,7 @@ export const useBaseStore = defineStore('base', () => {
     undoStack.value = undoStack.value.slice(0, -1)
     submit(entry.undo)
     redoStack.value = [...redoStack.value, entry]
-    Message.info({ content: `已撤销：${entry.label}`, duration: 1200 })
+    Message.info({ content: t('base.undone', { label: entry.label }), duration: 1200 })
   }
 
   async function redo() {
@@ -683,7 +684,7 @@ export const useBaseStore = defineStore('base', () => {
     redoStack.value = redoStack.value.slice(0, -1)
     submit(entry.redo)
     undoStack.value = [...undoStack.value, entry]
-    Message.info({ content: `已重做：${entry.label}`, duration: 1200 })
+    Message.info({ content: t('base.redone', { label: entry.label }), duration: 1200 })
   }
 
   // ---- Views ----
@@ -696,7 +697,7 @@ export const useBaseStore = defineStore('base', () => {
       localViewConfigs.value = { ...localViewConfigs.value, [viewUID]: config }
       if (!localConfigTipShown) {
         localConfigTipShown = true
-        Message.info({ content: '你只有查看权限，视图设置仅自己可见，刷新后恢复', duration: 3000 })
+        Message.info({ content: t('base.viewOnlyConfig'), duration: 3000 })
       }
       return
     }
@@ -706,7 +707,7 @@ export const useBaseStore = defineStore('base', () => {
   async function createView(type: ViewType, name?: string, config?: Partial<ViewConfig>) {
     if (!ensureEditable()) return null
     const info = viewTypeInfo(type)
-    const base = name ?? info.label.replace('视图', '')
+    const base = name ?? info.defaultName
     let n = base
     for (let i = 2; views.value.some((v) => v.name === n); i++) n = `${base} ${i}`
     const extra: Partial<ViewConfig> = { ...config }
@@ -728,13 +729,13 @@ export const useBaseStore = defineStore('base', () => {
   async function duplicateView(viewUID: string) {
     const v = views.value.find((x) => x.uid === viewUID)
     if (!v) return
-    return createView(v.type, `${v.name} 副本`, JSON.parse(JSON.stringify(v.config)))
+    return createView(v.type, t('base.copyName', { name: v.name }), JSON.parse(JSON.stringify(v.config)))
   }
 
   async function deleteView(viewUID: string) {
     if (!ensureEditable()) return
     if (views.value.length <= 1) {
-      Message.error('至少保留一个视图')
+      Message.error(t('base.keepOneView'))
       return
     }
     submit([op('DeleteView', [{ action: 'view.delete', viewUID }])])

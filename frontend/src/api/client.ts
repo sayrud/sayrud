@@ -1,5 +1,7 @@
 import axios, { type AxiosResponse } from 'axios'
 
+import { t } from '@/i18n'
+
 import { Api } from './api'
 
 export const API_BASE = '/_'
@@ -37,9 +39,9 @@ client.instance.interceptors.response.use(
     if (axios.isAxiosError<Partial<HttpResponse>>(error) && error.response) {
       const { status, data } = error.response
       if (status === 401 && !error.config?.url?.startsWith('/auth/sign-')) unauthorizedHandler?.()
-      return Promise.reject(new ApiError(status, data?.msg || `请求失败（${status}）`))
+      return Promise.reject(new ApiError(status, data?.msg || t('common.requestFailed', { status })))
     }
-    return Promise.reject(new ApiError(0, '网络连接失败'))
+    return Promise.reject(new ApiError(0, t('common.networkError')))
   },
 )
 

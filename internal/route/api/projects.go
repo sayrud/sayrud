@@ -30,7 +30,7 @@ func (projectRoute) Projecter(ctx context.Context, user *db.User) error {
 	project, err := db.Projects.GetByUID(ctx.Request().Context(), projectUID)
 	if err != nil {
 		if errors.Is(err, db.ErrProjectNotFound) {
-			return ctx.ApiError(http.StatusNotFound, "项目不存在")
+			return ctx.ApiError(http.StatusNotFound, "project::not_found")
 		}
 		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to get project by UID")
 		return ctx.ApiServerError()
@@ -41,7 +41,7 @@ func (projectRoute) Projecter(ctx context.Context, user *db.User) error {
 		role, err = db.ProjectMembers.GetRole(ctx.Request().Context(), project.ID, user.ID)
 		if err != nil {
 			if errors.Is(err, db.ErrProjectMemberNotFound) {
-				return ctx.ApiError(http.StatusForbidden, "你没有该多维表格的访问权限，请联系所有者添加")
+				return ctx.ApiError(http.StatusForbidden, "project::no_access")
 			}
 			logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to get project role")
 			return ctx.ApiServerError()
@@ -53,17 +53,17 @@ func (projectRoute) Projecter(ctx context.Context, user *db.User) error {
 	return nil
 }
 
-var roleDeniedMessages = map[db.ProjectRole]string{
-	db.ProjectRoleEditor:  "你没有编辑权限",
-	db.ProjectRoleManager: "只有可管理权限的协作者才能进行此操作",
-	db.ProjectRoleOwner:   "只有所有者才能进行此操作",
+var roleDeniedKeys = map[db.ProjectRole]string{
+	db.ProjectRoleEditor:  "project::editor_required",
+	db.ProjectRoleManager: "project::manager_required",
+	db.ProjectRoleOwner:   "project::owner_required",
 }
 
 // RequireRole responds 403 unless the signed-in user has at least the given role on the project.
 func (projectRoute) RequireRole(min db.ProjectRole) flamego.Handler {
 	return func(ctx context.Context, role db.ProjectRole) error {
 		if !role.AtLeast(min) {
-			return ctx.ApiError(http.StatusForbidden, "%s", roleDeniedMessages[min])
+			return ctx.ApiError(http.StatusForbidden, roleDeniedKeys[min])
 		}
 		return nil
 	}
@@ -264,7 +264,7 @@ func (projectRoute) DeleteProject(ctx context.Context, hub *collab.Hub, project 
 func (projectRoute) TransferOwner(ctx context.Context, hub *collab.Hub, project *db.Project, f form.TransferProjectOwner) error {
 	if _, err := db.ProjectMembers.GetRole(ctx.Request().Context(), project.ID, f.UserID); err != nil {
 		if errors.Is(err, db.ErrProjectMemberNotFound) {
-			return ctx.ApiError(http.StatusBadRequest, "只能转移给现有协作者")
+			return ctx.ApiError(http.StatusBadRequest, "project::transfer_to_collaborator")
 		}
 		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to get project role")
 		return ctx.ApiServerError()
@@ -273,7 +273,7 @@ func (projectRoute) TransferOwner(ctx context.Context, hub *collab.Hub, project 
 		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to get new owner")
 		return ctx.ApiServerError()
 	} else if msg != "" {
-		return ctx.ApiError(http.StatusBadRequest, "%s", msg)
+		return ctx.ApiError(http.StatusBadRequest, msg)
 	}
 
 	if err := transferProject(ctx, hub, project, f.UserID); err != nil {
@@ -283,17 +283,17 @@ func (projectRoute) TransferOwner(ctx context.Context, hub *collab.Hub, project 
 	return ctx.Status(http.StatusNoContent)
 }
 
-// transferTargetError returns the message if the user can not receive projects, or an empty string.
+// transferTargetError returns the message key if the user can not receive projects, or an empty string.
 func transferTargetError(ctx context.Context, userID int64) (string, error) {
 	user, err := db.Users.GetByID(ctx.Request().Context(), userID)
 	if err != nil {
 		if errors.Is(err, db.ErrUserNotFound) {
-			return "接收人不存在", nil
+			return "project::recipient_not_found", nil
 		}
 		return "", err
 	}
 	if user.Disabled() {
-		return "接收人账号已停用", nil
+		return "project::recipient_disabled", nil
 	}
 	return "", nil
 }
@@ -367,7 +367,7 @@ func (projectRoute) LookupMemberCandidate(ctx context.Context) error {
 	user, err := db.Users.GetByEmail(ctx.Request().Context(), ctx.Query("email"))
 	if err != nil {
 		if errors.Is(err, db.ErrUserNotFound) {
-			return ctx.ApiError(http.StatusNotFound, "该邮箱尚未注册")
+			return ctx.ApiError(http.StatusNotFound, "project::email_not_registered")
 		}
 		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to get user by email")
 		return ctx.ApiServerError()
@@ -392,18 +392,18 @@ func (projectRoute) LookupMemberCandidate(ctx context.Context) error {
 func (projectRoute) AddMember(ctx context.Context, hub *collab.Hub, project *db.Project, f form.AddProjectMember) error {
 	role := db.ProjectRole(f.Role)
 	if !role.IsMemberRole() {
-		return ctx.ApiError(http.StatusBadRequest, "不支持的权限")
+		return ctx.ApiError(http.StatusBadRequest, "project::unsupported_role")
 	}
 	user, err := db.Users.GetByEmail(ctx.Request().Context(), f.Email)
 	if err != nil {
 		if errors.Is(err, db.ErrUserNotFound) {
-			return ctx.ApiError(http.StatusNotFound, "该邮箱尚未注册")
+			return ctx.ApiError(http.StatusNotFound, "project::email_not_registered")
 		}
 		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to get user by email")
 		return ctx.ApiServerError()
 	}
 	if user.ID == project.OwnerUserID {
-		return ctx.ApiError(http.StatusBadRequest, "该用户是多维表格的所有者")
+		return ctx.ApiError(http.StatusBadRequest, "project::user_is_owner")
 	}
 
 	if err := db.ProjectMembers.Set(ctx.Request().Context(), project.ID, user.ID, role); err != nil {
@@ -431,19 +431,19 @@ func (projectRoute) AddMember(ctx context.Context, hub *collab.Hub, project *db.
 func (projectRoute) UpdateMember(ctx context.Context, hub *collab.Hub, user *db.User, project *db.Project, f form.UpdateProjectMember) error {
 	role := db.ProjectRole(f.Role)
 	if !role.IsMemberRole() {
-		return ctx.ApiError(http.StatusBadRequest, "不支持的权限")
+		return ctx.ApiError(http.StatusBadRequest, "project::unsupported_role")
 	}
 	userID := ctx.ParamInt64("userID")
 	if userID == project.OwnerUserID {
-		return ctx.ApiError(http.StatusBadRequest, "不能修改所有者的权限")
+		return ctx.ApiError(http.StatusBadRequest, "project::cannot_change_owner_role")
 	}
 	if userID == user.ID {
-		return ctx.ApiError(http.StatusBadRequest, "不能修改自己的权限")
+		return ctx.ApiError(http.StatusBadRequest, "project::cannot_change_own_role")
 	}
 
 	if _, err := db.ProjectMembers.GetRole(ctx.Request().Context(), project.ID, userID); err != nil {
 		if errors.Is(err, db.ErrProjectMemberNotFound) {
-			return ctx.ApiError(http.StatusNotFound, "协作者不存在")
+			return ctx.ApiError(http.StatusNotFound, "project::collaborator_not_found")
 		}
 		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to get project role")
 		return ctx.ApiServerError()
@@ -471,15 +471,15 @@ func (projectRoute) UpdateMember(ctx context.Context, hub *collab.Hub, user *db.
 func (projectRoute) RemoveMember(ctx context.Context, hub *collab.Hub, user *db.User, project *db.Project, role db.ProjectRole) error {
 	userID := ctx.ParamInt64("userID")
 	if userID == project.OwnerUserID {
-		return ctx.ApiError(http.StatusBadRequest, "不能移除所有者")
+		return ctx.ApiError(http.StatusBadRequest, "project::cannot_remove_owner")
 	}
 	if userID != user.ID && !role.AtLeast(db.ProjectRoleManager) {
-		return ctx.ApiError(http.StatusForbidden, "%s", roleDeniedMessages[db.ProjectRoleManager])
+		return ctx.ApiError(http.StatusForbidden, roleDeniedKeys[db.ProjectRoleManager])
 	}
 
 	if err := db.ProjectMembers.Delete(ctx.Request().Context(), project.ID, userID); err != nil {
 		if errors.Is(err, db.ErrProjectMemberNotFound) {
-			return ctx.ApiError(http.StatusNotFound, "协作者不存在")
+			return ctx.ApiError(http.StatusNotFound, "project::collaborator_not_found")
 		}
 		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to remove project member")
 		return ctx.ApiServerError()

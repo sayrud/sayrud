@@ -28,14 +28,14 @@ func (schemalessRoute) Tabler(ctx context.Context, project *db.Project) error {
 	slTable, err := db.SLTables.GetByUID(ctx.Request().Context(), tableUID)
 	if err != nil {
 		if errors.Is(err, db.ErrSLTableNotFound) {
-			return ctx.ApiError(http.StatusNotFound, "数据表不存在")
+			return ctx.ApiError(http.StatusNotFound, "table::not_found")
 		}
 		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to get sl table by UID")
 		return ctx.ApiServerError()
 	}
 
 	if project.ID != slTable.ProjectID {
-		return ctx.ApiError(http.StatusNotFound, "数据表不存在")
+		return ctx.ApiError(http.StatusNotFound, "table::not_found")
 	}
 
 	ctx.Map(slTable)
@@ -107,7 +107,7 @@ func (schemalessRoute) CreateTable(ctx context.Context, hub *collab.Hub, project
 	})
 	if err != nil {
 		if errors.Is(err, db.ErrSLTableExists) {
-			return ctx.ApiError(http.StatusConflict, "数据表已存在")
+			return ctx.ApiError(http.StatusConflict, "table::exists")
 		}
 		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to create sl table")
 		return ctx.ApiServerError()

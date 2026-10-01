@@ -3,7 +3,6 @@ package collab
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -14,17 +13,18 @@ import (
 	"github.com/wuhan005/sayrud/internal/routeutil"
 )
 
-// OperationError rejects the whole changeset, the message is shown to the user.
+// OperationError rejects the whole changeset, Key is the message key shown to the user in the language of the connection.
 type OperationError struct {
-	Message string
+	Key  string
+	Args []interface{}
 }
 
 func (e *OperationError) Error() string {
-	return e.Message
+	return e.Key
 }
 
-func rejectf(format string, args ...interface{}) error {
-	return &OperationError{Message: fmt.Sprintf(format, args...)}
+func rejectf(key string, args ...interface{}) error {
+	return &OperationError{Key: key, Args: args}
 }
 
 // applier applies the operations to a table within a transaction.
@@ -39,10 +39,13 @@ type applier struct {
 	fields []*db.SLField
 	views  []*db.SLView
 	dirty  DirtyScope
+
+	// boolText returns the text of the checkbox values when converting them to text.
+	boolText func(bool) string
 }
 
-func newApplier(ctx context.Context, tx *gorm.DB, table *db.SLTable) (*applier, error) {
-	a := &applier{ctx: ctx, tx: tx, table: table}
+func newApplier(ctx context.Context, tx *gorm.DB, table *db.SLTable, boolText func(bool) string) (*applier, error) {
+	a := &applier{ctx: ctx, tx: tx, table: table, boolText: boolText}
 	if err := a.reloadFields(); err != nil {
 		return nil, err
 	}
@@ -144,7 +147,7 @@ func (a *applier) applyAction(action Action) (*Action, error) {
 	case ActionDeleteView:
 		return a.deleteView(action)
 	default:
-		return nil, rejectf("不支持的操作：%s", action.Action)
+		return nil, rejectf("collab::unsupported_action", action.Action)
 	}
 }
 
@@ -154,7 +157,7 @@ func (a *applier) addRecords(actions []Action) ([]Action, error) {
 	dataList := make([]json.RawMessage, 0, len(actions))
 	for _, action := range actions {
 		if !recordUIDPattern.MatchString(action.RecordUID) {
-			return nil, rejectf("记录 UID 格式错误")
+			return nil, rejectf("collab::invalid_record_uid")
 		}
 		data, dropped := validator.Normalize(action.Values)
 		if dropped {
@@ -173,7 +176,7 @@ func (a *applier) addRecords(actions []Action) ([]Action, error) {
 		UIDs: uids,
 	}); err != nil {
 		if errors.Is(err, db.ErrSLRecordExists) {
-			return nil, rejectf("记录已存在")
+			return nil, rejectf("collab::record_exists")
 		}
 		return nil, errors.Wrap(err, "import records")
 	}
@@ -234,11 +237,11 @@ func (a *applier) setRecords(actions []Action) ([]Action, error) {
 func (a *applier) checkFieldLabel(label, fieldUID string) error {
 	switch {
 	case label == "":
-		return rejectf("字段标题不能为空")
+		return rejectf("collab::field_title_required")
 	case label == "_uid":
-		return rejectf("字段名 _uid 不可用")
+		return rejectf("collab::field_uid_reserved")
 	case lo.ContainsBy(a.fields, func(f *db.SLField) bool { return f.Label == label && f.UID != fieldUID }):
-		return rejectf("字段「%s」已存在", label)
+		return rejectf("collab::field_label_exists", label)
 	default:
 		return nil
 	}
@@ -246,10 +249,10 @@ func (a *applier) checkFieldLabel(label, fieldUID string) error {
 
 func (a *applier) addField(action Action) (*Action, error) {
 	if !fieldUIDPattern.MatchString(action.FieldUID) {
-		return nil, rejectf("字段 UID 格式错误")
+		return nil, rejectf("collab::invalid_field_uid")
 	}
 	if action.Field == nil || action.Field.Label == nil || action.Field.Type == nil {
-		return nil, rejectf("字段标题和类型不能为空")
+		return nil, rejectf("collab::field_title_type_required")
 	}
 	label := strings.TrimSpace(*action.Field.Label)
 	if err := a.checkFieldLabel(label, action.FieldUID); err != nil {
@@ -272,9 +275,9 @@ func (a *applier) addField(action Action) (*Action, error) {
 	if err != nil {
 		switch {
 		case errors.Is(err, db.ErrUnexpectedType):
-			return nil, rejectf("字段类型错误")
+			return nil, rejectf("collab::invalid_field_type")
 		case errors.Is(err, db.ErrSLFieldExists):
-			return nil, rejectf("字段已存在")
+			return nil, rejectf("collab::field_exists")
 		default:
 			return nil, errors.Wrap(err, "create field")
 		}
@@ -390,7 +393,7 @@ func (a *applier) setFieldType(action Action) (*Action, error) {
 	}
 	newType := db.SLFieldType(*action.Field.Type)
 	if !newType.Check() {
-		return nil, rejectf("字段类型错误")
+		return nil, rejectf("collab::invalid_field_type")
 	}
 	metadata := action.Field.Metadata
 	if metadata == nil {
@@ -401,7 +404,7 @@ func (a *applier) setFieldType(action Action) (*Action, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "list records")
 	}
-	conversion, err := convertField(field, newType, metadata, records)
+	conversion, err := convertField(field, newType, metadata, records, a.boolText)
 	if err != nil {
 		return nil, errors.Wrap(err, "convert field")
 	}
@@ -441,7 +444,7 @@ func (a *applier) deleteField(action Action) (*Action, error) {
 		return nil, nil
 	}
 	if a.fields[0].UID == field.UID {
-		return nil, rejectf("索引字段不可删除")
+		return nil, rejectf("collab::primary_field_undeletable")
 	}
 	if err := db.NewSLFieldsStore(a.tx).DeleteByID(a.ctx, field.ID); err != nil {
 		return nil, errors.Wrap(err, "delete field")
@@ -464,14 +467,14 @@ func (a *applier) view(uid string) (*db.SLView, error) {
 
 func (a *applier) addView(action Action) (*Action, error) {
 	if !viewUIDPattern.MatchString(action.ViewUID) {
-		return nil, rejectf("视图 UID 格式错误")
+		return nil, rejectf("collab::invalid_view_uid")
 	}
 	if action.View == nil || action.View.Name == nil || action.View.Type == nil {
-		return nil, rejectf("视图名称和类型不能为空")
+		return nil, rejectf("collab::view_name_type_required")
 	}
 	name := strings.TrimSpace(*action.View.Name)
 	if name == "" {
-		return nil, rejectf("视图名称不能为空")
+		return nil, rejectf("collab::view_name_required")
 	}
 	config, err := json.Marshal(lo.Ternary(action.View.Config == nil, map[string]interface{}{}, action.View.Config))
 	if err != nil {
@@ -493,9 +496,9 @@ func (a *applier) addView(action Action) (*Action, error) {
 	if err != nil {
 		switch {
 		case errors.Is(err, db.ErrUnexpectedSLView):
-			return nil, rejectf("视图类型错误")
+			return nil, rejectf("collab::invalid_view_type")
 		case errors.Is(err, db.ErrSLViewExists):
-			return nil, rejectf("视图已存在")
+			return nil, rejectf("collab::view_exists")
 		default:
 			return nil, errors.Wrap(err, "create view")
 		}
@@ -519,7 +522,7 @@ func (a *applier) setView(action Action) (*Action, error) {
 	if action.View.Name != nil {
 		name := strings.TrimSpace(*action.View.Name)
 		if name == "" {
-			return nil, rejectf("视图名称不能为空")
+			return nil, rejectf("collab::view_name_required")
 		}
 		action.View.Name = &name
 		options.Name = &name
@@ -553,7 +556,7 @@ func (a *applier) deleteView(action Action) (*Action, error) {
 		return nil, err
 	}
 	if len(a.views) <= 1 {
-		return nil, rejectf("至少保留一个视图")
+		return nil, rejectf("collab::keep_one_view")
 	}
 	if err := db.NewSLViewsStore(a.tx).DeleteByID(a.ctx, view.ID); err != nil {
 		return nil, errors.Wrap(err, "delete view")

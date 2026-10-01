@@ -13,6 +13,7 @@ import {
 import dayjs from 'dayjs'
 import relativeTime from 'dayjs/plugin/relativeTime'
 import { computed, onMounted, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useRouter, type RouteLocationRaw } from 'vue-router'
 
 import { adminApi, type AdminOverview, type AdminUser } from '@/api/admin'
@@ -20,6 +21,8 @@ import UserAvatar from '@/components/common/UserAvatar.vue'
 import PageHeader from '@/components/console/PageHeader.vue'
 import SettingsSection from '@/components/console/SettingsSection.vue'
 import { useAuthStore } from '@/stores/auth'
+
+const { t } = useI18n()
 
 dayjs.extend(relativeTime)
 
@@ -42,34 +45,48 @@ const stats = computed<Stat[]>(() => {
   if (!d) return []
   return [
     {
-      label: '成员',
+      label: t('admin.overview.members'),
       value: d.users.total,
-      note: d.users.disabled ? `其中 ${d.users.disabled} 人已停用` : `${d.users.admins} 位管理员`,
+      note: d.users.disabled
+        ? t('admin.overview.membersDisabled', { n: d.users.disabled }, d.users.disabled)
+        : t('admin.overview.membersAdmins', { n: d.users.admins }, d.users.admins),
       icon: UsersRound,
       color: '#3370ff',
       to: { name: 'admin-users' },
     },
-    { label: '近 7 天新增', value: d.users.newLast7Days, note: '新注册或新建的成员', icon: UserPlus, color: '#14c0a7' },
     {
-      label: '多维表格',
+      label: t('admin.overview.newMembers'),
+      value: d.users.newLast7Days,
+      note: t('admin.overview.newMembersNote'),
+      icon: UserPlus,
+      color: '#14c0a7',
+    },
+    {
+      label: t('admin.overview.bases'),
       value: d.projects,
-      note: '全站多维表格总数',
+      note: t('admin.overview.basesNote'),
       icon: Table2,
       color: '#7f3bf5',
       to: { name: 'admin-projects' },
     },
-    { label: '数据表', value: d.tables, note: '所有多维表格中的数据表', icon: Layers, color: '#ff8800' },
-    { label: '记录', value: d.records, note: '所有数据表中的记录', icon: Database, color: '#f5319d' },
-    { label: '有效会话', value: d.activeSessions, note: '未过期的登录会话', icon: MonitorSmartphone, color: '#00b2d6' },
+    { label: t('admin.overview.tables'), value: d.tables, note: t('admin.overview.tablesNote'), icon: Layers, color: '#ff8800' },
+    { label: t('admin.overview.records'), value: d.records, note: t('admin.overview.recordsNote'), icon: Database, color: '#f5319d' },
+    {
+      label: t('admin.overview.sessions'),
+      value: d.activeSessions,
+      note: t('admin.overview.sessionsNote'),
+      icon: MonitorSmartphone,
+      color: '#00b2d6',
+    },
   ]
 })
 
 const greeting = computed(() => {
   const h = new Date().getHours()
-  if (h < 6) return '夜深了'
-  if (h < 12) return '上午好'
-  if (h < 18) return '下午好'
-  return '晚上好'
+  if (h < 6) return t('admin.overview.lateNight')
+  if (h < 12) return t('admin.overview.morning')
+  if (h < 18) return t('admin.overview.afternoon')
+  return t('admin.overview.evening')
 })
 
 onMounted(async () => {
@@ -85,7 +102,10 @@ onMounted(async () => {
 
 <template>
   <div>
-    <PageHeader :title="`${greeting}，${auth.user?.userName ?? ''}`" description="这里是系统的整体情况" />
+    <PageHeader
+      :title="t('admin.overview.greeting', { greeting, name: auth.user?.userName ?? '' })"
+      :description="t('admin.overview.description')"
+    />
 
     <a-spin :loading="loading" class="spin">
       <a-grid :cols="{ xs: 1, sm: 2, lg: 3 }" :col-gap="16" :row-gap="16">
@@ -113,10 +133,10 @@ onMounted(async () => {
 
       <a-row v-if="data" :gutter="16" class="columns">
         <a-col :xs="24" :lg="16">
-          <SettingsSection title="最近加入的成员" flush>
+          <SettingsSection :title="t('admin.overview.recentMembers')" flush>
             <template #extra>
               <a-button type="text" size="small" @click="router.push({ name: 'admin-users' })">
-                查看全部 <ChevronRight :size="14" />
+                {{ t('admin.overview.viewAll') }} <ChevronRight :size="14" />
               </a-button>
             </template>
             <a-list :data="data.recentUsers" :bordered="false" class="recent">
@@ -129,8 +149,8 @@ onMounted(async () => {
                     <template #title>
                       <a-space :size="6">
                         <span>{{ (item as AdminUser).userName }}</span>
-                        <a-tag v-if="(item as AdminUser).isAdmin" color="arcoblue" size="small">管理员</a-tag>
-                        <a-tag v-if="(item as AdminUser).disabled" size="small">已停用</a-tag>
+                        <a-tag v-if="(item as AdminUser).isAdmin" color="arcoblue" size="small">{{ t('admin.users.statusAdmin') }}</a-tag>
+                        <a-tag v-if="(item as AdminUser).disabled" size="small">{{ t('admin.users.statusDisabled') }}</a-tag>
                       </a-space>
                     </template>
                     <template #description>
@@ -146,30 +166,34 @@ onMounted(async () => {
           </SettingsSection>
         </a-col>
         <a-col :xs="24" :lg="8" class="side">
-          <SettingsSection title="系统信息">
+          <SettingsSection :title="t('admin.overview.systemInfo')">
             <a-descriptions :column="1" size="medium" class="info" :value-style="{ textAlign: 'right' }">
-              <a-descriptions-item label="注册">
+              <a-descriptions-item :label="t('admin.overview.signUp')">
                 <a-tag :color="data.system.settings.allowSignUp ? 'green' : 'gray'" size="small">
-                  {{ data.system.settings.allowSignUp ? '开放注册' : '已关闭' }}
+                  {{ data.system.settings.allowSignUp ? t('admin.overview.signUpOpen') : t('admin.security.closed') }}
                 </a-tag>
               </a-descriptions-item>
-              <a-descriptions-item label="密码最小长度">{{ data.system.settings.passwordMinLength }} 位</a-descriptions-item>
-              <a-descriptions-item label="登录有效期">{{ data.system.settings.sessionTTLDays }} 天</a-descriptions-item>
-              <a-descriptions-item label="版本">
-                {{ data.system.buildCommit ? data.system.buildCommit.slice(0, 7) : '开发版本' }}
+              <a-descriptions-item :label="t('admin.security.passwordMinLength')">{{
+                t('admin.overview.characters', { n: data.system.settings.passwordMinLength })
+              }}</a-descriptions-item>
+              <a-descriptions-item :label="t('admin.security.sessionTTL')">{{
+                t('admin.overview.days', { n: data.system.settings.sessionTTLDays }, data.system.settings.sessionTTLDays)
+              }}</a-descriptions-item>
+              <a-descriptions-item :label="t('admin.overview.version')">
+                {{ data.system.buildCommit ? data.system.buildCommit.slice(0, 7) : t('admin.overview.devBuild') }}
               </a-descriptions-item>
               <a-descriptions-item label="Go">{{ data.system.goVersion }}</a-descriptions-item>
             </a-descriptions>
           </SettingsSection>
-          <SettingsSection title="快捷入口">
+          <SettingsSection :title="t('admin.overview.shortcuts')">
             <a-space direction="vertical" fill class="shortcuts">
               <a-button long @click="router.push({ name: 'admin-users' })">
                 <template #icon><UserPlus :size="15" /></template>
-                新建成员
+                {{ t('admin.users.create') }}
               </a-button>
               <a-button long @click="router.push({ name: 'admin-security' })">
                 <template #icon><LockKeyhole :size="15" /></template>
-                安全与注册
+                {{ t('consoleNav.adminSecurity') }}
               </a-button>
             </a-space>
           </SettingsSection>

@@ -142,7 +142,7 @@ func (h *Hub) Commit(ctx context.Context, project *db.Project, table *db.SLTable
 
 	var changesets []*Changeset
 	if err := h.db.Transaction(func(tx *gorm.DB) error {
-		a, err := newApplier(ctx, tx, table)
+		a, err := newApplier(ctx, tx, table, sender.boolText)
 		if err != nil {
 			return err
 		}

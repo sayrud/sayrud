@@ -27,14 +27,14 @@ func (schemalessRoute) Fielder(ctx context.Context, table *db.SLTable) error {
 	slField, err := db.SLFields.GetByUID(ctx.Request().Context(), fieldUID)
 	if err != nil {
 		if errors.Is(err, db.ErrSLFieldNotFound) {
-			return ctx.ApiError(http.StatusNotFound, "数据表字段不存在")
+			return ctx.ApiError(http.StatusNotFound, "field::not_found")
 		}
 		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to get sl field by UID")
 		return ctx.ApiServerError()
 	}
 
 	if slField.SLTableID != table.ID {
-		return ctx.ApiError(http.StatusNotFound, "数据表字段不存在")
+		return ctx.ApiError(http.StatusNotFound, "field::not_found")
 	}
 
 	ctx.Map(slField)
@@ -88,13 +88,13 @@ func checkFieldLabel(label string, otherLabels []string) error {
 func fieldErrorResponse(err error) (statusCode int, msg string, ok bool) {
 	switch {
 	case errors.Is(err, ErrEmptyFieldLabel):
-		return http.StatusBadRequest, "字段标题不能为空", true
+		return http.StatusBadRequest, "field::title_required", true
 	case errors.Is(err, ErrReserveUIDField):
-		return http.StatusBadRequest, "字段名 _uid 不可用", true
+		return http.StatusBadRequest, "field::uid_reserved", true
 	case errors.Is(err, ErrFieldLabelExists), errors.Is(err, db.ErrSLFieldExists):
-		return http.StatusConflict, "字段已存在", true
+		return http.StatusConflict, "field::exists", true
 	case errors.Is(err, db.ErrUnexpectedType):
-		return http.StatusBadRequest, "字段类型错误", true
+		return http.StatusBadRequest, "field::invalid_type", true
 	default:
 		return 0, "", false
 	}
@@ -161,7 +161,7 @@ func (schemalessRoute) CreateFields(ctx context.Context, hub *collab.Hub, projec
 		return nil
 	}); err != nil {
 		if statusCode, msg, ok := fieldErrorResponse(err); ok {
-			return ctx.ApiError(statusCode, "%s", msg)
+			return ctx.ApiError(statusCode, msg)
 		}
 		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to create sl fields")
 		return ctx.ApiServerError()
@@ -236,7 +236,7 @@ func (schemalessRoute) UpdateField(ctx context.Context, hub *collab.Hub, project
 		return nil
 	}); err != nil {
 		if statusCode, msg, ok := fieldErrorResponse(err); ok {
-			return ctx.ApiError(statusCode, "%s", msg)
+			return ctx.ApiError(statusCode, msg)
 		}
 		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to update sl field")
 		return ctx.ApiServerError()
@@ -309,7 +309,7 @@ func (schemalessRoute) DeleteField(ctx context.Context, hub *collab.Hub, project
 func (schemalessRoute) FieldTypes(ctx context.Context) error {
 	fieldTypes := make(map[db.SLFieldType]string, len(db.AllFieldTypes))
 	for _, fieldType := range db.AllFieldTypes {
-		fieldTypes[fieldType] = fieldType.Label()
+		fieldTypes[fieldType] = ctx.Tr(fieldType.LabelKey())
 	}
 	return ctx.ApiSuccess(fieldTypes)
 }

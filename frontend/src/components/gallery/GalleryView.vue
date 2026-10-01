@@ -1,11 +1,14 @@
 <script setup lang="ts">
 import { Plus } from '@lucide/vue'
 import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 
 import RecordCard from '@/components/kanban/RecordCard.vue'
 import { keepRecordInView, useViewData } from '@/composables/useViewData'
 import { useBaseStore } from '@/stores/base'
 import type { SLView } from '@/types/bitable'
+
+const { t } = useI18n()
 
 const props = defineProps<{ view: SLView }>()
 const store = useBaseStore()
@@ -36,9 +39,9 @@ async function add() {
         class="gallery-card"
         @open="store.expandRecord(r.uid, uids)"
       />
-      <button v-if="store.canEdit" class="add-card" @click="add"><Plus :size="20" /> 添加记录</button>
+      <button v-if="store.canEdit" class="add-card" @click="add"><Plus :size="20" /> {{ t('grid.addRecord') }}</button>
     </div>
-    <div v-if="!searchedRows.length && store.search.term" class="empty">没有匹配「{{ store.search.term }}」的记录</div>
+    <div v-if="!searchedRows.length && store.search.term" class="empty">{{ t('gallery.noMatch', { term: store.search.term }) }}</div>
   </div>
 </template>
 

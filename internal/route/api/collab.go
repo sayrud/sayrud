@@ -40,7 +40,7 @@ func (collabRoute) Serve(ctx context.Context, hub *collab.Hub, project *db.Proje
 		Name:     user.UserName,
 		Color:    dto.UserColor(user.ID),
 		CanEdit:  role.AtLeast(db.ProjectRoleEditor),
-	}); err != nil {
+	}, ctx.Locale()); err != nil {
 		// The upgrader has written the error response.
 		logrus.WithContext(ctx.Request().Context()).WithError(err).Warn("Failed to serve WebSocket")
 	}
@@ -174,7 +174,7 @@ func (collabRoute) ListViews(ctx context.Context, table *db.SLTable) error {
 // @Router /projects/{projectUID}/tables/{tableUID}/records/fetch [post]
 func (collabRoute) FetchRecords(ctx context.Context, table *db.SLTable, f form.FetchRecords) error {
 	if len(f.UIDs) > 1000 {
-		return ctx.ApiError(http.StatusBadRequest, "一次最多获取 1000 条记录")
+		return ctx.ApiError(http.StatusBadRequest, "record::too_many_records")
 	}
 	records, err := db.SLRecords.ListByUIDs(ctx.Request().Context(), table.ID, f.UIDs)
 	if err != nil {

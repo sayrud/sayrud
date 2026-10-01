@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import { Message, type FieldRule, type FormInstance } from '@arco-design/web-vue'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 
 import logoDark from '@/assets/logo-dark.svg'
 import logo from '@/assets/logo.svg'
+import LocaleSwitch from '@/components/common/LocaleSwitch.vue'
 import { safeRedirect } from '@/router'
 import { useAuthStore } from '@/stores/auth'
 import { useSiteStore } from '@/stores/site'
@@ -15,6 +17,7 @@ const router = useRouter()
 const auth = useAuthStore()
 const site = useSiteStore()
 const themeStore = useThemeStore()
+const { t, locale } = useI18n()
 
 const isRegister = computed(() => route.name === 'register')
 const minLength = computed(() => site.info.passwordMinLength)
@@ -25,19 +28,19 @@ const error = ref('')
 
 const rules = computed<Record<string, FieldRule[]>>(() => ({
   email: [
-    { required: true, message: '请输入邮箱' },
-    { type: 'email', message: '请输入正确的邮箱' },
+    { required: true, message: t('auth.emailRequired') },
+    { type: 'email', message: t('auth.emailInvalid') },
   ],
-  userName: [{ required: true, message: '请输入用户名' }],
+  userName: [{ required: true, message: t('auth.userNameRequired') }],
   password: isRegister.value
     ? [
-        { required: true, message: '请输入密码' },
-        { minLength: minLength.value, message: `密码至少 ${minLength.value} 位` },
+        { required: true, message: t('auth.passwordRequired') },
+        { minLength: minLength.value, message: t('auth.passwordTooShort', { n: minLength.value }) },
       ]
-    : [{ required: true, message: '请输入密码' }],
+    : [{ required: true, message: t('auth.passwordRequired') }],
   confirm: [
-    { required: true, message: '请再次输入密码' },
-    { validator: (value, cb) => cb(value === form.password ? undefined : '两次输入的密码不一致') },
+    { required: true, message: t('auth.confirmRequired') },
+    { validator: (value, cb) => cb(value === form.password ? undefined : t('auth.passwordMismatch')) },
   ],
 }))
 
@@ -47,7 +50,7 @@ async function submit() {
   try {
     if (isRegister.value) {
       await auth.signUp(form.email.trim(), form.userName.trim(), form.password)
-      Message.success('注册成功')
+      Message.success(t('auth.signUpSuccess'))
     } else {
       await auth.signIn(form.email.trim(), form.password)
     }
@@ -68,8 +71,8 @@ function switchMode() {
 }
 
 watch(
-  [isRegister, () => site.info.siteName],
-  () => (document.title = site.title(isRegister.value ? '注册' : '登录')),
+  [isRegister, () => site.info.siteName, locale],
+  () => (document.title = site.title(isRegister.value ? t('auth.signUp') : t('auth.signIn'))),
   { immediate: true },
 )
 onMounted(() => site.ensureLoaded())
@@ -77,51 +80,52 @@ onMounted(() => site.ensureLoaded())
 
 <template>
   <div class="auth">
+    <div class="auth-locale"><LocaleSwitch /></div>
     <a-card class="auth-card" :bordered="false">
       <img class="brand" :src="themeStore.theme === 'dark' ? logoDark : logo" :alt="site.info.siteName" />
-      <a-typography-title :heading="4" class="title">{{ isRegister ? '注册账号' : '登录' }}</a-typography-title>
+      <a-typography-title :heading="4" class="title">{{ isRegister ? t('auth.signUpTitle') : t('auth.signIn') }}</a-typography-title>
       <a-typography-paragraph v-if="!isRegister || site.info.allowSignUp" type="secondary">
-        {{ isRegister ? '创建账号后即可新建多维表格并邀请协作者' : `使用邮箱和密码登录 ${site.info.siteName}` }}
+        {{ isRegister ? t('auth.signUpSubtitle') : t('auth.signInSubtitle', { site: site.info.siteName }) }}
       </a-typography-paragraph>
 
       <template v-if="isRegister && !site.info.allowSignUp">
-        <a-result status="403" title="注册已关闭" subtitle="请联系管理员为你创建账号">
+        <a-result status="403" :title="t('auth.signUpClosed')" :subtitle="t('auth.signUpClosedHint')">
           <template #extra>
-            <a-button type="primary" @click="switchMode">去登录</a-button>
+            <a-button type="primary" @click="switchMode">{{ t('auth.goSignIn') }}</a-button>
           </template>
         </a-result>
       </template>
 
       <a-form v-else ref="formRef" :model="form" :rules="rules" layout="vertical" @submit-success="submit">
-        <a-form-item field="email" label="邮箱" validate-trigger="blur">
+        <a-form-item field="email" :label="t('auth.email')" validate-trigger="blur">
           <a-input v-model="form.email" size="large" placeholder="name@example.com" autocomplete="email" :max-length="254" />
         </a-form-item>
-        <a-form-item v-if="isRegister" field="userName" label="用户名" validate-trigger="blur">
-          <a-input v-model="form.userName" size="large" placeholder="协作者看到的名字" autocomplete="nickname" :max-length="32" />
+        <a-form-item v-if="isRegister" field="userName" :label="t('auth.userName')" validate-trigger="blur">
+          <a-input v-model="form.userName" size="large" :placeholder="t('auth.userNamePlaceholder')" autocomplete="nickname" :max-length="32" />
         </a-form-item>
-        <a-form-item field="password" label="密码" validate-trigger="blur">
+        <a-form-item field="password" :label="t('auth.password')" validate-trigger="blur">
           <a-input-password
             v-model="form.password"
             size="large"
-            :placeholder="isRegister ? `至少 ${minLength} 位` : '请输入密码'"
+            :placeholder="isRegister ? t('auth.passwordMinPlaceholder', { n: minLength }) : t('auth.passwordRequired')"
             :autocomplete="isRegister ? 'new-password' : 'current-password'"
             :max-length="64"
           />
         </a-form-item>
-        <a-form-item v-if="isRegister" field="confirm" label="确认密码" validate-trigger="blur">
-          <a-input-password v-model="form.confirm" size="large" placeholder="再次输入密码" autocomplete="new-password" :max-length="64" />
+        <a-form-item v-if="isRegister" field="confirm" :label="t('auth.confirmPassword')" validate-trigger="blur">
+          <a-input-password v-model="form.confirm" size="large" :placeholder="t('auth.confirmPlaceholder')" autocomplete="new-password" :max-length="64" />
         </a-form-item>
 
         <a-alert v-if="error" type="error" class="error">{{ error }}</a-alert>
 
         <a-button type="primary" html-type="submit" size="large" long :loading="submitting">
-          {{ isRegister ? '注册并登录' : '登录' }}
+          {{ isRegister ? t('auth.signUpAndSignIn') : t('auth.signIn') }}
         </a-button>
       </a-form>
 
       <div v-if="site.info.allowSignUp" class="switch">
-        <a-typography-text type="secondary">{{ isRegister ? '已有账号？' : '还没有账号？' }}</a-typography-text>
-        <a-link @click="switchMode">{{ isRegister ? '去登录' : '立即注册' }}</a-link>
+        <a-typography-text type="secondary">{{ isRegister ? t('auth.haveAccount') : t('auth.noAccount') }}</a-typography-text>
+        <a-link @click="switchMode">{{ isRegister ? t('auth.goSignIn') : t('auth.signUpNow') }}</a-link>
       </div>
     </a-card>
   </div>
@@ -129,6 +133,7 @@ onMounted(() => site.ensureLoaded())
 
 <style scoped>
 .auth {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -138,6 +143,11 @@ onMounted(() => site.ensureLoaded())
     radial-gradient(circle at 15% 20%, rgba(51, 112, 255, 0.12), transparent 40%),
     radial-gradient(circle at 85% 80%, rgba(20, 192, 167, 0.1), transparent 40%),
     var(--bg-base);
+}
+.auth-locale {
+  position: absolute;
+  top: 16px;
+  right: 16px;
 }
 .auth-card {
   width: 400px;

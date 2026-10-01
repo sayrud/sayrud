@@ -1,10 +1,13 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 
 import CellDisplay from '@/components/cell/CellDisplay.vue'
 import { useBaseStore } from '@/stores/base'
 import type { SLField, SLRecord } from '@/types/bitable'
 import { isEmptyValue } from '@/utils/format'
+
+const { t } = useI18n()
 
 const props = withDefaults(defineProps<{ record: SLRecord; fields: SLField[]; maxFields?: number; showEmpty?: boolean }>(), {
   maxFields: 6,
@@ -25,7 +28,7 @@ const bodyFields = computed(() =>
 
 <template>
   <div class="record-card" @click="$emit('open')">
-    <div class="card-title" :class="{ empty: !title }">{{ title || '未命名记录' }}</div>
+    <div class="card-title" :class="{ empty: !title }">{{ title || t('record.untitled') }}</div>
     <div v-for="f in bodyFields" :key="f.uid" class="card-field">
       <div class="card-label ellipsis">{{ f.label }}</div>
       <div class="card-value">

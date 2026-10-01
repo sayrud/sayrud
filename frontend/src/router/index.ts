@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 
 import { onUnauthorized } from '@/api/client'
+import { t } from '@/i18n'
 import { ADMIN_NAV, SETTINGS_NAV } from '@/layouts/consoleNav'
 import { useAuthStore } from '@/stores/auth'
 
@@ -16,7 +17,8 @@ const router = createRouter({
     {
       path: '/settings',
       component: () => import('@/layouts/ConsoleLayout.vue'),
-      props: { title: '账号设置', nav: SETTINGS_NAV },
+      // The function props are evaluated when rendering, so the title follows the language.
+      props: () => ({ title: t('userMenu.accountSettings'), nav: SETTINGS_NAV }),
       redirect: { name: 'settings-profile' },
       children: [
         { path: 'profile', name: 'settings-profile', component: () => import('@/pages/settings/ProfilePage.vue') },
@@ -32,7 +34,7 @@ const router = createRouter({
     {
       path: '/admin',
       component: () => import('@/layouts/ConsoleLayout.vue'),
-      props: { title: '管理后台', nav: ADMIN_NAV },
+      props: () => ({ title: t('userMenu.adminConsole'), nav: ADMIN_NAV }),
       meta: { admin: true },
       redirect: { name: 'admin-overview' },
       children: [

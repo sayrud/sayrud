@@ -15,6 +15,7 @@ import (
 	"github.com/wuhan005/sayrud/internal/dbutil"
 	"github.com/wuhan005/sayrud/internal/dto"
 	"github.com/wuhan005/sayrud/internal/form"
+	"github.com/wuhan005/sayrud/internal/i18n"
 )
 
 var Admin adminRoute
@@ -26,20 +27,20 @@ type adminTarget struct {
 	*db.User
 }
 
-const lastAdminMessage = "至少需要保留一位启用中的管理员"
+const lastAdminKey = "admin::last_admin"
 
-// selfOperationError returns the message if the admin performs the action on itself, or an empty string.
-func selfOperationError(operatorID, targetID int64, action string) string {
+// selfOperationError returns the error of the message key if the admin performs the action on itself.
+func selfOperationError(operatorID, targetID int64, key string) error {
 	if operatorID == targetID {
-		return "不能" + action + "自己的账号"
+		return i18n.Errorf(key)
 	}
-	return ""
+	return nil
 }
 
 // RequireAdmin responds 403 unless the signed-in user is an admin.
 func (adminRoute) RequireAdmin(ctx context.Context, user *db.User) error {
 	if !user.IsAdmin {
-		return ctx.ApiError(http.StatusForbidden, "只有管理员才能访问管理后台")
+		return ctx.ApiError(http.StatusForbidden, "admin::admin_only")
 	}
 	return nil
 }
@@ -49,7 +50,7 @@ func (adminRoute) Targeter(ctx context.Context) error {
 	user, err := db.Users.GetByID(ctx.Request().Context(), ctx.ParamInt64("userID"))
 	if err != nil {
 		if errors.Is(err, db.ErrUserNotFound) {
-			return ctx.ApiError(http.StatusNotFound, "成员不存在")
+			return ctx.ApiError(http.StatusNotFound, "admin::member_not_found")
 		}
 		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to get target user")
 		return ctx.ApiServerError()
@@ -63,7 +64,7 @@ func (adminRoute) Projecter(ctx context.Context) error {
 	project, err := db.Projects.GetByUID(ctx.Request().Context(), ctx.Param("projectUID"))
 	if err != nil {
 		if errors.Is(err, db.ErrProjectNotFound) {
-			return ctx.ApiError(http.StatusNotFound, "多维表格不存在")
+			return ctx.ApiError(http.StatusNotFound, "admin::base_not_found")
 		}
 		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to get project by UID")
 		return ctx.ApiServerError()
@@ -188,20 +189,20 @@ func (adminRoute) ListUsers(ctx context.Context) error {
 func (adminRoute) CreateUser(ctx context.Context, f form.AdminCreateUser) error {
 	userName := strings.TrimSpace(f.UserName)
 	if userName == "" {
-		return ctx.ApiError(http.StatusBadRequest, "用户名不能为空")
+		return ctx.ApiError(http.StatusBadRequest, "auth::user_name_required")
 	}
 	settings, ok := loadSettings(ctx)
 	if !ok {
 		return nil
 	}
-	if msg := passwordTooShort(settings, f.Password); msg != "" {
-		return ctx.ApiError(http.StatusBadRequest, "%s", msg)
+	if err := passwordTooShort(settings, f.Password, "auth::password_too_short"); err != nil {
+		return ctx.ApiErrorFrom(http.StatusBadRequest, err)
 	}
 
 	user, err := db.Users.Create(ctx.Request().Context(), db.CreateUserOptions{Email: f.Email, UserName: userName, Password: f.Password})
 	if err != nil {
 		if errors.Is(err, db.ErrUserAlreadyExisted) {
-			return ctx.ApiError(http.StatusConflict, "该邮箱已注册")
+			return ctx.ApiError(http.StatusConflict, "auth::email_taken")
 		}
 		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to create user")
 		return ctx.ApiServerError()
@@ -232,7 +233,7 @@ func (adminRoute) CreateUser(ctx context.Context, f form.AdminCreateUser) error 
 func (adminRoute) UpdateUser(ctx context.Context, target *adminTarget, f form.AdminUpdateUser) error {
 	userName := strings.TrimSpace(f.UserName)
 	if userName == "" {
-		return ctx.ApiError(http.StatusBadRequest, "用户名不能为空")
+		return ctx.ApiError(http.StatusBadRequest, "auth::user_name_required")
 	}
 	if err := db.Users.Update(ctx.Request().Context(), target.ID, db.UpdateUserOptions{UserName: userName}); err != nil {
 		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to update user")
@@ -257,14 +258,14 @@ func (adminRoute) UpdateUser(ctx context.Context, target *adminTarget, f form.Ad
 // @Router /admin/users/{userID}/admin [put]
 func (adminRoute) SetUserAdmin(ctx context.Context, user *db.User, target *adminTarget, f form.AdminSetUserAdmin) error {
 	if !f.IsAdmin && user.ID == target.ID {
-		return ctx.ApiError(http.StatusBadRequest, "不能取消自己的管理员身份")
+		return ctx.ApiError(http.StatusBadRequest, "admin::cannot_unset_self_admin")
 	}
 	if f.IsAdmin && target.Disabled() {
-		return ctx.ApiError(http.StatusBadRequest, "已停用的账号不能设为管理员")
+		return ctx.ApiError(http.StatusBadRequest, "admin::disabled_cannot_be_admin")
 	}
 	if err := db.Users.SetAdmin(ctx.Request().Context(), target.ID, f.IsAdmin); err != nil {
 		if errors.Is(err, db.ErrLastAdmin) {
-			return ctx.ApiError(http.StatusConflict, lastAdminMessage)
+			return ctx.ApiError(http.StatusConflict, lastAdminKey)
 		}
 		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to set admin")
 		return ctx.ApiServerError()
@@ -288,13 +289,13 @@ func (adminRoute) SetUserAdmin(ctx context.Context, user *db.User, target *admin
 // @Router /admin/users/{userID}/status [put]
 func (adminRoute) SetUserStatus(ctx context.Context, hub *collab.Hub, user *db.User, target *adminTarget, f form.AdminSetUserStatus) error {
 	if f.Disabled {
-		if msg := selfOperationError(user.ID, target.ID, "停用"); msg != "" {
-			return ctx.ApiError(http.StatusBadRequest, "%s", msg)
+		if err := selfOperationError(user.ID, target.ID, "admin::cannot_disable_self"); err != nil {
+			return ctx.ApiErrorFrom(http.StatusBadRequest, err)
 		}
 	}
 	if err := db.Users.SetDisabled(ctx.Request().Context(), target.ID, f.Disabled); err != nil {
 		if errors.Is(err, db.ErrLastAdmin) {
-			return ctx.ApiError(http.StatusConflict, lastAdminMessage)
+			return ctx.ApiError(http.StatusConflict, lastAdminKey)
 		}
 		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to set user status")
 		return ctx.ApiServerError()
@@ -323,8 +324,8 @@ func (adminRoute) ResetUserPassword(ctx context.Context, hub *collab.Hub, target
 	if !ok {
 		return nil
 	}
-	if msg := passwordTooShort(settings, f.Password); msg != "" {
-		return ctx.ApiError(http.StatusBadRequest, "%s", msg)
+	if err := passwordTooShort(settings, f.Password, "auth::password_too_short"); err != nil {
+		return ctx.ApiErrorFrom(http.StatusBadRequest, err)
 	}
 	if err := db.Users.UpdatePassword(ctx.Request().Context(), target.ID, f.Password); err != nil {
 		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to reset password")
@@ -351,7 +352,7 @@ func (adminRoute) ResetUserPassword(ctx context.Context, hub *collab.Hub, target
 // @Router /admin/users/{userID}/sessions [delete]
 func (adminRoute) RevokeUserSessions(ctx context.Context, hub *collab.Hub, user *db.User, target *adminTarget) error {
 	if user.ID == target.ID {
-		return ctx.ApiError(http.StatusBadRequest, "请在账号设置中管理自己的登录设备")
+		return ctx.ApiError(http.StatusBadRequest, "admin::manage_own_devices")
 	}
 	if err := db.UserSessions.DeleteByUserID(ctx.Request().Context(), target.ID, ""); err != nil {
 		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to delete sessions")
@@ -375,28 +376,28 @@ func (adminRoute) RevokeUserSessions(ctx context.Context, hub *collab.Hub, user 
 // @ID deleteAdminUser
 // @Router /admin/users/{userID} [delete]
 func (adminRoute) DeleteUser(ctx context.Context, hub *collab.Hub, user *db.User, target *adminTarget) error {
-	if msg := selfOperationError(user.ID, target.ID, "删除"); msg != "" {
-		return ctx.ApiError(http.StatusBadRequest, "%s", msg)
+	if err := selfOperationError(user.ID, target.ID, "admin::cannot_delete_self"); err != nil {
+		return ctx.ApiErrorFrom(http.StatusBadRequest, err)
 	}
 	transferTo := ctx.QueryInt64("transferTo")
 	if transferTo != 0 {
 		if transferTo == target.ID {
-			return ctx.ApiError(http.StatusBadRequest, "接收人不能是被删除的成员")
+			return ctx.ApiError(http.StatusBadRequest, "admin::recipient_is_deleted")
 		}
 		if msg, err := transferTargetError(ctx, transferTo); err != nil {
 			logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to get transfer target")
 			return ctx.ApiServerError()
 		} else if msg != "" {
-			return ctx.ApiError(http.StatusBadRequest, "%s", msg)
+			return ctx.ApiError(http.StatusBadRequest, msg)
 		}
 	}
 
 	if err := db.Users.Delete(ctx.Request().Context(), target.ID, transferTo); err != nil {
 		switch {
 		case errors.Is(err, db.ErrUserOwnsProjects):
-			return ctx.ApiError(http.StatusBadRequest, "该成员拥有多维表格，请选择接收人")
+			return ctx.ApiError(http.StatusBadRequest, "admin::recipient_required")
 		case errors.Is(err, db.ErrLastAdmin):
-			return ctx.ApiError(http.StatusConflict, lastAdminMessage)
+			return ctx.ApiError(http.StatusConflict, lastAdminKey)
 		}
 		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to delete user")
 		return ctx.ApiServerError()
@@ -482,13 +483,13 @@ func (adminRoute) ListProjects(ctx context.Context) error {
 // @Router /admin/projects/{projectUID}/owner [put]
 func (adminRoute) TransferProject(ctx context.Context, hub *collab.Hub, project *db.Project, f form.AdminTransferProject) error {
 	if f.UserID == project.OwnerUserID {
-		return ctx.ApiError(http.StatusBadRequest, "该成员已是所有者")
+		return ctx.ApiError(http.StatusBadRequest, "admin::already_owner")
 	}
 	if msg, err := transferTargetError(ctx, f.UserID); err != nil {
 		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to get new owner")
 		return ctx.ApiServerError()
 	} else if msg != "" {
-		return ctx.ApiError(http.StatusBadRequest, "%s", msg)
+		return ctx.ApiError(http.StatusBadRequest, msg)
 	}
 	if err := transferProject(ctx, hub, project, f.UserID); err != nil {
 		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to transfer project")
@@ -548,7 +549,7 @@ func (adminRoute) UpdateSettings(ctx context.Context, f form.UpdateSystemSetting
 		SessionTTLDays:    f.SessionTTLDays,
 	}
 	if err := settings.Validate(); err != nil {
-		return ctx.ApiError(http.StatusBadRequest, "%s", err.Error())
+		return ctx.ApiErrorFrom(http.StatusBadRequest, err)
 	}
 	if err := db.Settings.SaveSystem(ctx.Request().Context(), settings); err != nil {
 		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to save system settings")

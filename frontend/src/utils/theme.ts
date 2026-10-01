@@ -1,5 +1,7 @@
 // Page appearance: the mode chosen by the user and the theme actually applied.
 
+import { t } from '../i18n/translate.ts'
+
 export type ThemeMode = 'light' | 'dark' | 'system'
 export type Theme = 'light' | 'dark'
 
@@ -7,9 +9,24 @@ export type Theme = 'light' | 'dark'
 export const THEME_STORAGE_KEY = 'sayrud.theme'
 
 export const THEME_OPTIONS: { value: ThemeMode; label: string }[] = [
-  { value: 'light', label: '浅色' },
-  { value: 'dark', label: '深色' },
-  { value: 'system', label: '跟随系统' },
+  {
+    value: 'light',
+    get label() {
+      return t('theme.light')
+    },
+  },
+  {
+    value: 'dark',
+    get label() {
+      return t('theme.dark')
+    },
+  },
+  {
+    value: 'system',
+    get label() {
+      return t('theme.system')
+    },
+  },
 ]
 
 /** Missing or unknown values fall back to light. */

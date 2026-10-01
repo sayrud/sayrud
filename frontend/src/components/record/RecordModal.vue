@@ -2,12 +2,15 @@
 import { ChevronDown, ChevronRight, ChevronUp, Copy, Ellipsis, Plus, Trash, X } from '@lucide/vue'
 import dayjs from 'dayjs'
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 
 import FieldValueEditor from '@/components/cell/FieldValueEditor.vue'
 import FieldTypeIcon from '@/components/field/FieldTypeIcon.vue'
 import { openMenu } from '@/composables/useContextMenu'
 import { visibleFieldsOf } from '@/composables/useViewData'
 import { useBaseStore } from '@/stores/base'
+
+const { t } = useI18n()
 
 const store = useBaseStore()
 
@@ -40,7 +43,7 @@ function openMore(e: MouseEvent) {
   if (!uid) return
   openMenu({ x: r.right - 180, y: r.bottom + 4 }, [
     {
-      label: '复制记录',
+      label: t('grid.duplicateRecord'),
       icon: Copy,
       onClick: async () => {
         const created = await store.duplicateRecord(uid)
@@ -48,7 +51,7 @@ function openMore(e: MouseEvent) {
       },
     },
     { divider: true },
-    { label: '删除记录', icon: Trash, danger: true, onClick: () => store.deleteRecords([uid]) },
+    { label: t('grid.deleteRecord'), icon: Trash, danger: true, onClick: () => store.deleteRecords([uid]) },
   ])
 }
 
@@ -82,8 +85,8 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKey))
     <template #title>
       <div class="head">
         <div class="nav">
-          <button class="icon-btn" :disabled="index <= 0" title="上一条 (↑)" @click="go(-1)"><ChevronUp :size="16" /></button>
-          <button class="icon-btn" :disabled="index < 0 || index >= list.length - 1" title="下一条 (↓)" @click="go(1)">
+          <button class="icon-btn" :disabled="index <= 0" :title="t('record.previous')" @click="go(-1)"><ChevronUp :size="16" /></button>
+          <button class="icon-btn" :disabled="index < 0 || index >= list.length - 1" :title="t('record.next')" @click="go(1)">
             <ChevronDown :size="16" />
           </button>
           <span v-if="index >= 0" class="pos">{{ index + 1 }} / {{ list.length }}</span>
@@ -95,7 +98,7 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKey))
     </template>
 
     <div v-if="record" class="body">
-      <h2 class="title" :class="{ empty: !title }">{{ title || '未命名记录' }}</h2>
+      <h2 class="title" :class="{ empty: !title }">{{ title || t('record.untitled') }}</h2>
       <div v-for="f in visible" :key="f.uid" class="field-row">
         <div class="field-label">
           <FieldTypeIcon :type="f.type" />
@@ -106,7 +109,7 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKey))
             :field="f"
             :value="record.data[f.uid]"
             :record="record"
-            placeholder="空"
+            :placeholder="t('group.empty')"
             :readonly="!store.canEdit"
             @change="(v) => store.updateCell(record!.uid, f.uid, v)"
           />
@@ -116,7 +119,7 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKey))
       <template v-if="hidden.length">
         <button class="toggle-hidden" @click="showHidden = !showHidden">
           <component :is="showHidden ? ChevronDown : ChevronRight" :size="14" />
-          {{ hidden.length }} 个隐藏字段
+          {{ t('toolbar.hiddenFields', { n: hidden.length }, hidden.length) }}
         </button>
         <template v-if="showHidden">
           <div v-for="f in hidden" :key="f.uid" class="field-row">
@@ -129,7 +132,7 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKey))
                 :field="f"
                 :value="record.data[f.uid]"
                 :record="record"
-                placeholder="空"
+                :placeholder="t('group.empty')"
                 :readonly="!store.canEdit"
                 @change="(v) => store.updateCell(record!.uid, f.uid, v)"
               />
@@ -138,11 +141,16 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKey))
         </template>
       </template>
 
-      <button v-if="store.canEdit" class="add-field" @click="addField"><Plus :size="14" /> 添加字段</button>
+      <button v-if="store.canEdit" class="add-field" @click="addField"><Plus :size="14" /> {{ t('grid.addField') }}</button>
 
       <div class="meta">
-        创建于 {{ dayjs(record.createdAt).format('YYYY/MM/DD HH:mm') }} · 最后修改于
-        {{ dayjs(record.updatedAt).format('YYYY/MM/DD HH:mm') }} · {{ record.uid }}
+        {{
+          t('record.meta', {
+            created: dayjs(record.createdAt).format('YYYY/MM/DD HH:mm'),
+            updated: dayjs(record.updatedAt).format('YYYY/MM/DD HH:mm'),
+          })
+        }}
+        · {{ record.uid }}
       </div>
     </div>
   </a-modal>

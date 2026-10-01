@@ -1,3 +1,5 @@
+import { t } from '../i18n/translate.ts'
+
 export type DeviceKind = 'desktop' | 'mobile' | 'tablet'
 
 export interface ParsedUserAgent {
@@ -26,8 +28,8 @@ const SYSTEMS: [RegExp, string][] = [
 
 /** Roughly detects the browser, OS and device type from the user agent, for the signed-in device list. */
 export function parseUserAgent(ua: string): ParsedUserAgent {
-  const browser = BROWSERS.find(([re]) => re.test(ua))?.[1] ?? '未知浏览器'
-  const os = SYSTEMS.find(([re]) => re.test(ua))?.[1] ?? '未知系统'
+  const browser = BROWSERS.find(([re]) => re.test(ua))?.[1] ?? t('userAgent.unknownBrowser')
+  const os = SYSTEMS.find(([re]) => re.test(ua))?.[1] ?? t('userAgent.unknownOS')
   let device: DeviceKind = 'desktop'
   if (/iPad|Tablet/.test(ua) || (/Android/.test(ua) && !/Mobile/.test(ua))) device = 'tablet'
   else if (/Mobile|iPhone|iPod|Android/.test(ua)) device = 'mobile'

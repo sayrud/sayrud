@@ -1,10 +1,13 @@
 <script setup lang="ts">
 import { Message } from '@arco-design/web-vue'
 import { computed, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 
 import { adminApi, type AdminUser } from '@/api/admin'
 import { useAuthStore } from '@/stores/auth'
 import UserPicker, { type PickerUser } from './UserPicker.vue'
+
+const { t } = useI18n()
 
 const props = defineProps<{ visible: boolean; user: AdminUser | null }>()
 const emit = defineEmits<{ 'update:visible': [value: boolean]; deleted: [] }>()
@@ -24,7 +27,7 @@ watch(
 async function submit() {
   if (!props.user) return false
   if (needTransfer.value && !transferTo.value) {
-    Message.warning('请选择多维表格的接收人')
+    Message.warning(t('admin.deleteUser.recipientRequired'))
     return false
   }
   try {
@@ -33,7 +36,7 @@ async function submit() {
     Message.error(e instanceof Error ? e.message : String(e))
     return false
   }
-  Message.success('成员已删除')
+  Message.success(t('admin.deleteUser.deleted'))
   emit('deleted')
   return true
 }
@@ -42,21 +45,26 @@ async function submit() {
 <template>
   <a-modal
     :visible="visible"
-    title="删除成员"
+    :title="t('admin.users.delete')"
     :width="480"
     title-align="start"
-    ok-text="删除"
+    :ok-text="t('common.delete')"
     :ok-button-props="{ status: 'danger' }"
     :on-before-ok="submit"
     @update:visible="emit('update:visible', $event)"
   >
     <p class="hint">
-      确定删除 <b>{{ user?.userName }}</b>（{{ user?.email }}）？该成员将无法登录，并退出所有多维表格的协作，此操作不可恢复。
+      <i18n-t keypath="admin.deleteUser.confirm" scope="global">
+        <template #name><b>{{ user?.userName }}</b></template>
+        <template #email>{{ user?.email }}</template>
+      </i18n-t>
     </p>
     <template v-if="needTransfer">
-      <a-alert class="alert">该成员拥有 {{ user?.ownedProjectCount }} 个多维表格，需要转移给其他成员。</a-alert>
+      <a-alert class="alert">{{
+        t('admin.deleteUser.ownsBases', { n: user?.ownedProjectCount ?? 0 }, user?.ownedProjectCount ?? 0)
+      }}</a-alert>
       <a-form :model="{}" layout="vertical">
-        <a-form-item label="接收人" required>
+        <a-form-item :label="t('admin.deleteUser.recipient')" required>
           <UserPicker v-if="visible" v-model="transferTo" :exclude-ids="user ? [user.id] : []" :initial="me" />
         </a-form-item>
       </a-form>

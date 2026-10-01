@@ -5,22 +5,22 @@
 package form
 
 type CreateProject struct {
-	Name string `json:"name" valid:"required" label:"项目名称"`
+	Name string `json:"name" valid:"required"`
 } // @name CreateProject
 
 type UpdateProject struct {
-	Name string `json:"name" valid:"required" label:"项目名称"`
+	Name string `json:"name" valid:"required"`
 } // @name UpdateProject
 
 type AddProjectMember struct {
-	Email string `json:"email" valid:"required" label:"邮箱"`
-	Role  string `json:"role" valid:"required" label:"权限" enums:"manager,editor,viewer"`
+	Email string `json:"email" valid:"required"`
+	Role  string `json:"role" valid:"required" enums:"manager,editor,viewer"`
 } // @name AddProjectMember
 
 type TransferProjectOwner struct {
-	UserID int64 `json:"userID" valid:"required" label:"新所有者"`
+	UserID int64 `json:"userID" valid:"required"`
 } // @name TransferProjectOwner
 
 type UpdateProjectMember struct {
-	Role string `json:"role" valid:"required" label:"权限" enums:"manager,editor,viewer"`
+	Role string `json:"role" valid:"required" enums:"manager,editor,viewer"`
 } // @name UpdateProjectMember

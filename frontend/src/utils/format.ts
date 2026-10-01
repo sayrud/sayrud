@@ -1,6 +1,7 @@
 import dayjs from 'dayjs'
 
 import type { CellValue, SelectOption, SLField } from '@/types/bitable'
+import { t } from '../i18n/translate.ts'
 
 export function isEmptyValue(v: unknown): boolean {
   return v === null || v === undefined || v === '' || (Array.isArray(v) && v.length === 0)
@@ -80,7 +81,7 @@ export function valueToText(field: SLField, value: CellValue): string {
       return formatDate(String(value), md.format, md.with_time)
     }
     case 'checkbox':
-      return value ? '是' : '否'
+      return value ? t('common.yes') : t('common.no')
     default:
       return String(value)
   }

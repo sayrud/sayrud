@@ -9,10 +9,12 @@ import (
 
 	"github.com/gorilla/websocket"
 	"github.com/pkg/errors"
+	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
 	"github.com/thanhpk/randstr"
 
 	"github.com/wuhan005/sayrud/internal/db"
+	"github.com/wuhan005/sayrud/internal/i18n"
 )
 
 const (
@@ -45,6 +47,7 @@ type Client struct {
 	project    *db.Project
 	projectUID string
 	userID     int64
+	locale     i18n.Locale
 	out        chan []byte
 	closeOnce  sync.Once
 
@@ -55,7 +58,7 @@ type Client struct {
 }
 
 // Serve upgrades the request to WebSocket and serves the connection until it is closed.
-func (h *Hub) Serve(w http.ResponseWriter, r *http.Request, project *db.Project, identity Identity) error {
+func (h *Hub) Serve(w http.ResponseWriter, r *http.Request, project *db.Project, identity Identity, locale i18n.Locale) error {
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		return errors.Wrap(err, "upgrade")
@@ -67,6 +70,7 @@ func (h *Hub) Serve(w http.ResponseWriter, r *http.Request, project *db.Project,
 		project:    project,
 		projectUID: project.UID,
 		userID:     identity.UserID,
+		locale:     locale,
 		out:        make(chan []byte, sendBufferSize),
 		member: Member{
 			ClientID: "cli" + randstr.String(12),
@@ -179,7 +183,7 @@ func (c *Client) readPump(ctx context.Context) {
 
 		var message Message
 		if err := json.Unmarshal(raw, &message); err != nil {
-			c.send(newMessage(MessageError, 0, errorData{Message: "消息格式错误"}))
+			c.send(newMessage(MessageError, 0, errorData{Message: c.tr("collab::invalid_message")}))
 			continue
 		}
 		c.handle(ctx, message)
@@ -187,8 +191,8 @@ func (c *Client) readPump(ctx context.Context) {
 }
 
 func (c *Client) handle(ctx context.Context, message Message) {
-	replyError := func(msg string) {
-		c.send(newMessage(MessageError, message.ReqID, errorData{Message: msg}))
+	replyError := func(key string) {
+		c.send(newMessage(MessageError, message.ReqID, errorData{Message: c.tr(key)}))
 	}
 
 	switch message.Type {
@@ -198,18 +202,18 @@ func (c *Client) handle(ctx context.Context, message Message) {
 	case MessageSubscribe:
 		var data subscribeData
 		if err := json.Unmarshal(message.Data, &data); err != nil {
-			replyError("消息格式错误")
+			replyError("collab::invalid_message")
 			return
 		}
 		table, err := db.SLTables.GetByUID(ctx, data.TableUID)
 		if err != nil || table.ProjectID != c.project.ID {
-			replyError("数据表不存在")
+			replyError("collab::table_not_found")
 			return
 		}
 		rev, err := c.hub.subscribe(ctx, c, table)
 		if err != nil {
 			logrus.WithContext(ctx).WithError(err).Error("Failed to subscribe table")
-			replyError("服务器内部错误")
+			replyError("common::internal_error")
 			return
 		}
 		c.mu.Lock()
@@ -220,7 +224,7 @@ func (c *Client) handle(ctx context.Context, message Message) {
 	case MessageUnsubscribe:
 		var data subscribeData
 		if err := json.Unmarshal(message.Data, &data); err != nil {
-			replyError("消息格式错误")
+			replyError("collab::invalid_message")
 			return
 		}
 		c.mu.Lock()
@@ -230,7 +234,7 @@ func (c *Client) handle(ctx context.Context, message Message) {
 	case MessageUserChanges:
 		var data userChangesData
 		if err := json.Unmarshal(message.Data, &data); err != nil {
-			replyError("消息格式错误")
+			replyError("collab::invalid_message")
 			return
 		}
 		c.commit(ctx, message.ReqID, data)
@@ -238,7 +242,7 @@ func (c *Client) handle(ctx context.Context, message Message) {
 	case MessagePresence:
 		var data presenceData
 		if err := json.Unmarshal(message.Data, &data); err != nil {
-			replyError("消息格式错误")
+			replyError("collab::invalid_message")
 			return
 		}
 		c.mu.Lock()
@@ -250,36 +254,36 @@ func (c *Client) handle(ctx context.Context, message Message) {
 		c.hub.broadcastMembers(c.projectUID)
 
 	default:
-		replyError("不支持的消息类型")
+		replyError("collab::unsupported_message")
 	}
 }
 
 func (c *Client) commit(ctx context.Context, reqID int64, data userChangesData) {
-	reject := func(msg string) {
-		c.send(newMessage(MessageRejectCommit, reqID, rejectCommitData{TableUID: data.TableUID, Signature: data.Signature, Message: msg}))
+	reject := func(key string, args ...interface{}) {
+		c.send(newMessage(MessageRejectCommit, reqID, rejectCommitData{TableUID: data.TableUID, Signature: data.Signature, Message: c.tr(key, args...)}))
 	}
 
 	c.mu.Lock()
 	canEdit := c.canEdit
 	c.mu.Unlock()
 	if !canEdit {
-		reject("你没有编辑权限")
+		reject("collab::no_edit_permission")
 		return
 	}
 
 	table := c.subscribedTable(data.TableUID)
 	if table == nil {
-		reject("请先订阅数据表")
+		reject("collab::subscribe_first")
 		return
 	}
 	if data.Signature == "" {
-		reject("缺少提交签名")
+		reject("collab::signature_required")
 		return
 	}
 	for _, operation := range data.Operations {
 		for _, action := range operation.Actions {
 			if action.Action == ActionDirty {
-				reject("不支持的操作：" + ActionDirty)
+				reject("collab::unsupported_action", ActionDirty)
 				return
 			}
 		}
@@ -291,10 +295,26 @@ func (c *Client) commit(ctx context.Context, reqID int64, data userChangesData) 
 	if err != nil {
 		var operationErr *OperationError
 		if errors.As(err, &operationErr) {
-			reject(operationErr.Message)
+			reject(operationErr.Key, operationErr.Args...)
 			return
 		}
 		logrus.WithContext(ctx).WithError(err).WithField("tableUID", table.UID).Error("Failed to commit changeset")
-		reject("服务器内部错误")
+		reject("common::internal_error")
 	}
+}
+
+// tr translates the message key in the language of the connection.
+func (c *Client) tr(key string, args ...interface{}) string {
+	if c.locale == nil {
+		return key
+	}
+	return c.locale.Translate(key, args...)
+}
+
+// boolText returns the text of the checkbox value in the language of the connection, or Simplified Chinese without a sender.
+func (c *Client) boolText(v bool) string {
+	if c == nil {
+		return lo.Ternary(v, "是", "否")
+	}
+	return c.tr(lo.Ternary(v, "common::yes", "common::no"))
 }

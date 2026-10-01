@@ -4,6 +4,7 @@ import { Ellipsis, Link, LogOut, Pencil, Plus, Search, Table2, Trash } from '@lu
 import dayjs from 'dayjs'
 import relativeTime from 'dayjs/plugin/relativeTime'
 import { computed, onMounted, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 
 import { membersApi, projectsApi, type ProjectListItem } from '@/api/bitable'
@@ -15,6 +16,8 @@ import { useAuthStore } from '@/stores/auth'
 import { useSiteStore } from '@/stores/site'
 import { useThemeStore } from '@/stores/theme'
 import { ROLE_LABELS, roleAtLeast } from '@/utils/role'
+
+const { t } = useI18n()
 
 dayjs.extend(relativeTime)
 
@@ -60,7 +63,7 @@ async function load() {
 async function create() {
   const name = createName.value.trim()
   if (!name) {
-    Message.warning('请输入名称')
+    Message.warning(t('home.nameRequired'))
     return false
   }
   const p = await projectsApi.create(name)
@@ -73,18 +76,18 @@ function openActions(e: MouseEvent, p: ProjectListItem) {
   const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
   const items: MenuItem[] = [
     {
-      label: '复制链接',
+      label: t('home.copyLink'),
       icon: Link,
       onClick: () =>
         navigator.clipboard?.writeText(`${location.origin}/base/${p.uid}`).then(
-          () => Message.success('链接已复制，仅协作者可以访问'),
-          () => Message.error('复制失败'),
+          () => Message.success(t('home.linkCopied')),
+          () => Message.error(t('home.copyFailed')),
         ),
     },
   ]
   if (roleAtLeast(p.role, 'editor')) {
     items.push({
-      label: '重命名',
+      label: t('common.rename'),
       icon: Pencil,
       onClick: () => {
         renaming.value = p
@@ -95,38 +98,38 @@ function openActions(e: MouseEvent, p: ProjectListItem) {
   items.push({ divider: true })
   if (p.role === 'owner') {
     items.push({
-      label: '删除',
+      label: t('common.delete'),
       icon: Trash,
       danger: true,
       onClick: () =>
         Modal.warning({
-          title: `删除「${p.name}」？`,
-          content: '删除后其中的数据表、字段和记录将无法恢复，所有协作者都将无法访问。',
+          title: t('admin.projects.deleteTitle', { name: p.name }),
+          content: t('home.deleteContent'),
           hideCancel: false,
-          okText: '删除',
+          okText: t('common.delete'),
           okButtonProps: { status: 'danger' },
           onOk: async () => {
             await projectsApi.delete(p.uid)
-            Message.success('已删除')
+            Message.success(t('common.deleted'))
             load()
           },
         }),
     })
   } else {
     items.push({
-      label: '退出协作',
+      label: t('home.leave'),
       icon: LogOut,
       danger: true,
       onClick: () =>
         Modal.warning({
-          title: `退出「${p.name}」的协作？`,
-          content: '退出后你将无法访问该多维表格，除非被重新添加。',
+          title: t('home.leaveTitle', { name: p.name }),
+          content: t('home.leaveContent'),
           hideCancel: false,
-          okText: '退出',
+          okText: t('home.leaveOk'),
           okButtonProps: { status: 'danger' },
           onOk: async () => {
             await membersApi.remove(p.uid, auth.user!.id)
-            Message.success('已退出协作')
+            Message.success(t('home.left'))
             load()
           },
         }),
@@ -166,20 +169,20 @@ onMounted(() => {
     <main class="home-main">
       <div class="home-title">
         <div class="title-left">
-          <h1>多维表格</h1>
+          <h1>{{ t('home.title') }}</h1>
           <a-radio-group v-model="scope" type="button" class="scope-tabs">
-            <a-radio value="all">全部</a-radio>
-            <a-radio value="owned">我创建的</a-radio>
-            <a-radio value="shared">与我共享{{ sharedCount ? ` ${sharedCount}` : '' }}</a-radio>
+            <a-radio value="all">{{ t('admin.users.statusAll') }}</a-radio>
+            <a-radio value="owned">{{ t('home.owned') }}</a-radio>
+            <a-radio value="shared">{{ t('home.shared') }}{{ sharedCount ? ` ${sharedCount}` : '' }}</a-radio>
           </a-radio-group>
         </div>
         <div class="home-actions">
-          <a-input v-model="keyword" placeholder="搜索" allow-clear class="search">
+          <a-input v-model="keyword" :placeholder="t('common.search')" allow-clear class="search">
             <template #prefix><Search :size="14" /></template>
           </a-input>
           <a-button type="primary" @click="createVisible = true">
             <template #icon><Plus :size="16" /></template>
-            新建多维表格
+            {{ t('home.create') }}
           </a-button>
         </div>
       </div>
@@ -188,7 +191,7 @@ onMounted(() => {
         <div class="grid">
           <div v-if="scope !== 'shared'" class="card create" @click="createVisible = true">
             <div class="create-icon"><Plus :size="28" /></div>
-            <div class="create-text">新建多维表格</div>
+            <div class="create-text">{{ t('home.create') }}</div>
           </div>
           <div
             v-for="p in filtered"
@@ -203,27 +206,31 @@ onMounted(() => {
             <div class="card-body">
               <div class="card-name ellipsis">{{ p.name }}</div>
               <div class="card-meta ellipsis">
-                <template v-if="p.role === 'owner'">{{ p.tableCount }} 张数据表 · 创建于 {{ dayjs(p.createdAt).fromNow() }}</template>
-                <template v-else>所有者：{{ p.owner?.userName ?? '未知' }} · {{ p.tableCount }} 张数据表</template>
+                <template v-if="p.role === 'owner'">{{
+                  t('home.ownedMeta', { n: p.tableCount, time: dayjs(p.createdAt).fromNow() }, p.tableCount)
+                }}</template>
+                <template v-else>{{
+                  t('home.sharedMeta', { owner: p.owner?.userName ?? t('common.unknown'), n: p.tableCount }, p.tableCount)
+                }}</template>
               </div>
             </div>
             <button class="icon-btn card-more" @click="openActions($event, p)"><Ellipsis :size="16" /></button>
           </div>
         </div>
-        <a-empty v-if="!loading && !filtered.length && keyword" class="home-empty" description="没有匹配的多维表格" />
+        <a-empty v-if="!loading && !filtered.length && keyword" class="home-empty" :description="t('home.noMatch')" />
         <a-empty
           v-else-if="!loading && !filtered.length && scope === 'shared'"
           class="home-empty"
-          description="还没有人与你共享多维表格，对方在「分享」中添加你的邮箱后会显示在这里"
+          :description="t('home.noShared')"
         />
       </a-spin>
     </main>
 
-    <a-modal v-model:visible="createVisible" title="新建多维表格" :on-before-ok="create" :width="420">
-      <a-input v-model="createName" placeholder="请输入名称，例如：项目管理" :max-length="50" @press-enter="create" />
+    <a-modal v-model:visible="createVisible" :title="t('home.create')" :on-before-ok="create" :width="420">
+      <a-input v-model="createName" :placeholder="t('home.createPlaceholder')" :max-length="50" @press-enter="create" />
     </a-modal>
 
-    <a-modal :visible="!!renaming" title="重命名" :width="420" @ok="rename" @cancel="renaming = null">
+    <a-modal :visible="!!renaming" :title="t('common.rename')" :width="420" @ok="rename" @cancel="renaming = null">
       <a-input v-model="renameName" :max-length="50" @press-enter="rename" />
     </a-modal>
   </div>

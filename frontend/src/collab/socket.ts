@@ -1,6 +1,7 @@
 import { ref } from 'vue'
 
 import { API_BASE } from '@/api/client'
+import { t } from '@/i18n'
 import type { SocketMessage } from './types'
 
 export type SocketStatus = 'connecting' | 'open' | 'closed'
@@ -70,13 +71,13 @@ export class ProjectSocket {
   request<T = unknown>(type: string, data?: unknown, timeout = REQUEST_TIMEOUT): Promise<SocketMessage<T>> {
     return new Promise((resolve, reject) => {
       if (!this.isOpen) {
-        reject(new Error('连接未建立'))
+        reject(new Error(t('collab.notConnected')))
         return
       }
       const reqId = ++this.reqId
       const timer = setTimeout(() => {
         this.pending.delete(reqId)
-        reject(new Error('请求超时'))
+        reject(new Error(t('collab.timeout')))
         this.reconnect()
       }, timeout)
       this.pending.set(reqId, { resolve: resolve as PendingRequest['resolve'], reject, timer })
@@ -106,7 +107,7 @@ export class ProjectSocket {
       this.status.value = 'closed'
       for (const [reqId, p] of this.pending) {
         clearTimeout(p.timer)
-        p.reject(new Error('连接已断开'))
+        p.reject(new Error(t('collab.disconnected')))
         this.pending.delete(reqId)
       }
       this.emit('close', undefined)

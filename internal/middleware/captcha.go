@@ -52,7 +52,7 @@ func (t *turnstileCaptcha) Handle(ctx context.Context) error {
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
-		return ctx.ApiError(http.StatusForbidden, "验证码校验失败，请尝试刷新页面后提交")
+		return ctx.ApiError(http.StatusForbidden, "captcha::failed")
 	}
 
 	var responseBody = struct {
@@ -64,7 +64,7 @@ func (t *turnstileCaptcha) Handle(ctx context.Context) error {
 	}
 
 	if !responseBody.Success {
-		return ctx.ApiError(http.StatusForbidden, "验证码校验失败，请尝试刷新页面后提交")
+		return ctx.ApiError(http.StatusForbidden, "captcha::failed")
 	}
 	return nil
 }

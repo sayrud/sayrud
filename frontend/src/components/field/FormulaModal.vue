@@ -1,11 +1,14 @@
 <script setup lang="ts">
 import { computed, nextTick, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 
 import { useBaseStore } from '@/stores/base'
 import type { SLField } from '@/types/bitable'
 import { TableContext } from '@/utils/engine'
-import { compileFormula, expFromDisplay, expToDisplay, FUNCTIONS } from '@/utils/formula'
+import { compileFormula, expFromDisplay, expToDisplay, formulaCategoryLabel, FUNCTIONS, type FormulaCategory } from '@/utils/formula'
 import FieldTypeIcon from './FieldTypeIcon.vue'
+
+const { t } = useI18n()
 
 const props = defineProps<{ visible: boolean; exp: string; fieldUID?: string }>()
 const emit = defineEmits<{ 'update:visible': [boolean]; confirm: [exp: string] }>()
@@ -31,10 +34,10 @@ const parsed = computed(() => expFromDisplay(text.value, store.fields))
 
 const validation = computed(() => {
   if (!text.value.trim()) return { ok: false, message: '' }
-  if (parsed.value.unknown.length) return { ok: false, message: `未知字段：${parsed.value.unknown.join('、')}` }
+  if (parsed.value.unknown.length) return { ok: false, message: t('formulaModal.unknownFields', { names: parsed.value.unknown.join(t('formulaModal.listSeparator')) }) }
   const compiled = compileFormula(parsed.value.exp)
   if (compiled.error) return { ok: false, message: compiled.error }
-  if (props.fieldUID && compiled.refs.includes(props.fieldUID)) return { ok: false, message: '公式不能引用自身' }
+  if (props.fieldUID && compiled.refs.includes(props.fieldUID)) return { ok: false, message: t('formulaModal.selfReference') }
   return { ok: true, message: '' }
 })
 
@@ -46,7 +49,7 @@ const preview = computed(() => {
   const temp: SLField = {
     uid,
     tableUID: store.activeTableUID,
-    label: '预览',
+    label: t('formulaModal.preview'),
     type: 'formula',
     metadata: { exp: parsed.value.exp },
     position: 0,
@@ -54,11 +57,11 @@ const preview = computed(() => {
     updatedAt: '',
   }
   const ctx = new TableContext([...store.fields.filter((f) => f.uid !== uid), temp])
-  return ctx.text(record, temp) || '（空）'
+  return ctx.text(record, temp) || t('formulaModal.emptyValue')
 })
 
 const groups = computed(() => {
-  const map = new Map<string, string[]>()
+  const map = new Map<FormulaCategory, string[]>()
   for (const [name, f] of Object.entries(FUNCTIONS)) {
     if (!map.has(f.category)) map.set(f.category, [])
     map.get(f.category)!.push(name)
@@ -89,10 +92,10 @@ function confirm() {
 <template>
   <a-modal
     :visible="visible"
-    title="编辑公式"
+    :title="t('formulaModal.title')"
     :width="780"
     :mask-closable="false"
-    ok-text="确定"
+    :ok-text="t('common.confirm')"
     :ok-button-props="{ disabled: !!text.trim() && !validation.ok }"
     unmount-on-close
     @ok="confirm"
@@ -104,30 +107,30 @@ function confirm() {
         v-model="text"
         class="formula-input"
         spellcheck="false"
-        placeholder="例如：[单价] * [数量]、IF([进度] >= 1, &quot;已完成&quot;, &quot;进行中&quot;)"
+        :placeholder="t('formulaModal.placeholder')"
       />
       <div class="status">
         <span v-if="validation.message" class="error">{{ validation.message }}</span>
         <span v-else-if="validation.ok" class="ok">
-          公式正确<template v-if="preview">，首条记录计算结果：<b>{{ preview }}</b></template>
+          {{ t('formulaModal.valid') }}<template v-if="preview">{{ t('formulaModal.previewPrefix') }}<b>{{ preview }}</b></template>
         </span>
-        <span v-else class="tip">使用 [字段名] 引用字段，点击下方列表快速插入</span>
+        <span v-else class="tip">{{ t('formulaModal.tip') }}</span>
       </div>
       <div class="picker">
         <div class="picker-list">
-          <div class="group-title">字段</div>
+          <div class="group-title">{{ t('formulaModal.fields') }}</div>
           <div
             v-for="f in refFields"
             :key="f.uid"
             class="picker-item"
-            @mouseenter="hover = { title: f.label, usage: `[${f.label}]`, desc: '引用该字段的值' }"
+            @mouseenter="hover = { title: f.label, usage: `[${f.label}]`, desc: t('formulaModal.fieldRefDesc') }"
             @click="insert(`[${f.label}]`)"
           >
             <FieldTypeIcon :type="f.type" />
             <span class="ellipsis">{{ f.label }}</span>
           </div>
           <template v-for="[cat, names] in groups" :key="cat">
-            <div class="group-title">{{ cat }}函数</div>
+            <div class="group-title">{{ t('formulaModal.categoryFunctions', { category: formulaCategoryLabel(cat) }) }}</div>
             <div
               v-for="n in names"
               :key="n"
@@ -146,9 +149,9 @@ function confirm() {
             <div class="doc-usage">{{ hover.usage }}</div>
           </template>
           <template v-else>
-            <div class="doc-title">公式说明</div>
+            <div class="doc-title">{{ t('formulaModal.docTitle') }}</div>
             <div class="doc-desc">
-              支持运算符 + - * / % ^，文本连接 &amp;，比较 = != &lt; &gt; &lt;= &gt;=。日期相减得到天数，日期加数字得到新日期。
+              {{ t('formulaModal.doc') }}
             </div>
           </template>
         </div>

@@ -12,6 +12,7 @@ import (
 	"github.com/wuhan005/sayrud/internal/context"
 	"github.com/wuhan005/sayrud/internal/db"
 	"github.com/wuhan005/sayrud/internal/form"
+	"github.com/wuhan005/sayrud/internal/i18n"
 	"github.com/wuhan005/sayrud/internal/observability/tracing"
 	"github.com/wuhan005/sayrud/internal/route/api"
 )
@@ -31,6 +32,7 @@ func New(opts Options) *flamego.Flame {
 
 	f.Use(
 		tracing.Middleware("sayrud"),
+		i18n.Middleware(),
 		context.Contexter(opts.DB),
 	)
 	f.Map(collab.NewHub(opts.DB))

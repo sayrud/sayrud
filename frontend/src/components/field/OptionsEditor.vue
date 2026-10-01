@@ -1,12 +1,15 @@
 <script setup lang="ts">
 import { GripVertical, Plus, X } from '@lucide/vue'
 import { computed, nextTick, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 
 import FloatingPanel, { type Anchor } from '@/components/common/FloatingPanel.vue'
 import { useThemeStore } from '@/stores/theme'
 import type { SelectOption } from '@/types/bitable'
 import { PALETTE_ROWS, TAG_COLORS, tagColor } from '@/utils/colors'
 import { newOptionUID } from '@/utils/id'
+
+const { t } = useI18n()
 
 const options = defineModel<SelectOption[]>({ required: true })
 const themeStore = useThemeStore()
@@ -81,14 +84,14 @@ function onEnter(e: KeyboardEvent, i: number) {
         <input
           class="option-input"
           :value="o.name"
-          placeholder="请输入选项名"
+          :placeholder="t('options.namePlaceholder')"
           @input="update(o.uid, { name: ($event.target as HTMLInputElement).value })"
           @keydown.enter.prevent="onEnter($event, i)"
         />
         <button class="icon-btn sm" type="button" @click="remove(o.uid)"><X :size="14" /></button>
       </div>
     </div>
-    <button class="add-btn" type="button" @click="add"><Plus :size="14" /> 添加选项</button>
+    <button class="add-btn" type="button" @click="add"><Plus :size="14" /> {{ t('options.add') }}</button>
 
     <FloatingPanel v-if="palette" :anchor="palette.anchor" @close="palette = null">
       <div class="palette">

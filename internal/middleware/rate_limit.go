@@ -44,7 +44,7 @@ func (l *rateLimit) Handle(ctx context.Context) error {
 
 		currentCount := l.redis.ZCard(ctx.Request().Context(), key).Val()
 		if currentCount >= maxCount {
-			return ctx.ApiError(http.StatusTooManyRequests, "请求过快，请稍后再试")
+			return ctx.ApiError(http.StatusTooManyRequests, "common::too_many_requests")
 		}
 
 		if err := l.redis.ZAdd(ctx.Request().Context(), key, redis.Z{

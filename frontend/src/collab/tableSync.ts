@@ -1,6 +1,7 @@
 import { ref, shallowRef } from 'vue'
 
 import { syncApi } from '@/api/bitable'
+import { t } from '@/i18n'
 import type { SLField, SLRecord, SLView } from '@/types/bitable'
 import { applyOperations, type TableData } from './model'
 import type { ProjectSocket } from './socket'
@@ -197,7 +198,7 @@ export class TableSync {
         this.forward()
       }
     } else {
-      await this.reject(reply.data?.msg || '提交失败')
+      await this.reject(reply.data?.msg || t('collab.commitFailed'))
     }
   }
 

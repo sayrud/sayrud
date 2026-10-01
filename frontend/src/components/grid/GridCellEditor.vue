@@ -1,11 +1,14 @@
 <script setup lang="ts">
 import dayjs from 'dayjs'
 import { computed, nextTick, onMounted, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 
 import SelectPanel from '@/components/cell/SelectPanel.vue'
 import FloatingPanel, { type Anchor } from '@/components/common/FloatingPanel.vue'
 import type { CellValue, SLField, SLRecord } from '@/types/bitable'
 import { formatNumber, parseNumber } from '@/utils/format'
+
+const { t } = useI18n()
 
 export type EditorMove = 'down' | 'right' | 'left' | 'none'
 
@@ -162,7 +165,7 @@ function onDate(_v: unknown, date?: Date) {
         @change="onDate"
       />
       <div class="date-footer">
-        <a-button size="mini" :disabled="!value" @click="(emit('change', null), emit('cancel'))">清除</a-button>
+        <a-button size="mini" :disabled="!value" @click="(emit('change', null), emit('cancel'))">{{ t('common.clear') }}</a-button>
       </div>
     </div>
   </FloatingPanel>

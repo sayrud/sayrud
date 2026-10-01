@@ -5,54 +5,54 @@
 package form
 
 type CreateTable struct {
-	Name string `json:"name" valid:"required" label:"数据表名称"`
+	Name string `json:"name" valid:"required"`
 } // @name CreateTable
 
 type UpdateTable struct {
-	Name string `json:"name" valid:"required" label:"数据表名称"`
+	Name string `json:"name" valid:"required"`
 } // @name UpdateTable
 
 type CreateFields struct {
-	Fields []CreateField `json:"fields" valid:"required" label:"字段"`
+	Fields []CreateField `json:"fields" valid:"required"`
 } // @name CreateFields
 
 type CreateField struct {
-	Label string `json:"label" valid:"required" label:"字段标题"`
-	Type  string `json:"type" valid:"required" label:"字段类型" enums:"text,single_select,multi_select,datetime,number,checkbox,formula"`
+	Label string `json:"label" valid:"required"`
+	Type  string `json:"type" valid:"required" enums:"text,single_select,multi_select,datetime,number,checkbox,formula"`
 	// Metadata is the type-specific configuration, e.g. select options or the formula expression.
-	Metadata map[string]interface{} `json:"metadata,omitempty" label:"字段配置"`
+	Metadata map[string]interface{} `json:"metadata,omitempty"`
 } // @name CreateField
 
 // UpdateField only updates the non-null properties.
 type UpdateField struct {
-	Label *string `json:"label,omitempty" label:"字段标题"`
-	Type  *string `json:"type,omitempty" label:"字段类型" enums:"text,single_select,multi_select,datetime,number,checkbox,formula"`
+	Label *string `json:"label,omitempty"`
+	Type  *string `json:"type,omitempty" enums:"text,single_select,multi_select,datetime,number,checkbox,formula"`
 	// Metadata replaces the whole field configuration, it is required when the type changes.
-	Metadata map[string]interface{} `json:"metadata,omitempty" label:"字段配置"`
+	Metadata map[string]interface{} `json:"metadata,omitempty"`
 } // @name UpdateField
 
 type UpdateFieldPosition struct {
 	// Position is the zero-based index the field moves to, it is clamped into the valid range.
-	Position int64 `json:"position" label:"字段位置"`
+	Position int64 `json:"position"`
 } // @name UpdateFieldPosition
 
 type CreateRecord struct {
 	// Data is the cell values keyed by field UID.
-	Data map[string]interface{} `json:"data,omitempty" label:"字段数据"`
+	Data map[string]interface{} `json:"data,omitempty"`
 } // @name CreateRecord
 
 type BatchCreateRecords struct {
 	// Data is the list of cell values keyed by field UID, one item for each record.
-	Data []map[string]interface{} `json:"data" valid:"required" label:"字段数据"`
+	Data []map[string]interface{} `json:"data" valid:"required"`
 } // @name BatchCreateRecords
 
 type UpdateRecord struct {
 	// Data replaces all the cell values of the record, keyed by field UID.
-	Data map[string]interface{} `json:"data" label:"字段数据"`
+	Data map[string]interface{} `json:"data"`
 } // @name UpdateRecord
 
 type FetchRecords struct {
-	UIDs []string `json:"uids" label:"记录 UID"`
+	UIDs []string `json:"uids"`
 } // @name FetchRecords
 
 // QueryRecords filters, groups and sorts the records. Multiple filters are combined with AND.

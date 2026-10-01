@@ -3,7 +3,8 @@ import { Message, Modal, type TableColumnData } from '@arco-design/web-vue'
 import { Ellipsis, Plus } from '@lucide/vue'
 import dayjs from 'dayjs'
 import relativeTime from 'dayjs/plugin/relativeTime'
-import { onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 
 import { adminApi, type AdminUser, type UserStatusFilter } from '@/api/admin'
 import DeleteUserModal from '@/components/admin/DeleteUserModal.vue'
@@ -14,26 +15,28 @@ import PageHeader from '@/components/console/PageHeader.vue'
 import SettingsSection from '@/components/console/SettingsSection.vue'
 import { useAuthStore } from '@/stores/auth'
 
+const { t } = useI18n()
+
 dayjs.extend(relativeTime)
 
 const auth = useAuthStore()
 
-const STATUS_OPTIONS: { value: UserStatusFilter; label: string }[] = [
-  { value: '', label: '全部' },
-  { value: 'active', label: '正常' },
-  { value: 'disabled', label: '已停用' },
-  { value: 'admin', label: '管理员' },
-]
+const statusOptions = computed<{ value: UserStatusFilter; label: string }[]>(() => [
+  { value: '', label: t('admin.users.statusAll') },
+  { value: 'active', label: t('admin.users.statusActive') },
+  { value: 'disabled', label: t('admin.users.statusDisabled') },
+  { value: 'admin', label: t('admin.users.statusAdmin') },
+])
 
-const columns: TableColumnData[] = [
-  { title: '成员', slotName: 'user', width: 280 },
-  { title: '身份', slotName: 'role', width: 100 },
-  { title: '状态', slotName: 'status', width: 100 },
-  { title: '多维表格', dataIndex: 'ownedProjectCount', width: 100, align: 'right' },
-  { title: '最近登录', slotName: 'lastSignIn', width: 130 },
-  { title: '加入时间', slotName: 'createdAt', width: 130 },
-  { title: '操作', slotName: 'actions', width: 120, fixed: 'right' },
-]
+const columns = computed<TableColumnData[]>(() => [
+  { title: t('admin.users.colMember'), slotName: 'user', width: 280 },
+  { title: t('admin.users.colRole'), slotName: 'role', width: 100 },
+  { title: t('admin.users.colStatus'), slotName: 'status', width: 100 },
+  { title: t('admin.users.colBases'), dataIndex: 'ownedProjectCount', width: 100, align: 'right' },
+  { title: t('admin.users.colLastSignIn'), slotName: 'lastSignIn', width: 130 },
+  { title: t('admin.users.colJoinedAt'), slotName: 'createdAt', width: 130 },
+  { title: t('common.actions'), slotName: 'actions', width: 120, fixed: 'right' },
+])
 
 const users = ref<AdminUser[]>([])
 const loading = ref(false)
@@ -125,50 +128,50 @@ function onAction(u: AdminUser, key: string) {
       break
     case 'grant':
       confirmAction({
-        title: `将 ${u.userName} 设为管理员？`,
-        content: '管理员可以访问管理后台，管理所有成员、多维表格和系统设置。',
-        okText: '设为管理员',
+        title: t('admin.users.grantTitle', { name: u.userName }),
+        content: t('admin.users.grantContent'),
+        okText: t('admin.users.grant'),
         run: () => adminApi.setAdmin(u.id, true),
-        done: '已设为管理员',
+        done: t('admin.users.granted'),
       })
       break
     case 'revoke':
       confirmAction({
-        title: `取消 ${u.userName} 的管理员身份？`,
-        content: '取消后对方将无法访问管理后台。',
-        okText: '取消管理员',
+        title: t('admin.users.revokeTitle', { name: u.userName }),
+        content: t('admin.users.revokeContent'),
+        okText: t('admin.users.revoke'),
         danger: true,
         run: () => adminApi.setAdmin(u.id, false),
-        done: '已取消管理员身份',
+        done: t('admin.users.revoked'),
       })
       break
     case 'disable':
       confirmAction({
-        title: `停用 ${u.userName}？`,
-        content: '停用后对方所有设备立即退出登录且无法再登录，其拥有和参与的多维表格保持不变，可随时重新启用。',
-        okText: '停用',
+        title: t('admin.users.disableTitle', { name: u.userName }),
+        content: t('admin.users.disableContent'),
+        okText: t('admin.users.disable'),
         danger: true,
         run: () => adminApi.setDisabled(u.id, true),
-        done: '已停用',
+        done: t('admin.users.disabled'),
       })
       break
     case 'enable':
       confirmAction({
-        title: `启用 ${u.userName}？`,
-        content: '启用后对方可以重新登录。',
-        okText: '启用',
+        title: t('admin.users.enableTitle', { name: u.userName }),
+        content: t('admin.users.enableContent'),
+        okText: t('admin.users.enable'),
         run: () => adminApi.setDisabled(u.id, false),
-        done: '已启用',
+        done: t('admin.users.enabled'),
       })
       break
     case 'sessions':
       confirmAction({
-        title: `强制 ${u.userName} 下线？`,
-        content: '对方所有设备将立即退出登录，需要重新登录才能继续使用。',
-        okText: '强制下线',
+        title: t('admin.users.signOutTitle', { name: u.userName }),
+        content: t('admin.users.signOutContent'),
+        okText: t('admin.users.signOut'),
         danger: true,
         run: () => adminApi.revokeSessions(u.id),
-        done: '已强制下线',
+        done: t('admin.users.signedOut'),
       })
       break
     case 'delete':
@@ -183,11 +186,11 @@ onMounted(load)
 
 <template>
   <div>
-    <PageHeader title="成员管理" description="管理可以登录的成员、管理员身份和账号状态">
+    <PageHeader :title="t('admin.users.title')" :description="t('admin.users.description')">
       <template #extra>
         <a-button type="primary" @click="openCreate">
           <template #icon><Plus :size="16" /></template>
-          新建成员
+          {{ t('admin.users.create') }}
         </a-button>
       </template>
     </PageHeader>
@@ -195,9 +198,9 @@ onMounted(load)
     <SettingsSection flush>
       <div class="toolbar">
         <a-radio-group v-model="query.status" type="button">
-          <a-radio v-for="o in STATUS_OPTIONS" :key="o.value" :value="o.value">{{ o.label }}</a-radio>
+          <a-radio v-for="o in statusOptions" :key="o.value" :value="o.value">{{ o.label }}</a-radio>
         </a-radio-group>
-        <a-input-search v-model="query.keyword" placeholder="搜索名称或邮箱" allow-clear class="search" />
+        <a-input-search v-model="query.keyword" :placeholder="t('admin.users.search')" allow-clear class="search" />
       </div>
 
       <a-table
@@ -216,49 +219,49 @@ onMounted(load)
             <div class="user-text">
               <div class="user-name">
                 <span class="ellipsis">{{ record.userName }}</span>
-                <a-tag v-if="record.id === auth.user?.id" size="small">你</a-tag>
+                <a-tag v-if="record.id === auth.user?.id" size="small">{{ t('admin.users.you') }}</a-tag>
               </div>
               <div class="text-desc ellipsis">{{ record.email }}</div>
             </div>
           </div>
         </template>
         <template #role="{ record }">
-          <a-tag v-if="record.isAdmin" color="arcoblue" size="small">管理员</a-tag>
-          <span v-else class="text-caption">成员</span>
+          <a-tag v-if="record.isAdmin" color="arcoblue" size="small">{{ t('admin.users.statusAdmin') }}</a-tag>
+          <span v-else class="text-caption">{{ t('admin.users.member') }}</span>
         </template>
         <template #status="{ record }">
-          <a-badge :status="record.disabled ? 'normal' : 'success'" :text="record.disabled ? '已停用' : '正常'" />
+          <a-badge :status="record.disabled ? 'normal' : 'success'" :text="record.disabled ? t('admin.users.statusDisabled') : t('admin.users.statusActive')" />
         </template>
         <template #lastSignIn="{ record }">
           <a-tooltip v-if="record.lastSignInAt" :content="dayjs(record.lastSignInAt).format('YYYY-MM-DD HH:mm')">
             <span>{{ dayjs(record.lastSignInAt).fromNow() }}</span>
           </a-tooltip>
-          <span v-else class="text-desc">从未登录</span>
+          <span v-else class="text-desc">{{ t('admin.users.neverSignedIn') }}</span>
         </template>
         <template #createdAt="{ record }">
           {{ dayjs(record.createdAt).format('YYYY-MM-DD') }}
         </template>
         <template #actions="{ record }">
           <div class="actions">
-            <a-button type="text" size="small" @click="openEdit(record)">编辑</a-button>
+            <a-button type="text" size="small" @click="openEdit(record)">{{ t('common.edit') }}</a-button>
             <a-dropdown
               trigger="click"
               position="br"
               :popup-max-height="false"
               @select="(key: unknown) => onAction(record, key as string)"
             >
-              <a-button type="text" size="small" shape="square" aria-label="更多操作">
+              <a-button type="text" size="small" shape="square" :aria-label="t('common.more')">
               <template #icon><Ellipsis :size="16" /></template>
             </a-button>
               <template #content>
-                <a-doption value="reset">重置密码</a-doption>
+                <a-doption value="reset">{{ t('admin.users.resetPassword') }}</a-doption>
                 <template v-if="record.id !== auth.user?.id">
-                  <a-doption v-if="!record.isAdmin && !record.disabled" value="grant">设为管理员</a-doption>
-                  <a-doption v-if="record.isAdmin" value="revoke">取消管理员</a-doption>
-                  <a-doption v-if="record.disabled" value="enable">启用账号</a-doption>
-                  <a-doption v-else value="disable">停用账号</a-doption>
-                  <a-doption v-if="!record.disabled" value="sessions">强制下线</a-doption>
-                  <a-doption value="delete" class="danger-option">删除成员</a-doption>
+                  <a-doption v-if="!record.isAdmin && !record.disabled" value="grant">{{ t('admin.users.grant') }}</a-doption>
+                  <a-doption v-if="record.isAdmin" value="revoke">{{ t('admin.users.revoke') }}</a-doption>
+                  <a-doption v-if="record.disabled" value="enable">{{ t('admin.users.enableAccount') }}</a-doption>
+                  <a-doption v-else value="disable">{{ t('admin.users.disableAccount') }}</a-doption>
+                  <a-doption v-if="!record.disabled" value="sessions">{{ t('admin.users.signOut') }}</a-doption>
+                  <a-doption value="delete" class="danger-option">{{ t('admin.users.delete') }}</a-doption>
                 </template>
               </template>
             </a-dropdown>
@@ -305,6 +308,7 @@ onMounted(load)
   display: flex;
   align-items: center;
   gap: 4px;
+  white-space: nowrap;
 }
 :deep(.arco-badge-status-text) {
   font-size: 14px;

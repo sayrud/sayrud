@@ -28,14 +28,14 @@ func (schemalessRoute) Recorder(ctx context.Context, table *db.SLTable) error {
 	slRecord, err := db.SLRecords.GetByUID(ctx.Request().Context(), recordUID)
 	if err != nil {
 		if errors.Is(err, db.ErrSLRecordNotFound) {
-			return ctx.ApiError(http.StatusNotFound, "数据表记录不存在")
+			return ctx.ApiError(http.StatusNotFound, "record::not_found")
 		}
 		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to get sl record by UID")
 		return ctx.ApiServerError()
 	}
 
 	if slRecord.SLTableID != table.ID {
-		return ctx.ApiError(http.StatusNotFound, "数据表记录不存在")
+		return ctx.ApiError(http.StatusNotFound, "record::not_found")
 	}
 
 	ctx.Map(slRecord)
@@ -112,15 +112,15 @@ func (schemalessRoute) QueryRecords(ctx context.Context, table *db.SLTable, f fo
 	if err != nil {
 		switch {
 		case errors.Is(err, db.ErrSLFieldNotFound):
-			return ctx.ApiError(http.StatusBadRequest, "字段不存在")
+			return ctx.ApiError(http.StatusBadRequest, "record::field_not_found")
 		case errors.Is(err, db.ErrSLFieldNotQueryable):
-			return ctx.ApiError(http.StatusBadRequest, "公式字段不可用于查询")
+			return ctx.ApiError(http.StatusBadRequest, "record::formula_not_queryable")
 		case errors.Is(err, db.ErrUnsupportedFilterOperation):
-			return ctx.ApiError(http.StatusBadRequest, "不支持的筛选条件")
+			return ctx.ApiError(http.StatusBadRequest, "record::unsupported_filter")
 		case errors.Is(err, db.ErrInvalidFilterValue):
-			return ctx.ApiError(http.StatusBadRequest, "筛选值格式错误")
+			return ctx.ApiError(http.StatusBadRequest, "record::invalid_filter_value")
 		case errors.Is(err, db.ErrInvalidSortOrder):
-			return ctx.ApiError(http.StatusBadRequest, "排序方式错误")
+			return ctx.ApiError(http.StatusBadRequest, "record::invalid_order")
 		default:
 			logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to query sl records")
 			return ctx.ApiServerError()
@@ -153,9 +153,9 @@ func (schemalessRoute) GetRecord(ctx context.Context, table *db.SLTable, record 
 func recordErrorResponse(err error) (statusCode int, msg string, ok bool) {
 	switch {
 	case errors.Is(err, routeutil.ErrFieldTypeMismatch):
-		return http.StatusBadRequest, "字段类型不匹配", true
+		return http.StatusBadRequest, "record::field_type_mismatch", true
 	case errors.Is(err, db.ErrSLFieldNotFound):
-		return http.StatusBadRequest, "引用字段不存在", true
+		return http.StatusBadRequest, "record::referenced_field_not_found", true
 	default:
 		return 0, "", false
 	}
@@ -190,7 +190,7 @@ func (schemalessRoute) CreateRecord(ctx context.Context, hub *collab.Hub, projec
 		return nil
 	}); err != nil {
 		if statusCode, msg, ok := recordErrorResponse(err); ok {
-			return ctx.ApiError(statusCode, "%s", msg)
+			return ctx.ApiError(statusCode, msg)
 		}
 		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to create sl record")
 		return ctx.ApiServerError()
@@ -236,7 +236,7 @@ func (schemalessRoute) BatchCreateRecords(ctx context.Context, hub *collab.Hub, 
 		return nil
 	}); err != nil {
 		if statusCode, msg, ok := recordErrorResponse(err); ok {
-			return ctx.ApiError(statusCode, "%s", msg)
+			return ctx.ApiError(statusCode, msg)
 		}
 		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to batch create sl records")
 		return ctx.ApiServerError()
@@ -274,7 +274,7 @@ func (schemalessRoute) UpdateRecord(ctx context.Context, hub *collab.Hub, projec
 		return nil
 	}); err != nil {
 		if statusCode, msg, ok := recordErrorResponse(err); ok {
-			return ctx.ApiError(statusCode, "%s", msg)
+			return ctx.ApiError(statusCode, msg)
 		}
 		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to update sl record")
 		return ctx.ApiServerError()

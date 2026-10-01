@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { X } from '@lucide/vue'
+import { useI18n } from 'vue-i18n'
 
 import logo from '@/assets/logo-avatar.png'
 import PageHeader from '@/components/console/PageHeader.vue'
@@ -8,23 +9,25 @@ import SettingRow from '@/components/console/SettingRow.vue'
 import SettingsSection from '@/components/console/SettingsSection.vue'
 import { useSystemSettings } from '@/composables/useSystemSettings'
 
+const { t } = useI18n()
+
 const { draft, loading, saving, dirty, save, reset } = useSystemSettings()
 </script>
 
 <template>
   <div>
-    <PageHeader title="站点信息" description="设置站点的基础信息" />
+    <PageHeader :title="t('consoleNav.site')" :description="t('admin.site.description')" />
 
     <a-spin :loading="loading" class="spin">
-      <SettingsSection title="基础信息">
-        <SettingRow label="站点名称" description="显示在网页标题和登录页">
+      <SettingsSection :title="t('settings.profile.basicInfo')">
+        <SettingRow :label="t('admin.site.siteName')" :description="t('admin.site.siteNameDescription')">
           <a-input v-model="draft.siteName" :max-length="32" show-word-limit placeholder="Sayrud" class="name-input" />
         </SettingRow>
-        <SettingRow label="预览">
+        <SettingRow :label="t('admin.site.preview')">
           <div class="tab-preview">
             <div class="tab">
               <img :src="logo" alt="" class="tab-icon" />
-              <span class="ellipsis">成员管理 · {{ draft.siteName.trim() || 'Sayrud' }}</span>
+              <span class="ellipsis">{{ t('consoleNav.users') }} · {{ draft.siteName.trim() || 'Sayrud' }}</span>
               <X :size="12" class="tab-close" />
             </div>
             <div class="tab-bar" />

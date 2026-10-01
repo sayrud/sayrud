@@ -468,7 +468,8 @@ export interface UpdateTable {
 }
 
 export interface UpdateUserSettings {
-  theme: "light" | "dark" | "system";
+  language?: "zh-CN" | "en-US";
+  theme?: "light" | "dark" | "system";
 }
 
 export interface UserBrief {
@@ -490,6 +491,8 @@ export interface UserSession {
 }
 
 export interface UserSettings {
+  /** Language is the language of the user interface. */
+  language: "zh-CN" | "en-US";
   /** Theme is the appearance of the user interface. */
   theme: "light" | "dark" | "system";
 }

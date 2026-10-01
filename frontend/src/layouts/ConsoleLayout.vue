@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { House, Menu } from '@lucide/vue'
 import { ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 
 import logoDark from '@/assets/logo-dark.svg'
@@ -11,6 +12,8 @@ import { useSiteStore } from '@/stores/site'
 import { useThemeStore } from '@/stores/theme'
 import { navLabel, type NavGroup } from './consoleNav'
 
+const { t, locale } = useI18n()
+
 const props = defineProps<{ title: string; nav: NavGroup[] }>()
 
 const route = useRoute()
@@ -20,7 +23,7 @@ const themeStore = useThemeStore()
 const drawerVisible = ref(false)
 
 watch(
-  [() => route.name, () => site.info.siteName],
+  [() => route.name, () => site.info.siteName, locale],
   () => (document.title = site.title(navLabel(props.nav, route.name) ?? props.title)),
   { immediate: true },
 )
@@ -36,12 +39,12 @@ site.ensureLoaded()
       <a-divider direction="vertical" class="header-divider" />
       <span class="console-title">{{ title }}</span>
       <div class="header-right">
-        <a-button class="menu-btn" type="text" shape="square" aria-label="打开菜单" @click="drawerVisible = true">
+        <a-button class="menu-btn" type="text" shape="square" :aria-label="t('console.openMenu')" @click="drawerVisible = true">
           <template #icon><Menu :size="18" /></template>
         </a-button>
         <a-button type="text" class="home-btn" @click="router.push('/')">
           <template #icon><House :size="15" /></template>
-          <span class="home-text">返回首页</span>
+          <span class="home-text">{{ t('console.backHome') }}</span>
         </a-button>
         <UserMenu />
       </div>

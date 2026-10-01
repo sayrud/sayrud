@@ -1,9 +1,12 @@
 <script setup lang="ts">
 import { Message } from '@arco-design/web-vue'
 import { ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 
 import { adminApi, type AdminProject } from '@/api/admin'
 import UserPicker from './UserPicker.vue'
+
+const { t } = useI18n()
 
 const props = defineProps<{ visible: boolean; project: AdminProject | null }>()
 const emit = defineEmits<{ 'update:visible': [value: boolean]; transferred: [] }>()
@@ -20,7 +23,7 @@ watch(
 async function submit() {
   if (!props.project) return false
   if (!userID.value) {
-    Message.warning('请选择新所有者')
+    Message.warning(t('admin.transferOwner.required'))
     return false
   }
   try {
@@ -29,7 +32,7 @@ async function submit() {
     Message.error(e instanceof Error ? e.message : String(e))
     return false
   }
-  Message.success('所有者已转移')
+  Message.success(t('admin.transferOwner.transferred'))
   emit('transferred')
   return true
 }
@@ -38,24 +41,24 @@ async function submit() {
 <template>
   <a-modal
     :visible="visible"
-    title="转移所有者"
+    :title="t('admin.transferOwner.title')"
     :width="480"
     title-align="start"
-    ok-text="转移"
+    :ok-text="t('admin.projects.transfer')"
     :on-before-ok="submit"
     @update:visible="emit('update:visible', $event)"
   >
     <p class="hint">
-      将「{{ project?.name }}」转移给其他成员。
-      <template v-if="project?.owner">原所有者 {{ project.owner.userName }} 将成为「可管理」协作者。</template>
+      {{ t('admin.transferOwner.hint', { name: project?.name ?? '' }) }}
+      <template v-if="project?.owner">{{ t('admin.transferOwner.previousOwner', { name: project.owner.userName }) }}</template>
     </p>
     <a-form :model="{}" layout="vertical">
-      <a-form-item label="新所有者" required>
+      <a-form-item :label="t('admin.transferOwner.newOwner')" required>
         <UserPicker
           v-if="visible"
           v-model="userID"
           :exclude-ids="project?.owner ? [project.owner.id] : []"
-          placeholder="搜索成员名称或邮箱"
+          :placeholder="t('admin.userPicker.placeholder')"
         />
       </a-form-item>
     </a-form>

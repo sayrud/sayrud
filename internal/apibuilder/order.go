@@ -9,8 +9,8 @@ import (
 )
 
 type Order struct {
-	FieldUID  string `json:"fieldUID" valid:"required" label:"字段 UID"`
-	OrderType string `json:"orderType" valid:"required;list:asc,desc" label:"排序类型"`
+	FieldUID  string `json:"fieldUID" valid:"required"`
+	OrderType string `json:"orderType" valid:"required;list:asc,desc"`
 }
 
 func ParseOrder(data []byte) (*Order, error) {

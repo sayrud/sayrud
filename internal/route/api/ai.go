@@ -10,7 +10,6 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
-	"github.com/wuhan005/govalid"
 	"gorm.io/gorm"
 
 	"github.com/wuhan005/sayrud/internal/ai"
@@ -84,13 +83,12 @@ func (aiRoute) Apply(ctx context.Context, hub *collab.Hub, project *db.Project, 
 	case ai.ActionTypeTables:
 		var applyTables ai.ApplyTables
 		if err := json.Unmarshal(f.ActionJson, &applyTables); err != nil {
-			return ctx.ApiError(http.StatusBadRequest, "JSON 解析错误")
+			return ctx.ApiError(http.StatusBadRequest, "ai::invalid_json")
 		}
 
 		for _, table := range applyTables {
-			errs, ok := govalid.Check(table)
-			if !ok {
-				return ctx.ApiError(http.StatusBadRequest, "%s", errs[0].Error())
+			if msg, ok := form.Validate(ctx.Locale(), table); !ok {
+				return ctx.ApiErrorMessage(http.StatusBadRequest, msg)
 			}
 		}
 
@@ -108,14 +106,14 @@ func (aiRoute) Apply(ctx context.Context, hub *collab.Hub, project *db.Project, 
 			return nil
 		}); err != nil {
 			if errors.Is(err, db.ErrSLTableExists) {
-				return ctx.ApiError(http.StatusBadRequest, "数据表已存在")
+				return ctx.ApiError(http.StatusBadRequest, "table::exists")
 			}
 			logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to apply tables")
 			return ctx.ApiServerError()
 		}
 
 	default:
-		return ctx.ApiError(http.StatusBadRequest, "操作类型不存在")
+		return ctx.ApiError(http.StatusBadRequest, "ai::unknown_operation")
 	}
 
 	hub.NotifyProject(project.UID, collab.MessageTablesChanged)

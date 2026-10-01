@@ -48,14 +48,10 @@ export const useThemeStore = defineStore('theme', () => {
     })
   }
 
-  /** Applies the mode saved in the account, called after signing in. */
-  async function loadFromAccount() {
-    try {
-      apply(parseThemeMode((await accountApi.settings()).theme))
-    } catch {
-      // Keeps the locally cached mode if the settings can not be loaded.
-    }
+  /** Applies the mode saved in the account. */
+  function applySaved(raw: string | undefined) {
+    apply(parseThemeMode(raw))
   }
 
-  return { mode, theme, setMode, loadFromAccount }
+  return { mode, theme, setMode, applySaved }
 })

@@ -39,25 +39,25 @@ const (
 	UnknownFieldType      SLFieldType = "unknown"
 )
 
-// Label returns the display name of the field type.
-func (t SLFieldType) Label() string {
+// LabelKey returns the message key of the display name of the field type.
+func (t SLFieldType) LabelKey() string {
 	switch t {
 	case TextFieldType:
-		return "文本"
+		return "field_type::text"
 	case SingleSelectFieldType:
-		return "单选"
+		return "field_type::single_select"
 	case MultiSelectFieldType:
-		return "多选"
+		return "field_type::multi_select"
 	case DateTimeFieldType:
-		return "日期"
+		return "field_type::datetime"
 	case NumberFieldType:
-		return "数字"
+		return "field_type::number"
 	case CheckboxFieldType:
-		return "复选框"
+		return "field_type::checkbox"
 	case FormulaFieldType:
-		return "公式"
+		return "field_type::formula"
 	default:
-		return "未知类型"
+		return "field_type::unknown"
 	}
 }
 

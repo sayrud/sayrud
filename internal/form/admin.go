@@ -1,14 +1,14 @@
 package form
 
 type AdminCreateUser struct {
-	Email    string `json:"email" valid:"required;email;maxlen:254" label:"邮箱"`
-	UserName string `json:"userName" valid:"required;maxlen:32" label:"用户名"`
-	Password string `json:"password" valid:"required;minlen:8;maxlen:64" label:"密码"`
+	Email    string `json:"email" valid:"required;email;maxlen:254"`
+	UserName string `json:"userName" valid:"required;maxlen:32"`
+	Password string `json:"password" valid:"required;minlen:8;maxlen:64"`
 	IsAdmin  bool   `json:"isAdmin"`
 } // @name AdminCreateUser
 
 type AdminUpdateUser struct {
-	UserName string `json:"userName" valid:"required;maxlen:32" label:"用户名"`
+	UserName string `json:"userName" valid:"required;maxlen:32"`
 } // @name AdminUpdateUser
 
 type AdminSetUserAdmin struct {
@@ -20,15 +20,15 @@ type AdminSetUserStatus struct {
 } // @name AdminSetUserStatus
 
 type AdminResetPassword struct {
-	Password string `json:"password" valid:"required;minlen:8;maxlen:64" label:"新密码"`
+	Password string `json:"password" valid:"required;minlen:8;maxlen:64"`
 } // @name AdminResetPassword
 
 type AdminTransferProject struct {
-	UserID int64 `json:"userID" valid:"required" label:"新所有者"`
+	UserID int64 `json:"userID" valid:"required"`
 } // @name AdminTransferProject
 
 type UpdateSystemSettings struct {
-	SiteName          string `json:"siteName" valid:"required" label:"站点名称"`
+	SiteName          string `json:"siteName" valid:"required"`
 	AllowSignUp       bool   `json:"allowSignUp"`
 	PasswordMinLength int    `json:"passwordMinLength"`
 	SessionTTLDays    int    `json:"sessionTTLDays"`

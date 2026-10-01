@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import type { SLField } from '@/types/bitable'
 import FieldTypeIcon from '@/components/field/FieldTypeIcon.vue'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 defineProps<{ fields: SLField[]; modelValue?: string; placeholder?: string; disabledUIDs?: string[] }>()
 defineEmits<{ 'update:modelValue': [string] }>()
@@ -9,7 +12,7 @@ defineEmits<{ 'update:modelValue': [string] }>()
 <template>
   <a-select
     :model-value="modelValue"
-    :placeholder="placeholder ?? '选择字段'"
+    :placeholder="placeholder ?? t('toolbar.selectField')"
     allow-search
     :filter-option="(input: string, option: { label?: string }) => (option.label ?? '').toLowerCase().includes(input.toLowerCase())"
     @update:model-value="(v: unknown) => $emit('update:modelValue', v as string)"

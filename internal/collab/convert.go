@@ -27,7 +27,8 @@ type fieldConversion struct {
 
 // convertField converts the record values of the field to the new type: the values are converted to text first,
 // then parsed as the new type, except for a few direct conversions such as select to select and number to checkbox.
-func convertField(old *db.SLField, newType db.SLFieldType, metadata map[string]interface{}, records []*db.SLRecord) (*fieldConversion, error) {
+// boolText returns the text of the checkbox values, in the language of the user who converts the field.
+func convertField(old *db.SLField, newType db.SLFieldType, metadata map[string]interface{}, records []*db.SLRecord, boolText func(bool) string) (*fieldConversion, error) {
 	conversion := &fieldConversion{metadata: metadata, values: make(map[string]interface{}, len(records))}
 
 	oldValues := make(map[string]interface{}, len(records))
@@ -38,7 +39,7 @@ func convertField(old *db.SLField, newType db.SLFieldType, metadata map[string]i
 			return nil, errors.Wrapf(err, "decode record %q", record.UID)
 		}
 		oldValues[record.UID] = data[old.UID]
-		texts[record.UID] = valueToText(old, data[old.UID])
+		texts[record.UID] = valueToText(old, data[old.UID], boolText)
 	}
 
 	// The formula values are calculated by the clients rather than stored.
@@ -172,7 +173,7 @@ func optionUID(field *db.SLField, name string) string {
 }
 
 // valueToText returns the display text of the value, the same as valueToText of the frontend.
-func valueToText(field *db.SLField, value interface{}) string {
+func valueToText(field *db.SLField, value interface{}, boolText func(bool) string) string {
 	switch v := value.(type) {
 	case nil:
 		return ""
@@ -193,7 +194,7 @@ func valueToText(field *db.SLField, value interface{}) string {
 		}
 		return strconv.FormatFloat(v, 'f', -1, 64)
 	case bool:
-		return lo.Ternary(v, "是", "否")
+		return boolText(v)
 	case []interface{}:
 		names := make([]string, 0, len(v))
 		for _, uid := range v {

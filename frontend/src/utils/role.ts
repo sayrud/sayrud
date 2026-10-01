@@ -1,4 +1,5 @@
 import type { MemberRole, ProjectRole } from '@/types/bitable'
+import { lazyLabels, t } from '../i18n/translate.ts'
 
 const LEVELS: Record<ProjectRole, number> = { viewer: 1, editor: 2, manager: 3, owner: 4 }
 
@@ -7,15 +8,27 @@ export function roleAtLeast(role: ProjectRole | undefined | null, min: ProjectRo
   return !!role && LEVELS[role] >= LEVELS[min]
 }
 
-export const ROLE_LABELS: Record<ProjectRole, string> = {
-  owner: '所有者',
-  manager: '可管理',
-  editor: '可编辑',
-  viewer: '可查看',
-}
+export const ROLE_LABELS: Record<ProjectRole, string> = lazyLabels({
+  owner: () => t('role.owner'),
+  manager: () => t('role.manager'),
+  editor: () => t('role.editor'),
+  viewer: () => t('role.viewer'),
+})
 
-export const MEMBER_ROLES: { role: MemberRole; label: string; description: string }[] = [
-  { role: 'manager', label: '可管理', description: '可编辑内容，并管理协作者和权限' },
-  { role: 'editor', label: '可编辑', description: '可编辑数据表、字段、视图和记录' },
-  { role: 'viewer', label: '可查看', description: '只能查看，筛选和排序仅自己可见' },
-]
+const ROLE_DESCRIPTIONS: Record<MemberRole, string> = lazyLabels({
+  manager: () => t('role.managerDescription'),
+  editor: () => t('role.editorDescription'),
+  viewer: () => t('role.viewerDescription'),
+})
+
+export const MEMBER_ROLES: { role: MemberRole; label: string; description: string }[] = (['manager', 'editor', 'viewer'] as const).map(
+  (role) => ({
+    role,
+    get label() {
+      return ROLE_LABELS[role]
+    },
+    get description() {
+      return ROLE_DESCRIPTIONS[role]
+    },
+  }),
+)

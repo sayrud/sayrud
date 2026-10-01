@@ -16,6 +16,7 @@ import {
   X,
 } from '@lucide/vue'
 import { computed, nextTick, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 
 import { useBaseStore } from '@/stores/base'
 import type { RowHeight, SLView } from '@/types/bitable'
@@ -26,6 +27,8 @@ import FieldsPanel from './FieldsPanel.vue'
 import FilterPanel from './FilterPanel.vue'
 import RowHeightIcon from './RowHeightIcon.vue'
 import SortGroupPanel from './SortGroupPanel.vue'
+
+const { t } = useI18n()
 
 const props = defineProps<{ view: SLView }>()
 const emit = defineEmits<{ addRecord: [] }>()
@@ -92,13 +95,13 @@ function deleteSelected() {
 <template>
   <div class="toolbar">
     <template v-if="store.selectedRecords.length && isGrid">
-      <span class="selected-info">已选择 {{ store.selectedRecords.length }} 条记录</span>
-      <button v-if="store.canEdit" class="tool-btn danger" @click="deleteSelected"><Trash :size="15" /> 删除</button>
-      <button class="tool-btn" @click="store.selectedRecords = []"><X :size="15" /> 取消选择</button>
+      <span class="selected-info">{{ t('toolbar.selected', { n: store.selectedRecords.length }, store.selectedRecords.length) }}</span>
+      <button v-if="store.canEdit" class="tool-btn danger" @click="deleteSelected"><Trash :size="15" /> {{ t('common.delete') }}</button>
+      <button class="tool-btn" @click="store.selectedRecords = []"><X :size="15" /> {{ t('toolbar.deselect') }}</button>
     </template>
     <template v-else>
       <template v-if="!isForm && store.canEdit">
-        <button class="tool-btn add-btn" @click="emit('addRecord')"><Plus :size="16" /> 添加记录</button>
+        <button class="tool-btn add-btn" @click="emit('addRecord')"><Plus :size="16" /> {{ t('grid.addRecord') }}</button>
         <span class="divider" />
       </template>
 
@@ -111,11 +114,11 @@ function deleteSelected() {
         @popup-visible-change="(v: boolean) => setOpen('kanban', v)"
       >
         <button class="tool-btn" :class="{ active: open === 'kanban' }">
-          <SquareKanban :size="15" /> 看板分组：{{ kanbanField?.label ?? '未设置' }} <ChevronDown :size="12" />
+          <SquareKanban :size="15" /> {{ t('toolbar.kanbanGroup', { field: kanbanField?.label ?? t('toolbar.notSet') }) }} <ChevronDown :size="12" />
         </button>
         <template #content>
           <div class="popup kanban-popup">
-            <div class="panel-title">选择分组依据（单选字段）</div>
+            <div class="panel-title">{{ t('toolbar.kanbanGroupTitle') }}</div>
             <div
               v-for="f in singleSelectFields"
               :key="f.uid"
@@ -125,7 +128,7 @@ function deleteSelected() {
             >
               {{ f.label }}
             </div>
-            <div v-if="!singleSelectFields.length" class="text-caption empty">当前数据表还没有单选字段</div>
+            <div v-if="!singleSelectFields.length" class="text-caption empty">{{ t('toolbar.noSingleSelect') }}</div>
           </div>
         </template>
       </a-trigger>
@@ -139,7 +142,7 @@ function deleteSelected() {
         @popup-visible-change="(v: boolean) => setOpen('fields', v)"
       >
         <button class="tool-btn" :class="{ active: open === 'fields' || hiddenCount > 0 }">
-          <EyeOff :size="15" /> {{ hiddenCount ? `${hiddenCount} 个隐藏字段` : '字段配置' }}
+          <EyeOff :size="15" /> {{ hiddenCount ? t('toolbar.hiddenFields', { n: hiddenCount }, hiddenCount) : t('toolbar.fields') }}
         </button>
         <template #content>
           <div class="popup"><FieldsPanel :view="view" @close="open = null" /></div>
@@ -155,7 +158,7 @@ function deleteSelected() {
         @popup-visible-change="(v: boolean) => setOpen('filter', v)"
       >
         <button class="tool-btn" :class="{ active: open === 'filter' || filterCount > 0 }">
-          <ListFilter :size="15" /> {{ filterCount ? `${filterCount} 条筛选` : '筛选' }}
+          <ListFilter :size="15" /> {{ filterCount ? t('toolbar.filterCount', { n: filterCount }, filterCount) : t('toolbar.filter') }}
         </button>
         <template #content>
           <div class="popup"><FilterPanel :view="view" /></div>
@@ -171,7 +174,7 @@ function deleteSelected() {
         @popup-visible-change="(v: boolean) => setOpen('group', v)"
       >
         <button class="tool-btn" :class="{ active: open === 'group' || cfg.group.length > 0 }">
-          <LayoutList :size="15" /> {{ cfg.group.length ? `${cfg.group.length} 级分组` : '分组' }}
+          <LayoutList :size="15" /> {{ cfg.group.length ? t('toolbar.groupCount', { n: cfg.group.length }, cfg.group.length) : t('toolbar.group') }}
         </button>
         <template #content>
           <div class="popup"><SortGroupPanel :view="view" kind="group" /></div>
@@ -187,7 +190,7 @@ function deleteSelected() {
         @popup-visible-change="(v: boolean) => setOpen('sort', v)"
       >
         <button class="tool-btn" :class="{ active: open === 'sort' || cfg.sort.length > 0 }">
-          <ArrowUpDown :size="15" /> {{ cfg.sort.length ? `${cfg.sort.length} 条排序` : '排序' }}
+          <ArrowUpDown :size="15" /> {{ cfg.sort.length ? t('toolbar.sortCount', { n: cfg.sort.length }, cfg.sort.length) : t('toolbar.sort') }}
         </button>
         <template #content>
           <div class="popup"><SortGroupPanel :view="view" kind="sort" /></div>
@@ -195,7 +198,7 @@ function deleteSelected() {
       </a-trigger>
 
       <a-dropdown v-if="isGrid" trigger="click" @select="(v) => store.updateViewConfig({ rowHeight: v as RowHeight })">
-        <button class="tool-btn"><Rows3 :size="15" /> 行高</button>
+        <button class="tool-btn"><Rows3 :size="15" /> {{ t('toolbar.rowHeight') }}</button>
         <template #content>
           <a-doption v-for="(h, key) in ROW_HEIGHTS" :key="key" :value="key">
             <span class="row-height-option" :class="{ active: cfg.rowHeight === key }">
@@ -210,17 +213,17 @@ function deleteSelected() {
     <span class="spacer" />
 
     <template v-if="store.canEdit">
-      <a-tooltip content="撤销 (⌘Z)" mini>
+      <a-tooltip :content="t('toolbar.undo')" mini>
         <button class="icon-btn" :disabled="!store.undoStack.length" @click="store.undo()"><Undo2 :size="16" /></button>
       </a-tooltip>
-      <a-tooltip content="重做 (⌘⇧Z)" mini>
+      <a-tooltip :content="t('toolbar.redo')" mini>
         <button class="icon-btn" :disabled="!store.redoStack.length" @click="store.redo()"><Redo2 :size="16" /></button>
       </a-tooltip>
     </template>
 
     <div v-if="searching" class="search-box">
       <Search :size="14" class="search-icon" />
-      <input ref="searchInput" v-model="store.search.term" placeholder="搜索" @keydown="onSearchKey" />
+      <input ref="searchInput" v-model="store.search.term" :placeholder="t('common.search')" @keydown="onSearchKey" />
       <template v-if="store.search.term && isGrid">
         <span class="search-count">{{ store.search.total ? store.search.index + 1 : 0 }}/{{ store.search.total }}</span>
         <button class="icon-btn sm" @click="step(-1)"><ChevronUp :size="14" /></button>
@@ -228,7 +231,7 @@ function deleteSelected() {
       </template>
       <button class="icon-btn sm" @click="closeSearch"><X :size="14" /></button>
     </div>
-    <button v-else-if="!isForm" class="icon-btn" title="搜索" @click="openSearch"><Search :size="16" /></button>
+    <button v-else-if="!isForm" class="icon-btn" :title="t('common.search')" @click="openSearch"><Search :size="16" /></button>
   </div>
 </template>
 

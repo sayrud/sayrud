@@ -2,6 +2,7 @@
 import { Plus, Trash } from '@lucide/vue'
 import dayjs from 'dayjs'
 import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 
 import { useBaseStore } from '@/stores/base'
 import type { FilterConjunction, FilterOperation, QueryFilter, SLField, SLView } from '@/types/bitable'
@@ -9,6 +10,8 @@ import { isQueryable } from '@/utils/fieldTypes'
 import { defaultFilterFor, FILTER_OPERATIONS, isListOperation, needsValue } from '@/utils/filters'
 import { optionsOf } from '@/utils/format'
 import FieldSelect from './FieldSelect.vue'
+
+const { t } = useI18n()
 
 const props = defineProps<{ view: SLView }>()
 const store = useBaseStore()
@@ -71,22 +74,22 @@ defineExpose({ add })
 <template>
   <div class="filter-panel">
     <div class="panel-head">
-      <span class="panel-title">设置筛选条件</span>
+      <span class="panel-title">{{ t('toolbar.filterTitle') }}</span>
     </div>
     <div v-if="filters.length > 1" class="conjunction">
-      符合以下
+      {{ t('toolbar.matchPrefix') }}
       <a-select
         :model-value="view.config.conjunction"
         size="small"
         style="width: 80px"
         @change="(v) => save(filters, v as FilterConjunction)"
       >
-        <a-option value="and">所有</a-option>
-        <a-option value="or">任一</a-option>
+        <a-option value="and">{{ t('toolbar.matchAll') }}</a-option>
+        <a-option value="or">{{ t('toolbar.matchAny') }}</a-option>
       </a-select>
-      条件
+      {{ t('toolbar.matchSuffix') }}
     </div>
-    <div v-if="!filters.length" class="empty">暂未添加筛选条件</div>
+    <div v-if="!filters.length" class="empty">{{ t('toolbar.filterEmpty') }}</div>
     <div v-for="(f, i) in filters" :key="i" class="filter-row">
       <div class="col-field">
         <FieldSelect :fields="fields" :model-value="f.fieldUID" size="small" @update:model-value="(v) => changeField(i, v)" />
@@ -105,7 +108,7 @@ defineExpose({ add })
               v-if="field.type === 'text'"
               :model-value="f.value"
               size="small"
-              placeholder="请输入"
+              :placeholder="t('common.inputPlaceholder')"
               allow-clear
               @input="(v: string) => patch(i, { value: v })"
               @clear="patch(i, { value: '' })"
@@ -114,7 +117,7 @@ defineExpose({ add })
               v-else-if="field.type === 'number'"
               :model-value="f.value === '' ? undefined : Number(f.value)"
               size="small"
-              placeholder="请输入"
+              :placeholder="t('common.inputPlaceholder')"
               @change="(v: number | undefined) => patch(i, { value: v === undefined || v === null ? '' : String(v) })"
             />
             <a-select
@@ -123,7 +126,7 @@ defineExpose({ add })
               size="small"
               multiple
               :max-tag-count="2"
-              placeholder="请选择"
+              :placeholder="t('common.selectPlaceholder')"
               @change="(v) => patch(i, { value: (v as string[]).length ? JSON.stringify(v) : '' })"
             >
               <a-option v-for="o in optionsOf(field)" :key="o.uid" :value="o.uid">{{ o.name }}</a-option>
@@ -132,7 +135,7 @@ defineExpose({ add })
               v-else-if="field.type === 'single_select' || field.type === 'multi_select'"
               :model-value="f.value || undefined"
               size="small"
-              placeholder="请选择"
+              :placeholder="t('common.selectPlaceholder')"
               @change="(v) => patch(i, { value: (v as string) ?? '' })"
             >
               <a-option v-for="o in optionsOf(field)" :key="o.uid" :value="o.uid">{{ o.name }}</a-option>
@@ -151,15 +154,15 @@ defineExpose({ add })
               size="small"
               @change="(v) => patch(i, { value: v as string })"
             >
-              <a-option value="true">已勾选</a-option>
-              <a-option value="false">未勾选</a-option>
+              <a-option value="true">{{ t('group.checked') }}</a-option>
+              <a-option value="false">{{ t('group.unchecked') }}</a-option>
             </a-select>
           </template>
         </template>
       </div>
       <button class="icon-btn" @click="remove(i)"><Trash :size="14" /></button>
     </div>
-    <button class="add" :disabled="!fields.length" @click="add()"><Plus :size="14" /> 添加条件</button>
+    <button class="add" :disabled="!fields.length" @click="add()"><Plus :size="14" /> {{ t('toolbar.addFilter') }}</button>
   </div>
 </template>
 

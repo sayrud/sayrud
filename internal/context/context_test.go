@@ -7,6 +7,8 @@ import (
 
 	"github.com/flamego/flamego"
 	"github.com/stretchr/testify/require"
+
+	"github.com/wuhan005/sayrud/internal/i18n"
 )
 
 func TestContextIP(t *testing.T) {
@@ -27,7 +29,7 @@ func TestContextIP(t *testing.T) {
 
 			var got string
 			f := flamego.New()
-			f.Use(Contexter(nil))
+			f.Use(i18n.Middleware(), Contexter(nil))
 			f.Get("/", func(ctx Context) { got = ctx.IP() })
 
 			request := httptest.NewRequest(http.MethodGet, "/", nil)

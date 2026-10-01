@@ -70,7 +70,7 @@ func TestConvertField_TextToSingleSelect(t *testing.T) {
 		newTestRecord(t, "rec4", map[string]interface{}{}),
 	}
 
-	conversion, err := convertField(field, db.SingleSelectFieldType, map[string]interface{}{"default": ""}, records)
+	conversion, err := convertField(field, db.SingleSelectFieldType, map[string]interface{}{"default": ""}, records, testBoolText)
 	require.NoError(t, err)
 
 	options := conversion.metadata["options"].([]interface{})
@@ -93,13 +93,13 @@ func TestConvertField_NumberAndCheckbox(t *testing.T) {
 		newTestRecord(t, "rec2", map[string]interface{}{"fldBBBBBBB": 0.0}),
 	}
 
-	conversion, err := convertField(number, db.CheckboxFieldType, map[string]interface{}{}, records)
+	conversion, err := convertField(number, db.CheckboxFieldType, map[string]interface{}{}, records, testBoolText)
 	require.NoError(t, err)
 	assert.Equal(t, true, conversion.values["rec1"])
 	// Unchecked checkboxes are not stored.
 	assert.Nil(t, conversion.values["rec2"])
 
-	conversion, err = convertField(number, db.TextFieldType, map[string]interface{}{}, records)
+	conversion, err = convertField(number, db.TextFieldType, map[string]interface{}{}, records, testBoolText)
 	require.NoError(t, err)
 	assert.Equal(t, "2", conversion.values["rec1"])
 }
@@ -114,7 +114,27 @@ func TestConvertField_MultiToSingleSelect(t *testing.T) {
 		newTestRecord(t, "rec1", map[string]interface{}{"fldCCCCCCC": []interface{}{"optB", "optA"}}),
 	}
 
-	conversion, err := convertField(field, db.SingleSelectFieldType, map[string]interface{}{"options": options}, records)
+	conversion, err := convertField(field, db.SingleSelectFieldType, map[string]interface{}{"options": options}, records, testBoolText)
 	require.NoError(t, err)
 	assert.Equal(t, "optB", conversion.values["rec1"])
+}
+
+func testBoolText(v bool) string {
+	if v {
+		return "Yes"
+	}
+	return "No"
+}
+
+func TestConvertField_CheckboxToText(t *testing.T) {
+	checkbox := newTestField("fldCCCCCCC", db.CheckboxFieldType, map[string]interface{}{})
+	records := []*db.SLRecord{
+		newTestRecord(t, "rec1", map[string]interface{}{"fldCCCCCCC": true}),
+		newTestRecord(t, "rec2", map[string]interface{}{"fldCCCCCCC": false}),
+	}
+
+	conversion, err := convertField(checkbox, db.TextFieldType, map[string]interface{}{}, records, testBoolText)
+	require.NoError(t, err)
+	assert.Equal(t, "Yes", conversion.values["rec1"])
+	assert.Equal(t, "No", conversion.values["rec2"])
 }

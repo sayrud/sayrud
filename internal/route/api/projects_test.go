@@ -10,6 +10,7 @@ import (
 
 	"github.com/wuhan005/sayrud/internal/context"
 	"github.com/wuhan005/sayrud/internal/db"
+	"github.com/wuhan005/sayrud/internal/i18n"
 )
 
 func TestRequireRole(t *testing.T) {
@@ -27,7 +28,7 @@ func TestRequireRole(t *testing.T) {
 	} {
 		t.Run(string(tc.role)+" requires "+string(tc.min), func(t *testing.T) {
 			f := flamego.New()
-			f.Use(context.Contexter(nil), func(c flamego.Context) { c.Map(tc.role) })
+			f.Use(i18n.Middleware(), context.Contexter(nil), func(c flamego.Context) { c.Map(tc.role) })
 			f.Get("/", Project.RequireRole(tc.min), func(ctx context.Context) error {
 				return ctx.Status(http.StatusNoContent)
 			})

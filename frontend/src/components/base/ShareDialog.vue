@@ -2,6 +2,7 @@
 import { Message, Modal } from '@arco-design/web-vue'
 import { Check, ChevronDown, Link, UserPlus } from '@lucide/vue'
 import { computed, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 
 import { membersApi, projectsApi } from '@/api/bitable'
@@ -11,6 +12,8 @@ import { useAuthStore } from '@/stores/auth'
 import { useBaseStore } from '@/stores/base'
 import type { MemberRole, ProjectMember, UserBrief } from '@/types/bitable'
 import { MEMBER_ROLES, ROLE_LABELS } from '@/utils/role'
+
+const { t } = useI18n()
 
 const visible = defineModel<boolean>('visible', { required: true })
 
@@ -69,7 +72,7 @@ watch(email, (value) => {
       const user = await membersApi.lookup(projectUID.value, v)
       if (seq === lookupSeq) candidate.value = user
     } catch (e) {
-      if (seq === lookupSeq) lookupError.value = e instanceof ApiError && e.status === 404 ? '该邮箱尚未注册，请先让对方注册账号' : String((e as Error).message)
+      if (seq === lookupSeq) lookupError.value = e instanceof ApiError && e.status === 404 ? t('share.notRegistered') : String((e as Error).message)
     } finally {
       if (seq === lookupSeq) lookingUp.value = false
     }
@@ -79,13 +82,13 @@ watch(email, (value) => {
 async function invite() {
   const v = email.value.trim()
   if (!isEmail(v)) {
-    Message.warning('请输入协作者的邮箱')
+    Message.warning(t('share.emailRequired'))
     return
   }
   inviting.value = true
   try {
     const m = await membersApi.add(projectUID.value, v, inviteRole.value)
-    Message.success(`已添加「${m.user.userName}」为${ROLE_LABELS[m.role]}协作者`)
+    Message.success(t('share.added', { name: m.user.userName, role: ROLE_LABELS[m.role] }))
     email.value = ''
     await load()
   } catch (e) {
@@ -100,7 +103,7 @@ async function changeRole(m: ProjectMember, role: MemberRole) {
   try {
     await membersApi.update(projectUID.value, m.user.id, role)
     m.role = role
-    Message.success(`已将「${m.user.userName}」的权限设为${ROLE_LABELS[role]}`)
+    Message.success(t('share.roleChanged', { name: m.user.userName, role: ROLE_LABELS[role] }))
   } catch (e) {
     Message.error(e instanceof Error ? e.message : String(e))
     load()
@@ -110,20 +113,20 @@ async function changeRole(m: ProjectMember, role: MemberRole) {
 function remove(m: ProjectMember) {
   const self = m.user.id === myID.value
   Modal.warning({
-    title: self ? '退出协作？' : `移除「${m.user.userName}」？`,
-    content: self ? '退出后你将无法访问该多维表格，除非被重新添加。' : '移除后对方将无法访问该多维表格。',
+    title: self ? t('share.leaveTitle') : t('share.removeTitle', { name: m.user.userName }),
+    content: self ? t('home.leaveContent') : t('share.removeContent'),
     hideCancel: false,
-    okText: self ? '退出' : '移除',
+    okText: self ? t('home.leaveOk') : t('share.remove'),
     okButtonProps: { status: 'danger' },
     onOk: async () => {
       await membersApi.remove(projectUID.value, m.user.id)
       if (self) {
         visible.value = false
-        Message.success('已退出协作')
+        Message.success(t('home.left'))
         router.replace('/')
         return
       }
-      Message.success('已移除')
+      Message.success(t('share.removed'))
       await load()
     },
   })
@@ -131,10 +134,10 @@ function remove(m: ProjectMember) {
 
 function transferOwner(m: ProjectMember) {
   Modal.warning({
-    title: `将所有权转移给「${m.user.userName}」？`,
-    content: '转移后对方成为所有者，你将成为「可管理」协作者，且不能再删除该多维表格。',
+    title: t('share.transferTitle', { name: m.user.userName }),
+    content: t('share.transferContent'),
     hideCancel: false,
-    okText: '转移',
+    okText: t('admin.projects.transfer'),
     onBeforeOk: async () => {
       try {
         await projectsApi.transferOwner(projectUID.value, m.user.id)
@@ -143,7 +146,7 @@ function transferOwner(m: ProjectMember) {
         Message.error(e instanceof Error ? e.message : String(e))
         return false
       }
-      Message.success(`已将所有权转移给「${m.user.userName}」`)
+      Message.success(t('share.transferred', { name: m.user.userName }))
       await load()
       return true
     },
@@ -165,8 +168,8 @@ function editable(m: ProjectMember) {
 function copyLink() {
   const url = `${location.origin}/base/${projectUID.value}`
   navigator.clipboard?.writeText(url).then(
-    () => Message.success('链接已复制，仅协作者可以访问'),
-    () => Message.error('复制失败，请手动复制地址栏链接'),
+    () => Message.success(t('home.linkCopied')),
+    () => Message.error(t('share.copyFailed')),
   )
 }
 </script>
@@ -174,12 +177,12 @@ function copyLink() {
 <template>
   <a-modal v-model:visible="visible" :width="520" :footer="false" unmount-on-close>
     <template #title>
-      <span class="title ellipsis">分享「{{ store.project?.name }}」</span>
+      <span class="title ellipsis">{{ t('share.title', { name: store.project?.name ?? '' }) }}</span>
     </template>
 
     <div v-if="store.canManage" class="invite">
       <div class="invite-row">
-        <a-input v-model="email" placeholder="输入协作者的邮箱" allow-clear class="invite-input" @press-enter="invite">
+        <a-input v-model="email" :placeholder="t('share.emailPlaceholder')" allow-clear class="invite-input" @press-enter="invite">
           <template #prefix><UserPlus :size="15" /></template>
           <template #suffix>
             <a-dropdown trigger="click" position="br" :popup-max-height="false" @select="(v) => (inviteRole = v as MemberRole)">
@@ -201,28 +204,28 @@ function copyLink() {
             </a-dropdown>
           </template>
         </a-input>
-        <a-button type="primary" :loading="inviting" :disabled="!!lookupError" @click="invite">邀请</a-button>
+        <a-button type="primary" :loading="inviting" :disabled="!!lookupError" @click="invite">{{ t('share.invite') }}</a-button>
       </div>
-      <div v-if="lookingUp" class="candidate hint"><a-spin :size="14" /> 查找中…</div>
+      <div v-if="lookingUp" class="candidate hint"><a-spin :size="14" /> {{ t('share.lookingUp') }}</div>
       <div v-else-if="candidate" class="candidate">
         <UserAvatar :name="candidate.userName" :color="candidate.color" :size="28" />
         <div class="member-text">
           <div class="member-name ellipsis">{{ candidate.userName }}</div>
           <div class="member-email ellipsis">{{ candidate.email }}</div>
         </div>
-        <span v-if="existing" class="candidate-tip">已是{{ ROLE_LABELS[existing.role] }}协作者，邀请将更新其权限</span>
+        <span v-if="existing" class="candidate-tip">{{ t('share.existing', { role: ROLE_LABELS[existing.role] }) }}</span>
       </div>
       <div v-else-if="lookupError" class="candidate hint error">{{ lookupError }}</div>
     </div>
-    <div v-else class="invite-tip">你是{{ ROLE_LABELS[store.role ?? 'viewer'] }}协作者，只有可管理权限的协作者才能邀请他人</div>
+    <div v-else class="invite-tip">{{ t('share.cannotInvite', { role: ROLE_LABELS[store.role ?? 'viewer'] }) }}</div>
 
-    <div class="section-title">协作者 · {{ members.length }} 人</div>
+    <div class="section-title">{{ t('share.members', { n: members.length }, members.length) }}</div>
     <a-spin :loading="loading" class="list">
       <div v-for="m in members" :key="m.user.id" class="member">
         <UserAvatar :name="m.user.userName" :color="m.user.color" :size="32" />
         <div class="member-text">
           <div class="member-name ellipsis">
-            {{ m.user.userName }}<span v-if="m.user.id === myID" class="me">（我）</span>
+            {{ m.user.userName }}<span v-if="m.user.id === myID" class="me">{{ t('share.me') }}</span>
           </div>
           <div class="member-email ellipsis">{{ m.user.email }}</div>
         </div>
@@ -250,9 +253,9 @@ function copyLink() {
               </a-doption>
               <a-divider :margin="4" />
             </template>
-            <a-doption v-if="store.role === 'owner' && m.user.id !== myID" value="transfer">转移所有权</a-doption>
+            <a-doption v-if="store.role === 'owner' && m.user.id !== myID" value="transfer">{{ t('share.transfer') }}</a-doption>
             <a-doption value="remove" :style="{ color: 'var(--color-danger)' }">
-              {{ m.user.id === myID ? '退出协作' : '移除' }}
+              {{ m.user.id === myID ? t('home.leave') : t('share.remove') }}
             </a-doption>
           </template>
         </a-dropdown>
@@ -261,10 +264,10 @@ function copyLink() {
     </a-spin>
 
     <div class="footer">
-      <span class="footer-tip">仅以上协作者可以通过链接访问</span>
+      <span class="footer-tip">{{ t('share.footerTip') }}</span>
       <a-button @click="copyLink">
         <template #icon><Link :size="14" /></template>
-        复制链接
+        {{ t('home.copyLink') }}
       </a-button>
     </div>
   </a-modal>

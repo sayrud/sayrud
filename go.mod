@@ -8,6 +8,7 @@ require (
 	github.com/cockroachdb/errors v1.8.2
 	github.com/dop251/goja v0.0.0-20240610225006-393f6d42497b
 	github.com/flamego/flamego v1.9.4
+	github.com/flamego/i18n v1.2.0
 	github.com/gorilla/websocket v1.5.3
 	github.com/lib/pq v1.9.0
 	github.com/pkg/errors v0.9.1
@@ -128,7 +129,9 @@ require (
 	golang.org/x/tools v0.49.0 // indirect
 	google.golang.org/genproto v0.0.0-20200911024640-645f7a48b24f // indirect
 	google.golang.org/protobuf v1.36.11 // indirect
+	gopkg.in/ini.v1 v1.64.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	gorm.io/driver/mysql v1.5.6 // indirect
+	unknwon.dev/i18n v1.0.1 // indirect
 )

@@ -1,11 +1,11 @@
-import type { UserSession, UserSettings } from './api'
+import type { UpdateUserSettings, UserSession, UserSettings } from './api'
 import { client } from './client'
 
-export type { UserSession, UserSettings }
+export type { UpdateUserSettings, UserSession, UserSettings }
 
 export const accountApi = {
   settings: async () => (await client.auth.getUserSettings()).data as UserSettings,
-  saveSettings: async (settings: UserSettings) =>
+  saveSettings: async (settings: UpdateUserSettings) =>
     (await client.auth.updateUserSettings(settings)).data as UserSettings,
   sessions: async () => (await client.auth.listSessions()).data as UserSession[],
   revokeSession: async (sessionId: number) => {

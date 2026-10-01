@@ -39,5 +39,5 @@ test('parses the browser, os and device of common user agents', () => {
     os: 'Linux',
     device: 'desktop',
   })
-  assert.deepEqual(parseUserAgent(''), { browser: '未知浏览器', os: '未知系统', device: 'desktop' })
+  assert.deepEqual(parseUserAgent(''), { browser: 'userAgent.unknownBrowser', os: 'userAgent.unknownOS', device: 'desktop' })
 })

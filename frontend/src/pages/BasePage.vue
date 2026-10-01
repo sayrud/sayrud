@@ -2,6 +2,7 @@
 import { Message } from '@arco-design/web-vue'
 import { CloudCheck, CloudOff, Eye, House, LoaderCircle, PanelLeftOpen, Share2 } from '@lucide/vue'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 
 import ShareDialog from '@/components/base/ShareDialog.vue'
@@ -19,6 +20,8 @@ import ViewToolbar from '@/components/toolbar/ViewToolbar.vue'
 import { keepRecordInView } from '@/composables/useViewData'
 import { useBaseStore } from '@/stores/base'
 import { useSiteStore } from '@/stores/site'
+
+const { t } = useI18n()
 
 const route = useRoute()
 const router = useRouter()
@@ -41,7 +44,7 @@ async function sync() {
     await store.openProject(pid)
   } catch (e) {
     if (store.accessDenied) return
-    Message.error(e instanceof Error ? e.message : '项目不存在')
+    Message.error(e instanceof Error ? e.message : t('base.notFound'))
     router.replace('/')
     return
   }
@@ -65,23 +68,23 @@ watch(
   () => {
     const tableUID = String(route.params.tableUID || '')
     if (tableUID && !store.loadingProject && !store.tables.some((t) => t.uid === tableUID)) {
-      Message.warning('当前数据表已被删除')
+      Message.warning(t('base.tableDeleted'))
       router.replace({ name: 'base', params: { projectUID: projectUID.value, tableUID: store.tables[0]?.uid ?? '' } })
     }
   },
 )
 
 const syncState = computed(() => {
-  if (store.connection !== 'open') return { icon: CloudOff, text: store.connection === 'connecting' ? '连接中…' : '已离线，修改将在重连后同步', cls: 'offline' }
-  if (store.pendingCount > 0 || store.refreshing) return { icon: LoaderCircle, text: store.refreshing ? '同步服务端数据…' : '保存中…', cls: 'saving' }
-  return { icon: CloudCheck, text: '已保存', cls: 'saved' }
+  if (store.connection !== 'open') return { icon: CloudOff, text: store.connection === 'connecting' ? t('base.connecting') : t('base.offline'), cls: 'offline' }
+  if (store.pendingCount > 0 || store.refreshing) return { icon: LoaderCircle, text: store.refreshing ? t('base.refreshing') : t('base.saving'), cls: 'saving' }
+  return { icon: CloudCheck, text: t('common.saved'), cls: 'saved' }
 })
 
 const otherMembers = computed(() => store.onlineMembers.filter((m) => m.memberId !== store.identity.memberId))
 
 function memberTitle(m: { name: string; tableUID?: string }) {
-  const table = store.tables.find((t) => t.uid === m.tableUID)
-  return table ? `${m.name} · 正在查看「${table.name}」` : m.name
+  const table = store.tables.find((tb) => tb.uid === m.tableUID)
+  return table ? t('base.memberViewing', { name: m.name, table: table.name }) : m.name
 }
 
 watch(
@@ -150,7 +153,7 @@ onBeforeUnmount(() => {
 <template>
   <div class="base">
     <header class="topbar">
-      <button class="icon-btn" title="返回首页" @click="router.push('/')"><House :size="17" /></button>
+      <button class="icon-btn" :title="t('console.backHome')" @click="router.push('/')"><House :size="17" /></button>
       <img src="/favicon.svg" class="logo" alt="" />
       <template v-if="!store.accessDenied">
         <input
@@ -166,14 +169,14 @@ onBeforeUnmount(() => {
           v-else
           class="base-name"
           :class="{ readonly: !store.canEdit }"
-          :title="store.canEdit ? '点击重命名' : undefined"
+          :title="store.canEdit ? t('base.clickToRename') : undefined"
           @click="startEditName"
-          >{{ store.project?.name ?? '加载中…' }}</span
+          >{{ store.project?.name ?? t('common.loading') }}</span
         >
-        <a-tooltip v-if="store.project && !store.canEdit" content="你只有查看权限，如需编辑请联系所有者或管理者">
+        <a-tooltip v-if="store.project && !store.canEdit" :content="t('base.viewOnlyTip')">
           <a-tag size="small">
             <template #icon><Eye :size="12" /></template>
-            可查看
+            {{ t('role.viewer') }}
           </a-tag>
         </a-tooltip>
         <span class="sync-state" :class="syncState.cls" :title="syncState.text">
@@ -190,16 +193,16 @@ onBeforeUnmount(() => {
           <a-avatar v-if="otherMembers.length > 5" :size="28" class="member more">+{{ otherMembers.length - 5 }}</a-avatar>
         </div>
         <a-button size="small" type="primary" :disabled="!store.project" @click="shareVisible = true">
-          <template #icon><Share2 :size="14" /></template>分享
+          <template #icon><Share2 :size="14" /></template>{{ t('share.share') }}
         </a-button>
       </template>
       <UserMenu />
     </header>
 
     <div v-if="store.accessDenied" class="denied">
-      <a-result status="403" title="无法访问该多维表格" :subtitle="store.accessDenied">
+      <a-result status="403" :title="t('base.accessDenied')" :subtitle="store.accessDenied">
         <template #extra>
-          <a-button type="primary" @click="router.replace('/')">返回首页</a-button>
+          <a-button type="primary" @click="router.replace('/')">{{ t('console.backHome') }}</a-button>
         </template>
       </a-result>
     </div>
@@ -208,7 +211,7 @@ onBeforeUnmount(() => {
       <TableSidebar v-if="!sidebarCollapsed" @select="selectTable" @collapse="sidebarCollapsed = true" />
       <main class="main">
         <div v-if="sidebarCollapsed || store.activeTableUID" class="main-head">
-          <button v-if="sidebarCollapsed" class="icon-btn expand-side" title="展开侧边栏" @click="sidebarCollapsed = false">
+          <button v-if="sidebarCollapsed" class="icon-btn expand-side" :title="t('base.expandSidebar')" @click="sidebarCollapsed = false">
             <PanelLeftOpen :size="16" />
           </button>
           <ViewTabs v-if="store.activeTableUID" class="tabs" @select="selectView" />
@@ -225,7 +228,7 @@ onBeforeUnmount(() => {
           <a-empty
             v-else-if="!store.tables.length"
             class="empty-state"
-            :description="store.canEdit ? '还没有数据表，点击左侧的「+」新建数据表' : '还没有数据表'"
+            :description="store.canEdit ? t('base.noTablesHint') : t('base.noTables')"
           />
         </div>
       </main>

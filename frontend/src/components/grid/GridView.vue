@@ -19,6 +19,7 @@ import {
   Trash,
 } from '@lucide/vue'
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 
 import CellDisplay from '@/components/cell/CellDisplay.vue'
 import SelectTag from '@/components/cell/SelectTag.vue'
@@ -32,6 +33,8 @@ import { isQueryable } from '@/utils/fieldTypes'
 import { findOption, parseTSV, textToValue, toTSV } from '@/utils/format'
 import { DEFAULT_FIELD_WIDTH, PRIMARY_FIELD_WIDTH, ROW_HEIGHTS } from '@/utils/view'
 import GridCellEditor, { type EditorMove } from './GridCellEditor.vue'
+
+const { t } = useI18n()
 
 const props = defineProps<{ view: SLView }>()
 
@@ -468,7 +471,7 @@ function startEdit(initial?: string) {
   if (!col || !rec) return
   const f = col.field
   if (f.type === 'formula') {
-    Message.info({ content: '公式字段由系统计算，不可直接编辑', duration: 1500 })
+    Message.info({ content: t('grid.formulaReadonly'), duration: 1500 })
     return
   }
   if (f.type === 'checkbox') {
@@ -618,7 +621,7 @@ function clearRange() {
     if (!byRecord.has(record.uid)) byRecord.set(record.uid, {})
     byRecord.get(record.uid)![field.uid] = null
   }
-  store.updateRecords([...byRecord].map(([uid, data]) => ({ uid, data })), '清空单元格')
+  store.updateRecords([...byRecord].map(([uid, data]) => ({ uid, data })), t('grid.clearCells'))
 }
 
 // ---- Copy / paste ----
@@ -652,7 +655,7 @@ function onCopy(e: ClipboardEvent) {
   e.preventDefault()
   e.clipboardData?.setData('text/plain', text)
   const n = rect.value ? (rect.value.r2 - rect.value.r1 + 1) * (rect.value.c2 - rect.value.c1 + 1) : 0
-  if (n > 1) Message.success({ content: `已复制 ${n} 个单元格`, duration: 1200 })
+  if (n > 1) Message.success({ content: t('grid.cellsCopied', { n }, n), duration: 1200 })
 }
 
 function onCut(e: ClipboardEvent) {
@@ -684,14 +687,14 @@ async function pasteText(text: string) {
     for (let r = rc.r1; r <= rc.r2; r++) for (let c = rc.c1; c <= rc.c2; c++) targets.push({ r, c, text: matrix[0]![0]! })
   } else {
     matrix.forEach((row, i) =>
-      row.forEach((t, j) => {
-        if (rc.c1 + j < cols.value.length) targets.push({ r: rc.r1 + i, c: rc.c1 + j, text: t })
+      row.forEach((text, j) => {
+        if (rc.c1 + j < cols.value.length) targets.push({ r: rc.r1 + i, c: rc.c1 + j, text })
       }),
     )
   }
 
   const nav = [...layout.value.nav]
-  const extra = Math.max(...targets.map((t) => t.r)) - (nav.length - 1)
+  const extra = Math.max(...targets.map((tg) => tg.r)) - (nav.length - 1)
   if (extra > 0) {
     const created = await store.createRecords(Array.from({ length: extra }, () => ({})))
     created.forEach((r) => keepRecordInView(props.view.uid, r.uid))
@@ -699,10 +702,10 @@ async function pasteText(text: string) {
   }
 
   const missing = new Map<string, Set<string>>()
-  for (const t of targets) {
-    const f = cols.value[t.c]!.field
+  for (const tg of targets) {
+    const f = cols.value[tg.c]!.field
     if (f.type !== 'single_select' && f.type !== 'multi_select') continue
-    const { newOptions } = textToValue(f, t.text)
+    const { newOptions } = textToValue(f, tg.text)
     if (!newOptions.length) continue
     if (!missing.has(f.uid)) missing.set(f.uid, new Set())
     newOptions.forEach((n) => missing.get(f.uid)!.add(n))
@@ -710,16 +713,16 @@ async function pasteText(text: string) {
   for (const [uid, names] of missing) await store.ensureOptions(uid, [...names])
 
   const patches = new Map<string, RecordData>()
-  for (const t of targets) {
-    const rec = nav[t.r]
-    const f = store.fields.find((x) => x.uid === cols.value[t.c]!.field.uid)
+  for (const tg of targets) {
+    const rec = nav[tg.r]
+    const f = store.fields.find((x) => x.uid === cols.value[tg.c]!.field.uid)
     if (!rec || !f || f.type === 'formula') continue
     if (!patches.has(rec.uid)) patches.set(rec.uid, {})
-    patches.get(rec.uid)![f.uid] = textToValue(f, t.text).value
+    patches.get(rec.uid)![f.uid] = textToValue(f, tg.text).value
   }
-  await store.updateRecords([...patches].map(([uid, data]) => ({ uid, data })), '粘贴')
-  const lastR = Math.min(Math.max(...targets.map((t) => t.r)), layout.value.nav.length - 1)
-  const lastC = Math.max(...targets.map((t) => t.c))
+  await store.updateRecords([...patches].map(([uid, data]) => ({ uid, data })), t('grid.paste'))
+  const lastR = Math.min(Math.max(...targets.map((tg) => tg.r)), layout.value.nav.length - 1)
+  const lastC = Math.max(...targets.map((tg) => tg.c))
   const a = keyAt(rc.r1, rc.c1)
   const b = keyAt(lastR, lastC)
   if (a && b) sel.value = { anchor: a, focus: b }
@@ -786,13 +789,13 @@ function onRowContextMenu(e: MouseEvent, item: RecordItem) {
   const rangeRows = rc && rc.r2 > rc.r1 && item.nav >= rc.r1 && item.nav <= rc.r2 ? layout.value.nav.slice(rc.r1, rc.r2 + 1) : null
   const toDelete = multi ? [...store.selectedRecords] : rangeRows ? rangeRows.map((r) => r.uid) : [item.record.uid]
   if (!store.canEdit) {
-    openMenu(e, [{ label: '展开记录', icon: Maximize2, hint: '空格', onClick: () => expand(item.record) }])
+    openMenu(e, [{ label: t('grid.expandRecord'), icon: Maximize2, hint: t('grid.spaceKey'), onClick: () => expand(item.record) }])
     return
   }
   const items: MenuItem[] = [
-    { label: '展开记录', icon: Maximize2, hint: '空格', onClick: () => expand(item.record) },
+    { label: t('grid.expandRecord'), icon: Maximize2, hint: t('grid.spaceKey'), onClick: () => expand(item.record) },
     {
-      label: '复制记录',
+      label: t('grid.duplicateRecord'),
       icon: Copy,
       onClick: async () => {
         const r = await store.duplicateRecord(item.record.uid)
@@ -801,14 +804,14 @@ function onRowContextMenu(e: MouseEvent, item: RecordItem) {
     },
     { divider: true },
     {
-      label: '清空单元格',
+      label: t('grid.clearCells'),
       icon: Pencil,
       hint: 'Delete',
       disabled: !rc,
       onClick: clearRange,
     },
     {
-      label: toDelete.length > 1 ? `删除 ${toDelete.length} 条记录` : '删除记录',
+      label: toDelete.length > 1 ? t('grid.deleteRecords', { n: toDelete.length }) : t('grid.deleteRecord'),
       icon: Trash,
       danger: true,
       onClick: () => store.deleteRecords(toDelete),
@@ -938,59 +941,59 @@ function openFieldMenu(e: MouseEvent, col: Col) {
   const editOnly = new Set<MenuItem>()
   const edit = (item: MenuItem) => (editOnly.add(item), item)
   const items: MenuItem[] = [
-    edit({ label: '编辑字段', icon: Pencil, onClick: () => editField(f) }),
+    edit({ label: t('grid.editField'), icon: Pencil, onClick: () => editField(f) }),
     { divider: true },
-    edit({ label: '向左插入字段', icon: ArrowLeftToLine, disabled: isPrimary, onClick: () => addField(undefined, globalIndex(f.uid), f.uid) }),
-    edit({ label: '向右插入字段', icon: ArrowRightToLine, onClick: () => addField(undefined, globalIndex(f.uid) + 1, f.uid) }),
+    edit({ label: t('grid.insertLeft'), icon: ArrowLeftToLine, disabled: isPrimary, onClick: () => addField(undefined, globalIndex(f.uid), f.uid) }),
+    edit({ label: t('grid.insertRight'), icon: ArrowRightToLine, onClick: () => addField(undefined, globalIndex(f.uid) + 1, f.uid) }),
     { divider: true },
     {
-      label: '升序排列',
+      label: t('grid.sortAsc'),
       icon: ArrowUpNarrowWide,
       disabled: !queryable,
       onClick: () => store.updateViewConfig({ sort: [{ fieldUID: f.uid, order: 'asc' }, ...cfg.sort.filter((s) => s.fieldUID !== f.uid)] }),
     },
     {
-      label: '降序排列',
+      label: t('grid.sortDesc'),
       icon: ArrowDownWideNarrow,
       disabled: !queryable,
       onClick: () => store.updateViewConfig({ sort: [{ fieldUID: f.uid, order: 'desc' }, ...cfg.sort.filter((s) => s.fieldUID !== f.uid)] }),
     },
     {
-      label: '按此字段分组',
+      label: t('grid.groupBy'),
       icon: LayoutList,
       disabled: !queryable || cfg.group.length >= 3 || cfg.group.some((g) => g.fieldUID === f.uid),
       onClick: () => store.updateViewConfig({ group: [...cfg.group, { fieldUID: f.uid, order: 'asc' }] }),
     },
     {
-      label: '按此字段筛选',
+      label: t('grid.filterBy'),
       icon: ListFilter,
       disabled: !queryable,
       onClick: () => (store.toolbarRequest = { panel: 'filter', fieldUID: f.uid }),
     },
     { divider: true },
     {
-      label: frozenCount.value === col.index + 1 ? '取消冻结' : '冻结至此列',
+      label: frozenCount.value === col.index + 1 ? t('grid.unfreeze') : t('grid.freezeHere'),
       icon: Snowflake,
       onClick: () => store.updateViewConfig({ frozenCount: frozenCount.value === col.index + 1 ? 0 : col.index + 1 }),
     },
     {
-      label: '隐藏字段',
+      label: t('grid.hideField'),
       icon: EyeOff,
       disabled: isPrimary,
       onClick: () => store.updateViewConfig({ hiddenFields: [...cfg.hiddenFields, f.uid] }),
     },
     { divider: true },
     edit({
-      label: '删除字段',
+      label: t('grid.deleteField'),
       icon: Trash,
       danger: true,
       disabled: isPrimary,
       onClick: () =>
         Modal.warning({
-          title: `删除字段「${f.label}」？`,
-          content: '字段中的数据将被一并删除，且所有视图中都会移除该字段。',
+          title: t('grid.deleteFieldTitle', { name: f.label }),
+          content: t('grid.deleteFieldContent'),
           hideCancel: false,
-          okText: '删除',
+          okText: t('common.delete'),
           okButtonProps: { status: 'danger' },
           onOk: () => store.deleteField(f.uid),
         }),
@@ -1019,10 +1022,10 @@ function openSummaryMenu(e: MouseEvent, col: Col) {
   const r = (e.currentTarget as HTMLElement).getBoundingClientRect()
   openMenu(
     { x: r.left, y: r.top - 8 - summaryTypesFor(col.field).length * 32 },
-    summaryTypesFor(col.field).map((t) => ({
-      label: SUMMARY_LABELS[t],
-      icon: t === current ? Check : undefined,
-      onClick: () => store.updateViewConfig({ summary: { ...props.view.config.summary, [col.field.uid]: t } }),
+    summaryTypesFor(col.field).map((type) => ({
+      label: SUMMARY_LABELS[type],
+      icon: type === current ? Check : undefined,
+      onClick: () => store.updateViewConfig({ summary: { ...props.view.config.summary, [col.field.uid]: type } }),
     })),
   )
 }
@@ -1110,7 +1113,7 @@ defineExpose({ addRecord })
             <span class="resize-handle" @mousedown="onResizeStart($event, col)" />
           </div>
           <div class="cell header-add" :style="{ width: ADD_COL_W + 'px' }">
-            <button v-if="store.canEdit" class="icon-btn" title="添加字段" @click="addField($event)"><Plus :size="16" /></button>
+            <button v-if="store.canEdit" class="icon-btn" :title="t('grid.addField')" @click="addField($event)"><Plus :size="16" /></button>
           </div>
         </div>
 
@@ -1133,7 +1136,7 @@ defineExpose({ addRecord })
                 <Check v-if="store.selectedRecords.includes(item.record.uid)" :size="11" :stroke-width="3" />
               </span>
               <span class="row-num">{{ item.num }}</span>
-              <button class="icon-btn sm row-expand" title="展开记录" @click.stop="expand(item.record)">
+              <button class="icon-btn sm row-expand" :title="t('grid.expandRecord')" @click.stop="expand(item.record)">
                 <Maximize2 :size="13" />
               </button>
             </div>
@@ -1194,7 +1197,7 @@ defineExpose({ addRecord })
             :style="{ top: HEADER_H + item.top + 'px', height: item.height + 'px', width: columnsWidth + 'px' }"
             @click="addRecord(item.preset)"
           >
-            <div class="add-inner"><Plus :size="15" /> 新增记录</div>
+            <div class="add-inner"><Plus :size="15" /> {{ t('grid.addRecord') }}</div>
           </div>
         </template>
 
@@ -1203,7 +1206,7 @@ defineExpose({ addRecord })
         <!-- Summary bar -->
         <div class="grid-footer" :style="{ height: FOOTER_H + 'px', width: contentWidth + 'px', minWidth: '100%' }">
           <div class="cell index-cell footer-index" :style="{ width: INDEX_W + 'px' }">
-            <span class="ellipsis">{{ rows.length }} 条记录</span>
+            <span class="ellipsis">{{ t('grid.recordCount', { n: rows.length }, rows.length) }}</span>
           </div>
           <div
             v-for="col in cols"
@@ -1217,7 +1220,7 @@ defineExpose({ addRecord })
               <span class="summary-label">{{ SUMMARY_LABELS[summaryOf(col).type] }}</span>
               <span class="summary-value ellipsis">{{ summaryOf(col).text }}</span>
             </template>
-            <span v-else class="summary-placeholder">统计 <ChevronDown :size="12" /></span>
+            <span v-else class="summary-placeholder">{{ t('grid.summary') }} <ChevronDown :size="12" /></span>
           </div>
         </div>
 
@@ -1251,7 +1254,7 @@ defineExpose({ addRecord })
       </div>
 
       <div v-if="!layout.nav.length && !groups.length && view.config.filter.length" class="grid-empty">
-        没有符合筛选条件的记录
+        {{ t('grid.noMatch') }}
       </div>
     </div>
 

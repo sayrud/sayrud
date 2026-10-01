@@ -1,11 +1,14 @@
 <script setup lang="ts">
 import { Check, Plus } from '@lucide/vue'
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 
 import { useBaseStore } from '@/stores/base'
 import type { CellValue, SelectOption, SLField } from '@/types/bitable'
 import { optionsOf } from '@/utils/format'
 import SelectTag from './SelectTag.vue'
+
+const { t } = useI18n()
 
 const props = defineProps<{ field: SLField; value: CellValue; initialQuery?: string }>()
 const emit = defineEmits<{ change: [value: CellValue]; close: [] }>()
@@ -95,7 +98,7 @@ onMounted(() => input.value?.focus())
         closable
         @close="toggle(o.uid)"
       />
-      <input ref="input" v-model="query" placeholder="查找或创建选项" @keydown="onKey" />
+      <input ref="input" v-model="query" :placeholder="t('select.searchOrCreate')" @keydown="onKey" />
     </div>
     <div ref="listEl" class="list">
       <div
@@ -117,10 +120,10 @@ onMounted(() => input.value?.focus())
         @click="create"
       >
         <Plus :size="14" />
-        <span>创建选项</span>
+        <span>{{ t('select.create') }}</span>
         <SelectTag :name="query.trim()" :color="options.length" />
       </div>
-      <div v-if="!itemCount" class="empty">暂无选项，输入内容以创建</div>
+      <div v-if="!itemCount" class="empty">{{ t('select.empty') }}</div>
     </div>
   </div>
 </template>

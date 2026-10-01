@@ -2,12 +2,15 @@
 import { Message } from '@arco-design/web-vue'
 import { CircleCheck, Eye, EyeOff, GripVertical, PanelRightClose, PanelRightOpen, Share2 } from '@lucide/vue'
 import { computed, reactive, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 
 import FieldValueEditor from '@/components/cell/FieldValueEditor.vue'
 import FieldTypeIcon from '@/components/field/FieldTypeIcon.vue'
 import { useBaseStore } from '@/stores/base'
 import type { CellValue, FormFieldConfig, RecordData, SLView } from '@/types/bitable'
 import { defaultValueOf, isEmptyValue } from '@/utils/format'
+
+const { t } = useI18n()
 
 const props = defineProps<{ view: SLView }>()
 const store = useBaseStore()
@@ -64,7 +67,7 @@ async function submit() {
     if (errors[c.fieldUID]) ok = false
   }
   if (!ok) {
-    Message.warning('请填写必填项')
+    Message.warning(t('formView.requiredMissing'))
     return
   }
   submitting.value = true
@@ -106,7 +109,7 @@ function onDrop() {
 function share() {
   const url = `${location.origin}/form/${props.view.uid}`
   navigator.clipboard?.writeText(url).catch(() => undefined)
-  Message.success('表单链接已复制（Mock）')
+  Message.success(t('formView.linkCopied'))
 }
 </script>
 
@@ -114,8 +117,8 @@ function share() {
   <div class="form-view">
     <div class="form-scroll">
       <div class="form-actions">
-        <a-button size="small" @click="share"><template #icon><Share2 :size="14" /></template>分享表单</a-button>
-        <button v-if="store.canEdit" class="icon-btn" :title="settingsOpen ? '收起设置' : '展开设置'" @click="settingsOpen = !settingsOpen">
+        <a-button size="small" @click="share"><template #icon><Share2 :size="14" /></template>{{ t('formView.share') }}</a-button>
+        <button v-if="store.canEdit" class="icon-btn" :title="settingsOpen ? t('formView.collapseSettings') : t('formView.expandSettings')" @click="settingsOpen = !settingsOpen">
           <component :is="settingsOpen ? PanelRightClose : PanelRightOpen" :size="16" />
         </button>
       </div>
@@ -126,7 +129,7 @@ function share() {
             <input
               class="form-title"
               :value="form.title"
-              placeholder="表单标题"
+              :placeholder="t('formView.titlePlaceholder')"
               :readonly="!store.canEdit"
               @change="(e) => saveForm({ title: (e.target as HTMLInputElement).value })"
             />
@@ -134,7 +137,7 @@ function share() {
               class="form-desc"
               :value="form.description"
               rows="2"
-              :placeholder="store.canEdit ? '添加表单描述（选填）' : ''"
+              :placeholder="store.canEdit ? t('formView.descriptionPlaceholder') : ''"
               :readonly="!store.canEdit"
               @change="(e) => saveForm({ description: (e.target as HTMLTextAreaElement).value })"
             />
@@ -150,26 +153,26 @@ function share() {
               :value="values[c.fieldUID]"
               @change="(v) => setValue(c.fieldUID, v)"
             />
-            <div v-if="errors[c.fieldUID]" class="error-text">此项为必填项</div>
+            <div v-if="errors[c.fieldUID]" class="error-text">{{ t('formView.required') }}</div>
           </div>
-          <div v-if="!shown.length" class="no-field">{{ store.canEdit ? '表单中还没有字段，请在右侧设置中开启' : '表单中还没有字段' }}</div>
+          <div v-if="!shown.length" class="no-field">{{ store.canEdit ? t('formView.noFieldsHint') : t('formView.noFields') }}</div>
           <div class="form-submit">
-            <a-button type="primary" long size="large" :loading="submitting" :disabled="!store.canEdit" @click="submit">提交</a-button>
-            <div v-if="!store.canEdit" class="readonly-tip">你只有查看权限，可预览表单但无法提交</div>
+            <a-button type="primary" long size="large" :loading="submitting" :disabled="!store.canEdit" @click="submit">{{ t('formView.submit') }}</a-button>
+            <div v-if="!store.canEdit" class="readonly-tip">{{ t('formView.readonly') }}</div>
           </div>
         </template>
         <div v-else class="success">
           <CircleCheck :size="56" class="success-icon" />
-          <div class="success-title">提交成功</div>
-          <div class="text-caption">记录已写入数据表「{{ store.activeTable?.name }}」</div>
-          <a-button type="primary" style="margin-top: 24px" @click="again">再填一份</a-button>
+          <div class="success-title">{{ t('formView.submitted') }}</div>
+          <div class="text-caption">{{ t('formView.submittedHint', { table: store.activeTable?.name ?? '' }) }}</div>
+          <a-button type="primary" style="margin-top: 24px" @click="again">{{ t('formView.again') }}</a-button>
         </div>
       </div>
     </div>
 
     <aside v-if="settingsOpen && store.canEdit" class="settings">
-      <div class="settings-title">表单字段</div>
-      <div class="settings-tip">拖拽调整顺序，点击眼睛显示或隐藏字段</div>
+      <div class="settings-title">{{ t('formView.fields') }}</div>
+      <div class="settings-tip">{{ t('formView.fieldsTip') }}</div>
       <div
         v-for="c in fieldConfigs"
         :key="c.fieldUID"
@@ -181,20 +184,20 @@ function share() {
         <span class="grip" draggable="true" @dragstart="dragUID = c.fieldUID" @dragend="onDrop"><GripVertical :size="14" /></span>
         <FieldTypeIcon :type="fieldOf(c.fieldUID).type" />
         <span class="ellipsis label">{{ fieldOf(c.fieldUID).label }}</span>
-        <a-tooltip content="必填" mini>
+        <a-tooltip :content="t('formView.requiredLabel')" mini>
           <a-checkbox
             :model-value="c.required"
             :disabled="c.hidden"
             @change="(v: boolean | (string | number | boolean)[]) => patchField(c.fieldUID, { required: !!v })"
           >
-            必填
+            {{ t('formView.requiredLabel') }}
           </a-checkbox>
         </a-tooltip>
         <button class="icon-btn sm" @click="patchField(c.fieldUID, { hidden: !c.hidden, required: c.hidden ? c.required : false })">
           <component :is="c.hidden ? EyeOff : Eye" :size="14" />
         </button>
       </div>
-      <div class="settings-note">公式字段由系统计算，不出现在表单中。</div>
+      <div class="settings-note">{{ t('formView.formulaNote') }}</div>
     </aside>
   </div>
 </template>

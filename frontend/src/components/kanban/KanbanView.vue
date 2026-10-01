@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Ellipsis, Pencil, Plus, SquareKanban, Trash } from '@lucide/vue'
 import { computed, nextTick, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 
 import SelectTag from '@/components/cell/SelectTag.vue'
 import { openMenu } from '@/composables/useContextMenu'
@@ -9,6 +10,8 @@ import { useBaseStore } from '@/stores/base'
 import type { SelectOption, SLField, SLRecord, SLView } from '@/types/bitable'
 import { newOptionUID } from '@/utils/id'
 import RecordCard from './RecordCard.vue'
+
+const { t } = useI18n()
 
 const props = defineProps<{ view: SLView }>()
 const store = useBaseStore()
@@ -123,7 +126,7 @@ function openColumnMenu(e: MouseEvent, col: Column) {
   const r = (e.currentTarget as HTMLElement).getBoundingClientRect()
   openMenu({ x: r.left, y: r.bottom + 4 }, [
     {
-      label: '重命名分组',
+      label: t('kanban.renameGroup'),
       icon: Pencil,
       onClick: () => {
         renaming.value = opt.uid
@@ -131,7 +134,7 @@ function openColumnMenu(e: MouseEvent, col: Column) {
       },
     },
     {
-      label: '删除分组',
+      label: t('kanban.deleteGroup'),
       icon: Trash,
       danger: true,
       onClick: () =>
@@ -179,10 +182,10 @@ const singleSelects = computed(() => store.fields.filter((f) => f.type === 'sing
 <template>
   <div v-if="!groupField" class="kanban-empty">
     <SquareKanban :size="48" class="empty-icon" />
-    <div class="empty-title">看板视图需要一个单选字段作为分组依据</div>
+    <div class="empty-title">{{ t('kanban.needSingleSelect') }}</div>
     <div class="empty-actions">
-      <a-button v-if="singleSelects.length" type="primary" @click="pickGroupField">使用「{{ singleSelects[0]!.label }}」分组</a-button>
-      <a-button v-if="store.canEdit" @click="createGroupField">新建单选字段</a-button>
+      <a-button v-if="singleSelects.length" type="primary" @click="pickGroupField">{{ t('kanban.useField', { name: singleSelects[0]!.label }) }}</a-button>
+      <a-button v-if="store.canEdit" @click="createGroupField">{{ t('kanban.createField') }}</a-button>
     </div>
   </div>
 
@@ -214,12 +217,12 @@ const singleSelects = computed(() => store.fields.filter((f) => f.type === 'sing
         </template>
         <template v-else>
           <SelectTag v-if="col.option" :name="col.option.name" :color="col.option.color" />
-          <span v-else class="ungrouped">未分组</span>
+          <span v-else class="ungrouped">{{ t('kanban.ungrouped') }}</span>
           <span class="count">{{ col.records.length }}</span>
         </template>
         <span class="spacer" />
         <template v-if="store.canEdit">
-          <button class="icon-btn sm" title="新建记录" @click="addCard(col)"><Plus :size="14" /></button>
+          <button class="icon-btn sm" :title="t('kanban.newRecord')" @click="addCard(col)"><Plus :size="14" /></button>
           <button v-if="col.option" class="icon-btn sm" @click="openColumnMenu($event, col)"><Ellipsis :size="14" /></button>
         </template>
       </div>
@@ -235,7 +238,7 @@ const singleSelects = computed(() => store.fields.filter((f) => f.type === 'sing
           @dragend="(dragRecord = null), (overColumn = null)"
           @open="store.expandRecord(r.uid, allUIDs)"
         />
-        <button v-if="store.canEdit" class="add-card" @click="addCard(col)"><Plus :size="14" /> 新建记录</button>
+        <button v-if="store.canEdit" class="add-card" @click="addCard(col)"><Plus :size="14" /> {{ t('kanban.newRecord') }}</button>
       </div>
     </div>
 
@@ -245,12 +248,12 @@ const singleSelects = computed(() => store.fields.filter((f) => f.type === 'sing
         ref="newGroupInput"
         v-model="newGroupName"
         class="rename-input"
-        placeholder="输入分组名称"
+        :placeholder="t('kanban.groupNamePlaceholder')"
         @keydown.enter="confirmAddGroup"
         @keydown.esc="addingGroup = false"
         @blur="confirmAddGroup"
       />
-      <button v-else class="add-group" @click="startAddGroup"><Plus :size="14" /> 新建分组</button>
+      <button v-else class="add-group" @click="startAddGroup"><Plus :size="14" /> {{ t('kanban.newGroup') }}</button>
     </div>
   </div>
 </template>

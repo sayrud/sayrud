@@ -2,6 +2,7 @@
 import { ChevronDown } from '@lucide/vue'
 import dayjs from 'dayjs'
 import { computed, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 
 import FloatingPanel, { type Anchor } from '@/components/common/FloatingPanel.vue'
 import type { CellValue, SelectOption, SLField, SLRecord } from '@/types/bitable'
@@ -9,6 +10,8 @@ import { formatNumber, optionsOf, parseNumber } from '@/utils/format'
 import CellDisplay from './CellDisplay.vue'
 import SelectPanel from './SelectPanel.vue'
 import SelectTag from './SelectTag.vue'
+
+const { t } = useI18n()
 
 const props = defineProps<{
   field: SLField
@@ -80,7 +83,7 @@ const formulaRecord = computed(() => props.record)
     <a-textarea
       v-else-if="field.type === 'text'"
       v-model="draft"
-      :placeholder="placeholder ?? '请输入'"
+      :placeholder="placeholder ?? t('common.inputPlaceholder')"
       :auto-size="{ minRows: 1, maxRows: 8 }"
       @blur="commitText"
     />
@@ -88,7 +91,7 @@ const formulaRecord = computed(() => props.record)
     <a-input
       v-else-if="field.type === 'number'"
       v-model="draft"
-      :placeholder="placeholder ?? '请输入数字'"
+      :placeholder="placeholder ?? t('cell.numberPlaceholder')"
       @blur="commitNumber"
       @press-enter="commitNumber"
     />
@@ -108,7 +111,7 @@ const formulaRecord = computed(() => props.record)
           :closable="field.type === 'multi_select'"
           @close="emit('change', (value as string[]).filter((x) => x !== o.uid))"
         />
-        <span v-if="!selectedOptions.length" class="placeholder">{{ placeholder ?? '请选择' }}</span>
+        <span v-if="!selectedOptions.length" class="placeholder">{{ placeholder ?? t('common.selectPlaceholder') }}</span>
       </div>
       <ChevronDown :size="14" class="arrow" />
     </div>
@@ -120,7 +123,7 @@ const formulaRecord = computed(() => props.record)
       :show-time="!!md.with_time"
       :time-picker-props="{ format: 'HH:mm' }"
       :format="md.with_time ? `${md.format} HH:mm` : String(md.format)"
-      :placeholder="placeholder ?? '请选择日期'"
+      :placeholder="placeholder ?? t('cell.datePlaceholder')"
       style="width: 100%"
       @change="onDate"
     />
@@ -133,7 +136,7 @@ const formulaRecord = computed(() => props.record)
 
     <div v-else-if="field.type === 'formula'" class="readonly">
       <CellDisplay v-if="formulaRecord" :field="field" :record="formulaRecord" :lines="3" />
-      <span v-else class="placeholder">提交后自动计算</span>
+      <span v-else class="placeholder">{{ t('cell.formulaAfterSubmit') }}</span>
     </div>
 
     <FloatingPanel

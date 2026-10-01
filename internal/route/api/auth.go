@@ -5,7 +5,6 @@
 package api
 
 import (
-	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -18,6 +17,7 @@ import (
 	"github.com/wuhan005/sayrud/internal/db"
 	"github.com/wuhan005/sayrud/internal/dto"
 	"github.com/wuhan005/sayrud/internal/form"
+	"github.com/wuhan005/sayrud/internal/i18n"
 	"github.com/wuhan005/sayrud/internal/redis"
 )
 
@@ -31,12 +31,12 @@ const sessionCookieName = "sayrud_session"
 func (authRoute) Authenticator(ctx context.Context) error {
 	cookie, err := ctx.Request().Cookie(sessionCookieName)
 	if err != nil {
-		return ctx.ApiError(http.StatusUnauthorized, "请先登录")
+		return ctx.ApiError(http.StatusUnauthorized, "auth::sign_in_required")
 	}
 	session, err := db.UserSessions.GetByToken(ctx.Request().Context(), cookie.Value)
 	if err != nil {
 		if errors.Is(err, db.ErrUserSessionNotFound) {
-			return ctx.ApiError(http.StatusUnauthorized, "登录已过期，请重新登录")
+			return ctx.ApiError(http.StatusUnauthorized, "auth::session_expired")
 		}
 		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to get session")
 		return ctx.ApiServerError()
@@ -44,7 +44,7 @@ func (authRoute) Authenticator(ctx context.Context) error {
 	user, err := db.Users.GetByID(ctx.Request().Context(), session.UserID)
 	if err != nil {
 		if errors.Is(err, db.ErrUserNotFound) {
-			return ctx.ApiError(http.StatusUnauthorized, "账号不存在，请重新登录")
+			return ctx.ApiError(http.StatusUnauthorized, "auth::account_not_found")
 		}
 		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to get user of session")
 		return ctx.ApiServerError()
@@ -53,7 +53,7 @@ func (authRoute) Authenticator(ctx context.Context) error {
 		if err := db.UserSessions.DeleteByToken(ctx.Request().Context(), cookie.Value); err != nil {
 			logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to delete session of disabled user")
 		}
-		return ctx.ApiError(http.StatusUnauthorized, "账号已停用，请联系管理员")
+		return ctx.ApiError(http.StatusUnauthorized, "auth::account_disabled")
 	}
 
 	ctx.Map(user)
@@ -72,12 +72,12 @@ func loadSettings(ctx context.Context) (*db.SystemSettings, bool) {
 	return settings, true
 }
 
-// passwordTooShort returns the message if the password is shorter than the minimum length, or an empty string.
-func passwordTooShort(settings *db.SystemSettings, password string) string {
+// passwordTooShort returns the error of the message key if the password is shorter than the minimum length, the message takes the minimum length.
+func passwordTooShort(settings *db.SystemSettings, password, key string) error {
 	if utf8.RuneCountInString(password) < settings.PasswordMinLength {
-		return fmt.Sprintf("密码至少 %d 位", settings.PasswordMinLength)
+		return i18n.Errorf(key, settings.PasswordMinLength)
 	}
-	return ""
+	return nil
 }
 
 // SignUp
@@ -100,21 +100,21 @@ func (authRoute) SignUp(ctx context.Context, f form.SignUp) error {
 		return nil
 	}
 	if !settings.AllowSignUp {
-		return ctx.ApiError(http.StatusForbidden, "注册已关闭，请联系管理员")
+		return ctx.ApiError(http.StatusForbidden, "auth::sign_up_disabled")
 	}
-	if msg := passwordTooShort(settings, f.Password); msg != "" {
-		return ctx.ApiError(http.StatusBadRequest, "%s", msg)
+	if err := passwordTooShort(settings, f.Password, "auth::password_too_short"); err != nil {
+		return ctx.ApiErrorFrom(http.StatusBadRequest, err)
 	}
 	if err := redis.AuthAttempts.CheckSignUp(ctx.Request().Context(), ctx.IP()); err != nil {
 		if errors.Is(err, redis.ErrTooManyAttempts) {
-			return ctx.ApiError(http.StatusTooManyRequests, "注册过于频繁，请稍后再试")
+			return ctx.ApiError(http.StatusTooManyRequests, "auth::sign_up_too_frequent")
 		}
 		logrus.WithContext(ctx.Request().Context()).WithError(err).Warn("Failed to check sign-up attempts")
 	}
 
 	userName := strings.TrimSpace(f.UserName)
 	if userName == "" {
-		return ctx.ApiError(http.StatusBadRequest, "用户名不能为空")
+		return ctx.ApiError(http.StatusBadRequest, "auth::user_name_required")
 	}
 	options := db.CreateUserOptions{
 		Email:    f.Email,
@@ -127,7 +127,7 @@ func (authRoute) SignUp(ctx context.Context, f form.SignUp) error {
 	}
 	if err != nil {
 		if errors.Is(err, db.ErrUserAlreadyExisted) {
-			return ctx.ApiError(http.StatusConflict, "该邮箱已注册")
+			return ctx.ApiError(http.StatusConflict, "auth::email_taken")
 		}
 		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to create user")
 		return ctx.ApiServerError()
@@ -165,7 +165,7 @@ func (authRoute) SignIn(ctx context.Context, f form.SignIn) error {
 	email := db.NormalizeEmail(f.Email)
 	if err := redis.AuthAttempts.CheckSignIn(ctx.Request().Context(), ctx.IP(), email); err != nil {
 		if errors.Is(err, redis.ErrTooManyAttempts) {
-			return ctx.ApiError(http.StatusTooManyRequests, "尝试次数过多，请稍后再试")
+			return ctx.ApiError(http.StatusTooManyRequests, "common::too_many_attempts")
 		}
 		logrus.WithContext(ctx.Request().Context()).WithError(err).Warn("Failed to check sign-in attempts")
 	}
@@ -173,7 +173,7 @@ func (authRoute) SignIn(ctx context.Context, f form.SignIn) error {
 	user, err := db.Users.Authenticate(ctx.Request().Context(), email, f.Password)
 	if err != nil {
 		if errors.Is(err, db.ErrBadCredential) {
-			return ctx.ApiError(http.StatusUnauthorized, "邮箱或密码错误")
+			return ctx.ApiError(http.StatusUnauthorized, "auth::wrong_email_or_password")
 		}
 		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to authenticate")
 		return ctx.ApiServerError()
@@ -182,7 +182,7 @@ func (authRoute) SignIn(ctx context.Context, f form.SignIn) error {
 		logrus.WithContext(ctx.Request().Context()).WithError(err).Warn("Failed to reset sign-in attempts")
 	}
 	if user.Disabled() {
-		return ctx.ApiError(http.StatusForbidden, "账号已停用，请联系管理员")
+		return ctx.ApiError(http.StatusForbidden, "auth::account_disabled")
 	}
 
 	settings, ok := loadSettings(ctx)
@@ -240,7 +240,7 @@ func (authRoute) Profile(ctx context.Context, user *db.User) error {
 func (authRoute) UpdateProfile(ctx context.Context, user *db.User, f form.UpdateProfile) error {
 	userName := strings.TrimSpace(f.UserName)
 	if userName == "" {
-		return ctx.ApiError(http.StatusBadRequest, "用户名不能为空")
+		return ctx.ApiError(http.StatusBadRequest, "auth::user_name_required")
 	}
 	if err := db.Users.Update(ctx.Request().Context(), user.ID, db.UpdateUserOptions{UserName: userName}); err != nil {
 		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to update user")
@@ -265,13 +265,13 @@ func (authRoute) UpdateProfile(ctx context.Context, user *db.User, f form.Update
 func (authRoute) UpdatePassword(ctx context.Context, user *db.User, f form.UpdatePassword) error {
 	if err := redis.AuthAttempts.CheckPassword(ctx.Request().Context(), user.Email); err != nil {
 		if errors.Is(err, redis.ErrTooManyAttempts) {
-			return ctx.ApiError(http.StatusTooManyRequests, "尝试次数过多，请稍后再试")
+			return ctx.ApiError(http.StatusTooManyRequests, "common::too_many_attempts")
 		}
 		logrus.WithContext(ctx.Request().Context()).WithError(err).Warn("Failed to check password attempts")
 	}
 	if _, err := db.Users.Authenticate(ctx.Request().Context(), user.Email, f.OldPassword); err != nil {
 		if errors.Is(err, db.ErrBadCredential) {
-			return ctx.ApiError(http.StatusBadRequest, "当前密码错误")
+			return ctx.ApiError(http.StatusBadRequest, "auth::wrong_current_password")
 		}
 		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to authenticate")
 		return ctx.ApiServerError()
@@ -280,8 +280,8 @@ func (authRoute) UpdatePassword(ctx context.Context, user *db.User, f form.Updat
 	if !ok {
 		return nil
 	}
-	if msg := passwordTooShort(settings, f.NewPassword); msg != "" {
-		return ctx.ApiError(http.StatusBadRequest, "新%s", msg)
+	if err := passwordTooShort(settings, f.NewPassword, "auth::new_password_too_short"); err != nil {
+		return ctx.ApiErrorFrom(http.StatusBadRequest, err)
 	}
 
 	if err := db.Users.UpdatePassword(ctx.Request().Context(), user.ID, f.NewPassword); err != nil {

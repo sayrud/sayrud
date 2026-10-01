@@ -2,7 +2,8 @@
 import { Input, Message, Modal, type TableColumnData } from '@arco-design/web-vue'
 import { Table2 } from '@lucide/vue'
 import dayjs from 'dayjs'
-import { h, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
+import { computed, h, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 
 import { adminApi, type AdminProject } from '@/api/admin'
 import TransferOwnerModal from '@/components/admin/TransferOwnerModal.vue'
@@ -10,17 +11,19 @@ import UserAvatar from '@/components/common/UserAvatar.vue'
 import PageHeader from '@/components/console/PageHeader.vue'
 import SettingsSection from '@/components/console/SettingsSection.vue'
 
+const { t } = useI18n()
+
 const COLORS = ['#3370ff', '#ff8800', '#14c0a7', '#7f3bf5', '#f14bab', '#34c724']
 const colorOf = (uid: string) => COLORS[[...uid].reduce((s, c) => s + c.charCodeAt(0), 0) % COLORS.length]
 
-const columns: TableColumnData[] = [
-  { title: '名称', slotName: 'name', width: 260 },
-  { title: '所有者', slotName: 'owner', width: 200 },
-  { title: '协作者', dataIndex: 'memberCount', width: 90, align: 'right' },
-  { title: '数据表', dataIndex: 'tableCount', width: 90, align: 'right' },
-  { title: '创建时间', slotName: 'createdAt', width: 130 },
-  { title: '操作', slotName: 'actions', width: 150, fixed: 'right' },
-]
+const columns = computed<TableColumnData[]>(() => [
+  { title: t('admin.projects.colName'), slotName: 'name', width: 260 },
+  { title: t('admin.projects.colOwner'), slotName: 'owner', width: 200 },
+  { title: t('admin.projects.colMembers'), dataIndex: 'memberCount', width: 90, align: 'right' },
+  { title: t('admin.projects.colTables'), dataIndex: 'tableCount', width: 90, align: 'right' },
+  { title: t('admin.projects.colCreatedAt'), slotName: 'createdAt', width: 130 },
+  { title: t('common.actions'), slotName: 'actions', width: 180, fixed: 'right' },
+])
 
 const projects = ref<AdminProject[]>([])
 const loading = ref(false)
@@ -70,22 +73,22 @@ function openTransfer(p: AdminProject) {
 function remove(p: AdminProject) {
   let confirmName = ''
   Modal.warning({
-    title: `删除「${p.name}」？`,
+    title: t('admin.projects.deleteTitle', { name: p.name }),
     content: () =>
       h('div', [
         h(
           'p',
           { class: 'confirm-hint' },
-          '删除后其中的数据表、字段和记录将无法恢复，所有协作者都将无法访问。请输入多维表格名称以确认：',
+          t('admin.projects.deleteHint'),
         ),
         h(Input, { placeholder: p.name, onInput: (v: string) => (confirmName = v) }),
       ]),
     hideCancel: false,
-    okText: '删除',
+    okText: t('common.delete'),
     okButtonProps: { status: 'danger' },
     onBeforeOk: async () => {
       if (confirmName.trim() !== p.name) {
-        Message.warning('名称不一致')
+        Message.warning(t('admin.projects.nameMismatch'))
         return false
       }
       try {
@@ -94,7 +97,7 @@ function remove(p: AdminProject) {
         Message.error(e instanceof Error ? e.message : String(e))
         return false
       }
-      Message.success('已删除')
+      Message.success(t('common.deleted'))
       load()
       return true
     },
@@ -106,12 +109,12 @@ onMounted(load)
 
 <template>
   <div>
-    <PageHeader title="多维表格" description="查看全站的多维表格，转移所有者或删除。管理员不能查看其中的数据" />
+    <PageHeader :title="t('admin.projects.title')" :description="t('admin.projects.description')" />
 
     <SettingsSection flush>
       <div class="toolbar">
-        <span class="text-desc">共 {{ pagination.total }} 个</span>
-        <a-input-search v-model="keyword" placeholder="搜索名称" allow-clear class="search" />
+        <span class="text-desc">{{ t('admin.projects.total', { n: pagination.total }, pagination.total) }}</span>
+        <a-input-search v-model="keyword" :placeholder="t('admin.projects.search')" allow-clear class="search" />
       </div>
 
       <a-table
@@ -137,14 +140,16 @@ onMounted(load)
             <UserAvatar :name="record.owner.userName" :color="record.owner.color" :size="24" />
             <span>{{ record.owner.userName }}</span>
           </a-space>
-          <span v-else class="text-desc">已删除的用户</span>
+          <span v-else class="text-desc">{{ t('admin.projects.deletedUser') }}</span>
         </template>
         <template #createdAt="{ record }">
           {{ dayjs(record.createdAt).format('YYYY-MM-DD') }}
         </template>
         <template #actions="{ record }">
-          <a-button type="text" size="small" @click="openTransfer(record)">转移</a-button>
-          <a-button type="text" size="small" status="danger" @click="remove(record)">删除</a-button>
+          <div class="actions">
+            <a-button type="text" size="small" @click="openTransfer(record)">{{ t('admin.projects.transfer') }}</a-button>
+            <a-button type="text" size="small" status="danger" @click="remove(record)">{{ t('common.delete') }}</a-button>
+          </div>
         </template>
       </a-table>
     </SettingsSection>
@@ -154,6 +159,12 @@ onMounted(load)
 </template>
 
 <style scoped>
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
 .toolbar {
   display: flex;
   flex-wrap: wrap;

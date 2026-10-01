@@ -1,30 +1,31 @@
 package form
 
 type SignUp struct {
-	Email    string `json:"email" valid:"required;email;maxlen:254" label:"邮箱"`
-	UserName string `json:"userName" valid:"required;maxlen:32" label:"用户名"`
+	Email    string `json:"email" valid:"required;email;maxlen:254"`
+	UserName string `json:"userName" valid:"required;maxlen:32"`
 	// Password is limited to 64 characters since bcrypt only uses the first 72 bytes.
-	Password string `json:"password" valid:"required;minlen:8;maxlen:64" label:"密码"`
+	Password string `json:"password" valid:"required;minlen:8;maxlen:64"`
 } // @name SignUp
 
 type SignIn struct {
-	Email    string `json:"email" valid:"required" label:"邮箱"`
-	Password string `json:"password" valid:"required" label:"密码"`
+	Email    string `json:"email" valid:"required"`
+	Password string `json:"password" valid:"required"`
 } // @name SignIn
 
 type UpdateProfile struct {
-	UserName string `json:"userName" valid:"required;maxlen:32" label:"用户名"`
+	UserName string `json:"userName" valid:"required;maxlen:32"`
 } // @name UpdateProfile
 
 type UpdateUserSettings struct {
-	Theme string `json:"theme" valid:"required" label:"外观" enums:"light,dark,system"`
+	Theme    *string `json:"theme,omitempty" enums:"light,dark,system"`
+	Language *string `json:"language,omitempty" enums:"zh-CN,en-US"`
 } // @name UpdateUserSettings
 
 type DeleteAccount struct {
-	Password string `json:"password" valid:"required" label:"密码"`
+	Password string `json:"password" valid:"required"`
 } // @name DeleteAccount
 
 type UpdatePassword struct {
-	OldPassword string `json:"oldPassword" valid:"required" label:"当前密码"`
-	NewPassword string `json:"newPassword" valid:"required;minlen:8;maxlen:64" label:"新密码"`
+	OldPassword string `json:"oldPassword" valid:"required"`
+	NewPassword string `json:"newPassword" valid:"required;minlen:8;maxlen:64"`
 } // @name UpdatePassword

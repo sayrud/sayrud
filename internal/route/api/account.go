@@ -54,11 +54,11 @@ func (accountRoute) ListSessions(ctx context.Context, user *db.User, current *db
 func (accountRoute) RevokeSession(ctx context.Context, user *db.User, current *db.UserSession) error {
 	sessionID := ctx.ParamInt64("sessionID")
 	if sessionID == current.ID {
-		return ctx.ApiError(http.StatusBadRequest, "当前设备请使用退出登录")
+		return ctx.ApiError(http.StatusBadRequest, "account::use_sign_out_for_current")
 	}
 	if err := db.UserSessions.DeleteByID(ctx.Request().Context(), user.ID, sessionID); err != nil {
 		if errors.Is(err, db.ErrUserSessionNotFound) {
-			return ctx.ApiError(http.StatusNotFound, "该设备已下线")
+			return ctx.ApiError(http.StatusNotFound, "account::session_revoked")
 		}
 		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to delete session")
 		return ctx.ApiServerError()
@@ -115,9 +115,14 @@ func (accountRoute) GetSettings(ctx context.Context, user *db.User) error {
 // @ID updateUserSettings
 // @Router /auth/settings [put]
 func (accountRoute) UpdateSettings(ctx context.Context, user *db.User, f form.UpdateUserSettings) error {
-	settings := db.UserSettings{Theme: f.Theme}
+	current, err := db.Settings.GetUser(ctx.Request().Context(), user.ID)
+	if err != nil {
+		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to get user settings")
+		return ctx.ApiServerError()
+	}
+	settings := current.Apply(f.Theme, f.Language)
 	if err := settings.Validate(); err != nil {
-		return ctx.ApiError(http.StatusBadRequest, "%s", err.Error())
+		return ctx.ApiErrorFrom(http.StatusBadRequest, err)
 	}
 	if err := db.Settings.SaveUser(ctx.Request().Context(), user.ID, settings); err != nil {
 		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to save user settings")
@@ -142,13 +147,13 @@ func (accountRoute) UpdateSettings(ctx context.Context, user *db.User, f form.Up
 func (accountRoute) DeleteAccount(ctx context.Context, hub *collab.Hub, user *db.User, f form.DeleteAccount) error {
 	if err := redis.AuthAttempts.CheckPassword(ctx.Request().Context(), user.Email); err != nil {
 		if errors.Is(err, redis.ErrTooManyAttempts) {
-			return ctx.ApiError(http.StatusTooManyRequests, "尝试次数过多，请稍后再试")
+			return ctx.ApiError(http.StatusTooManyRequests, "common::too_many_attempts")
 		}
 		logrus.WithContext(ctx.Request().Context()).WithError(err).Warn("Failed to check password attempts")
 	}
 	if _, err := db.Users.Authenticate(ctx.Request().Context(), user.Email, f.Password); err != nil {
 		if errors.Is(err, db.ErrBadCredential) {
-			return ctx.ApiError(http.StatusBadRequest, "密码错误")
+			return ctx.ApiError(http.StatusBadRequest, "auth::wrong_password")
 		}
 		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to authenticate")
 		return ctx.ApiServerError()
@@ -162,9 +167,9 @@ func (accountRoute) DeleteAccount(ctx context.Context, hub *collab.Hub, user *db
 				logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to count owned projects")
 				return ctx.ApiServerError()
 			}
-			return ctx.ApiError(http.StatusConflict, "请先删除或转移你拥有的 %d 个多维表格", counts[user.ID])
+			return ctx.ApiError(http.StatusConflict, "account::owns_bases", counts[user.ID])
 		case errors.Is(err, db.ErrLastAdmin):
-			return ctx.ApiError(http.StatusConflict, "你是唯一的管理员，请先设置其他管理员")
+			return ctx.ApiError(http.StatusConflict, "account::only_admin")
 		}
 		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to delete account")
 		return ctx.ApiServerError()

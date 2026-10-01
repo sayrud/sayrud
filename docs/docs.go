@@ -4722,10 +4722,14 @@ const docTemplate = `{
         },
         "UpdateUserSettings": {
             "type": "object",
-            "required": [
-                "theme"
-            ],
             "properties": {
+                "language": {
+                    "type": "string",
+                    "enum": [
+                        "zh-CN",
+                        "en-US"
+                    ]
+                },
                 "theme": {
                     "type": "string",
                     "enum": [
@@ -4798,9 +4802,18 @@ const docTemplate = `{
         "UserSettings": {
             "type": "object",
             "required": [
+                "language",
                 "theme"
             ],
             "properties": {
+                "language": {
+                    "description": "Language is the language of the user interface.",
+                    "type": "string",
+                    "enum": [
+                        "zh-CN",
+                        "en-US"
+                    ]
+                },
                 "theme": {
                     "description": "Theme is the appearance of the user interface.",
                     "type": "string",

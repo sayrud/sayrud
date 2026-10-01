@@ -1,8 +1,11 @@
 <script setup lang="ts">
 import { onBeforeUnmount, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 
 import { adminApi } from '@/api/admin'
 import UserAvatar from '@/components/common/UserAvatar.vue'
+
+const { t } = useI18n()
 
 export interface PickerUser {
   id: number
@@ -59,7 +62,7 @@ search('')
 <template>
   <a-select
     :model-value="modelValue"
-    :placeholder="placeholder ?? '搜索成员名称或邮箱'"
+    :placeholder="placeholder ?? t('admin.userPicker.placeholder')"
     :loading="loading"
     :filter-option="false"
     allow-search

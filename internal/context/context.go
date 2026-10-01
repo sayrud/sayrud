@@ -2,7 +2,6 @@ package context
 
 import (
 	"encoding/json"
-	"fmt"
 	"net"
 	"net/http"
 	"os"
@@ -13,11 +12,26 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/wuhan005/sayrud/internal/dbutil"
+	"github.com/wuhan005/sayrud/internal/i18n"
 )
 
 // Context represents context of a request.
 type Context struct {
 	flamego.Context
+	locale i18n.Locale
+}
+
+// Locale returns the language of the request.
+func (c *Context) Locale() i18n.Locale {
+	return c.locale
+}
+
+// Tr translates the message key in the language of the request, or returns the key without a locale.
+func (c *Context) Tr(key string, args ...interface{}) string {
+	if c.locale == nil {
+		return key
+	}
+	return c.locale.Translate(key, args...)
 }
 
 func (c *Context) ApiSuccess(data interface{}) error {
@@ -36,11 +50,10 @@ func (c *Context) ApiSuccess(data interface{}) error {
 	return nil
 }
 
-func (c *Context) ApiError(statusCode int, msg string, v ...interface{}) error {
+func (c *Context) writeError(statusCode int, message string) error {
 	c.ResponseWriter().Header().Set("Content-Type", "application/json; charset=utf-8")
 	c.ResponseWriter().WriteHeader(statusCode)
 
-	message := fmt.Sprintf(msg, v...)
 	err := json.NewEncoder(c.ResponseWriter()).Encode(
 		map[string]interface{}{
 			"msg": message,
@@ -52,8 +65,29 @@ func (c *Context) ApiError(statusCode int, msg string, v ...interface{}) error {
 	return nil
 }
 
+// ApiError responds the message of the key in the language of the request.
+func (c *Context) ApiError(statusCode int, key string, args ...interface{}) error {
+	return c.writeError(statusCode, c.Tr(key, args...))
+}
+
+// ApiErrorMessage responds the message already translated, e.g. the validation errors.
+func (c *Context) ApiErrorMessage(statusCode int, message string) error {
+	return c.writeError(statusCode, message)
+}
+
+// ApiErrorFrom responds the translated *i18n.Error, other errors are responded as internal server errors.
+func (c *Context) ApiErrorFrom(statusCode int, err error) error {
+	if c.locale != nil {
+		if msg, ok := i18n.Localize(c.locale, err); ok {
+			return c.writeError(statusCode, msg)
+		}
+	}
+	logrus.WithContext(c.Request().Context()).WithError(err).Error("Unlocalized API error")
+	return c.ApiServerError()
+}
+
 func (c *Context) ApiServerError() error {
-	return c.ApiError(http.StatusInternalServerError, "服务器内部错误")
+	return c.ApiError(http.StatusInternalServerError, "common::internal_error")
 }
 
 func (c *Context) Status(statusCode int) error {
@@ -80,9 +114,10 @@ func (c *Context) IP() string {
 
 // Contexter initializes a classic context for a request.
 func Contexter(gormDB *gorm.DB) flamego.Handler {
-	return func(ctx flamego.Context) {
+	return func(ctx flamego.Context, l i18n.Locale) {
 		c := Context{
 			Context: ctx,
+			locale:  l,
 		}
 
 		spanCtx := trace.SpanContextFromContext(ctx.Request().Context())
