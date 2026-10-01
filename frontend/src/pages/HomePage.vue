@@ -3,7 +3,7 @@ import { Message, Modal } from '@arco-design/web-vue'
 import { Ellipsis, Link, LogOut, Pencil, Plus, Search, Table2, Trash } from '@lucide/vue'
 import dayjs from 'dayjs'
 import relativeTime from 'dayjs/plugin/relativeTime'
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 
 import { membersApi, projectsApi, type ProjectListItem } from '@/api/bitable'
@@ -12,6 +12,7 @@ import logo from '@/assets/logo.svg'
 import UserMenu from '@/components/common/UserMenu.vue'
 import { openMenu, type MenuItem } from '@/composables/useContextMenu'
 import { useAuthStore } from '@/stores/auth'
+import { useSiteStore } from '@/stores/site'
 import { useThemeStore } from '@/stores/theme'
 import { ROLE_LABELS, roleAtLeast } from '@/utils/role'
 
@@ -19,6 +20,7 @@ dayjs.extend(relativeTime)
 
 const router = useRouter()
 const auth = useAuthStore()
+const site = useSiteStore()
 const themeStore = useThemeStore()
 const projects = ref<ProjectListItem[]>([])
 const loading = ref(true)
@@ -141,8 +143,13 @@ async function rename() {
   load()
 }
 
+watch(
+  () => site.info.siteName,
+  () => (document.title = site.title()),
+  { immediate: true },
+)
 onMounted(() => {
-  document.title = 'Sayrud'
+  site.ensureLoaded()
   load()
 })
 </script>

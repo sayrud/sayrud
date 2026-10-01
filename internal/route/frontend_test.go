@@ -25,7 +25,10 @@ func TestBundledFrontend(t *testing.T) {
 		t.Fatalf("index: status %d, headers %v", index.Code, index.Header())
 	}
 
-	for _, path := range []string{"/base/project/table/view", "/login", "/register"} {
+	for _, path := range []string{
+		"/base/project/table/view", "/login", "/register",
+		"/settings", "/settings/devices", "/admin", "/admin/users",
+	} {
 		page := request(http.MethodGet, path)
 		if page.Code != http.StatusOK || page.Body.String() != index.Body.String() {
 			t.Fatalf("direct Vue Router navigation to %s did not serve the index", path)
@@ -40,6 +43,13 @@ func TestBundledFrontend(t *testing.T) {
 	js := request(http.MethodGet, asset[1])
 	if js.Code != http.StatusOK || !strings.Contains(js.Header().Get("Content-Type"), "javascript") || js.Body.Len() == 0 {
 		t.Fatalf("JavaScript asset: status %d, headers %v", js.Code, js.Header())
+	}
+
+	// Vite emits chunks starting with _, the embed must include them.
+	for _, m := range regexp.MustCompile(`(?:src|href)="(/assets/[^" ]+)"`).FindAllStringSubmatch(index.Body.String(), -1) {
+		if response := request(http.MethodGet, m[1]); response.Code != http.StatusOK {
+			t.Errorf("asset %s referenced by the index: got %d", m[1], response.Code)
+		}
 	}
 
 	head := request(http.MethodHead, "/base/project")

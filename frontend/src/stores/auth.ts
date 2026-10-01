@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 
+import { accountApi } from '@/api/account'
 import { authApi, type Profile } from '@/api/auth'
 import { ApiError } from '@/api/client'
 import type { Identity } from '@/collab/identity'
@@ -56,10 +57,26 @@ export const useAuthStore = defineStore('auth', () => {
     user.value = await authApi.updateProfile(userName)
   }
 
+  async function deleteAccount(password: string) {
+    await accountApi.deleteAccount(password)
+    user.value = null
+  }
+
   /** Forgets the user after the session expires, without calling the API. */
   function clear() {
     user.value = null
   }
 
-  return { user, identity, ensureLoaded, signIn, signUp, signOut, updateName, updatePassword: authApi.updatePassword, clear }
+  return {
+    user,
+    identity,
+    ensureLoaded,
+    signIn,
+    signUp,
+    signOut,
+    updateName,
+    updatePassword: authApi.updatePassword,
+    deleteAccount,
+    clear,
+  }
 })

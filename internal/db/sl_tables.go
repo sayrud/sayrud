@@ -34,6 +34,10 @@ type SLTablesStore interface {
 	DeleteByID(ctx context.Context, tableID int64) error
 	// CountByProjectID returns the number of tables in the project.
 	CountByProjectID(ctx context.Context, projectID int64) (int64, error)
+	// CountByProjectIDs returns the number of tables keyed by project ID, the projects without tables are omitted.
+	CountByProjectIDs(ctx context.Context, projectIDs []int64) (map[int64]int64, error)
+	// Count returns the number of tables in the projects that are not deleted.
+	Count(ctx context.Context) (int64, error)
 	// IncreaseRev increases the revision of the table by one and returns the new revision.
 	// The table row stays locked until the transaction ends, so the changes of a table are serialized.
 	IncreaseRev(ctx context.Context, tableID int64) (int64, error)
@@ -171,6 +175,37 @@ func (db *slTables) IncreaseRev(ctx context.Context, tableID int64) (int64, erro
 func (db *slTables) CountByProjectID(ctx context.Context, projectID int64) (int64, error) {
 	var count int64
 	if err := db.WithContext(ctx).Model(&SLTable{}).Where("project_id = ?", projectID).Count(&count).Error; err != nil {
+		return 0, errors.Wrap(err, "count")
+	}
+	return count, nil
+}
+
+func (db *slTables) CountByProjectIDs(ctx context.Context, projectIDs []int64) (map[int64]int64, error) {
+	counts := make(map[int64]int64, len(projectIDs))
+	if len(projectIDs) == 0 {
+		return counts, nil
+	}
+	var rows []struct {
+		ProjectID int64
+		Count     int64
+	}
+	if err := db.WithContext(ctx).Model(&SLTable{}).
+		Select("project_id, COUNT(*) AS count").
+		Where("project_id IN ?", projectIDs).
+		Group("project_id").
+		Scan(&rows).Error; err != nil {
+		return nil, errors.Wrap(err, "count")
+	}
+	for _, r := range rows {
+		counts[r.ProjectID] = r.Count
+	}
+	return counts, nil
+}
+
+func (db *slTables) Count(ctx context.Context) (int64, error) {
+	var count int64
+	live := db.WithContext(ctx).Model(&Project{}).Select("id")
+	if err := db.WithContext(ctx).Model(&SLTable{}).Where("project_id IN (?)", live).Count(&count).Error; err != nil {
 		return 0, errors.Wrap(err, "count")
 	}
 	return count, nil

@@ -15,3 +15,8 @@ func IsUniqueViolation(err error, constraint string) bool {
 	errMsg := err.Error()
 	return strings.Contains(errMsg, "duplicate key value violates unique constraint") && strings.Contains(errMsg, constraint)
 }
+
+// EscapeLike escapes the LIKE wildcards so the keyword matches literally.
+func EscapeLike(s string) string {
+	return strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`).Replace(s)
+}

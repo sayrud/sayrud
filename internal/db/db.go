@@ -1,6 +1,7 @@
 package db
 
 import (
+	"context"
 	"time"
 
 	"github.com/cockroachdb/errors"
@@ -41,7 +42,7 @@ func Init() (*gorm.DB, error) {
 	}
 
 	tables := []interface{}{
-		&User{}, &UserSession{},
+		&User{}, &UserSession{}, &Setting{},
 		&Project{}, &ProjectMember{},
 
 		&SLTable{}, &SLField{}, &SLRecord{}, &SLView{}, &SLChangeset{},
@@ -53,6 +54,10 @@ func Init() (*gorm.DB, error) {
 	}
 
 	SetDatabaseStore(db)
+
+	if err := Users.EnsureAdmin(context.Background()); err != nil {
+		return nil, errors.Wrap(err, "ensure admin")
+	}
 
 	if err := db.Use(tracing.NewPlugin(
 		tracing.WithDBName("sayrud"),
@@ -67,6 +72,7 @@ func Init() (*gorm.DB, error) {
 func SetDatabaseStore(db *gorm.DB) {
 	Users = NewUsersStore(db)
 	UserSessions = NewUserSessionsStore(db)
+	Settings = NewSettingsStore(db)
 	Projects = NewProjectsStore(db)
 	ProjectMembers = NewProjectMembersStore(db)
 

@@ -1,7 +1,6 @@
 <script setup lang="ts">
-import { Message, type FieldRule, type FormInstance } from '@arco-design/web-vue'
-import { Check, ChevronRight, LogOut, SunMoon, UserRound } from '@lucide/vue'
-import { computed, reactive, ref } from 'vue'
+import { Check, ChevronRight, LogOut, ShieldCheck, SunMoon, UserRound } from '@lucide/vue'
+import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 
 import { useAuthStore } from '@/stores/auth'
@@ -17,62 +16,6 @@ const router = useRouter()
 
 const themeLabel = computed(() => THEME_OPTIONS.find((o) => o.value === themeStore.mode)?.label)
 
-const settingsVisible = ref(false)
-const nameText = ref('')
-const pwdFormRef = ref<FormInstance>()
-const pwd = reactive({ old: '', next: '', confirm: '' })
-const savingName = ref(false)
-const savingPwd = ref(false)
-
-const pwdRules: Record<string, FieldRule[]> = {
-  old: [{ required: true, message: '请输入当前密码' }],
-  next: [
-    { required: true, message: '请输入新密码' },
-    { minLength: 8, message: '新密码至少 8 位' },
-  ],
-  confirm: [
-    { required: true, message: '请再次输入新密码' },
-    { validator: (value, cb) => cb(value === pwd.next ? undefined : '两次输入的新密码不一致') },
-  ],
-}
-
-function openSettings() {
-  nameText.value = auth.user?.userName ?? ''
-  pwd.old = pwd.next = pwd.confirm = ''
-  pwdFormRef.value?.clearValidate()
-  settingsVisible.value = true
-}
-
-async function saveName() {
-  const name = nameText.value.trim()
-  if (!name) {
-    Message.warning('用户名不能为空')
-    return
-  }
-  savingName.value = true
-  try {
-    await auth.updateName(name)
-    Message.success('用户名已更新，协作者重新进入后可见')
-  } catch (e) {
-    Message.error(e instanceof Error ? e.message : String(e))
-  } finally {
-    savingName.value = false
-  }
-}
-
-async function savePassword() {
-  savingPwd.value = true
-  try {
-    await auth.updatePassword(pwd.old, pwd.next)
-    pwdFormRef.value?.resetFields()
-    Message.success('密码已修改，其他设备已退出登录')
-  } catch (e) {
-    Message.error(e instanceof Error ? e.message : String(e))
-  } finally {
-    savingPwd.value = false
-  }
-}
-
 async function signOut() {
   await auth.signOut().catch(() => undefined)
   router.replace({ name: 'login' })
@@ -80,7 +23,7 @@ async function signOut() {
 </script>
 
 <template>
-  <a-dropdown v-if="auth.user" trigger="click" position="br">
+  <a-dropdown v-if="auth.user" trigger="click" position="br" :popup-max-height="false">
     <UserAvatar :name="auth.user.userName" :color="auth.user.color" :size="size" class="trigger" />
     <template #content>
       <div class="profile">
@@ -110,45 +53,21 @@ async function signOut() {
         </template>
       </a-dsubmenu>
       <div class="menu-divider" />
-      <a-doption @click="openSettings">
+      <a-doption @click="router.push({ name: 'settings-profile' })">
         <template #icon><UserRound :size="15" /></template>
         账号设置
       </a-doption>
+      <a-doption v-if="auth.user.isAdmin" @click="router.push({ name: 'admin-overview' })">
+        <template #icon><ShieldCheck :size="15" /></template>
+        管理后台
+      </a-doption>
+      <div class="menu-divider" />
       <a-doption @click="signOut">
         <template #icon><LogOut :size="15" /></template>
         退出登录
       </a-doption>
     </template>
   </a-dropdown>
-
-  <a-modal v-model:visible="settingsVisible" title="账号设置" :footer="false" :width="440" title-align="start">
-    <a-form :model="{}" layout="vertical">
-      <a-form-item label="邮箱">
-        <a-input :model-value="auth.user?.email" disabled />
-      </a-form-item>
-      <a-form-item label="用户名">
-        <a-input-group class="name-group">
-          <a-input v-model="nameText" :max-length="32" @press-enter="saveName" />
-          <a-button :loading="savingName" @click="saveName">保存</a-button>
-        </a-input-group>
-      </a-form-item>
-    </a-form>
-
-    <a-divider orientation="left">修改密码</a-divider>
-
-    <a-form ref="pwdFormRef" :model="pwd" :rules="pwdRules" layout="vertical" @submit-success="savePassword">
-      <a-form-item field="old" label="当前密码">
-        <a-input-password v-model="pwd.old" autocomplete="current-password" />
-      </a-form-item>
-      <a-form-item field="next" label="新密码">
-        <a-input-password v-model="pwd.next" placeholder="至少 8 位" autocomplete="new-password" :max-length="64" />
-      </a-form-item>
-      <a-form-item field="confirm" label="确认新密码">
-        <a-input-password v-model="pwd.confirm" autocomplete="new-password" :max-length="64" />
-      </a-form-item>
-      <a-button type="primary" html-type="submit" :loading="savingPwd">修改密码</a-button>
-    </a-form>
-  </a-modal>
 </template>
 
 <style scoped>
@@ -197,12 +116,5 @@ async function signOut() {
 }
 .theme-check {
   color: var(--color-primary);
-}
-.name-group {
-  display: flex;
-  width: 100%;
-}
-.name-group > :first-child {
-  flex: 1;
 }
 </style>

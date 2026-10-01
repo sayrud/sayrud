@@ -30,6 +30,12 @@ type UserSessionsStore interface {
 	DeleteByToken(ctx context.Context, token string) error
 	// DeleteByUserID deletes all the sessions of the user except the one of exceptToken, which can be empty.
 	DeleteByUserID(ctx context.Context, userID int64, exceptToken string) error
+	// ListByUserID returns the unexpired sessions of the user, the newest first.
+	ListByUserID(ctx context.Context, userID int64) ([]*UserSession, error)
+	// DeleteByID deletes the session of the user, it returns ErrUserSessionNotFound if not found.
+	DeleteByID(ctx context.Context, userID, id int64) error
+	// CountActive returns the number of unexpired sessions of the whole site.
+	CountActive(ctx context.Context) (int64, error)
 }
 
 func NewUserSessionsStore(db *gorm.DB) UserSessionsStore {
@@ -120,4 +126,28 @@ func (db *userSessions) DeleteByUserID(ctx context.Context, userID int64, except
 		q = q.Where("token_hash <> ?", hashToken(exceptToken))
 	}
 	return q.Delete(&UserSession{}).Error
+}
+
+func (db *userSessions) ListByUserID(ctx context.Context, userID int64) ([]*UserSession, error) {
+	var sessions []*UserSession
+	return sessions, db.WithContext(ctx).
+		Where("user_id = ? AND expires_at > ?", userID, dbutil.Now()).
+		Order("id DESC").
+		Find(&sessions).Error
+}
+
+func (db *userSessions) DeleteByID(ctx context.Context, userID, id int64) error {
+	result := db.WithContext(ctx).Where("id = ? AND user_id = ?", id, userID).Delete(&UserSession{})
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return ErrUserSessionNotFound
+	}
+	return nil
+}
+
+func (db *userSessions) CountActive(ctx context.Context) (int64, error) {
+	var count int64
+	return count, db.WithContext(ctx).Model(&UserSession{}).Where("expires_at > ?", dbutil.Now()).Count(&count).Error
 }

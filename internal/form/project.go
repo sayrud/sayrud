@@ -17,6 +17,10 @@ type AddProjectMember struct {
 	Role  string `json:"role" valid:"required" label:"权限" enums:"manager,editor,viewer"`
 } // @name AddProjectMember
 
+type TransferProjectOwner struct {
+	UserID int64 `json:"userID" valid:"required" label:"新所有者"`
+} // @name TransferProjectOwner
+
 type UpdateProjectMember struct {
 	Role string `json:"role" valid:"required" label:"权限" enums:"manager,editor,viewer"`
 } // @name UpdateProjectMember

@@ -119,6 +119,170 @@ definitions:
     - email
     - role
     type: object
+  AdminCreateUser:
+    properties:
+      email:
+        type: string
+      isAdmin:
+        type: boolean
+      password:
+        type: string
+      userName:
+        type: string
+    required:
+    - email
+    - isAdmin
+    - password
+    - userName
+    type: object
+  AdminOverview:
+    properties:
+      activeSessions:
+        type: integer
+      projects:
+        type: integer
+      recentUsers:
+        items:
+          $ref: '#/definitions/AdminUser'
+        type: array
+      records:
+        type: integer
+      system:
+        $ref: '#/definitions/AdminSystemInfo'
+      tables:
+        type: integer
+      users:
+        $ref: '#/definitions/AdminUserStats'
+    required:
+    - activeSessions
+    - projects
+    - recentUsers
+    - records
+    - system
+    - tables
+    - users
+    type: object
+  AdminProject:
+    properties:
+      createdAt:
+        type: string
+      memberCount:
+        description: MemberCount is the number of collaborators, excluding the owner.
+        type: integer
+      name:
+        type: string
+      owner:
+        $ref: '#/definitions/UserBrief'
+      tableCount:
+        type: integer
+      uid:
+        type: string
+    required:
+    - createdAt
+    - memberCount
+    - name
+    - owner
+    - tableCount
+    - uid
+    type: object
+  AdminResetPassword:
+    properties:
+      password:
+        type: string
+    required:
+    - password
+    type: object
+  AdminSetUserAdmin:
+    properties:
+      isAdmin:
+        type: boolean
+    required:
+    - isAdmin
+    type: object
+  AdminSetUserStatus:
+    properties:
+      disabled:
+        type: boolean
+    required:
+    - disabled
+    type: object
+  AdminSystemInfo:
+    properties:
+      buildCommit:
+        type: string
+      goVersion:
+        type: string
+      settings:
+        $ref: '#/definitions/SystemSettings'
+    required:
+    - buildCommit
+    - goVersion
+    - settings
+    type: object
+  AdminTransferProject:
+    properties:
+      userID:
+        type: integer
+    required:
+    - userID
+    type: object
+  AdminUpdateUser:
+    properties:
+      userName:
+        type: string
+    required:
+    - userName
+    type: object
+  AdminUser:
+    properties:
+      color:
+        type: string
+      createdAt:
+        type: string
+      disabled:
+        type: boolean
+      email:
+        type: string
+      emailMd5:
+        type: string
+      id:
+        type: integer
+      isAdmin:
+        type: boolean
+      lastSignInAt:
+        type: string
+      ownedProjectCount:
+        type: integer
+      userName:
+        type: string
+    required:
+    - color
+    - createdAt
+    - disabled
+    - email
+    - emailMd5
+    - id
+    - isAdmin
+    - lastSignInAt
+    - ownedProjectCount
+    - userName
+    type: object
+  AdminUserStats:
+    properties:
+      admins:
+        type: integer
+      disabled:
+        type: integer
+      newLast7Days:
+        type: integer
+      total:
+        type: integer
+    required:
+    - admins
+    - disabled
+    - newLast7Days
+    - total
+    type: object
   BatchCreateRecords:
     properties:
       data:
@@ -209,6 +373,13 @@ definitions:
     required:
     - name
     type: object
+  DeleteAccount:
+    properties:
+      password:
+        type: string
+    required:
+    - password
+    type: object
   DirtyScope:
     properties:
       allRecords:
@@ -248,6 +419,30 @@ definitions:
         - checkbox
         - formula
         type: string
+    type: object
+  ListAdminProjectsResp:
+    properties:
+      projects:
+        items:
+          $ref: '#/definitions/AdminProject'
+        type: array
+      total:
+        type: integer
+    required:
+    - projects
+    - total
+    type: object
+  ListAdminUsersResp:
+    properties:
+      total:
+        type: integer
+      users:
+        items:
+          $ref: '#/definitions/AdminUser'
+        type: array
+    required:
+    - total
+    - users
     type: object
   ListChangesetsResp:
     properties:
@@ -318,19 +513,26 @@ definitions:
       color:
         description: Color is the avatar color of the user.
         type: string
+      createdAt:
+        type: string
       email:
         type: string
       emailMd5:
         type: string
       id:
         type: integer
+      isAdmin:
+        description: IsAdmin reports whether the user is a system admin.
+        type: boolean
       userName:
         type: string
     required:
     - color
+    - createdAt
     - email
     - emailMd5
     - id
+    - isAdmin
     - userName
     type: object
   Project:
@@ -607,6 +809,40 @@ definitions:
     - password
     - userName
     type: object
+  SiteInfo:
+    properties:
+      allowSignUp:
+        type: boolean
+      passwordMinLength:
+        type: integer
+      siteName:
+        type: string
+    required:
+    - allowSignUp
+    - passwordMinLength
+    - siteName
+    type: object
+  SystemSettings:
+    properties:
+      allowSignUp:
+        description: AllowSignUp reports whether new users can sign up by themselves.
+        type: boolean
+      passwordMinLength:
+        description: PasswordMinLength applies to signing up, changing, creating and
+          resetting passwords.
+        type: integer
+      sessionTTLDays:
+        description: SessionTTLDays is the lifetime in days of the new sessions.
+        type: integer
+      siteName:
+        description: SiteName is shown in the page title and the sign-in page.
+        type: string
+    required:
+    - allowSignUp
+    - passwordMinLength
+    - sessionTTLDays
+    - siteName
+    type: object
   TableListItem:
     properties:
       count:
@@ -653,6 +889,13 @@ definitions:
     - rev
     - table
     - views
+    type: object
+  TransferProjectOwner:
+    properties:
+      userID:
+        type: integer
+    required:
+    - userID
     type: object
   UpdateField:
     properties:
@@ -728,12 +971,39 @@ definitions:
     required:
     - data
     type: object
+  UpdateSystemSettings:
+    properties:
+      allowSignUp:
+        type: boolean
+      passwordMinLength:
+        type: integer
+      sessionTTLDays:
+        type: integer
+      siteName:
+        type: string
+    required:
+    - allowSignUp
+    - passwordMinLength
+    - sessionTTLDays
+    - siteName
+    type: object
   UpdateTable:
     properties:
       name:
         type: string
     required:
     - name
+    type: object
+  UpdateUserSettings:
+    properties:
+      theme:
+        enum:
+        - light
+        - dark
+        - system
+        type: string
+    required:
+    - theme
     type: object
   UserBrief:
     properties:
@@ -753,6 +1023,41 @@ definitions:
     - emailMd5
     - id
     - userName
+    type: object
+  UserSession:
+    properties:
+      createdAt:
+        type: string
+      current:
+        description: Current reports whether it is the session of the current request.
+        type: boolean
+      expiresAt:
+        type: string
+      id:
+        type: integer
+      ip:
+        type: string
+      userAgent:
+        type: string
+    required:
+    - createdAt
+    - current
+    - expiresAt
+    - id
+    - ip
+    - userAgent
+    type: object
+  UserSettings:
+    properties:
+      theme:
+        description: Theme is the appearance of the user interface.
+        enum:
+        - light
+        - dark
+        - system
+        type: string
+    required:
+    - theme
     type: object
   ViewAttrs:
     properties:
@@ -774,6 +1079,522 @@ info:
   title: Sayrud API
   version: "1.0"
 paths:
+  /admin/overview:
+    get:
+      description: Requires the admin.
+      operationId: getAdminOverview
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/AdminOverview'
+        "403":
+          description: Not an admin
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      summary: Get the overview of the system
+  /admin/projects:
+    get:
+      description: Requires the admin. The newest projects come first.
+      operationId: listAdminProjects
+      parameters:
+      - description: Page number, starting from 1
+        in: query
+        name: page
+        type: integer
+      - description: Page size, defaults to 20
+        in: query
+        name: pageSize
+        type: integer
+      - description: Matches the project name
+        in: query
+        name: keyword
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/ListAdminProjectsResp'
+        "403":
+          description: Not an admin
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      summary: List all the projects
+  /admin/projects/{projectUID}:
+    delete:
+      description: Requires the admin.
+      operationId: deleteAdminProject
+      parameters:
+      - description: Project UID
+        in: path
+        name: projectUID
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "403":
+          description: Not an admin
+          schema:
+            type: string
+        "404":
+          description: Project not found
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      summary: Delete a project
+  /admin/projects/{projectUID}/owner:
+    put:
+      consumes:
+      - application/json
+      description: Requires the admin. The new owner can be any enabled user, the
+        previous owner becomes a manager.
+      operationId: transferAdminProject
+      parameters:
+      - description: Project UID
+        in: path
+        name: projectUID
+        required: true
+        type: string
+      - description: New owner
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/AdminTransferProject'
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Invalid new owner
+          schema:
+            type: string
+        "403":
+          description: Not an admin
+          schema:
+            type: string
+        "404":
+          description: Project not found
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      summary: Transfer the ownership of a project
+  /admin/settings:
+    get:
+      description: Requires the admin.
+      operationId: getSystemSettings
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/SystemSettings'
+        "403":
+          description: Not an admin
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      summary: Get the system settings
+    put:
+      consumes:
+      - application/json
+      description: Requires the admin. The password and session settings apply to
+        the later sign-ups and sign-ins.
+      operationId: updateSystemSettings
+      parameters:
+      - description: System settings
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/UpdateSystemSettings'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/SystemSettings'
+        "400":
+          description: Invalid settings
+          schema:
+            type: string
+        "403":
+          description: Not an admin
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      summary: Update the system settings
+  /admin/users:
+    get:
+      description: Requires the admin. The newest users come first.
+      operationId: listAdminUsers
+      parameters:
+      - description: Page number, starting from 1
+        in: query
+        name: page
+        type: integer
+      - description: Page size, defaults to 20
+        in: query
+        name: pageSize
+        type: integer
+      - description: Matches the user name or email
+        in: query
+        name: keyword
+        type: string
+      - description: Filter by status, all if empty
+        enum:
+        - active
+        - disabled
+        - admin
+        in: query
+        name: status
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/ListAdminUsersResp'
+        "403":
+          description: Not an admin
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      summary: List the users
+    post:
+      consumes:
+      - application/json
+      description: Requires the admin. It works even if signing up is disabled.
+      operationId: createAdminUser
+      parameters:
+      - description: User to create
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/AdminCreateUser'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/AdminUser'
+        "400":
+          description: Invalid request body
+          schema:
+            type: string
+        "403":
+          description: Not an admin
+          schema:
+            type: string
+        "409":
+          description: Email has been used
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      summary: Create a user
+  /admin/users/{userID}:
+    delete:
+      description: Requires the admin. The projects owned by the user are transferred
+        to transferTo, which is required if there are any.
+      operationId: deleteAdminUser
+      parameters:
+      - description: User ID
+        in: path
+        name: userID
+        required: true
+        type: integer
+      - description: User ID to receive the owned projects
+        in: query
+        name: transferTo
+        type: integer
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Invalid operation
+          schema:
+            type: string
+        "403":
+          description: Not an admin
+          schema:
+            type: string
+        "404":
+          description: User not found
+          schema:
+            type: string
+        "409":
+          description: The last admin
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      summary: Delete a user
+    put:
+      consumes:
+      - application/json
+      description: Requires the admin.
+      operationId: updateAdminUser
+      parameters:
+      - description: User ID
+        in: path
+        name: userID
+        required: true
+        type: integer
+      - description: User name
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/AdminUpdateUser'
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Invalid request body
+          schema:
+            type: string
+        "403":
+          description: Not an admin
+          schema:
+            type: string
+        "404":
+          description: User not found
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      summary: Update the user name of a user
+  /admin/users/{userID}/admin:
+    put:
+      consumes:
+      - application/json
+      description: Requires the admin. The admin can not revoke itself, and at least
+        one enabled admin is kept.
+      operationId: setAdminUserAdmin
+      parameters:
+      - description: User ID
+        in: path
+        name: userID
+        required: true
+        type: integer
+      - description: Whether the user is an admin
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/AdminSetUserAdmin'
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Invalid operation
+          schema:
+            type: string
+        "403":
+          description: Not an admin
+          schema:
+            type: string
+        "404":
+          description: User not found
+          schema:
+            type: string
+        "409":
+          description: The last admin
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      summary: Grant or revoke the admin
+  /admin/users/{userID}/password:
+    put:
+      consumes:
+      - application/json
+      description: Requires the admin. The user is signed out everywhere.
+      operationId: resetAdminUserPassword
+      parameters:
+      - description: User ID
+        in: path
+        name: userID
+        required: true
+        type: integer
+      - description: New password
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/AdminResetPassword'
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Invalid request body
+          schema:
+            type: string
+        "403":
+          description: Not an admin
+          schema:
+            type: string
+        "404":
+          description: User not found
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      summary: Reset the password of a user
+  /admin/users/{userID}/sessions:
+    delete:
+      description: Requires the admin. Use the account settings for the admin itself.
+      operationId: revokeAdminUserSessions
+      parameters:
+      - description: User ID
+        in: path
+        name: userID
+        required: true
+        type: integer
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Invalid operation
+          schema:
+            type: string
+        "403":
+          description: Not an admin
+          schema:
+            type: string
+        "404":
+          description: User not found
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      summary: Sign out a user everywhere
+  /admin/users/{userID}/status:
+    put:
+      consumes:
+      - application/json
+      description: Requires the admin. Disabling signs the user out everywhere. The
+        admin can not disable itself, and at least one enabled admin is kept.
+      operationId: setAdminUserStatus
+      parameters:
+      - description: User ID
+        in: path
+        name: userID
+        required: true
+        type: integer
+      - description: Whether the user is disabled
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/AdminSetUserStatus'
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Invalid operation
+          schema:
+            type: string
+        "403":
+          description: Not an admin
+          schema:
+            type: string
+        "404":
+          description: User not found
+          schema:
+            type: string
+        "409":
+          description: The last admin
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      summary: Disable or enable a user
+  /auth/account:
+    delete:
+      consumes:
+      - application/json
+      description: The projects owned by the user must be deleted or transferred first,
+        and the last admin can not be deleted.
+      operationId: deleteAccount
+      parameters:
+      - description: Password
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/DeleteAccount'
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Wrong password
+          schema:
+            type: string
+        "401":
+          description: Not signed in
+          schema:
+            type: string
+        "409":
+          description: The user still owns projects or is the last admin
+          schema:
+            type: string
+        "429":
+          description: Too many attempts
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      summary: Delete the account of the signed-in user
   /auth/password:
     put:
       consumes:
@@ -857,6 +1678,124 @@ paths:
           schema:
             type: string
       summary: Update the profile of the signed-in user
+  /auth/sessions:
+    delete:
+      operationId: revokeOtherSessions
+      responses:
+        "204":
+          description: No Content
+        "401":
+          description: Not signed in
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      summary: Sign out all the other sessions of the signed-in user
+    get:
+      description: The unexpired sessions, the newest first.
+      operationId: listSessions
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/UserSession'
+            type: array
+        "401":
+          description: Not signed in
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      summary: List the sign-in sessions of the signed-in user
+  /auth/sessions/{sessionID}:
+    delete:
+      description: The current session can not be revoked here, sign out instead.
+      operationId: revokeSession
+      parameters:
+      - description: Session ID
+        in: path
+        name: sessionID
+        required: true
+        type: integer
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: It is the current session
+          schema:
+            type: string
+        "401":
+          description: Not signed in
+          schema:
+            type: string
+        "404":
+          description: Session not found
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      summary: Sign out a session of the signed-in user
+  /auth/settings:
+    get:
+      description: The personal settings synced across the devices, the unsaved ones
+        take the defaults.
+      operationId: getUserSettings
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/UserSettings'
+        "401":
+          description: Not signed in
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      summary: Get the settings of the signed-in user
+    put:
+      consumes:
+      - application/json
+      operationId: updateUserSettings
+      parameters:
+      - description: Settings
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/UpdateUserSettings'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/UserSettings'
+        "400":
+          description: Invalid settings
+          schema:
+            type: string
+        "401":
+          description: Not signed in
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      summary: Update the settings of the signed-in user
   /auth/sign-in:
     post:
       consumes:
@@ -882,6 +1821,10 @@ paths:
             type: string
         "401":
           description: Wrong email or password
+          schema:
+            type: string
+        "403":
+          description: The user is disabled
           schema:
             type: string
         "429":
@@ -1382,6 +2325,45 @@ paths:
           schema:
             type: string
       summary: Find a user to invite
+  /projects/{projectUID}/owner:
+    put:
+      consumes:
+      - application/json
+      description: Only the owner can transfer it to an existing collaborator, the
+        previous owner becomes a manager.
+      operationId: transferProjectOwner
+      parameters:
+      - description: Project UID
+        in: path
+        name: projectUID
+        required: true
+        type: string
+      - description: New owner
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/TransferProjectOwner'
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: The user is not a collaborator or is disabled
+          schema:
+            type: string
+        "403":
+          description: Permission denied
+          schema:
+            type: string
+        "404":
+          description: Project not found
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      summary: Transfer the ownership of a project
   /projects/{projectUID}/tables:
     get:
       description: List the tables of the project, with the number of records in each
@@ -2327,4 +3309,21 @@ paths:
           schema:
             type: string
       summary: Collaborate on the project over WebSocket
+  /site:
+    get:
+      description: Public information used by the sign-in page, such as whether signing
+        up is allowed.
+      operationId: getSiteInfo
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/SiteInfo'
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      summary: Get the site information
 swagger: "2.0"

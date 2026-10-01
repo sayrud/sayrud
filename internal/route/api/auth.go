@@ -5,14 +5,15 @@
 package api
 
 import (
+	"fmt"
 	"net/http"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 
-	"github.com/wuhan005/sayrud/internal/conf"
 	"github.com/wuhan005/sayrud/internal/context"
 	"github.com/wuhan005/sayrud/internal/db"
 	"github.com/wuhan005/sayrud/internal/dto"
@@ -24,12 +25,9 @@ var Auth authRoute
 
 type authRoute struct{}
 
-const (
-	sessionCookieName = "sayrud_session"
-	sessionTTL        = 30 * 24 * time.Hour
-)
+const sessionCookieName = "sayrud_session"
 
-// Authenticator maps the user of the session cookie as *db.User, and responds 401 if not signed in.
+// Authenticator maps the user of the session cookie as *db.User and the session as *db.UserSession, and responds 401 if not signed in or the user is disabled.
 func (authRoute) Authenticator(ctx context.Context) error {
 	cookie, err := ctx.Request().Cookie(sessionCookieName)
 	if err != nil {
@@ -51,9 +49,35 @@ func (authRoute) Authenticator(ctx context.Context) error {
 		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to get user of session")
 		return ctx.ApiServerError()
 	}
+	if user.Disabled() {
+		if err := db.UserSessions.DeleteByToken(ctx.Request().Context(), cookie.Value); err != nil {
+			logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to delete session of disabled user")
+		}
+		return ctx.ApiError(http.StatusUnauthorized, "账号已停用，请联系管理员")
+	}
 
 	ctx.Map(user)
+	ctx.Map(session)
 	return nil
+}
+
+// loadSettings returns the system settings, the 500 response has been written if it fails.
+func loadSettings(ctx context.Context) (*db.SystemSettings, bool) {
+	settings, err := db.Settings.GetSystem(ctx.Request().Context())
+	if err != nil {
+		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to get system settings")
+		_ = ctx.ApiServerError()
+		return nil, false
+	}
+	return settings, true
+}
+
+// passwordTooShort returns the message if the password is shorter than the minimum length, or an empty string.
+func passwordTooShort(settings *db.SystemSettings, password string) string {
+	if utf8.RuneCountInString(password) < settings.PasswordMinLength {
+		return fmt.Sprintf("密码至少 %d 位", settings.PasswordMinLength)
+	}
+	return ""
 }
 
 // SignUp
@@ -71,8 +95,15 @@ func (authRoute) Authenticator(ctx context.Context) error {
 // @ID signUp
 // @Router /auth/sign-up [post]
 func (authRoute) SignUp(ctx context.Context, f form.SignUp) error {
-	if conf.Auth.DisableSignUp {
+	settings, ok := loadSettings(ctx)
+	if !ok {
+		return nil
+	}
+	if !settings.AllowSignUp {
 		return ctx.ApiError(http.StatusForbidden, "注册已关闭，请联系管理员")
+	}
+	if msg := passwordTooShort(settings, f.Password); msg != "" {
+		return ctx.ApiError(http.StatusBadRequest, "%s", msg)
 	}
 	if err := redis.AuthAttempts.CheckSignUp(ctx.Request().Context(), ctx.IP()); err != nil {
 		if errors.Is(err, redis.ErrTooManyAttempts) {
@@ -101,8 +132,16 @@ func (authRoute) SignUp(ctx context.Context, f form.SignUp) error {
 		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to create user")
 		return ctx.ApiServerError()
 	}
+	if err := db.Users.EnsureAdmin(ctx.Request().Context()); err != nil {
+		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to ensure admin")
+		return ctx.ApiServerError()
+	}
+	if user, err = db.Users.GetByID(ctx.Request().Context(), user.ID); err != nil {
+		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to reload user")
+		return ctx.ApiServerError()
+	}
 
-	if err := startSession(ctx, user); err != nil {
+	if err := startSession(ctx, user, settings.SessionTTL()); err != nil {
 		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to start session")
 		return ctx.ApiServerError()
 	}
@@ -117,6 +156,7 @@ func (authRoute) SignUp(ctx context.Context, f form.SignUp) error {
 // @Success 200 {object} dto.Profile
 // @Failure 400 {string} string "Invalid request body"
 // @Failure 401 {string} string "Wrong email or password"
+// @Failure 403 {string} string "The user is disabled"
 // @Failure 429 {string} string "Too many attempts"
 // @Failure 500 {string} string "Internal server error"
 // @ID signIn
@@ -141,8 +181,15 @@ func (authRoute) SignIn(ctx context.Context, f form.SignIn) error {
 	if err := redis.AuthAttempts.ResetSignIn(ctx.Request().Context(), email); err != nil {
 		logrus.WithContext(ctx.Request().Context()).WithError(err).Warn("Failed to reset sign-in attempts")
 	}
+	if user.Disabled() {
+		return ctx.ApiError(http.StatusForbidden, "账号已停用，请联系管理员")
+	}
 
-	if err := startSession(ctx, user); err != nil {
+	settings, ok := loadSettings(ctx)
+	if !ok {
+		return nil
+	}
+	if err := startSession(ctx, user, settings.SessionTTL()); err != nil {
 		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to start session")
 		return ctx.ApiServerError()
 	}
@@ -229,6 +276,13 @@ func (authRoute) UpdatePassword(ctx context.Context, user *db.User, f form.Updat
 		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to authenticate")
 		return ctx.ApiServerError()
 	}
+	settings, ok := loadSettings(ctx)
+	if !ok {
+		return nil
+	}
+	if msg := passwordTooShort(settings, f.NewPassword); msg != "" {
+		return ctx.ApiError(http.StatusBadRequest, "新%s", msg)
+	}
 
 	if err := db.Users.UpdatePassword(ctx.Request().Context(), user.ID, f.NewPassword); err != nil {
 		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to update password")
@@ -245,17 +299,20 @@ func (authRoute) UpdatePassword(ctx context.Context, user *db.User, f form.Updat
 	return ctx.Status(http.StatusNoContent)
 }
 
-func startSession(ctx context.Context, user *db.User) error {
+func startSession(ctx context.Context, user *db.User, ttl time.Duration) error {
 	token, err := db.UserSessions.Create(ctx.Request().Context(), db.CreateUserSessionOptions{
 		UserID:    user.ID,
 		UserAgent: ctx.Request().UserAgent(),
 		IP:        ctx.IP(),
-		TTL:       sessionTTL,
+		TTL:       ttl,
 	})
 	if err != nil {
 		return errors.Wrap(err, "create session")
 	}
-	setSessionCookie(ctx, token, int(sessionTTL.Seconds()))
+	if err := db.Users.TouchSignIn(ctx.Request().Context(), user.ID); err != nil {
+		logrus.WithContext(ctx.Request().Context()).WithError(err).Warn("Failed to update last sign-in time")
+	}
+	setSessionCookie(ctx, token, int(ttl.Seconds()))
 	return nil
 }
 

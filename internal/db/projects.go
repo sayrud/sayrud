@@ -6,10 +6,12 @@ package db
 
 import (
 	"context"
+	"strings"
 
 	"github.com/pkg/errors"
 	"github.com/thanhpk/randstr"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 
 	"github.com/wuhan005/sayrud/internal/dbutil"
 )
@@ -36,6 +38,15 @@ type ProjectsStore interface {
 	Update(ctx context.Context, projectID int64, opts UpdateProjectOptions) error
 	// DeleteByID deletes the project with the given ID.
 	DeleteByID(ctx context.Context, projectID int64) error
+	// ListAll returns the paginated projects of the whole site along with the total count, the newest first.
+	ListAll(ctx context.Context, opts ListAllProjectsOptions) ([]*Project, int64, error)
+	// Count returns the number of projects of the whole site.
+	Count(ctx context.Context) (int64, error)
+	// CountByOwnerIDs returns the number of owned projects keyed by owner ID, the users without projects are omitted.
+	CountByOwnerIDs(ctx context.Context, ownerIDs []int64) (map[int64]int64, error)
+	// TransferOwner transfers the project to newOwnerID: its collaborator record is removed, and the previous owner becomes a manager if it still exists.
+	// It returns ErrProjectNotFound if the project does not exist.
+	TransferOwner(ctx context.Context, projectID, newOwnerID int64) error
 }
 
 func NewProjectsStore(db *gorm.DB) ProjectsStore {
@@ -166,4 +177,84 @@ func (db *projects) DeleteByID(ctx context.Context, projectID int64) error {
 		return err
 	}
 	return nil
+}
+
+// ListAllProjectsOptions are the options of listing all the projects.
+type ListAllProjectsOptions struct {
+	dbutil.Pagination
+	// Keyword matches the name case-insensitively.
+	Keyword string
+}
+
+func (db *projects) ListAll(ctx context.Context, opts ListAllProjectsOptions) ([]*Project, int64, error) {
+	q := db.WithContext(ctx).Model(&Project{})
+	if k := strings.TrimSpace(opts.Keyword); k != "" {
+		q = q.Where("LOWER(name) LIKE ?", "%"+dbutil.EscapeLike(strings.ToLower(k))+"%")
+	}
+	var total int64
+	if err := q.Count(&total).Error; err != nil {
+		return nil, 0, errors.Wrap(err, "count")
+	}
+	limit, offset := opts.LimitOffset()
+	var projects []*Project
+	return projects, total, q.Order("id DESC").Limit(limit).Offset(offset).Find(&projects).Error
+}
+
+func (db *projects) Count(ctx context.Context) (int64, error) {
+	var count int64
+	return count, db.WithContext(ctx).Model(&Project{}).Count(&count).Error
+}
+
+func (db *projects) CountByOwnerIDs(ctx context.Context, ownerIDs []int64) (map[int64]int64, error) {
+	counts := make(map[int64]int64, len(ownerIDs))
+	if len(ownerIDs) == 0 {
+		return counts, nil
+	}
+	var rows []struct {
+		OwnerUserID int64
+		Count       int64
+	}
+	if err := db.WithContext(ctx).Model(&Project{}).
+		Select("owner_user_id, COUNT(*) AS count").
+		Where("owner_user_id IN ?", ownerIDs).
+		Group("owner_user_id").
+		Scan(&rows).Error; err != nil {
+		return nil, errors.Wrap(err, "count")
+	}
+	for _, r := range rows {
+		counts[r.OwnerUserID] = r.Count
+	}
+	return counts, nil
+}
+
+func (db *projects) TransferOwner(ctx context.Context, projectID, newOwnerID int64) error {
+	return db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var project Project
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("id = ?", projectID).First(&project).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return ErrProjectNotFound
+			}
+			return err
+		}
+		oldOwnerID := project.OwnerUserID
+		if oldOwnerID == newOwnerID {
+			return nil
+		}
+
+		if err := tx.Where("project_id = ? AND user_id = ?", projectID, newOwnerID).Delete(&ProjectMember{}).Error; err != nil {
+			return errors.Wrap(err, "delete membership of the new owner")
+		}
+		if err := tx.Model(&Project{}).Where("id = ?", projectID).Update("owner_user_id", newOwnerID).Error; err != nil {
+			return errors.Wrap(err, "update owner")
+		}
+
+		var oldOwnerCount int64
+		if err := tx.Model(&User{}).Where("id = ?", oldOwnerID).Count(&oldOwnerCount).Error; err != nil {
+			return errors.Wrap(err, "check old owner")
+		}
+		if oldOwnerCount == 0 {
+			return nil
+		}
+		return NewProjectMembersStore(tx).Set(ctx, projectID, oldOwnerID, ProjectRoleManager)
+	})
 }

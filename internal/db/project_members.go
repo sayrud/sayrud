@@ -63,6 +63,8 @@ type ProjectMembersStore interface {
 	Delete(ctx context.Context, projectID, userID int64) error
 	// DeleteByProjectID removes all the collaborators of the project.
 	DeleteByProjectID(ctx context.Context, projectID int64) error
+	// CountByProjectIDs returns the number of collaborators (excluding the owner) keyed by project ID, the projects without collaborators are omitted.
+	CountByProjectIDs(ctx context.Context, projectIDs []int64) (map[int64]int64, error)
 }
 
 func NewProjectMembersStore(db *gorm.DB) ProjectMembersStore {
@@ -143,4 +145,26 @@ func (db *projectMembers) Delete(ctx context.Context, projectID, userID int64) e
 
 func (db *projectMembers) DeleteByProjectID(ctx context.Context, projectID int64) error {
 	return db.WithContext(ctx).Where("project_id = ?", projectID).Delete(&ProjectMember{}).Error
+}
+
+func (db *projectMembers) CountByProjectIDs(ctx context.Context, projectIDs []int64) (map[int64]int64, error) {
+	counts := make(map[int64]int64, len(projectIDs))
+	if len(projectIDs) == 0 {
+		return counts, nil
+	}
+	var rows []struct {
+		ProjectID int64
+		Count     int64
+	}
+	if err := db.WithContext(ctx).Model(&ProjectMember{}).
+		Select("project_id, COUNT(*) AS count").
+		Where("project_id IN ?", projectIDs).
+		Group("project_id").
+		Scan(&rows).Error; err != nil {
+		return nil, errors.Wrap(err, "count")
+	}
+	for _, r := range rows {
+		counts[r.ProjectID] = r.Count
+	}
+	return counts, nil
 }

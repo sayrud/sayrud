@@ -2,6 +2,7 @@ package dto
 
 import (
 	"strconv"
+	"time"
 
 	"github.com/wuhan005/sayrud/internal/db"
 )
@@ -14,15 +15,20 @@ type Profile struct {
 	UserName string `json:"userName"`
 	// Color is the avatar color of the user.
 	Color string `json:"color"`
+	// IsAdmin reports whether the user is a system admin.
+	IsAdmin   bool      `json:"isAdmin"`
+	CreatedAt time.Time `json:"createdAt"`
 } // @name Profile
 
 func ToProfile(user *db.User) *Profile {
 	return &Profile{
-		ID:       user.ID,
-		Email:    user.Email,
-		EmailMd5: user.EmailMd5,
-		UserName: user.UserName,
-		Color:    UserColor(user.ID),
+		ID:        user.ID,
+		Email:     user.Email,
+		EmailMd5:  user.EmailMd5,
+		UserName:  user.UserName,
+		Color:     UserColor(user.ID),
+		IsAdmin:   user.IsAdmin,
+		CreatedAt: user.CreatedAt,
 	}
 }
 

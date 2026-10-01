@@ -248,6 +248,69 @@ func (projectRoute) DeleteProject(ctx context.Context, hub *collab.Hub, project 
 	return ctx.Status(http.StatusNoContent)
 }
 
+// TransferOwner
+// @Summary Transfer the ownership of a project
+// @Description Only the owner can transfer it to an existing collaborator, the previous owner becomes a manager.
+// @Accept json
+// @Param projectUID path string true "Project UID"
+// @Param data body form.TransferProjectOwner true "New owner"
+// @Success 204 "No Content"
+// @Failure 400 {string} string "The user is not a collaborator or is disabled"
+// @Failure 403 {string} string "Permission denied"
+// @Failure 404 {string} string "Project not found"
+// @Failure 500 {string} string "Internal server error"
+// @ID transferProjectOwner
+// @Router /projects/{projectUID}/owner [put]
+func (projectRoute) TransferOwner(ctx context.Context, hub *collab.Hub, project *db.Project, f form.TransferProjectOwner) error {
+	if _, err := db.ProjectMembers.GetRole(ctx.Request().Context(), project.ID, f.UserID); err != nil {
+		if errors.Is(err, db.ErrProjectMemberNotFound) {
+			return ctx.ApiError(http.StatusBadRequest, "只能转移给现有协作者")
+		}
+		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to get project role")
+		return ctx.ApiServerError()
+	}
+	if msg, err := transferTargetError(ctx, f.UserID); err != nil {
+		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to get new owner")
+		return ctx.ApiServerError()
+	} else if msg != "" {
+		return ctx.ApiError(http.StatusBadRequest, "%s", msg)
+	}
+
+	if err := transferProject(ctx, hub, project, f.UserID); err != nil {
+		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to transfer project")
+		return ctx.ApiServerError()
+	}
+	return ctx.Status(http.StatusNoContent)
+}
+
+// transferTargetError returns the message if the user can not receive projects, or an empty string.
+func transferTargetError(ctx context.Context, userID int64) (string, error) {
+	user, err := db.Users.GetByID(ctx.Request().Context(), userID)
+	if err != nil {
+		if errors.Is(err, db.ErrUserNotFound) {
+			return "接收人不存在", nil
+		}
+		return "", err
+	}
+	if user.Disabled() {
+		return "接收人账号已停用", nil
+	}
+	return "", nil
+}
+
+// transferProject transfers the ownership and applies the new roles to the online connections.
+func transferProject(ctx context.Context, hub *collab.Hub, project *db.Project, newOwnerID int64) error {
+	if err := db.Projects.TransferOwner(ctx.Request().Context(), project.ID, newOwnerID); err != nil {
+		return err
+	}
+	if project.OwnerUserID != newOwnerID {
+		hub.SetUserRole(project.UID, newOwnerID, db.ProjectRoleOwner)
+		hub.SetUserRole(project.UID, project.OwnerUserID, db.ProjectRoleManager)
+	}
+	hub.NotifyProject(project.UID, collab.MessageProjectChange)
+	return nil
+}
+
 // ListMembers
 // @Summary List the collaborators
 // @Description List the owner and the collaborators of the project, the owner comes first.

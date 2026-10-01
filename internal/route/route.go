@@ -40,6 +40,8 @@ func New(opts Options) *flamego.Flame {
 	isOwner := api.Project.RequireRole(db.ProjectRoleOwner)
 
 	f.Group("/_", func() {
+		f.Get("/site", api.Site.Get)
+
 		f.Group("/auth", func() {
 			f.Post("/sign-up", form.Bind(form.SignUp{}), api.Auth.SignUp)
 			f.Post("/sign-in", form.Bind(form.SignIn{}), api.Auth.SignIn)
@@ -49,7 +51,45 @@ func New(opts Options) *flamego.Flame {
 				Get(api.Auth.Profile).
 				Put(form.Bind(form.UpdateProfile{}), api.Auth.UpdateProfile)
 			f.Put("/password", api.Auth.Authenticator, form.Bind(form.UpdatePassword{}), api.Auth.UpdatePassword)
+			f.Group("/sessions", func() {
+				f.Combo("").
+					Get(api.Account.ListSessions).
+					Delete(api.Account.RevokeOtherSessions)
+				f.Delete("/{sessionID}", api.Account.RevokeSession)
+			}, api.Auth.Authenticator)
+			f.Combo("/settings", api.Auth.Authenticator).
+				Get(api.Account.GetSettings).
+				Put(form.Bind(form.UpdateUserSettings{}), api.Account.UpdateSettings)
+			f.Delete("/account", api.Auth.Authenticator, form.Bind(form.DeleteAccount{}), api.Account.DeleteAccount)
 		})
+
+		f.Group("/admin", func() {
+			f.Get("/overview", api.Admin.Overview)
+			f.Group("/users", func() {
+				f.Combo("").
+					Get(api.Admin.ListUsers).
+					Post(form.Bind(form.AdminCreateUser{}), api.Admin.CreateUser)
+				f.Group("/{userID}", func() {
+					f.Combo("").
+						Put(form.Bind(form.AdminUpdateUser{}), api.Admin.UpdateUser).
+						Delete(api.Admin.DeleteUser)
+					f.Put("/admin", form.Bind(form.AdminSetUserAdmin{}), api.Admin.SetUserAdmin)
+					f.Put("/status", form.Bind(form.AdminSetUserStatus{}), api.Admin.SetUserStatus)
+					f.Put("/password", form.Bind(form.AdminResetPassword{}), api.Admin.ResetUserPassword)
+					f.Delete("/sessions", api.Admin.RevokeUserSessions)
+				}, api.Admin.Targeter)
+			})
+			f.Group("/projects", func() {
+				f.Get("", api.Admin.ListProjects)
+				f.Group("/{projectUID}", func() {
+					f.Delete("", api.Admin.DeleteProject)
+					f.Put("/owner", form.Bind(form.AdminTransferProject{}), api.Admin.TransferProject)
+				}, api.Admin.Projecter)
+			})
+			f.Combo("/settings").
+				Get(api.Admin.GetSettings).
+				Put(form.Bind(form.UpdateSystemSettings{}), api.Admin.UpdateSettings)
+		}, api.Auth.Authenticator, api.Admin.RequireAdmin)
 
 		f.Group("/projects", func() {
 			f.Combo("").
@@ -61,6 +101,7 @@ func New(opts Options) *flamego.Flame {
 					Get(api.Project.GetProject).
 					Put(canEdit, form.Bind(form.UpdateProject{}), api.Project.UpdateProject).
 					Delete(isOwner, api.Project.DeleteProject)
+				f.Put("/owner", isOwner, form.Bind(form.TransferProjectOwner{}), api.Project.TransferOwner)
 
 				f.Group("/members", func() {
 					f.Combo("").

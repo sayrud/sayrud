@@ -33,6 +33,9 @@ export const projectsApi = {
   delete: async (projectUID: string) => {
     await client.projects.deleteProject(projectUID)
   },
+  transferOwner: async (projectUID: string, userID: number) => {
+    await client.projects.transferProjectOwner(projectUID, { userID })
+  },
 }
 
 export const membersApi = {

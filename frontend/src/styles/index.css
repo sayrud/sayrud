@@ -255,6 +255,17 @@ textarea {
   color: var(--text-caption);
 }
 
+/*
+ * Gray description text: descriptions of pages, sections and settings, and secondary information such as emails and times.
+ * The weight is fixed so it does not inherit 500 from the Arco headers.
+ */
+.text-desc {
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 20px;
+  color: var(--text-placeholder);
+}
+
 .ellipsis {
   overflow: hidden;
   white-space: nowrap;

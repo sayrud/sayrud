@@ -15,6 +15,771 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
+        "/admin/overview": {
+            "get": {
+                "description": "Requires the admin.",
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "Get the overview of the system",
+                "operationId": "getAdminOverview",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/AdminOverview"
+                        }
+                    },
+                    "403": {
+                        "description": "Not an admin",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/projects": {
+            "get": {
+                "description": "Requires the admin. The newest projects come first.",
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "List all the projects",
+                "operationId": "listAdminProjects",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Page number, starting from 1",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Page size, defaults to 20",
+                        "name": "pageSize",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Matches the project name",
+                        "name": "keyword",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/ListAdminProjectsResp"
+                        }
+                    },
+                    "403": {
+                        "description": "Not an admin",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/projects/{projectUID}": {
+            "delete": {
+                "description": "Requires the admin.",
+                "summary": "Delete a project",
+                "operationId": "deleteAdminProject",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Project UID",
+                        "name": "projectUID",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "403": {
+                        "description": "Not an admin",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "404": {
+                        "description": "Project not found",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/projects/{projectUID}/owner": {
+            "put": {
+                "description": "Requires the admin. The new owner can be any enabled user, the previous owner becomes a manager.",
+                "consumes": [
+                    "application/json"
+                ],
+                "summary": "Transfer the ownership of a project",
+                "operationId": "transferAdminProject",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Project UID",
+                        "name": "projectUID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "New owner",
+                        "name": "data",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/AdminTransferProject"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "description": "Invalid new owner",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "403": {
+                        "description": "Not an admin",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "404": {
+                        "description": "Project not found",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/settings": {
+            "get": {
+                "description": "Requires the admin.",
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "Get the system settings",
+                "operationId": "getSystemSettings",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/SystemSettings"
+                        }
+                    },
+                    "403": {
+                        "description": "Not an admin",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "Requires the admin. The password and session settings apply to the later sign-ups and sign-ins.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "Update the system settings",
+                "operationId": "updateSystemSettings",
+                "parameters": [
+                    {
+                        "description": "System settings",
+                        "name": "data",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/UpdateSystemSettings"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/SystemSettings"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid settings",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "403": {
+                        "description": "Not an admin",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/users": {
+            "get": {
+                "description": "Requires the admin. The newest users come first.",
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "List the users",
+                "operationId": "listAdminUsers",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Page number, starting from 1",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Page size, defaults to 20",
+                        "name": "pageSize",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Matches the user name or email",
+                        "name": "keyword",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "active",
+                            "disabled",
+                            "admin"
+                        ],
+                        "type": "string",
+                        "description": "Filter by status, all if empty",
+                        "name": "status",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/ListAdminUsersResp"
+                        }
+                    },
+                    "403": {
+                        "description": "Not an admin",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Requires the admin. It works even if signing up is disabled.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "Create a user",
+                "operationId": "createAdminUser",
+                "parameters": [
+                    {
+                        "description": "User to create",
+                        "name": "data",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/AdminCreateUser"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/AdminUser"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request body",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "403": {
+                        "description": "Not an admin",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "409": {
+                        "description": "Email has been used",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/users/{userID}": {
+            "put": {
+                "description": "Requires the admin.",
+                "consumes": [
+                    "application/json"
+                ],
+                "summary": "Update the user name of a user",
+                "operationId": "updateAdminUser",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "User ID",
+                        "name": "userID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "User name",
+                        "name": "data",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/AdminUpdateUser"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "description": "Invalid request body",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "403": {
+                        "description": "Not an admin",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "404": {
+                        "description": "User not found",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Requires the admin. The projects owned by the user are transferred to transferTo, which is required if there are any.",
+                "summary": "Delete a user",
+                "operationId": "deleteAdminUser",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "User ID",
+                        "name": "userID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "User ID to receive the owned projects",
+                        "name": "transferTo",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "description": "Invalid operation",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "403": {
+                        "description": "Not an admin",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "404": {
+                        "description": "User not found",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "409": {
+                        "description": "The last admin",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/users/{userID}/admin": {
+            "put": {
+                "description": "Requires the admin. The admin can not revoke itself, and at least one enabled admin is kept.",
+                "consumes": [
+                    "application/json"
+                ],
+                "summary": "Grant or revoke the admin",
+                "operationId": "setAdminUserAdmin",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "User ID",
+                        "name": "userID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Whether the user is an admin",
+                        "name": "data",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/AdminSetUserAdmin"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "description": "Invalid operation",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "403": {
+                        "description": "Not an admin",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "404": {
+                        "description": "User not found",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "409": {
+                        "description": "The last admin",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/users/{userID}/password": {
+            "put": {
+                "description": "Requires the admin. The user is signed out everywhere.",
+                "consumes": [
+                    "application/json"
+                ],
+                "summary": "Reset the password of a user",
+                "operationId": "resetAdminUserPassword",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "User ID",
+                        "name": "userID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "New password",
+                        "name": "data",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/AdminResetPassword"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "description": "Invalid request body",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "403": {
+                        "description": "Not an admin",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "404": {
+                        "description": "User not found",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/users/{userID}/sessions": {
+            "delete": {
+                "description": "Requires the admin. Use the account settings for the admin itself.",
+                "summary": "Sign out a user everywhere",
+                "operationId": "revokeAdminUserSessions",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "User ID",
+                        "name": "userID",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "description": "Invalid operation",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "403": {
+                        "description": "Not an admin",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "404": {
+                        "description": "User not found",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/users/{userID}/status": {
+            "put": {
+                "description": "Requires the admin. Disabling signs the user out everywhere. The admin can not disable itself, and at least one enabled admin is kept.",
+                "consumes": [
+                    "application/json"
+                ],
+                "summary": "Disable or enable a user",
+                "operationId": "setAdminUserStatus",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "User ID",
+                        "name": "userID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Whether the user is disabled",
+                        "name": "data",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/AdminSetUserStatus"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "description": "Invalid operation",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "403": {
+                        "description": "Not an admin",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "404": {
+                        "description": "User not found",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "409": {
+                        "description": "The last admin",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/account": {
+            "delete": {
+                "description": "The projects owned by the user must be deleted or transferred first, and the last admin can not be deleted.",
+                "consumes": [
+                    "application/json"
+                ],
+                "summary": "Delete the account of the signed-in user",
+                "operationId": "deleteAccount",
+                "parameters": [
+                    {
+                        "description": "Password",
+                        "name": "data",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/DeleteAccount"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "description": "Wrong password",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "401": {
+                        "description": "Not signed in",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "409": {
+                        "description": "The user still owns projects or is the last admin",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "429": {
+                        "description": "Too many attempts",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
         "/auth/password": {
             "put": {
                 "description": "The other sessions of the user are signed out.",
@@ -141,6 +906,182 @@ const docTemplate = `{
                 }
             }
         },
+        "/auth/sessions": {
+            "get": {
+                "description": "The unexpired sessions, the newest first.",
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "List the sign-in sessions of the signed-in user",
+                "operationId": "listSessions",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/UserSession"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Not signed in",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "summary": "Sign out all the other sessions of the signed-in user",
+                "operationId": "revokeOtherSessions",
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "401": {
+                        "description": "Not signed in",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/sessions/{sessionID}": {
+            "delete": {
+                "description": "The current session can not be revoked here, sign out instead.",
+                "summary": "Sign out a session of the signed-in user",
+                "operationId": "revokeSession",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Session ID",
+                        "name": "sessionID",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "description": "It is the current session",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "401": {
+                        "description": "Not signed in",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "404": {
+                        "description": "Session not found",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/settings": {
+            "get": {
+                "description": "The personal settings synced across the devices, the unsaved ones take the defaults.",
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "Get the settings of the signed-in user",
+                "operationId": "getUserSettings",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/UserSettings"
+                        }
+                    },
+                    "401": {
+                        "description": "Not signed in",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "Update the settings of the signed-in user",
+                "operationId": "updateUserSettings",
+                "parameters": [
+                    {
+                        "description": "Settings",
+                        "name": "data",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/UpdateUserSettings"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/UserSettings"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid settings",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "401": {
+                        "description": "Not signed in",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
         "/auth/sign-in": {
             "post": {
                 "consumes": [
@@ -177,6 +1118,12 @@ const docTemplate = `{
                     },
                     "401": {
                         "description": "Wrong email or password",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "403": {
+                        "description": "The user is disabled",
                         "schema": {
                             "type": "string"
                         }
@@ -899,6 +1846,63 @@ const docTemplate = `{
                     },
                     "404": {
                         "description": "Collaborator not found",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/projects/{projectUID}/owner": {
+            "put": {
+                "description": "Only the owner can transfer it to an existing collaborator, the previous owner becomes a manager.",
+                "consumes": [
+                    "application/json"
+                ],
+                "summary": "Transfer the ownership of a project",
+                "operationId": "transferProjectOwner",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Project UID",
+                        "name": "projectUID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "New owner",
+                        "name": "data",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/TransferProjectOwner"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "description": "The user is not a collaborator or is disabled",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "403": {
+                        "description": "Permission denied",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "404": {
+                        "description": "Project not found",
                         "schema": {
                             "type": "string"
                         }
@@ -2300,6 +3304,30 @@ const docTemplate = `{
                     }
                 }
             }
+        },
+        "/site": {
+            "get": {
+                "description": "Public information used by the sign-in page, such as whether signing up is allowed.",
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "Get the site information",
+                "operationId": "getSiteInfo",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/SiteInfo"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
         }
     },
     "definitions": {
@@ -2465,6 +3493,243 @@ const docTemplate = `{
                 }
             }
         },
+        "AdminCreateUser": {
+            "type": "object",
+            "required": [
+                "email",
+                "isAdmin",
+                "password",
+                "userName"
+            ],
+            "properties": {
+                "email": {
+                    "type": "string"
+                },
+                "isAdmin": {
+                    "type": "boolean"
+                },
+                "password": {
+                    "type": "string"
+                },
+                "userName": {
+                    "type": "string"
+                }
+            }
+        },
+        "AdminOverview": {
+            "type": "object",
+            "required": [
+                "activeSessions",
+                "projects",
+                "recentUsers",
+                "records",
+                "system",
+                "tables",
+                "users"
+            ],
+            "properties": {
+                "activeSessions": {
+                    "type": "integer"
+                },
+                "projects": {
+                    "type": "integer"
+                },
+                "recentUsers": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/AdminUser"
+                    }
+                },
+                "records": {
+                    "type": "integer"
+                },
+                "system": {
+                    "$ref": "#/definitions/AdminSystemInfo"
+                },
+                "tables": {
+                    "type": "integer"
+                },
+                "users": {
+                    "$ref": "#/definitions/AdminUserStats"
+                }
+            }
+        },
+        "AdminProject": {
+            "type": "object",
+            "required": [
+                "createdAt",
+                "memberCount",
+                "name",
+                "owner",
+                "tableCount",
+                "uid"
+            ],
+            "properties": {
+                "createdAt": {
+                    "type": "string"
+                },
+                "memberCount": {
+                    "description": "MemberCount is the number of collaborators, excluding the owner.",
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "owner": {
+                    "$ref": "#/definitions/UserBrief"
+                },
+                "tableCount": {
+                    "type": "integer"
+                },
+                "uid": {
+                    "type": "string"
+                }
+            }
+        },
+        "AdminResetPassword": {
+            "type": "object",
+            "required": [
+                "password"
+            ],
+            "properties": {
+                "password": {
+                    "type": "string"
+                }
+            }
+        },
+        "AdminSetUserAdmin": {
+            "type": "object",
+            "required": [
+                "isAdmin"
+            ],
+            "properties": {
+                "isAdmin": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "AdminSetUserStatus": {
+            "type": "object",
+            "required": [
+                "disabled"
+            ],
+            "properties": {
+                "disabled": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "AdminSystemInfo": {
+            "type": "object",
+            "required": [
+                "buildCommit",
+                "goVersion",
+                "settings"
+            ],
+            "properties": {
+                "buildCommit": {
+                    "type": "string"
+                },
+                "goVersion": {
+                    "type": "string"
+                },
+                "settings": {
+                    "$ref": "#/definitions/SystemSettings"
+                }
+            }
+        },
+        "AdminTransferProject": {
+            "type": "object",
+            "required": [
+                "userID"
+            ],
+            "properties": {
+                "userID": {
+                    "type": "integer"
+                }
+            }
+        },
+        "AdminUpdateUser": {
+            "type": "object",
+            "required": [
+                "userName"
+            ],
+            "properties": {
+                "userName": {
+                    "type": "string"
+                }
+            }
+        },
+        "AdminUser": {
+            "type": "object",
+            "required": [
+                "color",
+                "createdAt",
+                "disabled",
+                "email",
+                "emailMd5",
+                "id",
+                "isAdmin",
+                "lastSignInAt",
+                "ownedProjectCount",
+                "userName"
+            ],
+            "properties": {
+                "color": {
+                    "type": "string"
+                },
+                "createdAt": {
+                    "type": "string"
+                },
+                "disabled": {
+                    "type": "boolean"
+                },
+                "email": {
+                    "type": "string"
+                },
+                "emailMd5": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "isAdmin": {
+                    "type": "boolean"
+                },
+                "lastSignInAt": {
+                    "type": "string"
+                },
+                "ownedProjectCount": {
+                    "type": "integer"
+                },
+                "userName": {
+                    "type": "string"
+                }
+            }
+        },
+        "AdminUserStats": {
+            "type": "object",
+            "required": [
+                "admins",
+                "disabled",
+                "newLast7Days",
+                "total"
+            ],
+            "properties": {
+                "admins": {
+                    "type": "integer"
+                },
+                "disabled": {
+                    "type": "integer"
+                },
+                "newLast7Days": {
+                    "type": "integer"
+                },
+                "total": {
+                    "type": "integer"
+                }
+            }
+        },
         "BatchCreateRecords": {
             "type": "object",
             "required": [
@@ -2588,6 +3853,17 @@ const docTemplate = `{
                 }
             }
         },
+        "DeleteAccount": {
+            "type": "object",
+            "required": [
+                "password"
+            ],
+            "properties": {
+                "password": {
+                    "type": "string"
+                }
+            }
+        },
         "DirtyScope": {
             "type": "object",
             "properties": {
@@ -2643,6 +3919,42 @@ const docTemplate = `{
                         "checkbox",
                         "formula"
                     ]
+                }
+            }
+        },
+        "ListAdminProjectsResp": {
+            "type": "object",
+            "required": [
+                "projects",
+                "total"
+            ],
+            "properties": {
+                "projects": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/AdminProject"
+                    }
+                },
+                "total": {
+                    "type": "integer"
+                }
+            }
+        },
+        "ListAdminUsersResp": {
+            "type": "object",
+            "required": [
+                "total",
+                "users"
+            ],
+            "properties": {
+                "total": {
+                    "type": "integer"
+                },
+                "users": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/AdminUser"
+                    }
                 }
             }
         },
@@ -2742,14 +4054,19 @@ const docTemplate = `{
             "type": "object",
             "required": [
                 "color",
+                "createdAt",
                 "email",
                 "emailMd5",
                 "id",
+                "isAdmin",
                 "userName"
             ],
             "properties": {
                 "color": {
                     "description": "Color is the avatar color of the user.",
+                    "type": "string"
+                },
+                "createdAt": {
                     "type": "string"
                 },
                 "email": {
@@ -2760,6 +4077,10 @@ const docTemplate = `{
                 },
                 "id": {
                     "type": "integer"
+                },
+                "isAdmin": {
+                    "description": "IsAdmin reports whether the user is a system admin.",
+                    "type": "boolean"
                 },
                 "userName": {
                     "type": "string"
@@ -3138,6 +4459,52 @@ const docTemplate = `{
                 }
             }
         },
+        "SiteInfo": {
+            "type": "object",
+            "required": [
+                "allowSignUp",
+                "passwordMinLength",
+                "siteName"
+            ],
+            "properties": {
+                "allowSignUp": {
+                    "type": "boolean"
+                },
+                "passwordMinLength": {
+                    "type": "integer"
+                },
+                "siteName": {
+                    "type": "string"
+                }
+            }
+        },
+        "SystemSettings": {
+            "type": "object",
+            "required": [
+                "allowSignUp",
+                "passwordMinLength",
+                "sessionTTLDays",
+                "siteName"
+            ],
+            "properties": {
+                "allowSignUp": {
+                    "description": "AllowSignUp reports whether new users can sign up by themselves.",
+                    "type": "boolean"
+                },
+                "passwordMinLength": {
+                    "description": "PasswordMinLength applies to signing up, changing, creating and resetting passwords.",
+                    "type": "integer"
+                },
+                "sessionTTLDays": {
+                    "description": "SessionTTLDays is the lifetime in days of the new sessions.",
+                    "type": "integer"
+                },
+                "siteName": {
+                    "description": "SiteName is shown in the page title and the sign-in page.",
+                    "type": "string"
+                }
+            }
+        },
         "TableListItem": {
             "type": "object",
             "required": [
@@ -3202,6 +4569,17 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/SLView"
                     }
+                }
+            }
+        },
+        "TransferProjectOwner": {
+            "type": "object",
+            "required": [
+                "userID"
+            ],
+            "properties": {
+                "userID": {
+                    "type": "integer"
                 }
             }
         },
@@ -3308,6 +4686,29 @@ const docTemplate = `{
                 }
             }
         },
+        "UpdateSystemSettings": {
+            "type": "object",
+            "required": [
+                "allowSignUp",
+                "passwordMinLength",
+                "sessionTTLDays",
+                "siteName"
+            ],
+            "properties": {
+                "allowSignUp": {
+                    "type": "boolean"
+                },
+                "passwordMinLength": {
+                    "type": "integer"
+                },
+                "sessionTTLDays": {
+                    "type": "integer"
+                },
+                "siteName": {
+                    "type": "string"
+                }
+            }
+        },
         "UpdateTable": {
             "type": "object",
             "required": [
@@ -3316,6 +4717,22 @@ const docTemplate = `{
             "properties": {
                 "name": {
                     "type": "string"
+                }
+            }
+        },
+        "UpdateUserSettings": {
+            "type": "object",
+            "required": [
+                "theme"
+            ],
+            "properties": {
+                "theme": {
+                    "type": "string",
+                    "enum": [
+                        "light",
+                        "dark",
+                        "system"
+                    ]
                 }
             }
         },
@@ -3343,6 +4760,55 @@ const docTemplate = `{
                 },
                 "userName": {
                     "type": "string"
+                }
+            }
+        },
+        "UserSession": {
+            "type": "object",
+            "required": [
+                "createdAt",
+                "current",
+                "expiresAt",
+                "id",
+                "ip",
+                "userAgent"
+            ],
+            "properties": {
+                "createdAt": {
+                    "type": "string"
+                },
+                "current": {
+                    "description": "Current reports whether it is the session of the current request.",
+                    "type": "boolean"
+                },
+                "expiresAt": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "ip": {
+                    "type": "string"
+                },
+                "userAgent": {
+                    "type": "string"
+                }
+            }
+        },
+        "UserSettings": {
+            "type": "object",
+            "required": [
+                "theme"
+            ],
+            "properties": {
+                "theme": {
+                    "description": "Theme is the appearance of the user interface.",
+                    "type": "string",
+                    "enum": [
+                        "light",
+                        "dark",
+                        "system"
+                    ]
                 }
             }
         },

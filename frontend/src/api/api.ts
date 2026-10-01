@@ -71,6 +71,79 @@ export interface AddProjectMember {
   role: "manager" | "editor" | "viewer";
 }
 
+export interface AdminCreateUser {
+  email: string;
+  isAdmin: boolean;
+  password: string;
+  userName: string;
+}
+
+export interface AdminOverview {
+  activeSessions: number;
+  projects: number;
+  recentUsers: AdminUser[];
+  records: number;
+  system: AdminSystemInfo;
+  tables: number;
+  users: AdminUserStats;
+}
+
+export interface AdminProject {
+  createdAt: string;
+  /** MemberCount is the number of collaborators, excluding the owner. */
+  memberCount: number;
+  name: string;
+  owner: UserBrief;
+  tableCount: number;
+  uid: string;
+}
+
+export interface AdminResetPassword {
+  password: string;
+}
+
+export interface AdminSetUserAdmin {
+  isAdmin: boolean;
+}
+
+export interface AdminSetUserStatus {
+  disabled: boolean;
+}
+
+export interface AdminSystemInfo {
+  buildCommit: string;
+  goVersion: string;
+  settings: SystemSettings;
+}
+
+export interface AdminTransferProject {
+  userID: number;
+}
+
+export interface AdminUpdateUser {
+  userName: string;
+}
+
+export interface AdminUser {
+  color: string;
+  createdAt: string;
+  disabled: boolean;
+  email: string;
+  emailMd5: string;
+  id: number;
+  isAdmin: boolean;
+  lastSignInAt: string;
+  ownedProjectCount: number;
+  userName: string;
+}
+
+export interface AdminUserStats {
+  admins: number;
+  disabled: number;
+  newLast7Days: number;
+  total: number;
+}
+
 export interface BatchCreateRecords {
   /** Data is the list of cell values keyed by field UID, one item for each record. */
   data: Record<string, any>[];
@@ -117,6 +190,10 @@ export interface CreateTable {
   name: string;
 }
 
+export interface DeleteAccount {
+  password: string;
+}
+
 export interface DirtyScope {
   allRecords?: boolean;
   fields?: boolean;
@@ -139,6 +216,16 @@ export interface FieldAttrs {
     | "number"
     | "checkbox"
     | "formula";
+}
+
+export interface ListAdminProjectsResp {
+  projects: AdminProject[];
+  total: number;
+}
+
+export interface ListAdminUsersResp {
+  total: number;
+  users: AdminUser[];
 }
 
 export interface ListChangesetsResp {
@@ -171,9 +258,12 @@ export interface Operation {
 export interface Profile {
   /** Color is the avatar color of the user. */
   color: string;
+  createdAt: string;
   email: string;
   emailMd5: string;
   id: number;
+  /** IsAdmin reports whether the user is a system admin. */
+  isAdmin: boolean;
   userName: string;
 }
 
@@ -287,6 +377,23 @@ export interface SignUp {
   userName: string;
 }
 
+export interface SiteInfo {
+  allowSignUp: boolean;
+  passwordMinLength: number;
+  siteName: string;
+}
+
+export interface SystemSettings {
+  /** AllowSignUp reports whether new users can sign up by themselves. */
+  allowSignUp: boolean;
+  /** PasswordMinLength applies to signing up, changing, creating and resetting passwords. */
+  passwordMinLength: number;
+  /** SessionTTLDays is the lifetime in days of the new sessions. */
+  sessionTTLDays: number;
+  /** SiteName is shown in the page title and the sign-in page. */
+  siteName: string;
+}
+
 export interface TableListItem {
   count: number;
   createdAt: string;
@@ -302,6 +409,10 @@ export interface TableSnapshot {
   rev: number;
   table: SLTable;
   views: SLView[];
+}
+
+export interface TransferProjectOwner {
+  userID: number;
 }
 
 export interface UpdateField {
@@ -345,8 +456,19 @@ export interface UpdateRecord {
   data: Record<string, any>;
 }
 
+export interface UpdateSystemSettings {
+  allowSignUp: boolean;
+  passwordMinLength: number;
+  sessionTTLDays: number;
+  siteName: string;
+}
+
 export interface UpdateTable {
   name: string;
+}
+
+export interface UpdateUserSettings {
+  theme: "light" | "dark" | "system";
 }
 
 export interface UserBrief {
@@ -357,17 +479,72 @@ export interface UserBrief {
   userName: string;
 }
 
+export interface UserSession {
+  createdAt: string;
+  /** Current reports whether it is the session of the current request. */
+  current: boolean;
+  expiresAt: string;
+  id: number;
+  ip: string;
+  userAgent: string;
+}
+
+export interface UserSettings {
+  /** Theme is the appearance of the user interface. */
+  theme: "light" | "dark" | "system";
+}
+
 export interface ViewAttrs {
   config?: Record<string, any>;
   name?: string;
   type?: "grid" | "kanban" | "gallery" | "form";
 }
 
+export type GetAdminOverviewData = AdminOverview;
+
+export type ListAdminProjectsData = ListAdminProjectsResp;
+
+export type DeleteAdminProjectData = any;
+
+export type TransferAdminProjectData = any;
+
+export type GetSystemSettingsData = SystemSettings;
+
+export type UpdateSystemSettingsData = SystemSettings;
+
+export type ListAdminUsersData = ListAdminUsersResp;
+
+export type CreateAdminUserData = AdminUser;
+
+export type UpdateAdminUserData = any;
+
+export type DeleteAdminUserData = any;
+
+export type SetAdminUserAdminData = any;
+
+export type ResetAdminUserPasswordData = any;
+
+export type RevokeAdminUserSessionsData = any;
+
+export type SetAdminUserStatusData = any;
+
+export type DeleteAccountData = any;
+
 export type UpdatePasswordData = any;
 
 export type GetProfileData = Profile;
 
 export type UpdateProfileData = Profile;
+
+export type ListSessionsData = UserSession[];
+
+export type RevokeOtherSessionsData = any;
+
+export type RevokeSessionData = any;
+
+export type GetUserSettingsData = UserSettings;
+
+export type UpdateUserSettingsData = UserSettings;
 
 export type SignInData = Profile;
 
@@ -398,6 +575,8 @@ export type LookupProjectMemberCandidateData = UserBrief;
 export type UpdateProjectMemberData = any;
 
 export type RemoveProjectMemberData = any;
+
+export type TransferProjectOwnerData = any;
 
 export type ListTablesData = ListTablesResp;
 
@@ -442,6 +621,8 @@ export type DeleteRecordData = any;
 export type GetTableSnapshotData = TableSnapshot;
 
 export type ListViewsData = SLView[];
+
+export type GetSiteInfoData = SiteInfo;
 
 import type {
   AxiosInstance,
@@ -627,7 +808,295 @@ export class HttpClient<SecurityDataType = unknown> {
 export class Api<
   SecurityDataType extends unknown,
 > extends HttpClient<SecurityDataType> {
+  admin = {
+    /**
+     * @description Requires the admin.
+     *
+     * @name GetAdminOverview
+     * @summary Get the overview of the system
+     * @request GET:/admin/overview
+     */
+    getAdminOverview: (params: RequestParams = {}) =>
+      this.request<GetAdminOverviewData, string>({
+        path: `/admin/overview`,
+        method: "GET",
+        format: "json",
+        ...params,
+      }),
+
+    /**
+     * @description Requires the admin. The newest projects come first.
+     *
+     * @name ListAdminProjects
+     * @summary List all the projects
+     * @request GET:/admin/projects
+     */
+    listAdminProjects: (
+      query?: {
+        /** Page number, starting from 1 */
+        page?: number;
+        /** Page size, defaults to 20 */
+        pageSize?: number;
+        /** Matches the project name */
+        keyword?: string;
+      },
+      params: RequestParams = {},
+    ) =>
+      this.request<ListAdminProjectsData, string>({
+        path: `/admin/projects`,
+        method: "GET",
+        query: query,
+        format: "json",
+        ...params,
+      }),
+
+    /**
+     * @description Requires the admin.
+     *
+     * @name DeleteAdminProject
+     * @summary Delete a project
+     * @request DELETE:/admin/projects/{projectUID}
+     */
+    deleteAdminProject: (projectUid: string, params: RequestParams = {}) =>
+      this.request<DeleteAdminProjectData, string>({
+        path: `/admin/projects/${projectUid}`,
+        method: "DELETE",
+        ...params,
+      }),
+
+    /**
+     * @description Requires the admin. The new owner can be any enabled user, the previous owner becomes a manager.
+     *
+     * @name TransferAdminProject
+     * @summary Transfer the ownership of a project
+     * @request PUT:/admin/projects/{projectUID}/owner
+     */
+    transferAdminProject: (
+      projectUid: string,
+      data: AdminTransferProject,
+      params: RequestParams = {},
+    ) =>
+      this.request<TransferAdminProjectData, string>({
+        path: `/admin/projects/${projectUid}/owner`,
+        method: "PUT",
+        body: data,
+        type: ContentType.Json,
+        ...params,
+      }),
+
+    /**
+     * @description Requires the admin.
+     *
+     * @name GetSystemSettings
+     * @summary Get the system settings
+     * @request GET:/admin/settings
+     */
+    getSystemSettings: (params: RequestParams = {}) =>
+      this.request<GetSystemSettingsData, string>({
+        path: `/admin/settings`,
+        method: "GET",
+        format: "json",
+        ...params,
+      }),
+
+    /**
+     * @description Requires the admin. The password and session settings apply to the later sign-ups and sign-ins.
+     *
+     * @name UpdateSystemSettings
+     * @summary Update the system settings
+     * @request PUT:/admin/settings
+     */
+    updateSystemSettings: (
+      data: UpdateSystemSettings,
+      params: RequestParams = {},
+    ) =>
+      this.request<UpdateSystemSettingsData, string>({
+        path: `/admin/settings`,
+        method: "PUT",
+        body: data,
+        type: ContentType.Json,
+        format: "json",
+        ...params,
+      }),
+
+    /**
+     * @description Requires the admin. The newest users come first.
+     *
+     * @name ListAdminUsers
+     * @summary List the users
+     * @request GET:/admin/users
+     */
+    listAdminUsers: (
+      query?: {
+        /** Page number, starting from 1 */
+        page?: number;
+        /** Page size, defaults to 20 */
+        pageSize?: number;
+        /** Matches the user name or email */
+        keyword?: string;
+        /** Filter by status, all if empty */
+        status?: "active" | "disabled" | "admin";
+      },
+      params: RequestParams = {},
+    ) =>
+      this.request<ListAdminUsersData, string>({
+        path: `/admin/users`,
+        method: "GET",
+        query: query,
+        format: "json",
+        ...params,
+      }),
+
+    /**
+     * @description Requires the admin. It works even if signing up is disabled.
+     *
+     * @name CreateAdminUser
+     * @summary Create a user
+     * @request POST:/admin/users
+     */
+    createAdminUser: (data: AdminCreateUser, params: RequestParams = {}) =>
+      this.request<CreateAdminUserData, string>({
+        path: `/admin/users`,
+        method: "POST",
+        body: data,
+        type: ContentType.Json,
+        format: "json",
+        ...params,
+      }),
+
+    /**
+     * @description Requires the admin.
+     *
+     * @name UpdateAdminUser
+     * @summary Update the user name of a user
+     * @request PUT:/admin/users/{userID}
+     */
+    updateAdminUser: (
+      userId: number,
+      data: AdminUpdateUser,
+      params: RequestParams = {},
+    ) =>
+      this.request<UpdateAdminUserData, string>({
+        path: `/admin/users/${userId}`,
+        method: "PUT",
+        body: data,
+        type: ContentType.Json,
+        ...params,
+      }),
+
+    /**
+     * @description Requires the admin. The projects owned by the user are transferred to transferTo, which is required if there are any.
+     *
+     * @name DeleteAdminUser
+     * @summary Delete a user
+     * @request DELETE:/admin/users/{userID}
+     */
+    deleteAdminUser: (
+      userId: number,
+      query?: {
+        /** User ID to receive the owned projects */
+        transferTo?: number;
+      },
+      params: RequestParams = {},
+    ) =>
+      this.request<DeleteAdminUserData, string>({
+        path: `/admin/users/${userId}`,
+        method: "DELETE",
+        query: query,
+        ...params,
+      }),
+
+    /**
+     * @description Requires the admin. The admin can not revoke itself, and at least one enabled admin is kept.
+     *
+     * @name SetAdminUserAdmin
+     * @summary Grant or revoke the admin
+     * @request PUT:/admin/users/{userID}/admin
+     */
+    setAdminUserAdmin: (
+      userId: number,
+      data: AdminSetUserAdmin,
+      params: RequestParams = {},
+    ) =>
+      this.request<SetAdminUserAdminData, string>({
+        path: `/admin/users/${userId}/admin`,
+        method: "PUT",
+        body: data,
+        type: ContentType.Json,
+        ...params,
+      }),
+
+    /**
+     * @description Requires the admin. The user is signed out everywhere.
+     *
+     * @name ResetAdminUserPassword
+     * @summary Reset the password of a user
+     * @request PUT:/admin/users/{userID}/password
+     */
+    resetAdminUserPassword: (
+      userId: number,
+      data: AdminResetPassword,
+      params: RequestParams = {},
+    ) =>
+      this.request<ResetAdminUserPasswordData, string>({
+        path: `/admin/users/${userId}/password`,
+        method: "PUT",
+        body: data,
+        type: ContentType.Json,
+        ...params,
+      }),
+
+    /**
+     * @description Requires the admin. Use the account settings for the admin itself.
+     *
+     * @name RevokeAdminUserSessions
+     * @summary Sign out a user everywhere
+     * @request DELETE:/admin/users/{userID}/sessions
+     */
+    revokeAdminUserSessions: (userId: number, params: RequestParams = {}) =>
+      this.request<RevokeAdminUserSessionsData, string>({
+        path: `/admin/users/${userId}/sessions`,
+        method: "DELETE",
+        ...params,
+      }),
+
+    /**
+     * @description Requires the admin. Disabling signs the user out everywhere. The admin can not disable itself, and at least one enabled admin is kept.
+     *
+     * @name SetAdminUserStatus
+     * @summary Disable or enable a user
+     * @request PUT:/admin/users/{userID}/status
+     */
+    setAdminUserStatus: (
+      userId: number,
+      data: AdminSetUserStatus,
+      params: RequestParams = {},
+    ) =>
+      this.request<SetAdminUserStatusData, string>({
+        path: `/admin/users/${userId}/status`,
+        method: "PUT",
+        body: data,
+        type: ContentType.Json,
+        ...params,
+      }),
+  };
   auth = {
+    /**
+     * @description The projects owned by the user must be deleted or transferred first, and the last admin can not be deleted.
+     *
+     * @name DeleteAccount
+     * @summary Delete the account of the signed-in user
+     * @request DELETE:/auth/account
+     */
+    deleteAccount: (data: DeleteAccount, params: RequestParams = {}) =>
+      this.request<DeleteAccountData, string>({
+        path: `/auth/account`,
+        method: "DELETE",
+        body: data,
+        type: ContentType.Json,
+        ...params,
+      }),
+
     /**
      * @description The other sessions of the user are signed out.
      *
@@ -669,6 +1138,84 @@ export class Api<
     updateProfile: (data: UpdateProfile, params: RequestParams = {}) =>
       this.request<UpdateProfileData, string>({
         path: `/auth/profile`,
+        method: "PUT",
+        body: data,
+        type: ContentType.Json,
+        format: "json",
+        ...params,
+      }),
+
+    /**
+     * @description The unexpired sessions, the newest first.
+     *
+     * @name ListSessions
+     * @summary List the sign-in sessions of the signed-in user
+     * @request GET:/auth/sessions
+     */
+    listSessions: (params: RequestParams = {}) =>
+      this.request<ListSessionsData, string>({
+        path: `/auth/sessions`,
+        method: "GET",
+        format: "json",
+        ...params,
+      }),
+
+    /**
+     * No description
+     *
+     * @name RevokeOtherSessions
+     * @summary Sign out all the other sessions of the signed-in user
+     * @request DELETE:/auth/sessions
+     */
+    revokeOtherSessions: (params: RequestParams = {}) =>
+      this.request<RevokeOtherSessionsData, string>({
+        path: `/auth/sessions`,
+        method: "DELETE",
+        ...params,
+      }),
+
+    /**
+     * @description The current session can not be revoked here, sign out instead.
+     *
+     * @name RevokeSession
+     * @summary Sign out a session of the signed-in user
+     * @request DELETE:/auth/sessions/{sessionID}
+     */
+    revokeSession: (sessionId: number, params: RequestParams = {}) =>
+      this.request<RevokeSessionData, string>({
+        path: `/auth/sessions/${sessionId}`,
+        method: "DELETE",
+        ...params,
+      }),
+
+    /**
+     * @description The personal settings synced across the devices, the unsaved ones take the defaults.
+     *
+     * @name GetUserSettings
+     * @summary Get the settings of the signed-in user
+     * @request GET:/auth/settings
+     */
+    getUserSettings: (params: RequestParams = {}) =>
+      this.request<GetUserSettingsData, string>({
+        path: `/auth/settings`,
+        method: "GET",
+        format: "json",
+        ...params,
+      }),
+
+    /**
+     * No description
+     *
+     * @name UpdateUserSettings
+     * @summary Update the settings of the signed-in user
+     * @request PUT:/auth/settings
+     */
+    updateUserSettings: (
+      data: UpdateUserSettings,
+      params: RequestParams = {},
+    ) =>
+      this.request<UpdateUserSettingsData, string>({
+        path: `/auth/settings`,
         method: "PUT",
         body: data,
         type: ContentType.Json,
@@ -949,6 +1496,26 @@ export class Api<
       this.request<RemoveProjectMemberData, string>({
         path: `/projects/${projectUid}/members/${userId}`,
         method: "DELETE",
+        ...params,
+      }),
+
+    /**
+     * @description Only the owner can transfer it to an existing collaborator, the previous owner becomes a manager.
+     *
+     * @name TransferProjectOwner
+     * @summary Transfer the ownership of a project
+     * @request PUT:/projects/{projectUID}/owner
+     */
+    transferProjectOwner: (
+      projectUid: string,
+      data: TransferProjectOwner,
+      params: RequestParams = {},
+    ) =>
+      this.request<TransferProjectOwnerData, string>({
+        path: `/projects/${projectUid}/owner`,
+        method: "PUT",
+        body: data,
+        type: ContentType.Json,
         ...params,
       }),
 
@@ -1424,6 +1991,22 @@ export class Api<
       this.request<any, void | string>({
         path: `/projects/${projectUid}/ws`,
         method: "GET",
+        ...params,
+      }),
+  };
+  site = {
+    /**
+     * @description Public information used by the sign-in page, such as whether signing up is allowed.
+     *
+     * @name GetSiteInfo
+     * @summary Get the site information
+     * @request GET:/site
+     */
+    getSiteInfo: (params: RequestParams = {}) =>
+      this.request<GetSiteInfoData, string>({
+        path: `/site`,
+        method: "GET",
+        format: "json",
         ...params,
       }),
   };

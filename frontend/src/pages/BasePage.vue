@@ -18,10 +18,12 @@ import RecordModal from '@/components/record/RecordModal.vue'
 import ViewToolbar from '@/components/toolbar/ViewToolbar.vue'
 import { keepRecordInView } from '@/composables/useViewData'
 import { useBaseStore } from '@/stores/base'
+import { useSiteStore } from '@/stores/site'
 
 const route = useRoute()
 const router = useRouter()
 const store = useBaseStore()
+const site = useSiteStore()
 
 const sidebarCollapsed = ref(window.innerWidth < 768)
 const shareVisible = ref(false)
@@ -83,12 +85,13 @@ function memberTitle(m: { name: string; tableUID?: string }) {
 }
 
 watch(
-  () => store.project?.name,
-  (name) => {
-    document.title = [name, 'Sayrud'].filter(Boolean).join(' - ')
+  [() => store.project?.name, () => site.info.siteName],
+  ([name]) => {
+    document.title = site.title(name)
   },
   { immediate: true },
 )
+site.ensureLoaded()
 
 function selectTable(uid: string) {
   router.push({ name: 'base', params: { projectUID: projectUID.value, tableUID: uid } })

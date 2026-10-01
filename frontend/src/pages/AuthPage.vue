@@ -1,20 +1,23 @@
 <script setup lang="ts">
 import { Message, type FieldRule, type FormInstance } from '@arco-design/web-vue'
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import logoDark from '@/assets/logo-dark.svg'
 import logo from '@/assets/logo.svg'
 import { safeRedirect } from '@/router'
 import { useAuthStore } from '@/stores/auth'
+import { useSiteStore } from '@/stores/site'
 import { useThemeStore } from '@/stores/theme'
 
 const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
+const site = useSiteStore()
 const themeStore = useThemeStore()
 
 const isRegister = computed(() => route.name === 'register')
+const minLength = computed(() => site.info.passwordMinLength)
 const formRef = ref<FormInstance>()
 const form = reactive({ email: '', userName: '', password: '', confirm: '' })
 const submitting = ref(false)
@@ -29,7 +32,7 @@ const rules = computed<Record<string, FieldRule[]>>(() => ({
   password: isRegister.value
     ? [
         { required: true, message: '请输入密码' },
-        { minLength: 8, message: '密码至少 8 位' },
+        { minLength: minLength.value, message: `密码至少 ${minLength.value} 位` },
       ]
     : [{ required: true, message: '请输入密码' }],
   confirm: [
@@ -64,21 +67,32 @@ function switchMode() {
   router.replace({ name: isRegister.value ? 'login' : 'register', query: route.query })
 }
 
-onMounted(() => {
-  document.title = `${isRegister.value ? '注册' : '登录'} - Sayrud`
-})
+watch(
+  [isRegister, () => site.info.siteName],
+  () => (document.title = site.title(isRegister.value ? '注册' : '登录')),
+  { immediate: true },
+)
+onMounted(() => site.ensureLoaded())
 </script>
 
 <template>
   <div class="auth">
     <a-card class="auth-card" :bordered="false">
-      <img class="brand" :src="themeStore.theme === 'dark' ? logoDark : logo" alt="Sayrud" />
+      <img class="brand" :src="themeStore.theme === 'dark' ? logoDark : logo" :alt="site.info.siteName" />
       <a-typography-title :heading="4" class="title">{{ isRegister ? '注册账号' : '登录' }}</a-typography-title>
-      <a-typography-paragraph type="secondary">
-        {{ isRegister ? '创建账号后即可新建多维表格并邀请协作者' : '使用邮箱和密码登录 Sayrud' }}
+      <a-typography-paragraph v-if="!isRegister || site.info.allowSignUp" type="secondary">
+        {{ isRegister ? '创建账号后即可新建多维表格并邀请协作者' : `使用邮箱和密码登录 ${site.info.siteName}` }}
       </a-typography-paragraph>
 
-      <a-form ref="formRef" :model="form" :rules="rules" layout="vertical" @submit-success="submit">
+      <template v-if="isRegister && !site.info.allowSignUp">
+        <a-result status="403" title="注册已关闭" subtitle="请联系管理员为你创建账号">
+          <template #extra>
+            <a-button type="primary" @click="switchMode">去登录</a-button>
+          </template>
+        </a-result>
+      </template>
+
+      <a-form v-else ref="formRef" :model="form" :rules="rules" layout="vertical" @submit-success="submit">
         <a-form-item field="email" label="邮箱" validate-trigger="blur">
           <a-input v-model="form.email" size="large" placeholder="name@example.com" autocomplete="email" :max-length="254" />
         </a-form-item>
@@ -89,7 +103,7 @@ onMounted(() => {
           <a-input-password
             v-model="form.password"
             size="large"
-            :placeholder="isRegister ? '至少 8 位' : '请输入密码'"
+            :placeholder="isRegister ? `至少 ${minLength} 位` : '请输入密码'"
             :autocomplete="isRegister ? 'new-password' : 'current-password'"
             :max-length="64"
           />
@@ -105,7 +119,7 @@ onMounted(() => {
         </a-button>
       </a-form>
 
-      <div class="switch">
+      <div v-if="site.info.allowSignUp" class="switch">
         <a-typography-text type="secondary">{{ isRegister ? '已有账号？' : '还没有账号？' }}</a-typography-text>
         <a-link @click="switchMode">{{ isRegister ? '去登录' : '立即注册' }}</a-link>
       </div>

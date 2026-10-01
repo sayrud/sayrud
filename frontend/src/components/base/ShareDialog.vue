@@ -4,7 +4,7 @@ import { Check, ChevronDown, Link, UserPlus } from '@lucide/vue'
 import { computed, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 
-import { membersApi } from '@/api/bitable'
+import { membersApi, projectsApi } from '@/api/bitable'
 import { ApiError } from '@/api/client'
 import UserAvatar from '@/components/common/UserAvatar.vue'
 import { useAuthStore } from '@/stores/auth'
@@ -129,8 +129,30 @@ function remove(m: ProjectMember) {
   })
 }
 
+function transferOwner(m: ProjectMember) {
+  Modal.warning({
+    title: `将所有权转移给「${m.user.userName}」？`,
+    content: '转移后对方成为所有者，你将成为「可管理」协作者，且不能再删除该多维表格。',
+    hideCancel: false,
+    okText: '转移',
+    onBeforeOk: async () => {
+      try {
+        await projectsApi.transferOwner(projectUID.value, m.user.id)
+        store.project = await projectsApi.get(projectUID.value)
+      } catch (e) {
+        Message.error(e instanceof Error ? e.message : String(e))
+        return false
+      }
+      Message.success(`已将所有权转移给「${m.user.userName}」`)
+      await load()
+      return true
+    },
+  })
+}
+
 function onMemberAction(m: ProjectMember, value: string) {
   if (value === 'remove') remove(m)
+  else if (value === 'transfer') transferOwner(m)
   else changeRole(m, value as MemberRole)
 }
 
@@ -228,6 +250,7 @@ function copyLink() {
               </a-doption>
               <a-divider :margin="4" />
             </template>
+            <a-doption v-if="store.role === 'owner' && m.user.id !== myID" value="transfer">转移所有权</a-doption>
             <a-doption value="remove" :style="{ color: 'var(--color-danger)' }">
               {{ m.user.id === myID ? '退出协作' : '移除' }}
             </a-doption>

@@ -16,6 +16,14 @@ type UpdateProfile struct {
 	UserName string `json:"userName" valid:"required;maxlen:32" label:"用户名"`
 } // @name UpdateProfile
 
+type UpdateUserSettings struct {
+	Theme string `json:"theme" valid:"required" label:"外观" enums:"light,dark,system"`
+} // @name UpdateUserSettings
+
+type DeleteAccount struct {
+	Password string `json:"password" valid:"required" label:"密码"`
+} // @name DeleteAccount
+
 type UpdatePassword struct {
 	OldPassword string `json:"oldPassword" valid:"required" label:"当前密码"`
 	NewPassword string `json:"newPassword" valid:"required;minlen:8;maxlen:64" label:"新密码"`

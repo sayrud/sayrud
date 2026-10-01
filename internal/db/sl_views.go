@@ -182,7 +182,7 @@ func (db *slViews) Move(ctx context.Context, tableID, viewID int64, index int) e
 	if err != nil {
 		return errors.Wrap(err, "list views")
 	}
-	return movePositions(ctx, db.DB, &SLView{}, views, func(v *SLView) int64 { return v.ID }, viewID, index)
+	return dbutil.MovePositions(ctx, db.DB, &SLView{}, views, func(v *SLView) int64 { return v.ID }, viewID, index)
 }
 
 func (db *slViews) DeleteByID(ctx context.Context, viewID int64) error {

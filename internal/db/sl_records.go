@@ -49,6 +49,8 @@ type SLRecordsStore interface {
 	Update(ctx context.Context, slRecordID int64, jsonBytes json.RawMessage) error
 	// CountByTableID returns the number of records in the table.
 	CountByTableID(ctx context.Context, slTableID int64) (int64, error)
+	// Count returns the number of records in the projects that are not deleted.
+	Count(ctx context.Context) (int64, error)
 	// DeleteByID deletes the record with the given ID.
 	DeleteByID(ctx context.Context, slRecordID int64) error
 	// DeleteByUIDs deletes the records of the table with the given UIDs, the missing ones are skipped.
@@ -517,6 +519,16 @@ func (db *slRecords) Update(ctx context.Context, slRecordID int64, jsonBytes jso
 func (db *slRecords) CountByTableID(ctx context.Context, slTableID int64) (int64, error) {
 	var count int64
 	if err := db.WithContext(ctx).Model(&SLRecord{}).Where("sl_table_id = ?", slTableID).Count(&count).Error; err != nil {
+		return 0, errors.Wrap(err, "count")
+	}
+	return count, nil
+}
+
+func (db *slRecords) Count(ctx context.Context) (int64, error) {
+	var count int64
+	live := db.WithContext(ctx).Model(&Project{}).Select("id")
+	tables := db.WithContext(ctx).Model(&SLTable{}).Select("id").Where("project_id IN (?)", live)
+	if err := db.WithContext(ctx).Model(&SLRecord{}).Where("sl_table_id IN (?)", tables).Count(&count).Error; err != nil {
 		return 0, errors.Wrap(err, "count")
 	}
 	return count, nil

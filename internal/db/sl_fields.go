@@ -200,7 +200,7 @@ func (db *slFields) Move(ctx context.Context, tableID, fieldID int64, index int)
 	if err != nil {
 		return errors.Wrap(err, "list fields")
 	}
-	return movePositions(ctx, db.DB, &SLField{}, fields, func(f *SLField) int64 { return f.ID }, fieldID, index)
+	return dbutil.MovePositions(ctx, db.DB, &SLField{}, fields, func(f *SLField) int64 { return f.ID }, fieldID, index)
 }
 
 func (db *slFields) set(ctx context.Context, id int64, fields map[string]interface{}) error {

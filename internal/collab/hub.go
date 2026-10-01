@@ -264,6 +264,23 @@ func (h *Hub) SetUserRole(projectUID string, userID int64, role db.ProjectRole) 
 	}
 }
 
+// DisconnectUser closes the connections of the user on all projects.
+func (h *Hub) DisconnectUser(userID int64) {
+	h.mu.Lock()
+	var targets []*Client
+	for _, clients := range h.projects {
+		for c := range clients {
+			if c.userID == userID {
+				targets = append(targets, c)
+			}
+		}
+	}
+	h.mu.Unlock()
+	for _, c := range targets {
+		c.close()
+	}
+}
+
 func ternary[T any](condition bool, a, b T) T {
 	if condition {
 		return a
