@@ -586,6 +586,8 @@ const ja: typeof zhCN = {
       description: 'サイトの基本情報を設定します',
       siteName: 'サイト名',
       siteNameDescription: 'ページのタイトルとログイン画面に表示されます',
+      loginNotice: 'ログイン画面のお知らせ',
+      loginNoticeDescription: 'ログイン画面のフォーム上に表示します。空欄の場合は表示しません',
       preview: 'プレビュー',
     },
     userForm: {

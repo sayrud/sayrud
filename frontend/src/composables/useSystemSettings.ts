@@ -16,6 +16,7 @@ export function useSystemSettings() {
     sessionTTLDays: 30,
     externalURL: '',
     allowPasswordSignIn: true,
+    loginNotice: '',
   })
   const loading = ref(true)
   const saving = ref(false)
@@ -36,6 +37,7 @@ export function useSystemSettings() {
         ...draft,
         siteName: draft.siteName.trim(),
         externalURL: draft.externalURL.trim(),
+        loginNotice: draft.loginNotice.trim(),
       })
       reset()
       await site.refresh()

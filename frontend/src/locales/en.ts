@@ -586,6 +586,8 @@ const en: typeof zhCN = {
       description: 'Set the basic information of the site',
       siteName: 'Site name',
       siteNameDescription: 'Shown in the page title and the sign-in page',
+      loginNotice: 'Sign-in notice',
+      loginNoticeDescription: 'Shown above the form on the sign-in page. Leave it empty to hide it',
       preview: 'Preview',
     },
     userForm: {

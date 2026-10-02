@@ -586,6 +586,8 @@ const ptBR: typeof zhCN = {
       description: 'Configure as informações básicas do site',
       siteName: 'Nome do site',
       siteNameDescription: 'Exibido no título da página e na tela de acesso',
+      loginNotice: 'Aviso de acesso',
+      loginNoticeDescription: 'Exibido acima do formulário na tela de acesso. Deixe em branco para ocultar',
       preview: 'Prévia',
     },
     userForm: {

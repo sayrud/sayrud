@@ -119,10 +119,13 @@ type SystemSettings struct {
 	ExternalURL string `json:"externalURL"`
 	// AllowPasswordSignIn being false allows only the admins to sign in with email and password.
 	AllowPasswordSignIn bool `json:"allowPasswordSignIn"`
+	// LoginNotice is the plain text shown above the sign-in form, empty if hidden.
+	LoginNotice string `json:"loginNotice"`
 } // @name SystemSettings
 
 const (
 	SiteNameMaxLength    = 32
+	LoginNoticeMaxLength = 500
 	PasswordMinLengthMin = 8
 	PasswordMinLengthMax = 64
 	SessionTTLDaysMin    = 1
@@ -175,6 +178,10 @@ func ParseSystemSettings(raw []byte, defaults SystemSettings) SystemSettings {
 	} else {
 		s.ExternalURL = defaults.ExternalURL
 	}
+	s.LoginNotice = strings.TrimSpace(s.LoginNotice)
+	if utf8.RuneCountInString(s.LoginNotice) > LoginNoticeMaxLength {
+		s.LoginNotice = defaults.LoginNotice
+	}
 	return s
 }
 
@@ -191,6 +198,9 @@ func (s SystemSettings) Validate() error {
 	}
 	if _, ok := NormalizeExternalURL(s.ExternalURL); !ok {
 		return i18n.Errorf("settings::invalid_external_url")
+	}
+	if utf8.RuneCountInString(strings.TrimSpace(s.LoginNotice)) > LoginNoticeMaxLength {
+		return i18n.Errorf("settings::login_notice_length", LoginNoticeMaxLength)
 	}
 	return nil
 }
@@ -211,6 +221,7 @@ func (db *settings) GetSystem(ctx context.Context) (*SystemSettings, error) {
 
 func (db *settings) SaveSystem(ctx context.Context, s SystemSettings) error {
 	s.SiteName = strings.TrimSpace(s.SiteName)
+	s.LoginNotice = strings.TrimSpace(s.LoginNotice)
 	s.ExternalURL, _ = NormalizeExternalURL(s.ExternalURL)
 	return db.save(ctx, SystemSettingsUserID, s)
 }

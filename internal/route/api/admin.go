@@ -567,6 +567,7 @@ func (adminRoute) UpdateSettings(ctx context.Context, f form.UpdateSystemSetting
 		SessionTTLDays:      f.SessionTTLDays,
 		AllowPasswordSignIn: f.AllowPasswordSignIn,
 		ExternalURL:         f.ExternalURL,
+		LoginNotice:         strings.TrimSpace(f.LoginNotice),
 	}
 	if err := settings.Validate(); err != nil {
 		return ctx.ApiErrorFrom(http.StatusBadRequest, err)

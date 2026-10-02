@@ -35,4 +35,6 @@ type UpdateSystemSettings struct {
 	// ExternalURL is the external URL of the site, empty if not set.
 	ExternalURL         string `json:"externalURL"`
 	AllowPasswordSignIn bool   `json:"allowPasswordSignIn"`
+	// LoginNotice is the plain text shown above the sign-in form, empty if hidden.
+	LoginNotice string `json:"loginNotice"`
 } // @name UpdateSystemSettings

@@ -5423,6 +5423,7 @@ const docTemplate = `{
             "required": [
                 "allowPasswordSignIn",
                 "allowSignUp",
+                "loginNotice",
                 "passwordMinLength",
                 "providers",
                 "siteName"
@@ -5434,6 +5435,10 @@ const docTemplate = `{
                 },
                 "allowSignUp": {
                     "type": "boolean"
+                },
+                "loginNotice": {
+                    "description": "LoginNotice is the plain text shown above the sign-in form, empty if hidden.",
+                    "type": "string"
                 },
                 "passwordMinLength": {
                     "type": "integer"
@@ -5456,6 +5461,7 @@ const docTemplate = `{
                 "allowPasswordSignIn",
                 "allowSignUp",
                 "externalURL",
+                "loginNotice",
                 "passwordMinLength",
                 "sessionTTLDays",
                 "siteName"
@@ -5471,6 +5477,10 @@ const docTemplate = `{
                 },
                 "externalURL": {
                     "description": "ExternalURL is the address users visit (e.g. https://sayrud.example.com), the callback URLs of third-party sign-in are built on it, empty if not set.",
+                    "type": "string"
+                },
+                "loginNotice": {
+                    "description": "LoginNotice is the plain text shown above the sign-in form, empty if hidden.",
                     "type": "string"
                 },
                 "passwordMinLength": {
@@ -5760,6 +5770,7 @@ const docTemplate = `{
                 "allowPasswordSignIn",
                 "allowSignUp",
                 "externalURL",
+                "loginNotice",
                 "passwordMinLength",
                 "sessionTTLDays",
                 "siteName"
@@ -5773,6 +5784,10 @@ const docTemplate = `{
                 },
                 "externalURL": {
                     "description": "ExternalURL is the external URL of the site, empty if not set.",
+                    "type": "string"
+                },
+                "loginNotice": {
+                    "description": "LoginNotice is the plain text shown above the sign-in form, empty if hidden.",
                     "type": "string"
                 },
                 "passwordMinLength": {

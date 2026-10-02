@@ -586,6 +586,8 @@ const fr: typeof zhCN = {
       description: 'Définissez les informations générales du site',
       siteName: 'Nom du site',
       siteNameDescription: 'Affiché dans le titre de la page et sur la page de connexion',
+      loginNotice: 'Avis de connexion',
+      loginNoticeDescription: 'Affiché au-dessus du formulaire sur la page de connexion. Laissez vide pour le masquer',
       preview: 'Aperçu',
     },
     userForm: {

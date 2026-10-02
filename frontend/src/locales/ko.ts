@@ -586,6 +586,8 @@ const ko: typeof zhCN = {
       description: '사이트 기본 정보를 설정하세요',
       siteName: '사이트 이름',
       siteNameDescription: '페이지 제목과 로그인 화면에 표시됩니다',
+      loginNotice: '로그인 안내',
+      loginNoticeDescription: '로그인 화면의 양식 위에 표시됩니다. 비워 두면 표시하지 않습니다',
       preview: '미리보기',
     },
     userForm: {

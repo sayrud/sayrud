@@ -13,6 +13,8 @@ type SiteInfo struct {
 	PasswordMinLength int    `json:"passwordMinLength"`
 	// AllowPasswordSignIn being false shows only the third-party sign-in on the sign-in page, admins can still use a password.
 	AllowPasswordSignIn bool `json:"allowPasswordSignIn"`
+	// LoginNotice is the plain text shown above the sign-in form, empty if hidden.
+	LoginNotice string `json:"loginNotice"`
 	// Providers are the enabled and usable sign-in methods in the order of the admin console.
 	Providers []*SiteAuthProvider `json:"providers"`
 } // @name SiteInfo
@@ -24,6 +26,7 @@ func ToSiteInfo(s *db.SystemSettings, providers []*db.AuthProvider) *SiteInfo {
 		AllowSignUp:         s.AllowSignUp && s.AllowPasswordSignIn,
 		PasswordMinLength:   s.PasswordMinLength,
 		AllowPasswordSignIn: s.AllowPasswordSignIn,
+		LoginNotice:         s.LoginNotice,
 		Providers:           make([]*SiteAuthProvider, 0, len(providers)),
 	}
 	for _, p := range providers {

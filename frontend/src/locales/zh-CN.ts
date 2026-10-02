@@ -584,6 +584,8 @@ export default {
       description: '设置站点的基础信息',
       siteName: '站点名称',
       siteNameDescription: '显示在网页标题和登录页',
+      loginNotice: '登录页通知',
+      loginNoticeDescription: '显示在登录页表单上方，留空则不显示',
       preview: '预览',
     },
     userForm: {

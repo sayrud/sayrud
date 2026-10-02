@@ -505,6 +505,8 @@ export interface SiteInfo {
   /** AllowPasswordSignIn being false shows only the third-party sign-in on the sign-in page, admins can still use a password. */
   allowPasswordSignIn: boolean;
   allowSignUp: boolean;
+  /** LoginNotice is the plain text shown above the sign-in form, empty if hidden. */
+  loginNotice: string;
   passwordMinLength: number;
   /** Providers are the enabled and usable sign-in methods in the order of the admin console. */
   providers: SiteAuthProvider[];
@@ -518,6 +520,8 @@ export interface SystemSettings {
   allowSignUp: boolean;
   /** ExternalURL is the address users visit (e.g. https://sayrud.example.com), the callback URLs of third-party sign-in are built on it, empty if not set. */
   externalURL: string;
+  /** LoginNotice is the plain text shown above the sign-in form, empty if hidden. */
+  loginNotice: string;
   /** PasswordMinLength applies to signing up, changing, creating and resetting passwords. */
   passwordMinLength: number;
   /** SessionTTLDays is the lifetime in days of the new sessions. */
@@ -619,6 +623,8 @@ export interface UpdateSystemSettings {
   allowSignUp: boolean;
   /** ExternalURL is the external URL of the site, empty if not set. */
   externalURL: string;
+  /** LoginNotice is the plain text shown above the sign-in form, empty if hidden. */
+  loginNotice: string;
   passwordMinLength: number;
   sessionTTLDays: number;
   siteName: string;

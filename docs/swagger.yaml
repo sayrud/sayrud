@@ -1114,6 +1114,10 @@ definitions:
         type: boolean
       allowSignUp:
         type: boolean
+      loginNotice:
+        description: LoginNotice is the plain text shown above the sign-in form, empty
+          if hidden.
+        type: string
       passwordMinLength:
         type: integer
       providers:
@@ -1127,6 +1131,7 @@ definitions:
     required:
     - allowPasswordSignIn
     - allowSignUp
+    - loginNotice
     - passwordMinLength
     - providers
     - siteName
@@ -1144,6 +1149,10 @@ definitions:
         description: ExternalURL is the address users visit (e.g. https://sayrud.example.com),
           the callback URLs of third-party sign-in are built on it, empty if not set.
         type: string
+      loginNotice:
+        description: LoginNotice is the plain text shown above the sign-in form, empty
+          if hidden.
+        type: string
       passwordMinLength:
         description: PasswordMinLength applies to signing up, changing, creating and
           resetting passwords.
@@ -1158,6 +1167,7 @@ definitions:
     - allowPasswordSignIn
     - allowSignUp
     - externalURL
+    - loginNotice
     - passwordMinLength
     - sessionTTLDays
     - siteName
@@ -1364,6 +1374,10 @@ definitions:
       externalURL:
         description: ExternalURL is the external URL of the site, empty if not set.
         type: string
+      loginNotice:
+        description: LoginNotice is the plain text shown above the sign-in form, empty
+          if hidden.
+        type: string
       passwordMinLength:
         type: integer
       sessionTTLDays:
@@ -1374,6 +1388,7 @@ definitions:
     - allowPasswordSignIn
     - allowSignUp
     - externalURL
+    - loginNotice
     - passwordMinLength
     - sessionTTLDays
     - siteName

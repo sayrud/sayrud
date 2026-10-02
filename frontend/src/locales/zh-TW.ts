@@ -586,6 +586,8 @@ const zhTW: typeof zhCN = {
       description: '設定網站的基本資訊',
       siteName: '網站名稱',
       siteNameDescription: '顯示於網頁標題與登入頁面',
+      loginNotice: '登入頁通知',
+      loginNoticeDescription: '顯示於登入頁表單上方，留空則不顯示',
       preview: '預覽',
     },
     userForm: {

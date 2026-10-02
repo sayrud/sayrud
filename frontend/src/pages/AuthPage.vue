@@ -62,6 +62,8 @@ const ldapRules = computed<Record<string, FieldRule[]>>(() => ({
   password: [{ required: true, message: t('auth.passwordRequired') }],
 }))
 
+const loginNotice = computed(() => (isRegister.value ? '' : (site.info.loginNotice ?? '').trim()))
+
 const subtitle = computed(() => {
   if (isRegister.value) return t('auth.signUpSubtitle')
   if (!showPasswordForm.value) return t('sso.login.subtitle', { site: site.info.siteName })
@@ -156,6 +158,8 @@ onMounted(() => {
       <a-typography-paragraph v-if="!ldapProvider && (!isRegister || site.info.allowSignUp)" type="secondary">
         {{ subtitle }}
       </a-typography-paragraph>
+
+      <a-alert v-if="loginNotice" type="info" class="notice">{{ loginNotice }}</a-alert>
 
       <template v-if="isRegister && !site.info.allowSignUp">
         <a-result status="403" :title="t('auth.signUpClosed')" :subtitle="t('auth.signUpClosedHint')">
@@ -272,6 +276,12 @@ onMounted(() => {
 }
 .title {
   margin: 24px 0 4px;
+}
+.notice {
+  margin: 16px 0;
+}
+.notice :deep(.arco-alert-content) {
+  white-space: pre-wrap;
 }
 .error {
   margin-bottom: 16px;

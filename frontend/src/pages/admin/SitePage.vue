@@ -32,6 +32,15 @@ const origin = window.location.origin
             </a-button>
           </div>
         </SettingRow>
+        <SettingRow :label="t('admin.site.loginNotice')" :description="t('admin.site.loginNoticeDescription')">
+          <a-textarea
+            v-model="draft.loginNotice"
+            :max-length="500"
+            show-word-limit
+            :auto-size="{ minRows: 3, maxRows: 6 }"
+            class="notice-input"
+          />
+        </SettingRow>
         <SettingRow :label="t('admin.site.preview')">
           <div class="tab-preview">
             <div class="tab">
@@ -55,6 +64,9 @@ const origin = window.location.origin
 }
 .name-input {
   max-width: 360px;
+}
+.notice-input {
+  max-width: 480px;
 }
 .url-row {
   display: flex;

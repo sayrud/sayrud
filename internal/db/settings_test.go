@@ -2,6 +2,7 @@ package db
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -123,6 +124,31 @@ func TestSystemSettingsValidate_Key(t *testing.T) {
 	require.ErrorAs(t, SystemSettings{SiteName: "Sayrud", PasswordMinLength: 3, SessionTTLDays: 30}.Validate(), &e)
 	assert.Equal(t, "settings::password_min_length_range", e.Key)
 	assert.Equal(t, []interface{}{PasswordMinLengthMin, PasswordMinLengthMax}, e.Args)
+}
+
+func TestSystemSettings_LoginNotice(t *testing.T) {
+	defaults := DefaultSystemSettings()
+	assert.Empty(t, defaults.LoginNotice)
+	assert.Empty(t, ParseSystemSettings([]byte(`{}`), defaults).LoginNotice)
+
+	got := ParseSystemSettings([]byte("{\"loginNotice\":\"  Scheduled maintenance\\nPlease try again later  \"}"), defaults)
+	assert.Equal(t, "Scheduled maintenance\nPlease try again later", got.LoginNotice)
+	assert.Empty(t, ParseSystemSettings([]byte(`{"loginNotice":"`+strings.Repeat("a", 501)+`"}`), defaults).LoginNotice)
+
+	ok := defaults
+	ok.LoginNotice = strings.Repeat("a", 500)
+	require.NoError(t, ok.Validate())
+	require.NoError(t, defaults.Validate())
+	blank := defaults
+	blank.LoginNotice = "  \n  "
+	require.NoError(t, blank.Validate())
+
+	tooLong := defaults
+	tooLong.LoginNotice = strings.Repeat("a", 501)
+	var e *i18n.Error
+	require.ErrorAs(t, tooLong.Validate(), &e)
+	assert.Equal(t, "settings::login_notice_length", e.Key)
+	assert.Equal(t, []interface{}{LoginNoticeMaxLength}, e.Args)
 }
 
 func TestSettingValues(t *testing.T) {

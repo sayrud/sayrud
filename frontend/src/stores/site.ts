@@ -8,6 +8,7 @@ const DEFAULT_INFO: SiteInfo = {
   allowSignUp: true,
   passwordMinLength: 8,
   allowPasswordSignIn: true,
+  loginNotice: '',
   providers: [],
 }
 

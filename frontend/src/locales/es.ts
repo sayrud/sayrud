@@ -586,6 +586,8 @@ const es: typeof zhCN = {
       description: 'Configura la información básica del sitio',
       siteName: 'Nombre del sitio',
       siteNameDescription: 'Se muestra en el título de la página y en la página de inicio de sesión',
+      loginNotice: 'Aviso de inicio de sesión',
+      loginNoticeDescription: 'Se muestra encima del formulario en la página de inicio de sesión. Déjalo vacío para ocultarlo',
       preview: 'Vista previa',
     },
     userForm: {

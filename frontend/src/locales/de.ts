@@ -586,6 +586,8 @@ const de: typeof zhCN = {
       description: 'Grundlegende Informationen der Website festlegen',
       siteName: 'Name der Website',
       siteNameDescription: 'Wird im Seitentitel und auf der Anmeldeseite angezeigt',
+      loginNotice: 'Hinweis zur Anmeldung',
+      loginNoticeDescription: 'Wird über dem Formular auf der Anmeldeseite angezeigt. Leer lassen, um ihn auszublenden',
       preview: 'Vorschau',
     },
     userForm: {

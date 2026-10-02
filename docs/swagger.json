@@ -5415,6 +5415,7 @@
             "required": [
                 "allowPasswordSignIn",
                 "allowSignUp",
+                "loginNotice",
                 "passwordMinLength",
                 "providers",
                 "siteName"
@@ -5426,6 +5427,10 @@
                 },
                 "allowSignUp": {
                     "type": "boolean"
+                },
+                "loginNotice": {
+                    "description": "LoginNotice is the plain text shown above the sign-in form, empty if hidden.",
+                    "type": "string"
                 },
                 "passwordMinLength": {
                     "type": "integer"
@@ -5448,6 +5453,7 @@
                 "allowPasswordSignIn",
                 "allowSignUp",
                 "externalURL",
+                "loginNotice",
                 "passwordMinLength",
                 "sessionTTLDays",
                 "siteName"
@@ -5463,6 +5469,10 @@
                 },
                 "externalURL": {
                     "description": "ExternalURL is the address users visit (e.g. https://sayrud.example.com), the callback URLs of third-party sign-in are built on it, empty if not set.",
+                    "type": "string"
+                },
+                "loginNotice": {
+                    "description": "LoginNotice is the plain text shown above the sign-in form, empty if hidden.",
                     "type": "string"
                 },
                 "passwordMinLength": {
@@ -5752,6 +5762,7 @@
                 "allowPasswordSignIn",
                 "allowSignUp",
                 "externalURL",
+                "loginNotice",
                 "passwordMinLength",
                 "sessionTTLDays",
                 "siteName"
@@ -5765,6 +5776,10 @@
                 },
                 "externalURL": {
                     "description": "ExternalURL is the external URL of the site, empty if not set.",
+                    "type": "string"
+                },
+                "loginNotice": {
+                    "description": "LoginNotice is the plain text shown above the sign-in form, empty if hidden.",
                     "type": "string"
                 },
                 "passwordMinLength": {
