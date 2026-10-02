@@ -22,7 +22,7 @@
   </picture>
 </p>
 
-## Features
+## ✨ Features
 
 Sayrud is a self-hosted collaborative spreadsheet database for organizing projects, tasks, and shared data.
 
@@ -37,7 +37,7 @@ Sayrud is a self-hosted collaborative spreadsheet database for organizing projec
 - Light, dark, and system themes.
 - REST API with an [OpenAPI specification](docs/swagger.yaml).
 
-## Deployment
+## 🚀 Deployment
 
 You need Docker and Docker Compose 2.23.1 or later. The image includes both the frontend and backend. Compose starts
 Sayrud, PostgreSQL, and Redis together.
@@ -61,7 +61,7 @@ docker compose pull
 docker compose up -d
 ```
 
-## Contributing
+## 🤝 Contributing
 
 Bug reports and pull requests are welcome. Include steps to reproduce bugs, and keep each pull request focused on one
 change.
@@ -96,6 +96,6 @@ go test ./...
 
 When API definitions change, run `bash scripts/generate.sh` to update the OpenAPI files and frontend client.
 
-## License
+## ⚖️ License
 
 Licensed under [AGPL-3.0](LICENSE).

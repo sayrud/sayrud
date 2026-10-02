@@ -22,7 +22,7 @@
   </picture>
 </p>
 
-## 功能介绍
+## ✨ 功能介绍
 
 Sayrud 是一款可以自己部署的协作式多维表格，用来整理项目、任务和共享数据。
 
@@ -36,7 +36,7 @@ Sayrud 是一款可以自己部署的协作式多维表格，用来整理项目�
 - 支持浅色、深色和跟随系统的主题。
 - 提供 REST API 和 [OpenAPI 描述文件](docs/swagger.yaml)。
 
-## 部署方式
+## 🚀 部署方式
 
 需要 Docker 和 Docker Compose 2.23.1 或更新版本。镜像包含前后端，Compose 会一起启动 Sayrud、PostgreSQL 和 Redis。
 
@@ -57,7 +57,7 @@ docker compose pull
 docker compose up -d
 ```
 
-## 贡献开发
+## 🤝 贡献开发
 
 欢迎提交 Issue 和 Pull Request。报告 Bug 时请附上复现步骤，提交代码时尽量一次只改一个问题。
 
@@ -91,6 +91,6 @@ go test ./...
 
 修改 API 定义后，运行 `bash scripts/generate.sh` 更新 OpenAPI 文件和前端客户端。
 
-## License
+## ⚖️ License
 
 采用 [AGPL-3.0](LICENSE) 许可证。
