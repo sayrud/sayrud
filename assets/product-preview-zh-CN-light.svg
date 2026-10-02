@@ -1,0 +1,183 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1306" height="556" viewBox="0 0 1306 556" role="img" xml:lang="zh-CN" aria-labelledby="title description">
+  <title id="title">Sayrud 多人协作表格</title>
+  <desc id="description">Sayrud 产品路线图示意，沿用官网预览布局。表格、看板、画册和表单视图共用一张数据表，展示文本、单选、多选、日期、数字、复选框和公式字段。在线成员张伟与李娜同时选中单元格。工具栏提供字段配置、筛选、分组、排序、行高、撤销、重做和搜索。示例积分为工作量的两倍。</desc>
+  <style>
+    text { font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', 'Segoe UI', sans-serif; font-size: 14px; fill: #1f2329; }
+    .caption { fill: #646a73; }
+    .muted { fill: #8f959e; }
+    .small { font-size: 12px; }
+    .heading { font-size: 13px; font-weight: 500; }
+    .primary { fill: #3370ff; }
+    .white { fill: #fff; }
+    .tag { font-size: 13px; font-weight: 500; text-anchor: middle; }
+    .numeric { text-anchor: end; font-variant-numeric: tabular-nums; }
+    .icon { fill: none; stroke: currentColor; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; color: #646a73; }
+    .grid { fill: none; stroke: #e4e5e7; }
+  </style>
+  <defs>
+    <clipPath id="window"><rect x="1" y="1" width="1304" height="554" rx="9"/></clipPath>
+    <symbol id="home" viewBox="0 0 24 24"><path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1Z"/></symbol>
+    <symbol id="table" viewBox="0 0 24 24"><path d="M5 3h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2ZM3 9h18M9 9v12"/></symbol>
+    <symbol id="plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+    <symbol id="search" viewBox="0 0 24 24"><path d="M17 10a7 7 0 1 1-14 0 7 7 0 0 1 14 0Zm-2 5 6 6"/></symbol>
+    <symbol id="collapse" viewBox="0 0 24 24"><path d="m11 7-5 5 5 5m6-10-5 5 5 5"/></symbol>
+    <symbol id="cloud" viewBox="0 0 24 24"><path d="M20 16.5A4.5 4.5 0 0 0 18 8a6 6 0 0 0-11.5-1.5A5.5 5.5 0 0 0 7 17h3m3-1 2 2 5-5"/></symbol>
+    <symbol id="share" viewBox="0 0 24 24"><path d="M20 5a3 3 0 1 1-6 0 3 3 0 0 1 6 0ZM9 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm11 7a3 3 0 1 1-6 0 3 3 0 0 1 6 0ZM8.6 10.5l5.8-4M8.6 13.5l5.8 4"/></symbol>
+    <symbol id="kanban" viewBox="0 0 24 24"><path d="M3 3h5v18H3Zm7 0h5v12h-5Zm7 0h4v16h-4Z"/></symbol>
+    <symbol id="gallery" viewBox="0 0 24 24"><path d="M3 3h7v7H3Zm11 0h7v7h-7ZM3 14h7v7H3Zm11 0h7v7h-7Z"/></symbol>
+    <symbol id="form" viewBox="0 0 24 24"><path d="M6 3h12a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Zm3 5h6m-6 4h6m-6 4h3"/></symbol>
+    <symbol id="fields" viewBox="0 0 24 24"><path d="m3 3 18 18M10.6 10.6a2 2 0 0 0 2.8 2.8M9.9 4.2A10.8 10.8 0 0 1 22 12a13.9 13.9 0 0 1-3.4 4.4M6.3 6.3A13.9 13.9 0 0 0 2 12a10.8 10.8 0 0 0 14.2 7.4"/></symbol>
+    <symbol id="filter" viewBox="0 0 24 24"><path d="M4 5h16M7 12h10m-6 7h2"/></symbol>
+    <symbol id="group" viewBox="0 0 24 24"><path d="M3 3h6v7H3Zm0 11h6v7H3ZM13 5h8m-8 4h8m-8 7h8m-8 4h8"/></symbol>
+    <symbol id="sort" viewBox="0 0 24 24"><path d="M8 3v18m-4-4 4 4 4-4M16 21V3m-4 4 4-4 4 4"/></symbol>
+    <symbol id="rows" viewBox="0 0 24 24"><path d="M3 3h18v18H3ZM3 9h18M3 15h18"/></symbol>
+    <symbol id="undo" viewBox="0 0 24 24"><path d="M3 10h11a7 7 0 0 1 7 7v3M3 10l6-6m-6 6 6 6"/></symbol>
+    <symbol id="redo" viewBox="0 0 24 24"><path d="M21 10H10a7 7 0 0 0-7 7v3m18-10-6-6m6 6-6 6"/></symbol>
+    <symbol id="text" viewBox="0 0 24 24"><path d="M4 7V4h16v3M12 4v16m-4 0h8"/></symbol>
+    <symbol id="select" viewBox="0 0 24 24"><path d="M22 12a10 10 0 1 1-20 0 10 10 0 0 1 20 0Zm-14-1 4 4 4-4"/></symbol>
+    <symbol id="multi-select" viewBox="0 0 24 24"><path d="m3 5 2 2 4-4m-6 12 2 2 4-4M13 6h8m-8 10h8"/></symbol>
+    <symbol id="calendar" viewBox="0 0 24 24"><path d="M5 5h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Zm3-3v6m8-6v6M3 11h18"/></symbol>
+    <symbol id="number" viewBox="0 0 24 24"><path d="M4 9h16M3 15h16M10 3 8 21M16 3l-2 18"/></symbol>
+    <symbol id="checkbox" viewBox="0 0 24 24"><path d="M9 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-4M9 11l3 3L22 4"/></symbol>
+    <symbol id="formula" viewBox="0 0 24 24"><path d="M18 4H6l6 8-6 8h12"/></symbol>
+    <symbol id="empty-check" viewBox="0 0 16 16"><rect x=".75" y=".75" width="14.5" height="14.5" rx="3.25" fill="#fff" stroke="#bbbfc4" stroke-width="1.5"/></symbol>
+    <symbol id="checked" viewBox="0 0 16 16"><rect width="16" height="16" rx="4" fill="#3370ff"/><path d="m4 8 2.5 2.5L12 5" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="app-logo" viewBox="0 0 32 32"><rect width="32" height="32" rx="7" fill="#3370ff"/><rect x="7" y="8" width="18" height="4" rx="1.5" fill="#fff"/><path d="M7 15.5h8m2 0h8" stroke="#fff" stroke-width="4" opacity=".85"/><path d="M7 21.5h8m2 0h8" stroke="#fff" stroke-width="4" opacity=".7"/></symbol>
+  </defs>
+  <rect x=".5" y=".5" width="1305" height="555" rx="10" fill="#fff" stroke="#dee0e3"/>
+  <g clip-path="url(#window)">
+    <!-- Same 52 px header, 240 px sidebar, 44 px tabs and toolbar as the homepage. -->
+    <rect x="1" y="52" width="240" height="504" fill="#f7f8fa"/>
+    <path d="M1 52.5H1305M241.5 53V555M242 96.5H1305M242 140.5H1305" fill="none" stroke="#dee0e3"/>
+    <use href="#home" class="icon" x="18" y="18" width="16" height="16"/>
+    <use href="#app-logo" x="50" y="14" width="24" height="24"/>
+    <text x="90" y="32" style="font-size:16px;font-weight:600">产品路线图</text>
+    <use href="#cloud" class="icon" x="190" y="19" width="15" height="15" style="color:#8f959e"/>
+    <text x="211" y="31" class="small muted">已保存</text>
+    <circle cx="1102" cy="26" r="15" fill="#3370ff" stroke="#fff" stroke-width="2"/>
+    <circle cx="1126" cy="26" r="15" fill="#d97700" stroke="#fff" stroke-width="2"/>
+    <text x="1102" y="30" class="small white" text-anchor="middle">张</text>
+    <text x="1126" y="30" class="small white" text-anchor="middle">李</text>
+    <rect x="1150" y="12" width="88" height="28" rx="6" fill="#3370ff"/>
+    <use href="#share" class="icon" x="1162" y="19" width="14" height="14" style="color:#fff"/>
+    <text x="1183" y="30" class="small white">分享</text>
+    <circle cx="1274" cy="26" r="14" fill="#14836e"/>
+    <text x="1274" y="30" class="small white" text-anchor="middle">王</text>
+
+    <use href="#search" class="icon" x="17" y="68" width="16" height="16"/>
+    <text x="41" y="81" class="muted">搜索</text>
+    <use href="#plus" class="icon" x="197" y="68" width="16" height="16"/>
+    <use href="#collapse" class="icon" x="219" y="68" width="16" height="16"/>
+    <rect x="9" y="100" width="224" height="36" rx="6" fill="#e1eaff"/>
+    <use href="#table" class="icon" x="19" y="110" width="15" height="15" style="color:#3370ff"/>
+    <text x="43" y="123" class="primary" font-weight="500">路线图</text>
+    <text x="225" y="122" class="small muted" text-anchor="end">6</text>
+    <use href="#table" class="icon" x="19" y="146" width="15" height="15"/>
+    <text x="43" y="159">项目</text>
+    <text x="225" y="158" class="small muted" text-anchor="end">4</text>
+    <use href="#table" class="icon" x="19" y="182" width="15" height="15"/>
+    <text x="43" y="195">团队</text>
+    <text x="225" y="194" class="small muted" text-anchor="end">3</text>
+
+    <rect x="254" y="59" width="76" height="32" rx="6" fill="#f1f2f2"/>
+    <path d="M264 96h56" stroke="#3370ff" stroke-width="2"/>
+    <use href="#table" class="icon" x="264" y="67" width="15" height="15" style="color:#3370ff"/>
+    <text x="285" y="80" font-weight="500">表格</text>
+    <use href="#kanban" class="icon" x="342" y="67" width="15" height="15" style="color:#ff8800"/>
+    <text x="363" y="80" class="caption">看板</text>
+    <use href="#gallery" class="icon" x="429" y="67" width="15" height="15" style="color:#7f3bf5"/>
+    <text x="450" y="80" class="caption">画册</text>
+    <use href="#form" class="icon" x="513" y="67" width="15" height="15" style="color:#14c0a7"/>
+    <text x="534" y="80" class="caption">表单</text>
+    <use href="#plus" class="icon" x="593" y="67" width="15" height="15"/>
+    <text x="613" y="80" class="caption">新建视图</text>
+
+    <use href="#plus" class="icon" x="263" y="111" width="16" height="16" style="color:#3370ff"/>
+    <text x="285" y="124" class="primary" font-weight="500">新增记录</text>
+    <path d="M370 111v16M1250 111v16" stroke="#dee0e3"/>
+    <use href="#fields" class="icon" x="385" y="111" width="15" height="15"/>
+    <text x="405" y="124">字段配置</text>
+    <use href="#filter" class="icon" x="478" y="111" width="15" height="15"/>
+    <text x="498" y="124">筛选</text>
+    <use href="#group" class="icon" x="550" y="111" width="15" height="15"/>
+    <text x="570" y="124">分组</text>
+    <use href="#sort" class="icon" x="628" y="111" width="15" height="15"/>
+    <text x="648" y="124">排序</text>
+    <use href="#rows" class="icon" x="692" y="111" width="15" height="15"/>
+    <text x="712" y="124">行高</text>
+    <use href="#undo" class="icon" x="1190" y="111" width="16" height="16"/>
+    <use href="#redo" class="icon" x="1218" y="111" width="16" height="16" style="color:#bbbfc4"/>
+    <use href="#search" class="icon" x="1269" y="111" width="16" height="16"/>
+
+    <!-- First two columns retain the reference widths; other fields use supported custom widths. -->
+    <rect x="242" y="141" width="1064" height="35" fill="#fafafa"/>
+    <path class="grid" d="M242 176.5H1210M242 210.5H1210M242 244.5H1210M242 278.5H1210M242 312.5H1210M242 346.5H1210M242 380.5H1210M242 416.5H1210M314.5 141V380M674.5 141V380M818.5 141V380M962.5 141V380M1042.5 141V380M1122.5 141V380M1210.5 141V380M242 520.5H1305"/>
+    <path d="M554.5 141V380" stroke="#c9cdd4"/>
+    <use href="#empty-check" x="254" y="151" width="14" height="14"/>
+    <use href="#text" class="icon" x="323" y="151" width="14" height="14"/>
+    <text x="343" y="163" class="heading">任务</text>
+    <use href="#select" class="icon" x="563" y="151" width="14" height="14"/>
+    <text x="583" y="163" class="heading">状态</text>
+    <use href="#multi-select" class="icon" x="683" y="151" width="14" height="14"/>
+    <text x="703" y="163" class="heading">团队</text>
+    <use href="#calendar" class="icon" x="827" y="151" width="14" height="14"/>
+    <text x="847" y="163" class="heading">截止日期</text>
+    <use href="#number" class="icon" x="971" y="151" width="14" height="14"/>
+    <text x="991" y="163" class="heading">工作量</text>
+    <use href="#checkbox" class="icon" x="1051" y="151" width="14" height="14"/>
+    <text x="1071" y="163" class="heading">完成</text>
+    <use href="#formula" class="icon" x="1131" y="151" width="14" height="14"/>
+    <text x="1151" y="163" class="heading">积分</text>
+    <use href="#plus" class="icon" x="1227" y="150" width="16" height="16"/>
+
+    <g transform="translate(0 176)">
+      <text x="252" y="22" class="small muted">1</text><text x="323" y="22">留下出色的第一印象</text>
+      <rect x="563" y="5" width="64" height="24" rx="12" fill="#ddf5d8"/><text x="595" y="22" class="tag">已完成</text>
+      <rect x="683" y="5" width="48" height="24" rx="12" fill="#ede5fd"/><text x="707" y="22" class="tag">设计</text>
+      <rect x="737" y="5" width="48" height="24" rx="12" fill="#d5f2ec"/><text x="761" y="22" class="tag">测试</text>
+      <text x="827" y="22">2026/10/02</text><text x="1034" y="22" class="numeric">8</text><use href="#checked" x="1051" y="9" width="16" height="16"/><text x="1202" y="22" class="numeric">16</text>
+    </g>
+    <g transform="translate(0 210)">
+      <text x="252" y="22" class="small muted">2</text><text x="323" y="22">让每个创意都有归属</text>
+      <rect x="563" y="5" width="64" height="24" rx="12" fill="#e1e9ff"/><text x="595" y="22" class="tag">进行中</text>
+      <rect x="683" y="5" width="48" height="24" rx="12" fill="#fae8d4"/><text x="707" y="22" class="tag">产品</text>
+      <text x="827" y="22">2026/10/05</text><text x="1034" y="22" class="numeric">12</text><use href="#empty-check" x="1051" y="9" width="16" height="16"/><text x="1202" y="22" class="numeric">24</text>
+    </g>
+    <g transform="translate(0 244)">
+      <text x="252" y="22" class="small muted">3</text><text x="323" y="22">让团队凝聚在一起</text>
+      <rect x="563" y="5" width="64" height="24" rx="12" fill="#e1e9ff"/><text x="595" y="22" class="tag">进行中</text>
+      <rect x="683" y="5" width="48" height="24" rx="12" fill="#d5f2ec"/><text x="707" y="22" class="tag">研发</text>
+      <text x="827" y="22">2026/10/08</text><text x="1034" y="22" class="numeric">10</text><use href="#empty-check" x="1051" y="9" width="16" height="16"/><text x="1202" y="22" class="numeric">20</text>
+    </g>
+    <g transform="translate(0 278)">
+      <text x="252" y="22" class="small muted">4</text><text x="323" y="22">打磨每一处细节</text>
+      <rect x="563" y="5" width="64" height="24" rx="12" fill="#eff0f1"/><text x="595" y="22" class="tag">待开始</text>
+      <rect x="683" y="5" width="48" height="24" rx="12" fill="#ede5fd"/><text x="707" y="22" class="tag">设计</text>
+      <text x="827" y="22">2026/10/12</text><text x="1034" y="22" class="numeric">6</text><use href="#empty-check" x="1051" y="9" width="16" height="16"/><text x="1202" y="22" class="numeric">12</text>
+    </g>
+    <g transform="translate(0 312)">
+      <text x="252" y="22" class="small muted">5</text><text x="323" y="22">为新的可能留出空间</text>
+      <rect x="563" y="5" width="64" height="24" rx="12" fill="#eff0f1"/><text x="595" y="22" class="tag">待开始</text>
+      <rect x="683" y="5" width="48" height="24" rx="12" fill="#fae8d4"/><text x="707" y="22" class="tag">产品</text>
+      <text x="827" y="22">2026/10/16</text><text x="1034" y="22" class="numeric">14</text><use href="#empty-check" x="1051" y="9" width="16" height="16"/><text x="1202" y="22" class="numeric">28</text>
+    </g>
+    <g transform="translate(0 346)">
+      <text x="252" y="22" class="small muted">6</text><text x="323" y="22">交付让我们引以为傲的成果</text>
+      <rect x="563" y="5" width="64" height="24" rx="12" fill="#eff0f1"/><text x="595" y="22" class="tag">待开始</text>
+      <rect x="683" y="5" width="48" height="24" rx="12" fill="#d5f2ec"/><text x="707" y="22" class="tag">研发</text>
+      <text x="827" y="22">2026/10/20</text><text x="1034" y="22" class="numeric">4</text><use href="#empty-check" x="1051" y="9" width="16" height="16"/><text x="1202" y="22" class="numeric">8</text>
+    </g>
+
+    <rect x="315" y="211" width="238" height="32" fill="none" stroke="#3370ff" stroke-width="2"/>
+    <path d="M522 210h32v15h-29a3 3 0 0 1-3-3Z" fill="#3370ff"/>
+    <text x="538" y="221" class="white" text-anchor="middle" style="font-size:11px">张伟</text>
+    <rect x="675" y="279" width="142" height="32" fill="none" stroke="#d97700" stroke-width="2"/>
+    <path d="M779 278h39v15h-36a3 3 0 0 1-3-3Z" fill="#d97700"/>
+    <text x="798.5" y="289" class="white" text-anchor="middle" style="font-size:11px">李娜</text>
+    <use href="#plus" class="icon" x="252" y="390" width="16" height="16"/>
+    <text x="252" y="542" class="small caption">6 条记录</text>
+    <text x="496" y="542" class="small caption">计数</text><text x="544" y="542" class="small numeric" font-weight="500">6</text>
+    <text x="1034" y="542" class="small numeric"><tspan class="caption">求和</tspan><tspan dx="6" font-weight="500">54</tspan></text>
+    <text x="1202" y="542" class="small numeric"><tspan class="caption">计数</tspan><tspan dx="6" font-weight="500">6</tspan></text>
+  </g>
+</svg>

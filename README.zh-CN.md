@@ -15,15 +15,25 @@
   <a href="docs/swagger.yaml">API</a>
 </p>
 
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/product-preview-zh-CN-dark.svg">
+    <img src="assets/product-preview-zh-CN-light.svg" alt="Sayrud 产品预览：四种视图、七种字段类型与多人实时协作" width="100%">
+  </picture>
+</p>
+
 ## 功能介绍
 
-Sayrud 是一款可以自己部署的多维表格，用来整理项目、任务和其他共享数据。
+Sayrud 是一款可以自己部署的协作式多维表格，用来整理项目、任务和共享数据。
 
 - 同一张数据表支持表格、看板、画册和表单视图。
 - 支持文本、数字、日期、单选、多选、复选框和公式字段。
 - 每个视图可以单独设置筛选、排序、分组，以及显示或隐藏哪些字段。
 - 多人实时编辑，显示在线成员和正在编辑的单元格。
 - 复制粘贴单元格、批量编辑记录，支持撤销和重做。
+- 可配置 OAuth2、OIDC、SAML 单点登录和 LDAP 身份验证，内置 GitHub、Google、Microsoft、Keycloak 等配置模板。
+- 提供十种语言的本地化界面与系统提示。
+- 支持浅色、深色和跟随系统的主题。
 - 提供 REST API 和 [OpenAPI 描述文件](docs/swagger.yaml)。
 
 ## 部署方式
@@ -38,7 +48,7 @@ cd sayrud
 docker compose up -d
 ```
 
-打开 <http://localhost:2830>，用邮箱和密码注册账号。数据保存在 `postgres_data` 卷中。
+打开 <http://localhost:2830>，用邮箱和密码注册账号，首次注册的账号会成为系统管理员。数据保存在 `postgres_data` 卷中。
 
 更新镜像：
 

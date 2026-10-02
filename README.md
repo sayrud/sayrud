@@ -15,15 +15,26 @@
   <a href="docs/swagger.yaml">API</a>
 </p>
 
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/product-preview-en-dark.svg">
+    <img src="assets/product-preview-en-light.svg" alt="Sayrud product preview showing four views, seven field types, and real-time collaboration" width="100%">
+  </picture>
+</p>
+
 ## Features
 
-Sayrud is a self-hosted spreadsheet database for organizing projects, tasks, and shared data.
+Sayrud is a self-hosted collaborative spreadsheet database for organizing projects, tasks, and shared data.
 
 - Grid, kanban, gallery, and form views over the same table.
-- Text, number, date, select, checkbox, and formula fields.
+- Text, number, date, single-select, multi-select, checkbox, and formula fields.
 - Each view has its own filters, sorting, grouping, and visible fields.
 - Edit together in real time and see who is online and which cells they are editing.
 - Copy and paste cells, edit records in batches, and undo or redo changes.
+- Configurable OAuth2, OIDC, and SAML single sign-on, and LDAP authentication, with provider templates for GitHub,
+  Google, Microsoft, Keycloak, and more.
+- Localized interface and system messages in ten languages.
+- Light, dark, and system themes.
 - REST API with an [OpenAPI specification](docs/swagger.yaml).
 
 ## Deployment
@@ -40,7 +51,8 @@ cd sayrud
 docker compose up -d
 ```
 
-Open <http://localhost:2830> and sign up with an email and password. Data is stored in the `postgres_data` volume.
+Open <http://localhost:2830> and sign up with an email and password. The first registered account becomes a system
+administrator. Data is stored in the `postgres_data` volume.
 
 To update:
 
