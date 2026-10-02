@@ -41,6 +41,46 @@ func TestSystemSettingsValidate(t *testing.T) {
 	}
 }
 
+func TestNormalizeExternalURL(t *testing.T) {
+	for _, tc := range []struct {
+		in   string
+		want string
+		ok   bool
+	}{
+		{"", "", true},
+		{"  ", "", true},
+		{"https://sayrud.example.com", "https://sayrud.example.com", true},
+		{"https://sayrud.example.com/", "https://sayrud.example.com", true},
+		{"http://127.0.0.1:2830", "http://127.0.0.1:2830", true},
+		{"https://example.com/sayrud", "", false},
+		{"https://example.com?a=1", "", false},
+		{"https://user:pass@example.com", "", false},
+		{"ftp://example.com", "", false},
+		{"example.com", "", false},
+	} {
+		got, ok := NormalizeExternalURL(tc.in)
+		assert.Equal(t, tc.ok, ok, tc.in)
+		assert.Equal(t, tc.want, got, tc.in)
+	}
+}
+
+func TestSystemSettings_SignIn(t *testing.T) {
+	defaults := DefaultSystemSettings()
+	assert.True(t, defaults.AllowPasswordSignIn)
+	assert.Empty(t, defaults.ExternalURL)
+
+	got := ParseSystemSettings([]byte(`{"externalURL":"https://a.example.com/","allowPasswordSignIn":false}`), defaults)
+	assert.Equal(t, "https://a.example.com", got.ExternalURL)
+	assert.False(t, got.AllowPasswordSignIn)
+	assert.Empty(t, ParseSystemSettings([]byte(`{"externalURL":"https://a.example.com/x"}`), defaults).ExternalURL)
+
+	s := defaults
+	s.ExternalURL = "https://a.example.com/x"
+	var e *i18n.Error
+	require.ErrorAs(t, s.Validate(), &e)
+	assert.Equal(t, "settings::invalid_external_url", e.Key)
+}
+
 func TestParseUserSettings(t *testing.T) {
 	defaults := DefaultUserSettings()
 	require.Equal(t, UserSettings{Theme: ThemeLight, Language: i18n.LangZhCN}, defaults)

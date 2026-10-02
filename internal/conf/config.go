@@ -16,6 +16,8 @@ var Postgres struct {
 var Auth struct {
 	// DisableSignUp stops new users from signing up, the existing users can still sign in.
 	DisableSignUp bool `mapstructure:"disable_sign_up"`
+	// SecretKey is the base64 of 32 bytes, which encrypts the secrets of the sign-in methods in the database.
+	SecretKey string `mapstructure:"secret_key"`
 }
 
 var Redis struct {

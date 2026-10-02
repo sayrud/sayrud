@@ -1,7 +1,7 @@
-import type { UpdateUserSettings, UserSession, UserSettings } from './api'
+import type { DeleteAccount, UpdateUserSettings, UserSession, UserSettings } from './api'
 import { client } from './client'
 
-export type { UpdateUserSettings, UserSession, UserSettings }
+export type { DeleteAccount, UpdateUserSettings, UserSession, UserSettings }
 
 export const accountApi = {
   settings: async () => (await client.auth.getUserSettings()).data as UserSettings,
@@ -14,7 +14,8 @@ export const accountApi = {
   revokeOthers: async () => {
     await client.auth.revokeOtherSessions()
   },
-  deleteAccount: async (password: string) => {
-    await client.auth.deleteAccount({ password })
+  /** Users with a password confirm with it, the others with their email. */
+  deleteAccount: async (confirm: DeleteAccount) => {
+    await client.auth.deleteAccount(confirm)
   },
 }

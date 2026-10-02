@@ -42,6 +42,11 @@ const router = createRouter({
         { path: 'users', name: 'admin-users', component: () => import('@/pages/admin/UsersPage.vue') },
         { path: 'projects', name: 'admin-projects', component: () => import('@/pages/admin/ProjectsPage.vue') },
         {
+          path: 'sign-in-methods',
+          name: 'admin-sign-in-methods',
+          component: () => import('@/pages/admin/SignInMethodsPage.vue'),
+        },
+        {
           path: 'security',
           name: 'admin-security',
           component: () => import('@/pages/admin/SecuritySettingsPage.vue'),

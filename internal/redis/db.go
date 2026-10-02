@@ -39,6 +39,7 @@ func Init() (*redis.Client, error) {
 // SetRedisStore sets the Redis stores.
 func SetRedisStore(client *redis.Client) {
 	AuthAttempts = NewAuthAttemptsStore(client)
+	SSOStates = NewSSOStatesStore(client)
 }
 
 func Get() *redis.Client {

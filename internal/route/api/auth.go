@@ -29,36 +29,46 @@ const sessionCookieName = "sayrud_session"
 
 // Authenticator maps the user of the session cookie as *db.User and the session as *db.UserSession, and responds 401 if not signed in or the user is disabled.
 func (authRoute) Authenticator(ctx context.Context) error {
+	user, session, key, err := sessionUser(ctx)
+	if err != nil {
+		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to authenticate session")
+		return ctx.ApiServerError()
+	}
+	if key != "" {
+		return ctx.ApiError(http.StatusUnauthorized, key)
+	}
+	ctx.Map(user)
+	ctx.Map(session)
+	return nil
+}
+
+// sessionUser returns the enabled user of the session cookie, or the message key of 401 if not signed in, err is only for server errors.
+func sessionUser(ctx context.Context) (*db.User, *db.UserSession, string, error) {
 	cookie, err := ctx.Request().Cookie(sessionCookieName)
 	if err != nil {
-		return ctx.ApiError(http.StatusUnauthorized, "auth::sign_in_required")
+		return nil, nil, "auth::sign_in_required", nil
 	}
 	session, err := db.UserSessions.GetByToken(ctx.Request().Context(), cookie.Value)
 	if err != nil {
 		if errors.Is(err, db.ErrUserSessionNotFound) {
-			return ctx.ApiError(http.StatusUnauthorized, "auth::session_expired")
+			return nil, nil, "auth::session_expired", nil
 		}
-		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to get session")
-		return ctx.ApiServerError()
+		return nil, nil, "", errors.Wrap(err, "get session")
 	}
 	user, err := db.Users.GetByID(ctx.Request().Context(), session.UserID)
 	if err != nil {
 		if errors.Is(err, db.ErrUserNotFound) {
-			return ctx.ApiError(http.StatusUnauthorized, "auth::account_not_found")
+			return nil, nil, "auth::account_not_found", nil
 		}
-		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to get user of session")
-		return ctx.ApiServerError()
+		return nil, nil, "", errors.Wrap(err, "get user of session")
 	}
 	if user.Disabled() {
 		if err := db.UserSessions.DeleteByToken(ctx.Request().Context(), cookie.Value); err != nil {
 			logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to delete session of disabled user")
 		}
-		return ctx.ApiError(http.StatusUnauthorized, "auth::account_disabled")
+		return nil, nil, "auth::account_disabled", nil
 	}
-
-	ctx.Map(user)
-	ctx.Map(session)
-	return nil
+	return user, session, "", nil
 }
 
 // loadSettings returns the system settings, the 500 response has been written if it fails.
@@ -99,7 +109,7 @@ func (authRoute) SignUp(ctx context.Context, f form.SignUp) error {
 	if !ok {
 		return nil
 	}
-	if !settings.AllowSignUp {
+	if !settings.AllowSignUp || !settings.AllowPasswordSignIn {
 		return ctx.ApiError(http.StatusForbidden, "auth::sign_up_disabled")
 	}
 	if err := passwordTooShort(settings, f.Password, "auth::password_too_short"); err != nil {
@@ -156,7 +166,7 @@ func (authRoute) SignUp(ctx context.Context, f form.SignUp) error {
 // @Success 200 {object} dto.Profile
 // @Failure 400 {string} string "Invalid request body"
 // @Failure 401 {string} string "Wrong email or password"
-// @Failure 403 {string} string "The user is disabled"
+// @Failure 403 {string} string "The user is disabled, or password sign-in is disabled for non-admins"
 // @Failure 429 {string} string "Too many attempts"
 // @Failure 500 {string} string "Internal server error"
 // @ID signIn
@@ -188,6 +198,9 @@ func (authRoute) SignIn(ctx context.Context, f form.SignIn) error {
 	settings, ok := loadSettings(ctx)
 	if !ok {
 		return nil
+	}
+	if !settings.AllowPasswordSignIn && !user.IsAdmin {
+		return ctx.ApiError(http.StatusForbidden, "auth::password_sign_in_disabled")
 	}
 	if err := startSession(ctx, user, settings.SessionTTL()); err != nil {
 		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to start session")
@@ -256,13 +269,16 @@ func (authRoute) UpdateProfile(ctx context.Context, user *db.User, f form.Update
 // @Accept json
 // @Param data body form.UpdatePassword true "Passwords"
 // @Success 204 "No Content"
-// @Failure 400 {string} string "Invalid request body or wrong current password"
+// @Failure 400 {string} string "Invalid request body, wrong current password or the user has no password"
 // @Failure 401 {string} string "Not signed in"
 // @Failure 429 {string} string "Too many attempts"
 // @Failure 500 {string} string "Internal server error"
 // @ID updatePassword
 // @Router /auth/password [put]
 func (authRoute) UpdatePassword(ctx context.Context, user *db.User, f form.UpdatePassword) error {
+	if !user.HasPassword() {
+		return ctx.ApiError(http.StatusBadRequest, "auth::no_password")
+	}
 	if err := redis.AuthAttempts.CheckPassword(ctx.Request().Context(), user.Email); err != nil {
 		if errors.Is(err, redis.ErrTooManyAttempts) {
 			return ctx.ApiError(http.StatusTooManyRequests, "common::too_many_attempts")

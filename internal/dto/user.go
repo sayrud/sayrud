@@ -16,19 +16,22 @@ type Profile struct {
 	// Color is the avatar color of the user.
 	Color string `json:"color"`
 	// IsAdmin reports whether the user is a system admin.
-	IsAdmin   bool      `json:"isAdmin"`
-	CreatedAt time.Time `json:"createdAt"`
+	IsAdmin bool `json:"isAdmin"`
+	// HasPassword reports whether the user has a password, the users created by third-party sign-in have none.
+	HasPassword bool      `json:"hasPassword"`
+	CreatedAt   time.Time `json:"createdAt"`
 } // @name Profile
 
 func ToProfile(user *db.User) *Profile {
 	return &Profile{
-		ID:        user.ID,
-		Email:     user.Email,
-		EmailMd5:  user.EmailMd5,
-		UserName:  user.UserName,
-		Color:     UserColor(user.ID),
-		IsAdmin:   user.IsAdmin,
-		CreatedAt: user.CreatedAt,
+		ID:          user.ID,
+		Email:       user.Email,
+		EmailMd5:    user.EmailMd5,
+		UserName:    user.UserName,
+		Color:       UserColor(user.ID),
+		IsAdmin:     user.IsAdmin,
+		HasPassword: user.HasPassword(),
+		CreatedAt:   user.CreatedAt,
 	}
 }
 

@@ -12,6 +12,7 @@ import { useSystemSettings } from '@/composables/useSystemSettings'
 const { t } = useI18n()
 
 const { draft, loading, saving, dirty, save, reset } = useSystemSettings()
+const origin = window.location.origin
 </script>
 
 <template>
@@ -22,6 +23,14 @@ const { draft, loading, saving, dirty, save, reset } = useSystemSettings()
       <SettingsSection :title="t('settings.profile.basicInfo')">
         <SettingRow :label="t('admin.site.siteName')" :description="t('admin.site.siteNameDescription')">
           <a-input v-model="draft.siteName" :max-length="32" show-word-limit placeholder="Sayrud" class="name-input" />
+        </SettingRow>
+        <SettingRow :label="t('sso.site.externalURL')" :description="t('sso.site.externalURLDescription')">
+          <div class="url-row">
+            <a-input v-model="draft.externalURL" :placeholder="origin" class="name-input" allow-clear />
+            <a-button v-if="draft.externalURL !== origin" size="small" type="text" @click="draft.externalURL = origin">
+              {{ t('sso.site.useCurrent') }}
+            </a-button>
+          </div>
         </SettingRow>
         <SettingRow :label="t('admin.site.preview')">
           <div class="tab-preview">
@@ -46,6 +55,11 @@ const { draft, loading, saving, dirty, save, reset } = useSystemSettings()
 }
 .name-input {
   max-width: 360px;
+}
+.url-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
 }
 .tab-preview {
   width: 280px;

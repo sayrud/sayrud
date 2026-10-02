@@ -135,9 +135,27 @@ func toAdminUsers(ctx context.Context, users []*db.User) ([]*dto.AdminUser, erro
 	if err != nil {
 		return nil, err
 	}
+	identities, err := db.UserIdentities.ListByUserIDs(ctx.Request().Context(), ids)
+	if err != nil {
+		return nil, errors.Wrap(err, "list identities")
+	}
+	providers, err := db.AuthProviders.List(ctx.Request().Context())
+	if err != nil {
+		return nil, errors.Wrap(err, "list auth providers")
+	}
+	providerByID := make(map[int64]*db.AuthProvider, len(providers))
+	for _, p := range providers {
+		providerByID[p.ID] = p
+	}
+	briefs := make(map[int64][]*dto.AuthProviderBrief)
+	for _, i := range identities {
+		if p, ok := providerByID[i.ProviderID]; ok {
+			briefs[i.UserID] = append(briefs[i.UserID], &dto.AuthProviderBrief{Slug: p.Slug, Name: p.Name, Icon: p.Icon})
+		}
+	}
 	items := make([]*dto.AdminUser, 0, len(users))
 	for _, u := range users {
-		items = append(items, dto.ToAdminUser(u, counts[u.ID]))
+		items = append(items, dto.ToAdminUser(u, counts[u.ID], briefs[u.ID]))
 	}
 	return items, nil
 }
@@ -214,7 +232,7 @@ func (adminRoute) CreateUser(ctx context.Context, f form.AdminCreateUser) error 
 		}
 		user.IsAdmin = true
 	}
-	return ctx.ApiSuccess(dto.ToAdminUser(user, 0))
+	return ctx.ApiSuccess(dto.ToAdminUser(user, 0, nil))
 }
 
 // UpdateUser
@@ -543,13 +561,26 @@ func (adminRoute) GetSettings(ctx context.Context) error {
 // @Router /admin/settings [put]
 func (adminRoute) UpdateSettings(ctx context.Context, f form.UpdateSystemSettings) error {
 	settings := db.SystemSettings{
-		SiteName:          strings.TrimSpace(f.SiteName),
-		AllowSignUp:       f.AllowSignUp,
-		PasswordMinLength: f.PasswordMinLength,
-		SessionTTLDays:    f.SessionTTLDays,
+		SiteName:            strings.TrimSpace(f.SiteName),
+		AllowSignUp:         f.AllowSignUp,
+		PasswordMinLength:   f.PasswordMinLength,
+		SessionTTLDays:      f.SessionTTLDays,
+		AllowPasswordSignIn: f.AllowPasswordSignIn,
+		ExternalURL:         f.ExternalURL,
 	}
 	if err := settings.Validate(); err != nil {
 		return ctx.ApiErrorFrom(http.StatusBadRequest, err)
+	}
+	settings.ExternalURL, _ = db.NormalizeExternalURL(settings.ExternalURL)
+	if !settings.AllowPasswordSignIn {
+		count, err := db.AuthProviders.CountEnabled(ctx.Request().Context())
+		if err != nil {
+			logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to count enabled auth providers")
+			return ctx.ApiServerError()
+		}
+		if count == 0 {
+			return ctx.ApiError(http.StatusBadRequest, "settings::password_sign_in_requires_provider")
+		}
 	}
 	if err := db.Settings.SaveSystem(ctx.Request().Context(), settings); err != nil {
 		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to save system settings")

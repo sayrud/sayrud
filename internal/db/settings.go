@@ -3,6 +3,7 @@ package db
 import (
 	"context"
 	"encoding/json"
+	"net/url"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -114,6 +115,10 @@ type SystemSettings struct {
 	PasswordMinLength int `json:"passwordMinLength"`
 	// SessionTTLDays is the lifetime in days of the new sessions.
 	SessionTTLDays int `json:"sessionTTLDays"`
+	// ExternalURL is the address users visit (e.g. https://sayrud.example.com), the callback URLs of third-party sign-in are built on it, empty if not set.
+	ExternalURL string `json:"externalURL"`
+	// AllowPasswordSignIn being false allows only the admins to sign in with email and password.
+	AllowPasswordSignIn bool `json:"allowPasswordSignIn"`
 } // @name SystemSettings
 
 const (
@@ -127,11 +132,26 @@ const (
 // DefaultSystemSettings returns the defaults before any settings are saved, signing up follows the config file.
 func DefaultSystemSettings() SystemSettings {
 	return SystemSettings{
-		SiteName:          "Sayrud",
-		AllowSignUp:       !conf.Auth.DisableSignUp,
-		PasswordMinLength: 8,
-		SessionTTLDays:    30,
+		SiteName:            "Sayrud",
+		AllowSignUp:         !conf.Auth.DisableSignUp,
+		PasswordMinLength:   8,
+		SessionTTLDays:      30,
+		AllowPasswordSignIn: true,
 	}
+}
+
+// NormalizeExternalURL returns the URL without the trailing /, empty is valid, it only accepts http(s) URLs without path, query and user info.
+func NormalizeExternalURL(raw string) (string, bool) {
+	raw = strings.TrimRight(strings.TrimSpace(raw), "/")
+	if raw == "" {
+		return "", true
+	}
+	u, err := url.Parse(raw)
+	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" ||
+		u.User != nil || u.Path != "" || u.RawQuery != "" || u.Fragment != "" {
+		return "", false
+	}
+	return u.Scheme + "://" + u.Host, true
 }
 
 // ParseSystemSettings applies the JSON object on top of the defaults, the missing, invalid or out-of-range fields take the defaults.
@@ -150,6 +170,11 @@ func ParseSystemSettings(raw []byte, defaults SystemSettings) SystemSettings {
 	if s.SessionTTLDays < SessionTTLDaysMin || s.SessionTTLDays > SessionTTLDaysMax {
 		s.SessionTTLDays = defaults.SessionTTLDays
 	}
+	if u, ok := NormalizeExternalURL(s.ExternalURL); ok {
+		s.ExternalURL = u
+	} else {
+		s.ExternalURL = defaults.ExternalURL
+	}
 	return s
 }
 
@@ -163,6 +188,9 @@ func (s SystemSettings) Validate() error {
 	}
 	if s.SessionTTLDays < SessionTTLDaysMin || s.SessionTTLDays > SessionTTLDaysMax {
 		return i18n.Errorf("settings::session_ttl_range", SessionTTLDaysMin, SessionTTLDaysMax)
+	}
+	if _, ok := NormalizeExternalURL(s.ExternalURL); !ok {
+		return i18n.Errorf("settings::invalid_external_url")
 	}
 	return nil
 }
@@ -183,6 +211,7 @@ func (db *settings) GetSystem(ctx context.Context) (*SystemSettings, error) {
 
 func (db *settings) SaveSystem(ctx context.Context, s SystemSettings) error {
 	s.SiteName = strings.TrimSpace(s.SiteName)
+	s.ExternalURL, _ = NormalizeExternalURL(s.ExternalURL)
 	return db.save(ctx, SystemSettingsUserID, s)
 }
 

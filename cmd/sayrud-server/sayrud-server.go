@@ -19,6 +19,7 @@ import (
 	"github.com/wuhan005/sayrud/internal/observability"
 	"github.com/wuhan005/sayrud/internal/redis"
 	"github.com/wuhan005/sayrud/internal/route"
+	"github.com/wuhan005/sayrud/internal/sso"
 )
 
 func main() {
@@ -27,6 +28,12 @@ func main() {
 
 	if err := conf.Init(*configFilePath); err != nil {
 		logrus.WithError(err).Fatal("Failed to initialize configuration")
+	}
+	if err := sso.CheckSecretKey(); err != nil {
+		logrus.WithError(err).Fatal("Invalid auth.secret_key")
+	}
+	if !sso.SecretsReady() {
+		logrus.Warn("auth.secret_key is not configured, third-party sign-in methods can not be saved")
 	}
 
 	ctx := context.Background()

@@ -22,8 +22,16 @@ type UpdateUserSettings struct {
 } // @name UpdateUserSettings
 
 type DeleteAccount struct {
-	Password string `json:"password" valid:"required"`
+	// Password is the current password of users with one.
+	Password string `json:"password,omitempty"`
+	// ConfirmEmail is the own email entered by users without a password.
+	ConfirmEmail string `json:"confirmEmail,omitempty"`
 } // @name DeleteAccount
+
+type LDAPSignIn struct {
+	UserName string `json:"username" valid:"required;maxlen:254"`
+	Password string `json:"password" valid:"required;maxlen:256"`
+} // @name LDAPSignIn
 
 type UpdatePassword struct {
 	OldPassword string `json:"oldPassword" valid:"required"`

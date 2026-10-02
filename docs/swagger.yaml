@@ -119,6 +119,84 @@ definitions:
     - email
     - role
     type: object
+  AdminAuthProvider:
+    properties:
+      acsURL:
+        type: string
+      allowedEmailDomains:
+        items:
+          type: string
+        type: array
+      allowedGroups:
+        items:
+          type: string
+        type: array
+      autoCreateUser:
+        type: boolean
+      callbackURL:
+        description: CallbackURL, ACSURL and MetadataURL are filled in at the identity
+          provider, empty if the external URL is not set.
+        type: string
+      config:
+        $ref: '#/definitions/AuthProviderConfig'
+      createdAt:
+        type: string
+      enabled:
+        type: boolean
+      hasBindPassword:
+        type: boolean
+      hasClientSecret:
+        description: HasClientSecret and HasBindPassword report whether the secrets
+          have been saved.
+        type: boolean
+      icon:
+        type: string
+      id:
+        type: integer
+      identityCount:
+        description: IdentityCount is the number of users bound to the sign-in method.
+        type: integer
+      linkByEmail:
+        type: boolean
+      metadataURL:
+        type: string
+      name:
+        type: string
+      position:
+        type: integer
+      slug:
+        type: string
+      type:
+        enum:
+        - oauth2
+        - oidc
+        - saml
+        - ldap
+        type: string
+      updatedAt:
+        type: string
+    required:
+    - acsURL
+    - allowedEmailDomains
+    - allowedGroups
+    - autoCreateUser
+    - callbackURL
+    - config
+    - createdAt
+    - enabled
+    - hasBindPassword
+    - hasClientSecret
+    - icon
+    - id
+    - identityCount
+    - linkByEmail
+    - metadataURL
+    - name
+    - position
+    - slug
+    - type
+    - updatedAt
+    type: object
   AdminCreateUser:
     properties:
       email:
@@ -253,6 +331,11 @@ definitions:
         type: string
       ownedProjectCount:
         type: integer
+      providers:
+        description: Providers are the sign-in methods bound by the user.
+        items:
+          $ref: '#/definitions/AuthProviderBrief'
+        type: array
       userName:
         type: string
     required:
@@ -265,6 +348,7 @@ definitions:
     - isAdmin
     - lastSignInAt
     - ownedProjectCount
+    - providers
     - userName
     type: object
   AdminUserStats:
@@ -282,6 +366,103 @@ definitions:
     - disabled
     - newLast7Days
     - total
+    type: object
+  AuthProviderBrief:
+    properties:
+      icon:
+        type: string
+      name:
+        type: string
+      slug:
+        type: string
+    required:
+    - icon
+    - name
+    - slug
+    type: object
+  AuthProviderConfig:
+    properties:
+      allowIdPInitiated:
+        type: boolean
+      authURL:
+        description: AuthURL, TokenURL and UserInfoURL are the authorization, token
+          and user info URLs of OAuth 2.0.
+        type: string
+      baseDN:
+        type: string
+      bindDN:
+        description: BindDN is the service account to search the users, it binds anonymously
+          if empty.
+        type: string
+      clientID:
+        description: ClientID and Scopes are used by OAuth 2.0 and OIDC.
+        type: string
+      emailAttribute:
+        description: EmailAttribute, NameAttribute and GroupsAttribute are the attribute
+          names of SAML or LDAP, the common SAML attributes are detected if empty.
+        type: string
+      emailPath:
+        type: string
+      emailsURL:
+        description: EmailsURL returns [{email, primary, verified}], the primary and
+          verified email in it takes precedence if set (GitHub, Gitea).
+        type: string
+      groupsAttribute:
+        type: string
+      groupsClaim:
+        type: string
+      groupsPath:
+        type: string
+      idpMetadataURL:
+        description: IdPMetadataURL or IdPMetadataXML is the metadata of the SAML
+          IdP, only one of them is set.
+        type: string
+      idpMetadataXML:
+        type: string
+      issuer:
+        description: Issuer is the OIDC issuer for discovery.
+        type: string
+      nameAttribute:
+        type: string
+      nameClaim:
+        type: string
+      namePath:
+        type: string
+      rootCA:
+        description: RootCA is the CA in PEM to verify the LDAP server certificate,
+          the system CAs are used if empty.
+        type: string
+      scopes:
+        items:
+          type: string
+        type: array
+      spCertificate:
+        description: SPCertificate is the generated SP certificate in PEM, the private
+          key is in Secrets.
+        type: string
+      startTLS:
+        type: boolean
+      subjectAttribute:
+        type: string
+      subjectPath:
+        description: SubjectPath, EmailPath, NamePath and GroupsPath are the dot paths
+          in the user info JSON, e.g. data.user.email.
+        type: string
+      tokenURL:
+        type: string
+      trustEmail:
+        description: TrustEmail treats the email from the IdP as verified, OIDC uses
+          email_verified instead.
+        type: boolean
+      url:
+        description: URL is the LDAP server address, ldap:// or ldaps://.
+        type: string
+      userFilter:
+        description: The {username} in UserFilter is replaced with the escaped user
+          name of the sign-in.
+        type: string
+      userInfoURL:
+        type: string
     type: object
   BatchCreateRecords:
     properties:
@@ -319,6 +500,59 @@ definitions:
     - rev
     - signature
     - tableUID
+    type: object
+  CreateAuthProvider:
+    properties:
+      allowedEmailDomains:
+        items:
+          type: string
+        type: array
+      allowedGroups:
+        items:
+          type: string
+        type: array
+      autoCreateUser:
+        type: boolean
+      bindPassword:
+        description: BindPassword is the password of the LDAP service account, empty
+          keeps the saved one when updating.
+        type: string
+      clientSecret:
+        description: ClientSecret is the client secret of OAuth 2.0 or OIDC, empty
+          keeps the saved one when updating.
+        type: string
+      config:
+        $ref: '#/definitions/AuthProviderConfig'
+      enabled:
+        type: boolean
+      icon:
+        type: string
+      linkByEmail:
+        type: boolean
+      name:
+        type: string
+      slug:
+        description: Slug is part of the callback URL and can not be changed after
+          creating.
+        type: string
+      type:
+        enum:
+        - oauth2
+        - oidc
+        - saml
+        - ldap
+        type: string
+    required:
+    - allowedEmailDomains
+    - allowedGroups
+    - autoCreateUser
+    - config
+    - enabled
+    - icon
+    - linkByEmail
+    - name
+    - slug
+    - type
     type: object
   CreateField:
     properties:
@@ -375,10 +609,12 @@ definitions:
     type: object
   DeleteAccount:
     properties:
-      password:
+      confirmEmail:
+        description: ConfirmEmail is the own email entered by users without a password.
         type: string
-    required:
-    - password
+      password:
+        description: Password is the current password of users with one.
+        type: string
     type: object
   DirtyScope:
     properties:
@@ -419,6 +655,32 @@ definitions:
         - checkbox
         - formula
         type: string
+    type: object
+  LDAPSignIn:
+    properties:
+      password:
+        type: string
+      username:
+        type: string
+    required:
+    - password
+    - username
+    type: object
+  ListAdminAuthProvidersResp:
+    properties:
+      externalURL:
+        type: string
+      providers:
+        items:
+          $ref: '#/definitions/AdminAuthProvider'
+        type: array
+      secretsReady:
+        description: SecretsReady reports whether auth.secret_key is configured.
+        type: boolean
+    required:
+    - externalURL
+    - providers
+    - secretsReady
     type: object
   ListAdminProjectsResp:
     properties:
@@ -519,6 +781,10 @@ definitions:
         type: string
       emailMd5:
         type: string
+      hasPassword:
+        description: HasPassword reports whether the user has a password, the users
+          created by third-party sign-in have none.
+        type: boolean
       id:
         type: integer
       isAdmin:
@@ -531,6 +797,7 @@ definitions:
     - createdAt
     - email
     - emailMd5
+    - hasPassword
     - id
     - isAdmin
     - userName
@@ -784,6 +1051,15 @@ definitions:
     - type
     - uid
     type: object
+  SetAuthProviderPositions:
+    properties:
+      ids:
+        items:
+          type: integer
+        type: array
+    required:
+    - ids
+    type: object
   SignIn:
     properties:
       email:
@@ -809,24 +1085,65 @@ definitions:
     - password
     - userName
     type: object
+  SiteAuthProvider:
+    properties:
+      icon:
+        type: string
+      name:
+        type: string
+      slug:
+        type: string
+      type:
+        enum:
+        - oauth2
+        - oidc
+        - saml
+        - ldap
+        type: string
+    required:
+    - icon
+    - name
+    - slug
+    - type
+    type: object
   SiteInfo:
     properties:
+      allowPasswordSignIn:
+        description: AllowPasswordSignIn being false shows only the third-party sign-in
+          on the sign-in page, admins can still use a password.
+        type: boolean
       allowSignUp:
         type: boolean
       passwordMinLength:
         type: integer
+      providers:
+        description: Providers are the enabled and usable sign-in methods in the order
+          of the admin console.
+        items:
+          $ref: '#/definitions/SiteAuthProvider'
+        type: array
       siteName:
         type: string
     required:
+    - allowPasswordSignIn
     - allowSignUp
     - passwordMinLength
+    - providers
     - siteName
     type: object
   SystemSettings:
     properties:
+      allowPasswordSignIn:
+        description: AllowPasswordSignIn being false allows only the admins to sign
+          in with email and password.
+        type: boolean
       allowSignUp:
         description: AllowSignUp reports whether new users can sign up by themselves.
         type: boolean
+      externalURL:
+        description: ExternalURL is the address users visit (e.g. https://sayrud.example.com),
+          the callback URLs of third-party sign-in are built on it, empty if not set.
+        type: string
       passwordMinLength:
         description: PasswordMinLength applies to signing up, changing, creating and
           resetting passwords.
@@ -838,7 +1155,9 @@ definitions:
         description: SiteName is shown in the page title and the sign-in page.
         type: string
     required:
+    - allowPasswordSignIn
     - allowSignUp
+    - externalURL
     - passwordMinLength
     - sessionTTLDays
     - siteName
@@ -890,12 +1209,77 @@ definitions:
     - table
     - views
     type: object
+  TestAuthProvider:
+    properties:
+      bindPassword:
+        description: BindPassword is the password of the LDAP service account.
+        type: string
+      config:
+        $ref: '#/definitions/AuthProviderConfig'
+      id:
+        description: ID is the saved provider whose secrets are used if empty, 0 when
+          creating.
+        type: integer
+      type:
+        enum:
+        - oauth2
+        - oidc
+        - saml
+        - ldap
+        type: string
+      username:
+        description: Username is the LDAP user to search, optional.
+        type: string
+    required:
+    - config
+    - type
+    type: object
   TransferProjectOwner:
     properties:
       userID:
         type: integer
     required:
     - userID
+    type: object
+  UpdateAuthProvider:
+    properties:
+      allowedEmailDomains:
+        items:
+          type: string
+        type: array
+      allowedGroups:
+        items:
+          type: string
+        type: array
+      autoCreateUser:
+        type: boolean
+      bindPassword:
+        description: BindPassword is the password of the LDAP service account, empty
+          keeps the saved one when updating.
+        type: string
+      clientSecret:
+        description: ClientSecret is the client secret of OAuth 2.0 or OIDC, empty
+          keeps the saved one when updating.
+        type: string
+      config:
+        $ref: '#/definitions/AuthProviderConfig'
+      enabled:
+        type: boolean
+      icon:
+        type: string
+      linkByEmail:
+        type: boolean
+      name:
+        type: string
+    required:
+    - allowedEmailDomains
+    - allowedGroups
+    - autoCreateUser
+    - config
+    - enabled
+    - icon
+    - linkByEmail
+    - name
     type: object
   UpdateField:
     properties:
@@ -973,8 +1357,13 @@ definitions:
     type: object
   UpdateSystemSettings:
     properties:
+      allowPasswordSignIn:
+        type: boolean
       allowSignUp:
         type: boolean
+      externalURL:
+        description: ExternalURL is the external URL of the site, empty if not set.
+        type: string
       passwordMinLength:
         type: integer
       sessionTTLDays:
@@ -982,7 +1371,9 @@ definitions:
       siteName:
         type: string
     required:
+    - allowPasswordSignIn
     - allowSignUp
+    - externalURL
     - passwordMinLength
     - sessionTTLDays
     - siteName
@@ -1034,6 +1425,39 @@ definitions:
     - emailMd5
     - id
     - userName
+    type: object
+  UserIdentity:
+    properties:
+      createdAt:
+        type: string
+      email:
+        type: string
+      id:
+        type: integer
+      lastUsedAt:
+        type: string
+      providerIcon:
+        type: string
+      providerName:
+        type: string
+      providerSlug:
+        type: string
+      providerType:
+        enum:
+        - oauth2
+        - oidc
+        - saml
+        - ldap
+        type: string
+    required:
+    - createdAt
+    - email
+    - id
+    - lastUsedAt
+    - providerIcon
+    - providerName
+    - providerSlug
+    - providerType
     type: object
   UserSession:
     properties:
@@ -1105,6 +1529,198 @@ info:
   title: Sayrud API
   version: "1.0"
 paths:
+  /admin/auth-providers:
+    get:
+      description: Requires the admin. The secrets are not returned.
+      operationId: listAdminAuthProviders
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/ListAdminAuthProvidersResp'
+        "403":
+          description: Not an admin
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      summary: List the sign-in methods
+    post:
+      consumes:
+      - application/json
+      description: Requires the admin and auth.secret_key in the config file. The
+        SAML service provider certificate is generated automatically.
+      operationId: createAdminAuthProvider
+      parameters:
+      - description: Sign-in method
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/CreateAuthProvider'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/AdminAuthProvider'
+        "400":
+          description: Invalid config
+          schema:
+            type: string
+        "403":
+          description: Not an admin
+          schema:
+            type: string
+        "409":
+          description: The slug has been used
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      summary: Create a sign-in method
+  /admin/auth-providers/{providerID}:
+    delete:
+      description: Requires the admin. The bound third-party accounts of the users
+        are unbound.
+      operationId: deleteAdminAuthProvider
+      parameters:
+      - description: Provider ID
+        in: path
+        name: providerID
+        required: true
+        type: integer
+      responses:
+        "204":
+          description: No Content
+        "403":
+          description: Not an admin
+          schema:
+            type: string
+        "404":
+          description: Provider not found
+          schema:
+            type: string
+        "409":
+          description: It is the last enabled sign-in method while password sign-in
+            is disabled
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      summary: Delete a sign-in method
+    put:
+      consumes:
+      - application/json
+      description: Requires the admin. The slug and the type can not be changed, the
+        empty secrets keep the saved ones.
+      operationId: updateAdminAuthProvider
+      parameters:
+      - description: Provider ID
+        in: path
+        name: providerID
+        required: true
+        type: integer
+      - description: Sign-in method
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/UpdateAuthProvider'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/AdminAuthProvider'
+        "400":
+          description: Invalid config
+          schema:
+            type: string
+        "403":
+          description: Not an admin
+          schema:
+            type: string
+        "404":
+          description: Provider not found
+          schema:
+            type: string
+        "409":
+          description: It is the last enabled sign-in method while password sign-in
+            is disabled
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      summary: Update a sign-in method
+  /admin/auth-providers/positions:
+    put:
+      consumes:
+      - application/json
+      description: Requires the admin. The sign-in page shows them in this order.
+      operationId: setAdminAuthProviderPositions
+      parameters:
+      - description: Provider IDs in order
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/SetAuthProviderPositions'
+      responses:
+        "204":
+          description: No Content
+        "403":
+          description: Not an admin
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      summary: Reorder the sign-in methods
+  /admin/auth-providers/test:
+    post:
+      consumes:
+      - application/json
+      description: Requires the admin. OIDC fetches the discovery document, SAML loads
+        the IdP metadata, LDAP binds the service account and optionally searches the
+        user. OAuth 2.0 is not supported.
+      operationId: testAdminAuthProvider
+      parameters:
+      - description: Config to test
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/TestAuthProvider'
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: The connection failed or the type is not supported
+          schema:
+            type: string
+        "403":
+          description: Not an admin
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      summary: Test the connection of a sign-in method
   /admin/overview:
     get:
       description: Requires the admin.
@@ -1588,10 +2204,11 @@ paths:
       consumes:
       - application/json
       description: The projects owned by the user must be deleted or transferred first,
-        and the last admin can not be deleted.
+        and the last admin can not be deleted. Users without a password confirm with
+        their email instead.
       operationId: deleteAccount
       parameters:
-      - description: Password
+      - description: Password or email confirmation
         in: body
         name: data
         required: true
@@ -1601,7 +2218,7 @@ paths:
         "204":
           description: No Content
         "400":
-          description: Wrong password
+          description: Wrong password or email
           schema:
             type: string
         "401":
@@ -1621,6 +2238,110 @@ paths:
           schema:
             type: string
       summary: Delete the account of the signed-in user
+  /auth/identities:
+    get:
+      operationId: listIdentities
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/UserIdentity'
+            type: array
+        "401":
+          description: Not signed in
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      summary: List the third-party accounts bound to the signed-in user
+  /auth/identities/{identityID}:
+    delete:
+      description: The last way to sign in can not be unbound if the user has no password.
+      operationId: deleteIdentity
+      parameters:
+      - description: Identity ID
+        in: path
+        name: identityID
+        required: true
+        type: integer
+      responses:
+        "204":
+          description: No Content
+        "401":
+          description: Not signed in
+          schema:
+            type: string
+        "404":
+          description: Identity not found
+          schema:
+            type: string
+        "409":
+          description: It is the last way to sign in
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      summary: Unbind a third-party account of the signed-in user
+  /auth/ldap/{slug}/sign-in:
+    post:
+      consumes:
+      - application/json
+      operationId: ldapSignIn
+      parameters:
+      - description: Provider slug
+        in: path
+        name: slug
+        required: true
+        type: string
+      - description: Credential
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/LDAPSignIn'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/Profile'
+        "400":
+          description: Invalid request body
+          schema:
+            type: string
+        "401":
+          description: Wrong user name or password
+          schema:
+            type: string
+        "403":
+          description: The account is not allowed, not linked or disabled
+          schema:
+            type: string
+        "404":
+          description: Provider not found
+          schema:
+            type: string
+        "429":
+          description: Too many attempts
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+        "502":
+          description: LDAP server unavailable
+          schema:
+            type: string
+      summary: Sign in with LDAP
   /auth/password:
     put:
       consumes:
@@ -1638,7 +2359,8 @@ paths:
         "204":
           description: No Content
         "400":
-          description: Invalid request body or wrong current password
+          description: Invalid request body, wrong current password or the user has
+            no password
           schema:
             type: string
         "401":
@@ -1850,7 +2572,7 @@ paths:
           schema:
             type: string
         "403":
-          description: The user is disabled
+          description: The user is disabled, or password sign-in is disabled for non-admins
           schema:
             type: string
         "429":
@@ -1916,6 +2638,102 @@ paths:
           schema:
             type: string
       summary: Sign up with email and password
+  /auth/sso/{slug}/acs:
+    post:
+      consumes:
+      - application/x-www-form-urlencoded
+      description: Receives the SAML response posted by the identity provider, signs
+        in and redirects. Failures redirect with the sso_error query.
+      operationId: ssoACS
+      parameters:
+      - description: Provider slug
+        in: path
+        name: slug
+        required: true
+        type: string
+      responses:
+        "302":
+          description: Redirect after signing in
+      summary: SAML Assertion Consumer Service
+  /auth/sso/{slug}/callback:
+    get:
+      description: Signs in (or binds the account in the link mode) and redirects
+        to the saved path. Failures redirect with the sso_error query.
+      operationId: ssoCallback
+      parameters:
+      - description: Provider slug
+        in: path
+        name: slug
+        required: true
+        type: string
+      - description: State
+        in: query
+        name: state
+        required: true
+        type: string
+      - description: Authorization code
+        in: query
+        name: code
+        type: string
+      responses:
+        "302":
+          description: Redirect after signing in
+      summary: OAuth 2.0 / OIDC callback
+  /auth/sso/{slug}/metadata:
+    get:
+      description: The entity ID of the service provider is the URL of this metadata.
+        Available before the provider is enabled.
+      operationId: ssoMetadata
+      parameters:
+      - description: Provider slug
+        in: path
+        name: slug
+        required: true
+        type: string
+      produces:
+      - text/xml
+      responses:
+        "200":
+          description: SP metadata XML
+          schema:
+            type: string
+        "404":
+          description: Provider not found or not SAML
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      summary: SAML service provider metadata
+  /auth/sso/{slug}/start:
+    get:
+      description: Redirects the browser to the identity provider. In the link mode
+        the signed-in user binds the third-party account. Failures redirect to the
+        sign-in page (or the security settings in the link mode) with the sso_error
+        query.
+      operationId: startSSO
+      parameters:
+      - description: Provider slug
+        in: path
+        name: slug
+        required: true
+        type: string
+      - description: login or link, defaults to login
+        enum:
+        - login
+        - link
+        in: query
+        name: mode
+        type: string
+      - description: Path to go after signing in
+        in: query
+        name: redirect
+        type: string
+      responses:
+        "302":
+          description: Redirect to the identity provider
+      summary: Start a third-party sign-in
   /projects:
     get:
       description: List the projects owned by or shared with the signed-in user, with

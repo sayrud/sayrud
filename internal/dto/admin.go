@@ -18,10 +18,16 @@ type AdminUser struct {
 	OwnedProjectCount int64      `json:"ownedProjectCount"`
 	LastSignInAt      *time.Time `json:"lastSignInAt"`
 	CreatedAt         time.Time  `json:"createdAt"`
+	// Providers are the sign-in methods bound by the user.
+	Providers []*AuthProviderBrief `json:"providers"`
 } // @name AdminUser
 
-func ToAdminUser(user *db.User, ownedProjectCount int64) *AdminUser {
+func ToAdminUser(user *db.User, ownedProjectCount int64, providers []*AuthProviderBrief) *AdminUser {
+	if providers == nil {
+		providers = []*AuthProviderBrief{}
+	}
 	return &AdminUser{
+		Providers:         providers,
 		ID:                user.ID,
 		Email:             user.Email,
 		EmailMd5:          user.EmailMd5,

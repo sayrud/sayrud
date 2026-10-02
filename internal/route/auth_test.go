@@ -22,6 +22,14 @@ func TestAPIRequiresSignIn(t *testing.T) {
 		{http.MethodGet, "/_/projects/prjabc/tables"},
 		{http.MethodGet, "/_/projects/prjabc/members"},
 		{http.MethodGet, "/_/projects/prjabc/ws"},
+		{http.MethodGet, "/_/auth/identities"},
+		{http.MethodDelete, "/_/auth/identities/1"},
+		{http.MethodGet, "/_/admin/auth-providers"},
+		{http.MethodPost, "/_/admin/auth-providers"},
+		{http.MethodPut, "/_/admin/auth-providers/positions"},
+		{http.MethodPost, "/_/admin/auth-providers/test"},
+		{http.MethodPut, "/_/admin/auth-providers/1"},
+		{http.MethodDelete, "/_/admin/auth-providers/1"},
 	} {
 		t.Run(tc.method+" "+tc.path, func(t *testing.T) {
 			response := httptest.NewRecorder()

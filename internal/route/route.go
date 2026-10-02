@@ -63,6 +63,18 @@ func New(opts Options) *flamego.Flame {
 				Get(api.Account.GetSettings).
 				Put(form.Bind(form.UpdateUserSettings{}), api.Account.UpdateSettings)
 			f.Delete("/account", api.Auth.Authenticator, form.Bind(form.DeleteAccount{}), api.Account.DeleteAccount)
+
+			f.Group("/sso/{slug}", func() {
+				f.Get("/start", api.SSO.Start)
+				f.Get("/callback", api.SSO.Callback)
+				f.Post("/acs", api.SSO.ACS)
+				f.Get("/metadata", api.SSO.Metadata)
+			})
+			f.Post("/ldap/{slug}/sign-in", form.Bind(form.LDAPSignIn{}), api.SSO.LDAPSignIn)
+			f.Group("/identities", func() {
+				f.Get("", api.SSO.ListIdentities)
+				f.Delete("/{identityID}", api.SSO.DeleteIdentity)
+			}, api.Auth.Authenticator)
 		})
 
 		f.Group("/admin", func() {
@@ -91,6 +103,16 @@ func New(opts Options) *flamego.Flame {
 			f.Combo("/settings").
 				Get(api.Admin.GetSettings).
 				Put(form.Bind(form.UpdateSystemSettings{}), api.Admin.UpdateSettings)
+			f.Group("/auth-providers", func() {
+				f.Combo("").
+					Get(api.Admin.ListAuthProviders).
+					Post(form.Bind(form.CreateAuthProvider{}), api.Admin.CreateAuthProvider)
+				f.Put("/positions", form.Bind(form.SetAuthProviderPositions{}), api.Admin.SetAuthProviderPositions)
+				f.Post("/test", form.Bind(form.TestAuthProvider{}), api.Admin.TestAuthProvider)
+				f.Combo("/{providerID}", api.Admin.AuthProviderer).
+					Put(form.Bind(form.UpdateAuthProvider{}), api.Admin.UpdateAuthProvider).
+					Delete(api.Admin.DeleteAuthProvider)
+			})
 		}, api.Auth.Authenticator, api.Admin.RequireAdmin)
 
 		f.Group("/projects", func() {

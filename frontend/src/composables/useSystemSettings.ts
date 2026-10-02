@@ -9,7 +9,14 @@ import { useSiteStore } from '@/stores/site'
 export function useSystemSettings() {
   const site = useSiteStore()
   const original = ref<SystemSettings | null>(null)
-  const draft = reactive<SystemSettings>({ siteName: '', allowSignUp: true, passwordMinLength: 8, sessionTTLDays: 30 })
+  const draft = reactive<SystemSettings>({
+    siteName: '',
+    allowSignUp: true,
+    passwordMinLength: 8,
+    sessionTTLDays: 30,
+    externalURL: '',
+    allowPasswordSignIn: true,
+  })
   const loading = ref(true)
   const saving = ref(false)
 
@@ -21,15 +28,22 @@ export function useSystemSettings() {
     if (original.value) Object.assign(draft, original.value)
   }
 
-  async function save() {
+  /** Resolves false if saving fails, the error has been shown. */
+  async function save(): Promise<boolean> {
     saving.value = true
     try {
-      original.value = await adminApi.saveSettings({ ...draft, siteName: draft.siteName.trim() })
+      original.value = await adminApi.saveSettings({
+        ...draft,
+        siteName: draft.siteName.trim(),
+        externalURL: draft.externalURL.trim(),
+      })
       reset()
       await site.refresh()
       Message.success(t('common.saved'))
+      return true
     } catch (e) {
       Message.error(e instanceof Error ? e.message : String(e))
+      return false
     } finally {
       saving.value = false
     }

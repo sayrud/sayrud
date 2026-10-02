@@ -1,7 +1,10 @@
 package api
 
 import (
+	"github.com/sirupsen/logrus"
+
 	"github.com/wuhan005/sayrud/internal/context"
+	"github.com/wuhan005/sayrud/internal/db"
 	"github.com/wuhan005/sayrud/internal/dto"
 )
 
@@ -22,5 +25,10 @@ func (siteRoute) Get(ctx context.Context) error {
 	if !ok {
 		return nil
 	}
-	return ctx.ApiSuccess(dto.ToSiteInfo(settings))
+	providers, err := db.AuthProviders.ListEnabled(ctx.Request().Context())
+	if err != nil {
+		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to list enabled auth providers")
+		return ctx.ApiServerError()
+	}
+	return ctx.ApiSuccess(dto.ToSiteInfo(settings, providers))
 }

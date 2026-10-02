@@ -3,7 +3,13 @@ import { ref } from 'vue'
 
 import { siteApi, type SiteInfo } from '@/api/site'
 
-const DEFAULT_INFO: SiteInfo = { siteName: 'Sayrud', allowSignUp: true, passwordMinLength: 8 }
+const DEFAULT_INFO: SiteInfo = {
+  siteName: 'Sayrud',
+  allowSignUp: true,
+  passwordMinLength: 8,
+  allowPasswordSignIn: true,
+  providers: [],
+}
 
 export const useSiteStore = defineStore('site', () => {
   const info = ref<SiteInfo>({ ...DEFAULT_INFO })

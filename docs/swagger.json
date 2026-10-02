@@ -7,6 +7,284 @@
     },
     "basePath": "/_",
     "paths": {
+        "/admin/auth-providers": {
+            "get": {
+                "description": "Requires the admin. The secrets are not returned.",
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "List the sign-in methods",
+                "operationId": "listAdminAuthProviders",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/ListAdminAuthProvidersResp"
+                        }
+                    },
+                    "403": {
+                        "description": "Not an admin",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Requires the admin and auth.secret_key in the config file. The SAML service provider certificate is generated automatically.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "Create a sign-in method",
+                "operationId": "createAdminAuthProvider",
+                "parameters": [
+                    {
+                        "description": "Sign-in method",
+                        "name": "data",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/CreateAuthProvider"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/AdminAuthProvider"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid config",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "403": {
+                        "description": "Not an admin",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "409": {
+                        "description": "The slug has been used",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/auth-providers/positions": {
+            "put": {
+                "description": "Requires the admin. The sign-in page shows them in this order.",
+                "consumes": [
+                    "application/json"
+                ],
+                "summary": "Reorder the sign-in methods",
+                "operationId": "setAdminAuthProviderPositions",
+                "parameters": [
+                    {
+                        "description": "Provider IDs in order",
+                        "name": "data",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/SetAuthProviderPositions"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "403": {
+                        "description": "Not an admin",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/auth-providers/test": {
+            "post": {
+                "description": "Requires the admin. OIDC fetches the discovery document, SAML loads the IdP metadata, LDAP binds the service account and optionally searches the user. OAuth 2.0 is not supported.",
+                "consumes": [
+                    "application/json"
+                ],
+                "summary": "Test the connection of a sign-in method",
+                "operationId": "testAdminAuthProvider",
+                "parameters": [
+                    {
+                        "description": "Config to test",
+                        "name": "data",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/TestAuthProvider"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "description": "The connection failed or the type is not supported",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "403": {
+                        "description": "Not an admin",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/auth-providers/{providerID}": {
+            "put": {
+                "description": "Requires the admin. The slug and the type can not be changed, the empty secrets keep the saved ones.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "Update a sign-in method",
+                "operationId": "updateAdminAuthProvider",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Provider ID",
+                        "name": "providerID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Sign-in method",
+                        "name": "data",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/UpdateAuthProvider"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/AdminAuthProvider"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid config",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "403": {
+                        "description": "Not an admin",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "404": {
+                        "description": "Provider not found",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "409": {
+                        "description": "It is the last enabled sign-in method while password sign-in is disabled",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Requires the admin. The bound third-party accounts of the users are unbound.",
+                "summary": "Delete a sign-in method",
+                "operationId": "deleteAdminAuthProvider",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Provider ID",
+                        "name": "providerID",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "403": {
+                        "description": "Not an admin",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "404": {
+                        "description": "Provider not found",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "409": {
+                        "description": "It is the last enabled sign-in method while password sign-in is disabled",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
         "/admin/overview": {
             "get": {
                 "description": "Requires the admin.",
@@ -718,7 +996,7 @@
         },
         "/auth/account": {
             "delete": {
-                "description": "The projects owned by the user must be deleted or transferred first, and the last admin can not be deleted.",
+                "description": "The projects owned by the user must be deleted or transferred first, and the last admin can not be deleted. Users without a password confirm with their email instead.",
                 "consumes": [
                     "application/json"
                 ],
@@ -726,7 +1004,7 @@
                 "operationId": "deleteAccount",
                 "parameters": [
                     {
-                        "description": "Password",
+                        "description": "Password or email confirmation",
                         "name": "data",
                         "in": "body",
                         "required": true,
@@ -740,7 +1018,7 @@
                         "description": "No Content"
                     },
                     "400": {
-                        "description": "Wrong password",
+                        "description": "Wrong password or email",
                         "schema": {
                             "type": "string"
                         }
@@ -772,6 +1050,163 @@
                 }
             }
         },
+        "/auth/identities": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "List the third-party accounts bound to the signed-in user",
+                "operationId": "listIdentities",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/UserIdentity"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Not signed in",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/identities/{identityID}": {
+            "delete": {
+                "description": "The last way to sign in can not be unbound if the user has no password.",
+                "summary": "Unbind a third-party account of the signed-in user",
+                "operationId": "deleteIdentity",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Identity ID",
+                        "name": "identityID",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "401": {
+                        "description": "Not signed in",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "404": {
+                        "description": "Identity not found",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "409": {
+                        "description": "It is the last way to sign in",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/ldap/{slug}/sign-in": {
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "Sign in with LDAP",
+                "operationId": "ldapSignIn",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Provider slug",
+                        "name": "slug",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Credential",
+                        "name": "data",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/LDAPSignIn"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/Profile"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request body",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "401": {
+                        "description": "Wrong user name or password",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "403": {
+                        "description": "The account is not allowed, not linked or disabled",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "404": {
+                        "description": "Provider not found",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "429": {
+                        "description": "Too many attempts",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "502": {
+                        "description": "LDAP server unavailable",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
         "/auth/password": {
             "put": {
                 "description": "The other sessions of the user are signed out.",
@@ -796,7 +1231,7 @@
                         "description": "No Content"
                     },
                     "400": {
-                        "description": "Invalid request body or wrong current password",
+                        "description": "Invalid request body, wrong current password or the user has no password",
                         "schema": {
                             "type": "string"
                         }
@@ -1115,7 +1550,7 @@
                         }
                     },
                     "403": {
-                        "description": "The user is disabled",
+                        "description": "The user is disabled, or password sign-in is disabled for non-admins",
                         "schema": {
                             "type": "string"
                         }
@@ -1211,6 +1646,140 @@
                         "schema": {
                             "type": "string"
                         }
+                    }
+                }
+            }
+        },
+        "/auth/sso/{slug}/acs": {
+            "post": {
+                "description": "Receives the SAML response posted by the identity provider, signs in and redirects. Failures redirect with the sso_error query.",
+                "consumes": [
+                    "application/x-www-form-urlencoded"
+                ],
+                "summary": "SAML Assertion Consumer Service",
+                "operationId": "ssoACS",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Provider slug",
+                        "name": "slug",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "302": {
+                        "description": "Redirect after signing in"
+                    }
+                }
+            }
+        },
+        "/auth/sso/{slug}/callback": {
+            "get": {
+                "description": "Signs in (or binds the account in the link mode) and redirects to the saved path. Failures redirect with the sso_error query.",
+                "summary": "OAuth 2.0 / OIDC callback",
+                "operationId": "ssoCallback",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Provider slug",
+                        "name": "slug",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "State",
+                        "name": "state",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Authorization code",
+                        "name": "code",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "302": {
+                        "description": "Redirect after signing in"
+                    }
+                }
+            }
+        },
+        "/auth/sso/{slug}/metadata": {
+            "get": {
+                "description": "The entity ID of the service provider is the URL of this metadata. Available before the provider is enabled.",
+                "produces": [
+                    "text/xml"
+                ],
+                "summary": "SAML service provider metadata",
+                "operationId": "ssoMetadata",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Provider slug",
+                        "name": "slug",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "SP metadata XML",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "404": {
+                        "description": "Provider not found or not SAML",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/sso/{slug}/start": {
+            "get": {
+                "description": "Redirects the browser to the identity provider. In the link mode the signed-in user binds the third-party account. Failures redirect to the sign-in page (or the security settings in the link mode) with the sso_error query.",
+                "summary": "Start a third-party sign-in",
+                "operationId": "startSSO",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Provider slug",
+                        "name": "slug",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "enum": [
+                            "login",
+                            "link"
+                        ],
+                        "type": "string",
+                        "description": "login or link, defaults to login",
+                        "name": "mode",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Path to go after signing in",
+                        "name": "redirect",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "302": {
+                        "description": "Redirect to the identity provider"
                     }
                 }
             }
@@ -3485,6 +4054,108 @@
                 }
             }
         },
+        "AdminAuthProvider": {
+            "type": "object",
+            "required": [
+                "acsURL",
+                "allowedEmailDomains",
+                "allowedGroups",
+                "autoCreateUser",
+                "callbackURL",
+                "config",
+                "createdAt",
+                "enabled",
+                "hasBindPassword",
+                "hasClientSecret",
+                "icon",
+                "id",
+                "identityCount",
+                "linkByEmail",
+                "metadataURL",
+                "name",
+                "position",
+                "slug",
+                "type",
+                "updatedAt"
+            ],
+            "properties": {
+                "acsURL": {
+                    "type": "string"
+                },
+                "allowedEmailDomains": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "allowedGroups": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "autoCreateUser": {
+                    "type": "boolean"
+                },
+                "callbackURL": {
+                    "description": "CallbackURL, ACSURL and MetadataURL are filled in at the identity provider, empty if the external URL is not set.",
+                    "type": "string"
+                },
+                "config": {
+                    "$ref": "#/definitions/AuthProviderConfig"
+                },
+                "createdAt": {
+                    "type": "string"
+                },
+                "enabled": {
+                    "type": "boolean"
+                },
+                "hasBindPassword": {
+                    "type": "boolean"
+                },
+                "hasClientSecret": {
+                    "description": "HasClientSecret and HasBindPassword report whether the secrets have been saved.",
+                    "type": "boolean"
+                },
+                "icon": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "identityCount": {
+                    "description": "IdentityCount is the number of users bound to the sign-in method.",
+                    "type": "integer"
+                },
+                "linkByEmail": {
+                    "type": "boolean"
+                },
+                "metadataURL": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "position": {
+                    "type": "integer"
+                },
+                "slug": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string",
+                    "enum": [
+                        "oauth2",
+                        "oidc",
+                        "saml",
+                        "ldap"
+                    ]
+                },
+                "updatedAt": {
+                    "type": "string"
+                }
+            }
+        },
         "AdminCreateUser": {
             "type": "object",
             "required": [
@@ -3664,6 +4335,7 @@
                 "isAdmin",
                 "lastSignInAt",
                 "ownedProjectCount",
+                "providers",
                 "userName"
             ],
             "properties": {
@@ -3694,6 +4366,13 @@
                 "ownedProjectCount": {
                     "type": "integer"
                 },
+                "providers": {
+                    "description": "Providers are the sign-in methods bound by the user.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/AuthProviderBrief"
+                    }
+                },
                 "userName": {
                     "type": "string"
                 }
@@ -3719,6 +4398,130 @@
                 },
                 "total": {
                     "type": "integer"
+                }
+            }
+        },
+        "AuthProviderBrief": {
+            "type": "object",
+            "required": [
+                "icon",
+                "name",
+                "slug"
+            ],
+            "properties": {
+                "icon": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "slug": {
+                    "type": "string"
+                }
+            }
+        },
+        "AuthProviderConfig": {
+            "type": "object",
+            "properties": {
+                "allowIdPInitiated": {
+                    "type": "boolean"
+                },
+                "authURL": {
+                    "description": "AuthURL, TokenURL and UserInfoURL are the authorization, token and user info URLs of OAuth 2.0.",
+                    "type": "string"
+                },
+                "baseDN": {
+                    "type": "string"
+                },
+                "bindDN": {
+                    "description": "BindDN is the service account to search the users, it binds anonymously if empty.",
+                    "type": "string"
+                },
+                "clientID": {
+                    "description": "ClientID and Scopes are used by OAuth 2.0 and OIDC.",
+                    "type": "string"
+                },
+                "emailAttribute": {
+                    "description": "EmailAttribute, NameAttribute and GroupsAttribute are the attribute names of SAML or LDAP, the common SAML attributes are detected if empty.",
+                    "type": "string"
+                },
+                "emailPath": {
+                    "type": "string"
+                },
+                "emailsURL": {
+                    "description": "EmailsURL returns [{email, primary, verified}], the primary and verified email in it takes precedence if set (GitHub, Gitea).",
+                    "type": "string"
+                },
+                "groupsAttribute": {
+                    "type": "string"
+                },
+                "groupsClaim": {
+                    "type": "string"
+                },
+                "groupsPath": {
+                    "type": "string"
+                },
+                "idpMetadataURL": {
+                    "description": "IdPMetadataURL or IdPMetadataXML is the metadata of the SAML IdP, only one of them is set.",
+                    "type": "string"
+                },
+                "idpMetadataXML": {
+                    "type": "string"
+                },
+                "issuer": {
+                    "description": "Issuer is the OIDC issuer for discovery.",
+                    "type": "string"
+                },
+                "nameAttribute": {
+                    "type": "string"
+                },
+                "nameClaim": {
+                    "type": "string"
+                },
+                "namePath": {
+                    "type": "string"
+                },
+                "rootCA": {
+                    "description": "RootCA is the CA in PEM to verify the LDAP server certificate, the system CAs are used if empty.",
+                    "type": "string"
+                },
+                "scopes": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "spCertificate": {
+                    "description": "SPCertificate is the generated SP certificate in PEM, the private key is in Secrets.",
+                    "type": "string"
+                },
+                "startTLS": {
+                    "type": "boolean"
+                },
+                "subjectAttribute": {
+                    "type": "string"
+                },
+                "subjectPath": {
+                    "description": "SubjectPath, EmailPath, NamePath and GroupsPath are the dot paths in the user info JSON, e.g. data.user.email.",
+                    "type": "string"
+                },
+                "tokenURL": {
+                    "type": "string"
+                },
+                "trustEmail": {
+                    "description": "TrustEmail treats the email from the IdP as verified, OIDC uses email_verified instead.",
+                    "type": "boolean"
+                },
+                "url": {
+                    "description": "URL is the LDAP server address, ldap:// or ldaps://.",
+                    "type": "string"
+                },
+                "userFilter": {
+                    "description": "The {username} in UserFilter is replaced with the escaped user name of the sign-in.",
+                    "type": "string"
+                },
+                "userInfoURL": {
+                    "type": "string"
                 }
             }
         },
@@ -3767,6 +4570,74 @@
                 },
                 "tableUID": {
                     "type": "string"
+                }
+            }
+        },
+        "CreateAuthProvider": {
+            "type": "object",
+            "required": [
+                "allowedEmailDomains",
+                "allowedGroups",
+                "autoCreateUser",
+                "config",
+                "enabled",
+                "icon",
+                "linkByEmail",
+                "name",
+                "slug",
+                "type"
+            ],
+            "properties": {
+                "allowedEmailDomains": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "allowedGroups": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "autoCreateUser": {
+                    "type": "boolean"
+                },
+                "bindPassword": {
+                    "description": "BindPassword is the password of the LDAP service account, empty keeps the saved one when updating.",
+                    "type": "string"
+                },
+                "clientSecret": {
+                    "description": "ClientSecret is the client secret of OAuth 2.0 or OIDC, empty keeps the saved one when updating.",
+                    "type": "string"
+                },
+                "config": {
+                    "$ref": "#/definitions/AuthProviderConfig"
+                },
+                "enabled": {
+                    "type": "boolean"
+                },
+                "icon": {
+                    "type": "string"
+                },
+                "linkByEmail": {
+                    "type": "boolean"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "slug": {
+                    "description": "Slug is part of the callback URL and can not be changed after creating.",
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string",
+                    "enum": [
+                        "oauth2",
+                        "oidc",
+                        "saml",
+                        "ldap"
+                    ]
                 }
             }
         },
@@ -3847,11 +4718,13 @@
         },
         "DeleteAccount": {
             "type": "object",
-            "required": [
-                "password"
-            ],
             "properties": {
+                "confirmEmail": {
+                    "description": "ConfirmEmail is the own email entered by users without a password.",
+                    "type": "string"
+                },
                 "password": {
+                    "description": "Password is the current password of users with one.",
                     "type": "string"
                 }
             }
@@ -3911,6 +4784,44 @@
                         "checkbox",
                         "formula"
                     ]
+                }
+            }
+        },
+        "LDAPSignIn": {
+            "type": "object",
+            "required": [
+                "password",
+                "username"
+            ],
+            "properties": {
+                "password": {
+                    "type": "string"
+                },
+                "username": {
+                    "type": "string"
+                }
+            }
+        },
+        "ListAdminAuthProvidersResp": {
+            "type": "object",
+            "required": [
+                "externalURL",
+                "providers",
+                "secretsReady"
+            ],
+            "properties": {
+                "externalURL": {
+                    "type": "string"
+                },
+                "providers": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/AdminAuthProvider"
+                    }
+                },
+                "secretsReady": {
+                    "description": "SecretsReady reports whether auth.secret_key is configured.",
+                    "type": "boolean"
                 }
             }
         },
@@ -4049,6 +4960,7 @@
                 "createdAt",
                 "email",
                 "emailMd5",
+                "hasPassword",
                 "id",
                 "isAdmin",
                 "userName"
@@ -4066,6 +4978,10 @@
                 },
                 "emailMd5": {
                     "type": "string"
+                },
+                "hasPassword": {
+                    "description": "HasPassword reports whether the user has a password, the users created by third-party sign-in have none.",
+                    "type": "boolean"
                 },
                 "id": {
                     "type": "integer"
@@ -4416,6 +5332,20 @@
                 }
             }
         },
+        "SetAuthProviderPositions": {
+            "type": "object",
+            "required": [
+                "ids"
+            ],
+            "properties": {
+                "ids": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                }
+            }
+        },
         "SignIn": {
             "type": "object",
             "required": [
@@ -4451,19 +5381,61 @@
                 }
             }
         },
+        "SiteAuthProvider": {
+            "type": "object",
+            "required": [
+                "icon",
+                "name",
+                "slug",
+                "type"
+            ],
+            "properties": {
+                "icon": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "slug": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string",
+                    "enum": [
+                        "oauth2",
+                        "oidc",
+                        "saml",
+                        "ldap"
+                    ]
+                }
+            }
+        },
         "SiteInfo": {
             "type": "object",
             "required": [
+                "allowPasswordSignIn",
                 "allowSignUp",
                 "passwordMinLength",
+                "providers",
                 "siteName"
             ],
             "properties": {
+                "allowPasswordSignIn": {
+                    "description": "AllowPasswordSignIn being false shows only the third-party sign-in on the sign-in page, admins can still use a password.",
+                    "type": "boolean"
+                },
                 "allowSignUp": {
                     "type": "boolean"
                 },
                 "passwordMinLength": {
                     "type": "integer"
+                },
+                "providers": {
+                    "description": "Providers are the enabled and usable sign-in methods in the order of the admin console.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/SiteAuthProvider"
+                    }
                 },
                 "siteName": {
                     "type": "string"
@@ -4473,15 +5445,25 @@
         "SystemSettings": {
             "type": "object",
             "required": [
+                "allowPasswordSignIn",
                 "allowSignUp",
+                "externalURL",
                 "passwordMinLength",
                 "sessionTTLDays",
                 "siteName"
             ],
             "properties": {
+                "allowPasswordSignIn": {
+                    "description": "AllowPasswordSignIn being false allows only the admins to sign in with email and password.",
+                    "type": "boolean"
+                },
                 "allowSignUp": {
                     "description": "AllowSignUp reports whether new users can sign up by themselves.",
                     "type": "boolean"
+                },
+                "externalURL": {
+                    "description": "ExternalURL is the address users visit (e.g. https://sayrud.example.com), the callback URLs of third-party sign-in are built on it, empty if not set.",
+                    "type": "string"
                 },
                 "passwordMinLength": {
                     "description": "PasswordMinLength applies to signing up, changing, creating and resetting passwords.",
@@ -4564,6 +5546,39 @@
                 }
             }
         },
+        "TestAuthProvider": {
+            "type": "object",
+            "required": [
+                "config",
+                "type"
+            ],
+            "properties": {
+                "bindPassword": {
+                    "description": "BindPassword is the password of the LDAP service account.",
+                    "type": "string"
+                },
+                "config": {
+                    "$ref": "#/definitions/AuthProviderConfig"
+                },
+                "id": {
+                    "description": "ID is the saved provider whose secrets are used if empty, 0 when creating.",
+                    "type": "integer"
+                },
+                "type": {
+                    "type": "string",
+                    "enum": [
+                        "oauth2",
+                        "oidc",
+                        "saml",
+                        "ldap"
+                    ]
+                },
+                "username": {
+                    "description": "Username is the LDAP user to search, optional.",
+                    "type": "string"
+                }
+            }
+        },
         "TransferProjectOwner": {
             "type": "object",
             "required": [
@@ -4572,6 +5587,59 @@
             "properties": {
                 "userID": {
                     "type": "integer"
+                }
+            }
+        },
+        "UpdateAuthProvider": {
+            "type": "object",
+            "required": [
+                "allowedEmailDomains",
+                "allowedGroups",
+                "autoCreateUser",
+                "config",
+                "enabled",
+                "icon",
+                "linkByEmail",
+                "name"
+            ],
+            "properties": {
+                "allowedEmailDomains": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "allowedGroups": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "autoCreateUser": {
+                    "type": "boolean"
+                },
+                "bindPassword": {
+                    "description": "BindPassword is the password of the LDAP service account, empty keeps the saved one when updating.",
+                    "type": "string"
+                },
+                "clientSecret": {
+                    "description": "ClientSecret is the client secret of OAuth 2.0 or OIDC, empty keeps the saved one when updating.",
+                    "type": "string"
+                },
+                "config": {
+                    "$ref": "#/definitions/AuthProviderConfig"
+                },
+                "enabled": {
+                    "type": "boolean"
+                },
+                "icon": {
+                    "type": "string"
+                },
+                "linkByEmail": {
+                    "type": "boolean"
+                },
+                "name": {
+                    "type": "string"
                 }
             }
         },
@@ -4681,14 +5749,23 @@
         "UpdateSystemSettings": {
             "type": "object",
             "required": [
+                "allowPasswordSignIn",
                 "allowSignUp",
+                "externalURL",
                 "passwordMinLength",
                 "sessionTTLDays",
                 "siteName"
             ],
             "properties": {
+                "allowPasswordSignIn": {
+                    "type": "boolean"
+                },
                 "allowSignUp": {
                     "type": "boolean"
+                },
+                "externalURL": {
+                    "description": "ExternalURL is the external URL of the site, empty if not set.",
+                    "type": "string"
                 },
                 "passwordMinLength": {
                     "type": "integer"
@@ -4764,6 +5841,51 @@
                 },
                 "userName": {
                     "type": "string"
+                }
+            }
+        },
+        "UserIdentity": {
+            "type": "object",
+            "required": [
+                "createdAt",
+                "email",
+                "id",
+                "lastUsedAt",
+                "providerIcon",
+                "providerName",
+                "providerSlug",
+                "providerType"
+            ],
+            "properties": {
+                "createdAt": {
+                    "type": "string"
+                },
+                "email": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "lastUsedAt": {
+                    "type": "string"
+                },
+                "providerIcon": {
+                    "type": "string"
+                },
+                "providerName": {
+                    "type": "string"
+                },
+                "providerSlug": {
+                    "type": "string"
+                },
+                "providerType": {
+                    "type": "string",
+                    "enum": [
+                        "oauth2",
+                        "oidc",
+                        "saml",
+                        "ldap"
+                    ]
                 }
             }
         },

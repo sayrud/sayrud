@@ -64,7 +64,7 @@ type UsersStore interface {
 	SetAdmin(ctx context.Context, id int64, isAdmin bool) error
 	// SetDisabled disables or enables the user, disabling also deletes all its sessions. It returns ErrLastAdmin when disabling the last enabled admin.
 	SetDisabled(ctx context.Context, id int64, disabled bool) error
-	// Delete deletes the user along with its collaborator records, sessions and settings, the owned projects are transferred to transferTo.
+	// Delete deletes the user along with its collaborator records, sessions, settings and identities, the owned projects are transferred to transferTo.
 	// It returns ErrUserOwnsProjects if transferTo is 0 and the user still owns projects, and ErrLastAdmin when deleting the last enabled admin.
 	Delete(ctx context.Context, id, transferTo int64) error
 }
@@ -96,6 +96,11 @@ type User struct {
 // Disabled reports whether the user is disabled.
 func (u *User) Disabled() bool {
 	return u.DisabledAt != nil
+}
+
+// HasPassword reports whether the user has a password, the users created by third-party sign-in have none.
+func (u *User) HasPassword() bool {
+	return u.Password != ""
 }
 
 type users struct {
@@ -442,6 +447,9 @@ func (db *users) Delete(ctx context.Context, id, transferTo int64) error {
 		}
 		if err := tx.Where("user_id = ?", id).Delete(&Setting{}).Error; err != nil {
 			return errors.Wrap(err, "delete settings")
+		}
+		if err := tx.Where("user_id = ?", id).Delete(&UserIdentity{}).Error; err != nil {
+			return errors.Wrap(err, "delete identities")
 		}
 		result := tx.Delete(&User{}, id)
 		if result.Error != nil {

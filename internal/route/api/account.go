@@ -133,11 +133,11 @@ func (accountRoute) UpdateSettings(ctx context.Context, user *db.User, f form.Up
 
 // DeleteAccount
 // @Summary Delete the account of the signed-in user
-// @Description The projects owned by the user must be deleted or transferred first, and the last admin can not be deleted.
+// @Description The projects owned by the user must be deleted or transferred first, and the last admin can not be deleted. Users without a password confirm with their email instead.
 // @Accept json
-// @Param data body form.DeleteAccount true "Password"
+// @Param data body form.DeleteAccount true "Password or email confirmation"
 // @Success 204 "No Content"
-// @Failure 400 {string} string "Wrong password"
+// @Failure 400 {string} string "Wrong password or email"
 // @Failure 401 {string} string "Not signed in"
 // @Failure 409 {string} string "The user still owns projects or is the last admin"
 // @Failure 429 {string} string "Too many attempts"
@@ -145,18 +145,22 @@ func (accountRoute) UpdateSettings(ctx context.Context, user *db.User, f form.Up
 // @ID deleteAccount
 // @Router /auth/account [delete]
 func (accountRoute) DeleteAccount(ctx context.Context, hub *collab.Hub, user *db.User, f form.DeleteAccount) error {
-	if err := redis.AuthAttempts.CheckPassword(ctx.Request().Context(), user.Email); err != nil {
-		if errors.Is(err, redis.ErrTooManyAttempts) {
-			return ctx.ApiError(http.StatusTooManyRequests, "common::too_many_attempts")
+	if user.HasPassword() {
+		if err := redis.AuthAttempts.CheckPassword(ctx.Request().Context(), user.Email); err != nil {
+			if errors.Is(err, redis.ErrTooManyAttempts) {
+				return ctx.ApiError(http.StatusTooManyRequests, "common::too_many_attempts")
+			}
+			logrus.WithContext(ctx.Request().Context()).WithError(err).Warn("Failed to check password attempts")
 		}
-		logrus.WithContext(ctx.Request().Context()).WithError(err).Warn("Failed to check password attempts")
-	}
-	if _, err := db.Users.Authenticate(ctx.Request().Context(), user.Email, f.Password); err != nil {
-		if errors.Is(err, db.ErrBadCredential) {
-			return ctx.ApiError(http.StatusBadRequest, "auth::wrong_password")
+		if _, err := db.Users.Authenticate(ctx.Request().Context(), user.Email, f.Password); err != nil {
+			if errors.Is(err, db.ErrBadCredential) {
+				return ctx.ApiError(http.StatusBadRequest, "auth::wrong_password")
+			}
+			logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to authenticate")
+			return ctx.ApiServerError()
 		}
-		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to authenticate")
-		return ctx.ApiServerError()
+	} else if db.NormalizeEmail(f.ConfirmEmail) != user.Email {
+		return ctx.ApiError(http.StatusBadRequest, "account::confirm_email_mismatch")
 	}
 
 	if err := db.Users.Delete(ctx.Request().Context(), user.ID, 0); err != nil {

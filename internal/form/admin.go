@@ -32,4 +32,7 @@ type UpdateSystemSettings struct {
 	AllowSignUp       bool   `json:"allowSignUp"`
 	PasswordMinLength int    `json:"passwordMinLength"`
 	SessionTTLDays    int    `json:"sessionTTLDays"`
+	// ExternalURL is the external URL of the site, empty if not set.
+	ExternalURL         string `json:"externalURL"`
+	AllowPasswordSignIn bool   `json:"allowPasswordSignIn"`
 } // @name UpdateSystemSettings

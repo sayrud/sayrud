@@ -11,14 +11,28 @@ type SiteInfo struct {
 	SiteName          string `json:"siteName"`
 	AllowSignUp       bool   `json:"allowSignUp"`
 	PasswordMinLength int    `json:"passwordMinLength"`
+	// AllowPasswordSignIn being false shows only the third-party sign-in on the sign-in page, admins can still use a password.
+	AllowPasswordSignIn bool `json:"allowPasswordSignIn"`
+	// Providers are the enabled and usable sign-in methods in the order of the admin console.
+	Providers []*SiteAuthProvider `json:"providers"`
 } // @name SiteInfo
 
-func ToSiteInfo(s *db.SystemSettings) *SiteInfo {
-	return &SiteInfo{
-		SiteName:          s.SiteName,
-		AllowSignUp:       s.AllowSignUp,
-		PasswordMinLength: s.PasswordMinLength,
+// ToSiteInfo converts the site information, the redirect sign-in methods are omitted if the external URL is not set.
+func ToSiteInfo(s *db.SystemSettings, providers []*db.AuthProvider) *SiteInfo {
+	info := &SiteInfo{
+		SiteName:            s.SiteName,
+		AllowSignUp:         s.AllowSignUp && s.AllowPasswordSignIn,
+		PasswordMinLength:   s.PasswordMinLength,
+		AllowPasswordSignIn: s.AllowPasswordSignIn,
+		Providers:           make([]*SiteAuthProvider, 0, len(providers)),
 	}
+	for _, p := range providers {
+		if p.Type.Redirect() && s.ExternalURL == "" {
+			continue
+		}
+		info.Providers = append(info.Providers, ToSiteAuthProvider(p))
+	}
+	return info
 }
 
 // UserSession is a signed-in device of the user.

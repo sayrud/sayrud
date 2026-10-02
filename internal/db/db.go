@@ -42,7 +42,7 @@ func Init() (*gorm.DB, error) {
 	}
 
 	tables := []interface{}{
-		&User{}, &UserSession{}, &Setting{},
+		&User{}, &UserSession{}, &Setting{}, &AuthProvider{}, &UserIdentity{},
 		&Project{}, &ProjectMember{},
 
 		&SLTable{}, &SLField{}, &SLRecord{}, &SLView{}, &SLChangeset{},
@@ -73,6 +73,8 @@ func SetDatabaseStore(db *gorm.DB) {
 	Users = NewUsersStore(db)
 	UserSessions = NewUserSessionsStore(db)
 	Settings = NewSettingsStore(db)
+	AuthProviders = NewAuthProvidersStore(db)
+	UserIdentities = NewUserIdentitiesStore(db)
 	Projects = NewProjectsStore(db)
 	ProjectMembers = NewProjectMembersStore(db)
 

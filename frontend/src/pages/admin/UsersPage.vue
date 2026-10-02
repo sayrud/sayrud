@@ -10,6 +10,7 @@ import { adminApi, type AdminUser, type UserStatusFilter } from '@/api/admin'
 import DeleteUserModal from '@/components/admin/DeleteUserModal.vue'
 import ResetPasswordModal from '@/components/admin/ResetPasswordModal.vue'
 import UserFormModal from '@/components/admin/UserFormModal.vue'
+import ProviderIcon from '@/components/common/ProviderIcon.vue'
 import UserAvatar from '@/components/common/UserAvatar.vue'
 import PageHeader from '@/components/console/PageHeader.vue'
 import SettingsSection from '@/components/console/SettingsSection.vue'
@@ -220,6 +221,9 @@ onMounted(load)
               <div class="user-name">
                 <span class="ellipsis">{{ record.userName }}</span>
                 <a-tag v-if="record.id === auth.user?.id" size="small">{{ t('admin.users.you') }}</a-tag>
+                <a-tooltip v-for="p in record.providers" :key="p.slug" :content="p.name">
+                  <ProviderIcon :icon="p.icon" :size="14" />
+                </a-tooltip>
               </div>
               <div class="text-desc ellipsis">{{ record.email }}</div>
             </div>

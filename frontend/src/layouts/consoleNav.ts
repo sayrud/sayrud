@@ -2,6 +2,7 @@ import {
   Globe,
   LayoutDashboard,
   LockKeyhole,
+  LogIn,
   MonitorSmartphone,
   Palette,
   ShieldCheck,
@@ -80,8 +81,9 @@ export const ADMIN_NAV: NavGroup[] = [
       return t('consoleNav.system')
     },
     items: [
-      navItem('admin-security', LockKeyhole, () => t('consoleNav.adminSecurity')),
       navItem('admin-site', Globe, () => t('consoleNav.site')),
+      navItem('admin-security', LockKeyhole, () => t('consoleNav.adminSecurity')),
+      navItem('admin-sign-in-methods', LogIn, () => t('sso.admin.title')),
     ],
   },
 ]

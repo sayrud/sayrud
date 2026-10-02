@@ -1,9 +1,10 @@
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 
-import { accountApi } from '@/api/account'
+import { accountApi, type DeleteAccount } from '@/api/account'
 import { authApi, type Profile } from '@/api/auth'
 import { ApiError } from '@/api/client'
+import { ssoApi } from '@/api/sso'
 import type { Identity } from '@/collab/identity'
 
 export const useAuthStore = defineStore('auth', () => {
@@ -45,6 +46,10 @@ export const useAuthStore = defineStore('auth', () => {
     user.value = await authApi.signUp(email, userName, password)
   }
 
+  async function ldapSignIn(slug: string, username: string, password: string) {
+    user.value = await ssoApi.ldapSignIn(slug, username, password)
+  }
+
   async function signOut() {
     try {
       await authApi.signOut()
@@ -57,8 +62,8 @@ export const useAuthStore = defineStore('auth', () => {
     user.value = await authApi.updateProfile(userName)
   }
 
-  async function deleteAccount(password: string) {
-    await accountApi.deleteAccount(password)
+  async function deleteAccount(confirm: DeleteAccount) {
+    await accountApi.deleteAccount(confirm)
     user.value = null
   }
 
@@ -73,6 +78,7 @@ export const useAuthStore = defineStore('auth', () => {
     ensureLoaded,
     signIn,
     signUp,
+    ldapSignIn,
     signOut,
     updateName,
     updatePassword: authApi.updatePassword,
