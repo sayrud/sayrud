@@ -45,7 +45,7 @@ const docTemplate = `{
                 }
             },
             "put": {
-                "description": "Requires the admin. The API key is encrypted by auth.secret_key, empty keeps the saved one. It applies to the AI field shortcuts immediately.",
+                "description": "Requires the admin. The API key is encrypted by auth.secret_key, empty keeps the saved one. It updates the global AI model configuration immediately.",
                 "consumes": [
                     "application/json"
                 ],
@@ -2560,7 +2560,7 @@ const docTemplate = `{
         },
         "/projects/{projectUID}/field-shortcuts": {
             "get": {
-                "description": "List the built-in AI shortcuts and the enabled custom shortcuts, with the forms to configure them.",
+                "description": "List the enabled custom shortcuts, with the forms to configure them.",
                 "produces": [
                     "application/json"
                 ],
@@ -4770,7 +4770,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "enabled": {
-                    "description": "Enabled reports whether the AI field shortcuts can be executed.",
+                    "description": "Enabled reports whether the global AI model is enabled.",
                     "type": "boolean"
                 },
                 "model": {
@@ -5652,7 +5652,7 @@ const docTemplate = `{
                     "type": "boolean"
                 },
                 "id": {
-                    "description": "ID is the built-in shortcut ID, e.g. \"ai_classify\", or the UID of a custom shortcut.",
+                    "description": "ID is the UID of a custom shortcut.",
                     "type": "string"
                 },
                 "inputs": {
@@ -5675,11 +5675,11 @@ const docTemplate = `{
             ],
             "properties": {
                 "available": {
-                    "description": "Available is false if the shortcut can not be executed now, e.g. the AI model is not configured.",
+                    "description": "Available is false if the shortcut is disabled.",
                     "type": "boolean"
                 },
                 "description": {
-                    "description": "Description tells what the shortcut does, localized for the built-in shortcuts.",
+                    "description": "Description tells what the shortcut does.",
                     "type": "string"
                 },
                 "formItems": {
@@ -5690,19 +5690,18 @@ const docTemplate = `{
                     }
                 },
                 "id": {
-                    "description": "ID is the built-in shortcut ID, e.g. \"ai_classify\", or the UID of a custom shortcut.",
+                    "description": "ID is the UID of a custom shortcut.",
                     "type": "string"
                 },
                 "kind": {
-                    "description": "Kind is how the shortcut is executed, by the AI model or by a custom script.",
+                    "description": "Kind is how the shortcut is executed, by a custom script.",
                     "type": "string",
                     "enum": [
-                        "ai",
                         "script"
                     ]
                 },
                 "name": {
-                    "description": "Name is localized for the built-in shortcuts.",
+                    "description": "Name is shown in the field editor.",
                     "type": "string"
                 },
                 "resultTypes": {
@@ -6945,7 +6944,7 @@ const docTemplate = `{
                     "type": "boolean"
                 },
                 "enabled": {
-                    "description": "Enabled reports whether the AI field shortcuts can be executed.",
+                    "description": "Enabled reports whether the global AI model is enabled.",
                     "type": "boolean"
                 },
                 "model": {

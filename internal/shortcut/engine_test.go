@@ -10,6 +10,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"github.com/thanhpk/randstr"
+	"gorm.io/datatypes"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
@@ -60,8 +61,30 @@ func TestEngine(t *testing.T) {
 	require.NoError(t, err)
 
 	hub := collab.NewHub(gormDB)
-	ai := &fakeAI{reply: "Product"}
-	engine := NewEngine(gormDB, hub, &Executor{AI: func(context.Context) (AIClient, error) { return ai, nil }}, 1)
+	custom := &db.CustomFieldShortcut{
+		UID:        "fscCategry",
+		Name:       "Category",
+		ResultType: db.SingleSelectFieldType,
+		Code:       `function execute(params) { return params.source.includes("support") ? "Service" : "Product" }`,
+		FormItems: datatypes.NewJSONType([]db.ShortcutFormItem{
+			{Key: "source", Label: "Source", Component: db.ShortcutFormFieldSelect, Required: true},
+		}),
+		Domains:        datatypes.NewJSONType([]string{}),
+		Credentials:    datatypes.NewJSONType([]db.ShortcutCredential{}),
+		TimeoutSeconds: 5,
+		Enabled:        true,
+	}
+	require.NoError(t, gormDB.Create(custom).Error)
+	disabled := *custom
+	disabled.ID, disabled.UID, disabled.Enabled = 0, "fscDisable", false
+	require.NoError(t, gormDB.Create(&disabled).Error)
+	catalog, err := Catalog(ctx)
+	require.NoError(t, err)
+	require.Len(t, catalog, 1)
+	require.Equal(t, custom.UID, catalog[0].ID)
+	require.Equal(t, KindScript, catalog[0].Kind)
+
+	engine := NewEngine(gormDB, hub, NewExecutor(), 1)
 	jobs := db.NewSLShortcutJobsStore(gormDB)
 
 	const source, category = "fldSourceX", "fldCategry"
@@ -99,7 +122,7 @@ func TestEngine(t *testing.T) {
 	// An invalid shortcut rejects the whole changeset.
 	err = hub.Commit(ctx, project, table, nil, "invalid", []collab.Operation{{Command: "AddField", Actions: []collab.Action{{
 		Action: collab.ActionAddField, FieldUID: category,
-		Field: &collab.FieldAttrs{Label: strPtr("Category"), Type: strPtr("single_select"), Shortcut: &db.FieldShortcut{ID: "ai_classify", Inputs: map[string]interface{}{}}},
+		Field: &collab.FieldAttrs{Label: strPtr("Category"), Type: strPtr("single_select"), Shortcut: &db.FieldShortcut{ID: custom.UID, Inputs: map[string]interface{}{}}},
 	}}}}, func(collab.CommitResult) {})
 	var operationErr *collab.OperationError
 	require.ErrorAs(t, err, &operationErr)
@@ -113,7 +136,7 @@ func TestEngine(t *testing.T) {
 				map[string]interface{}{"uid": "optProduct", "name": "Product", "color": 0},
 				map[string]interface{}{"uid": "optService", "name": "Service", "color": 1},
 			}},
-			Shortcut: &db.FieldShortcut{ID: "ai_classify", Inputs: map[string]interface{}{"source": source}, AutoUpdate: true},
+			Shortcut: &db.FieldShortcut{ID: custom.UID, Inputs: map[string]interface{}{"source": source}, AutoUpdate: true},
 		}},
 		collab.Action{Action: collab.ActionAddRecord, RecordUID: "recAAAAAAAAAAA", Values: map[string]interface{}{source: "The app crashes"}},
 		collab.Action{Action: collab.ActionAddRecord, RecordUID: "recBBBBBBBBBBB", Values: map[string]interface{}{}},
@@ -125,11 +148,9 @@ func TestEngine(t *testing.T) {
 	processNext()
 	require.Equal(t, "optProduct", cell("recAAAAAAAAAAA"))
 	require.Nil(t, cell("recBBBBBBBBBBB"))
-	require.Equal(t, 1, ai.calls, "the empty record does not call the model")
 	waitJobs(func(list []*db.SLShortcutJob) bool { return len(list) == 0 })
 
 	// Changing the input regenerates the cell.
-	ai.reply = "Service"
 	commit("edit1", collab.Action{Action: collab.ActionSetRecord, RecordUID: "recBBBBBBBBBBB", Values: map[string]interface{}{source: "Slow support"}})
 	waitJobs(func(list []*db.SLShortcutJob) bool { return len(list) == 1 })
 	claimed, err := jobs.Claim(ctx)
@@ -152,7 +173,7 @@ func TestEngine(t *testing.T) {
 	require.Empty(t, list)
 
 	// Only toggling the auto update keeps the values.
-	commit("toggle", collab.Action{Action: collab.ActionSetFieldShortcut, FieldUID: category, Shortcut: &db.FieldShortcut{ID: "ai_classify", Inputs: map[string]interface{}{"source": source}}})
+	commit("toggle", collab.Action{Action: collab.ActionSetFieldShortcut, FieldUID: category, Shortcut: &db.FieldShortcut{ID: custom.UID, Inputs: map[string]interface{}{"source": source}}})
 	time.Sleep(100 * time.Millisecond)
 	list, err = jobs.ListByTableID(ctx, table.ID)
 	require.NoError(t, err)
@@ -162,7 +183,7 @@ func TestEngine(t *testing.T) {
 	require.False(t, field.Shortcut.AutoUpdate)
 
 	// Invalid outputs fail without retrying.
-	ai.reply = "Unknown"
+	require.NoError(t, gormDB.Model(custom).Update("code", `function execute() { return "Unknown" }`).Error)
 	_, err = engine.Run(ctx, project, table, &db.SLField{UID: category}, RunScopeRecords, []string{"recAAAAAAAAAAA"})
 	require.NoError(t, err)
 	processNext()
@@ -180,23 +201,29 @@ func TestEngine(t *testing.T) {
 	require.NoError(t, err)
 	require.Nil(t, field.Shortcut)
 
-	// Changing the type of a shortcut field regenerates the converted values if the shortcut supports the new type.
+	// Each custom shortcut supports one result type.
 	const amount = "fldAmountX"
+	amountShortcut := *custom
+	amountShortcut.ID, amountShortcut.UID, amountShortcut.Name = 0, "fscAmountX", "Amount"
+	amountShortcut.ResultType = db.TextFieldType
+	amountShortcut.Code = `function execute(params) { return String(params.source.length) }`
+	require.NoError(t, gormDB.Create(&amountShortcut).Error)
 	commit("extract", collab.Action{Action: collab.ActionAddField, FieldUID: amount, Field: &collab.FieldAttrs{
 		Label: strPtr("Amount"), Type: strPtr("text"),
-		Shortcut: &db.FieldShortcut{ID: "ai_extract", Inputs: map[string]interface{}{"source": source, "target": "the amount"}},
+		Shortcut: &db.FieldShortcut{ID: amountShortcut.UID, Inputs: map[string]interface{}{"source": source}},
 	}})
 	waitJobs(func(list []*db.SLShortcutJob) bool { return len(list) == 2 })
 	processNext()
 	processNext()
-	commit("toNumber", collab.Action{Action: collab.ActionSetFieldType, FieldUID: amount, Field: &collab.FieldAttrs{Type: strPtr("number"), Metadata: map[string]interface{}{"format": "0"}}})
+	_, err = engine.Run(ctx, project, table, &db.SLField{UID: amount}, RunScopeAll, nil)
+	require.NoError(t, err)
 	waitJobs(func(list []*db.SLShortcutJob) bool { return len(list) == 2 })
 	field, err = db.NewSLFieldsStore(gormDB).GetByUID(ctx, amount)
 	require.NoError(t, err)
 	require.NotNil(t, field.Shortcut)
 
-	// A type the shortcut does not support removes the shortcut along with its jobs.
-	commit("toCheckbox", collab.Action{Action: collab.ActionSetFieldType, FieldUID: amount, Field: &collab.FieldAttrs{Type: strPtr("checkbox")}})
+	// Changing to a different type removes the shortcut along with its jobs.
+	commit("toNumber", collab.Action{Action: collab.ActionSetFieldType, FieldUID: amount, Field: &collab.FieldAttrs{Type: strPtr("number"), Metadata: map[string]interface{}{"format": "0"}}})
 	field, err = db.NewSLFieldsStore(gormDB).GetByUID(ctx, amount)
 	require.NoError(t, err)
 	require.Nil(t, field.Shortcut)

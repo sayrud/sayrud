@@ -480,11 +480,11 @@ const es: typeof zhCN = {
   },
   admin: {
     ai: {
-      description: 'El modelo que usan los atajos de campo de IA; admite cualquier API de Chat Completions compatible con OpenAI',
+      description: 'Configuración global del modelo de IA; admite cualquier API Chat Completions compatible con OpenAI',
       secretsMissing: 'auth.secret_key no está configurada, no se puede guardar la clave de API. Configúrala en el archivo de configuración y reinicia el servidor',
       connection: 'API del modelo',
       enabled: 'Activado',
-      enabledDescription: 'Al desactivarlo, los atajos de campo de IA no están disponibles; los datos de las celdas generadas no cambian',
+      enabledDescription: 'Activa o desactiva las llamadas al modelo de IA',
       baseURL: 'URL de la API',
       model: 'Modelo',
       apiKey: 'Clave de API',

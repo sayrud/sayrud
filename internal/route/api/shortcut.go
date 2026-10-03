@@ -19,8 +19,7 @@ var Shortcut shortcutRoute
 
 type shortcutRoute struct{}
 
-func toManifest(def *shortcut.Definition, tr shortcut.Translator, aiConfigured bool) *dto.FieldShortcutManifest {
-	def = def.Localize(tr)
+func toManifest(def *shortcut.Definition) *dto.FieldShortcutManifest {
 	return &dto.FieldShortcutManifest{
 		ID:          def.ID,
 		Kind:        string(def.Kind),
@@ -28,7 +27,7 @@ func toManifest(def *shortcut.Definition, tr shortcut.Translator, aiConfigured b
 		Description: def.Description,
 		ResultTypes: lo.Map(def.ResultTypes, func(t db.SLFieldType, _ int) string { return string(t) }),
 		FormItems:   lo.Ternary(def.FormItems == nil, []db.ShortcutFormItem{}, def.FormItems),
-		Available:   def.Available(aiConfigured),
+		Available:   def.Available(),
 	}
 }
 
@@ -43,7 +42,7 @@ func shortcutErrorResponse(ctx context.Context, err error) (error, bool) {
 
 // ListFieldShortcuts
 // @Summary List field shortcuts
-// @Description List the built-in AI shortcuts and the enabled custom shortcuts, with the forms to configure them.
+// @Description List the enabled custom shortcuts, with the forms to configure them.
 // @Produce json
 // @Param projectUID path string true "Project UID"
 // @Success 200 {array} dto.FieldShortcutManifest
@@ -58,13 +57,8 @@ func (shortcutRoute) List(ctx context.Context) error {
 		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to list field shortcuts")
 		return ctx.ApiServerError()
 	}
-	aiConfigured, err := shortcut.AIConfigured(ctx.Request().Context())
-	if err != nil {
-		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to get AI settings")
-		return ctx.ApiServerError()
-	}
 	return ctx.ApiSuccess(lo.Map(defs, func(def *shortcut.Definition, _ int) *dto.FieldShortcutManifest {
-		return toManifest(def, ctx.Tr, aiConfigured)
+		return toManifest(def)
 	}))
 }
 

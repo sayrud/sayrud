@@ -480,11 +480,11 @@ const ptBR: typeof zhCN = {
   },
   admin: {
     ai: {
-      description: 'O modelo usado pelos atalhos de campo de IA; qualquer API de Chat Completions compatível com a OpenAI é suportada',
+      description: 'Configuração global do modelo de IA; suporta qualquer API Chat Completions compatível com OpenAI',
       secretsMissing: 'auth.secret_key não está configurada, a chave de API não pode ser salva. Defina-a no arquivo de configuração e reinicie o servidor',
       connection: 'API do modelo',
       enabled: 'Ativado',
-      enabledDescription: 'Quando desativado, os atalhos de campo de IA ficam indisponíveis; os dados das células geradas não mudam',
+      enabledDescription: 'Ativa ou desativa as chamadas ao modelo de IA',
       baseURL: 'URL da API',
       model: 'Modelo',
       apiKey: 'Chave de API',

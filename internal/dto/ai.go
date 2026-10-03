@@ -14,9 +14,9 @@ type AIAdviceResp struct {
 	Description string          `json:"description"`
 } // @name AIAdviceResp
 
-// AdminAISettings is the AI model used by the AI field shortcuts, the API key is not returned.
+// AdminAISettings is the global AI model configuration, the API key is not returned.
 type AdminAISettings struct {
-	// Enabled reports whether the AI field shortcuts can be executed.
+	// Enabled reports whether the global AI model is enabled.
 	Enabled bool `json:"enabled"`
 	// BaseURL is the API root including the version, e.g. https://api.openai.com/v1.
 	BaseURL string `json:"baseURL"`

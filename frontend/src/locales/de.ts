@@ -480,11 +480,11 @@ const de: typeof zhCN = {
   },
   admin: {
     ai: {
-      description: 'Das Modell, das die KI-Feldkürzel aufrufen. Jede OpenAI-kompatible Chat-Completions-API wird unterstützt',
+      description: 'Globale KI-Modellkonfiguration; unterstützt jede OpenAI-kompatible Chat-Completions-API',
       secretsMissing: 'auth.secret_key ist nicht konfiguriert, der API-Schlüssel kann nicht gespeichert werden. Lege ihn in der Konfigurationsdatei fest und starte den Server neu',
       connection: 'Modell-API',
       enabled: 'Aktiviert',
-      enabledDescription: 'Deaktiviert sind die KI-Feldkürzel nicht verfügbar, bereits erzeugte Zelldaten bleiben unverändert',
+      enabledDescription: 'Aktiviert oder deaktiviert Aufrufe des KI-Modells',
       baseURL: 'API-URL',
       model: 'Modell',
       apiKey: 'API-Schlüssel',

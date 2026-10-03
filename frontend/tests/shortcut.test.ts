@@ -29,14 +29,14 @@ test('field selects exclude the field itself, formulas and other types', () => {
 
 test('new shortcuts start with the default inputs and report the missing ones', () => {
   const manifest = {
-    id: 'ai_translate',
+    id: 'fscAAAAAAA',
     formItems: [
       { key: 'source', label: 'Source', component: 'field_select' as const, required: true },
       { key: 'language', label: 'Language', component: 'select' as const, required: true, default: 'English' },
     ],
   }
   assert.deepEqual(defaultInputs(manifest), { language: 'English' })
-  assert.deepEqual(newShortcut(manifest), { id: 'ai_translate', inputs: { language: 'English' }, autoUpdate: true })
+  assert.deepEqual(newShortcut(manifest), { id: 'fscAAAAAAA', inputs: { language: 'English' }, autoUpdate: true })
   assert.equal(missingInput(manifest, { language: 'English' }), 'Source')
   assert.equal(missingInput(manifest, { language: 'English', source: 'fldAAAAAAA' }), null)
 })

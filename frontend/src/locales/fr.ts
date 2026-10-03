@@ -480,11 +480,11 @@ const fr: typeof zhCN = {
   },
   admin: {
     ai: {
-      description: 'Le modèle appelé par les raccourcis de champ IA ; toute API Chat Completions compatible OpenAI est prise en charge',
+      description: 'Configuration globale du modèle d’IA ; prend en charge toute API Chat Completions compatible avec OpenAI',
       secretsMissing: 'auth.secret_key n’est pas configurée, la clé d’API ne peut pas être enregistrée. Définissez-la dans le fichier de configuration et redémarrez le serveur',
       connection: 'API du modèle',
       enabled: 'Activé',
-      enabledDescription: 'Une fois désactivés, les raccourcis de champ IA sont indisponibles ; les données des cellules générées restent inchangées',
+      enabledDescription: 'Active ou désactive les appels au modèle d’IA',
       baseURL: 'URL de l’API',
       model: 'Modèle',
       apiKey: 'Clé d’API',

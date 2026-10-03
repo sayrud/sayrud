@@ -26,9 +26,9 @@ type AIApply struct {
 	ActionJson json.RawMessage `json:"actionJson" swaggertype:"object"`
 } // @name AIApply
 
-// UpdateAISettings saves the AI model used by the AI field shortcuts.
+// UpdateAISettings saves the global AI model configuration.
 type UpdateAISettings struct {
-	// Enabled reports whether the AI field shortcuts can be executed.
+	// Enabled reports whether the global AI model is enabled.
 	Enabled bool `json:"enabled"`
 	// BaseURL is the API root including the version, e.g. https://api.openai.com/v1.
 	BaseURL string `json:"baseURL"`

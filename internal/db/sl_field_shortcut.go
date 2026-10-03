@@ -10,7 +10,7 @@ import (
 
 // FieldShortcut is the shortcut attached to a field, which generates the cell values of the field from the other fields of the record.
 type FieldShortcut struct {
-	// ID is the built-in shortcut ID, e.g. "ai_classify", or the UID of a custom shortcut.
+	// ID is the UID of a custom shortcut.
 	ID string `json:"id"`
 	// Inputs are the configured values keyed by the form item key, a field_select item stores the field UID,
 	// and a prompt item stores the text referencing the fields by `{fieldUID}`.

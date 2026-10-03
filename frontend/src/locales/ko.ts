@@ -480,11 +480,11 @@ const ko: typeof zhCN = {
   },
   admin: {
     ai: {
-      description: 'AI 필드 바로가기가 호출하는 모델입니다. OpenAI 호환 Chat Completions API를 지원합니다',
+      description: '전역 AI 모델 설정으로, OpenAI 호환 Chat Completions API를 지원합니다',
       secretsMissing: 'auth.secret_key가 설정되지 않아 API 키를 저장할 수 없습니다. 설정 파일에서 설정한 뒤 서버를 다시 시작하세요',
       connection: '모델 API',
       enabled: '사용',
-      enabledDescription: '끄면 AI 필드 바로가기를 사용할 수 없으며, 이미 생성된 셀 데이터는 그대로 유지됩니다',
+      enabledDescription: 'AI 모델 호출을 활성화하거나 비활성화합니다',
       baseURL: 'API URL',
       model: '모델',
       apiKey: 'API 키',

@@ -480,11 +480,11 @@ const zhTW: typeof zhCN = {
   },
   admin: {
     ai: {
-      description: 'AI 欄位捷徑呼叫的大型模型，支援任何 OpenAI 相容的 Chat Completions 介面',
+      description: '全域 AI 模型設定，支援任何 OpenAI 相容的 Chat Completions 介面',
       secretsMissing: '未設定 auth.secret_key，無法儲存 API Key。請在設定檔中設定後重新啟動服務',
       connection: '模型介面',
       enabled: '啟用',
-      enabledDescription: '關閉後 AI 欄位捷徑無法使用，已產生的儲存格資料維持不變',
+      enabledDescription: '啟用或停用 AI 模型呼叫',
       baseURL: '介面位址',
       model: '模型',
       apiKey: 'API Key',

@@ -8,19 +8,19 @@ import (
 
 // FieldShortcutManifest describes a field shortcut for the field editor to render the configuration form.
 type FieldShortcutManifest struct {
-	// ID is the built-in shortcut ID, e.g. "ai_classify", or the UID of a custom shortcut.
+	// ID is the UID of a custom shortcut.
 	ID string `json:"id"`
-	// Kind is how the shortcut is executed, by the AI model or by a custom script.
-	Kind string `json:"kind" enums:"ai,script"`
-	// Name is localized for the built-in shortcuts.
+	// Kind is how the shortcut is executed, by a custom script.
+	Kind string `json:"kind" enums:"script"`
+	// Name is shown in the field editor.
 	Name string `json:"name"`
-	// Description tells what the shortcut does, localized for the built-in shortcuts.
+	// Description tells what the shortcut does.
 	Description string `json:"description"`
 	// ResultTypes are the types of the fields the shortcut can be attached to.
 	ResultTypes []string `json:"resultTypes"`
 	// FormItems are the inputs to configure in the field editor.
 	FormItems []db.ShortcutFormItem `json:"formItems"`
-	// Available is false if the shortcut can not be executed now, e.g. the AI model is not configured.
+	// Available is false if the shortcut is disabled.
 	Available bool `json:"available"`
 } // @name FieldShortcutManifest
 

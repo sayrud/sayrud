@@ -480,11 +480,11 @@ const ru: typeof zhCN = {
   },
   admin: {
     ai: {
-      description: 'Модель, которую вызывают ярлыки полей ИИ. Поддерживается любой API Chat Completions, совместимый с OpenAI',
+      description: 'Глобальная настройка модели ИИ с поддержкой любого API Chat Completions, совместимого с OpenAI',
       secretsMissing: 'auth.secret_key не настроен, ключ API нельзя сохранить. Укажите его в файле конфигурации и перезапустите сервер',
       connection: 'API модели',
       enabled: 'Включено',
-      enabledDescription: 'Если выключить, ярлыки полей ИИ будут недоступны, уже созданные данные ячеек останутся',
+      enabledDescription: 'Включает или отключает вызовы модели ИИ',
       baseURL: 'URL API',
       model: 'Модель',
       apiKey: 'Ключ API',

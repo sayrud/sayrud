@@ -86,7 +86,7 @@ export interface AdminAISettings {
   apiKeySet: boolean;
   /** BaseURL is the API root including the version, e.g. https://api.openai.com/v1. */
   baseURL: string;
-  /** Enabled reports whether the AI field shortcuts can be executed. */
+  /** Enabled reports whether the global AI model is enabled. */
   enabled: boolean;
   /** Model is the name of the model to call. */
   model: string;
@@ -386,7 +386,7 @@ export interface FieldAttrs {
 export interface FieldShortcut {
   /** AutoUpdate regenerates the cell when any referenced field of the record changes. */
   autoUpdate: boolean;
-  /** ID is the built-in shortcut ID, e.g. "ai_classify", or the UID of a custom shortcut. */
+  /** ID is the UID of a custom shortcut. */
   id: string;
   /**
    * Inputs are the configured values keyed by the form item key, a field_select item stores the field UID,
@@ -396,17 +396,17 @@ export interface FieldShortcut {
 }
 
 export interface FieldShortcutManifest {
-  /** Available is false if the shortcut can not be executed now, e.g. the AI model is not configured. */
+  /** Available is false if the shortcut is disabled. */
   available: boolean;
-  /** Description tells what the shortcut does, localized for the built-in shortcuts. */
+  /** Description tells what the shortcut does. */
   description: string;
   /** FormItems are the inputs to configure in the field editor. */
   formItems: ShortcutFormItem[];
-  /** ID is the built-in shortcut ID, e.g. "ai_classify", or the UID of a custom shortcut. */
+  /** ID is the UID of a custom shortcut. */
   id: string;
-  /** Kind is how the shortcut is executed, by the AI model or by a custom script. */
-  kind: "ai" | "script";
-  /** Name is localized for the built-in shortcuts. */
+  /** Kind is how the shortcut is executed, by a custom script. */
+  kind: "script";
+  /** Name is shown in the field editor. */
   name: string;
   /** ResultTypes are the types of the fields the shortcut can be attached to. */
   resultTypes: string[];
@@ -817,7 +817,7 @@ export interface UpdateAISettings {
   baseURL: string;
   /** ClearAPIKey removes the saved API key, it is ignored if APIKey is given. */
   clearAPIKey?: boolean;
-  /** Enabled reports whether the AI field shortcuts can be executed. */
+  /** Enabled reports whether the global AI model is enabled. */
   enabled: boolean;
   /** Model is the name of the model to call, it is required if enabled. */
   model: string;
@@ -1335,7 +1335,7 @@ export class Api<
       }),
 
     /**
-     * @description Requires the admin. The API key is encrypted by auth.secret_key, empty keeps the saved one. It applies to the AI field shortcuts immediately.
+     * @description Requires the admin. The API key is encrypted by auth.secret_key, empty keeps the saved one. It updates the global AI model configuration immediately.
      *
      * @name UpdateAdminAiSettings
      * @summary Update the AI model settings
@@ -2303,7 +2303,7 @@ export class Api<
       }),
 
     /**
-     * @description List the built-in AI shortcuts and the enabled custom shortcuts, with the forms to configure them.
+     * @description List the enabled custom shortcuts, with the forms to configure them.
      *
      * @name ListFieldShortcuts
      * @summary List field shortcuts

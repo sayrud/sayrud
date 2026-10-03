@@ -99,7 +99,7 @@ export type FieldMetadata = FieldMetadataMap[FieldType]
 
 /** Shortcut attached to a field, which generates the cell values from the other fields on the server. */
 export interface FieldShortcut {
-  /** Built-in shortcut ID, e.g. "ai_classify", or the UID of a custom shortcut. */
+  /** UID of a custom shortcut. */
   id: string
   /** Configured values keyed by form item key, field_select stores the field UID and prompt references the fields by {fldXXXXXXX}. */
   inputs: Record<string, string>

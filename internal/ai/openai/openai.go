@@ -53,7 +53,7 @@ func (e *StatusError) Temporary() bool {
 	return e.StatusCode == http.StatusTooManyRequests || e.StatusCode == http.StatusRequestTimeout || e.StatusCode >= 500
 }
 
-// maxResponseSize limits the response body, the completions of the shortcuts are short.
+// maxResponseSize limits the response body of completion requests.
 const maxResponseSize = 4 << 20
 
 // Complete returns the content of the first choice, the temperature is 0 so the results are stable.

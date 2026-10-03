@@ -229,7 +229,7 @@ func (e *Engine) ValidateShortcut(ctx context.Context, fields []*db.SLField, fie
 }
 
 // ValidateField looks up the shortcut of the field and validates it, it returns *Error if invalid.
-// An unavailable shortcut is still valid, e.g. the model is not configured yet, its cells fail with the reason when generating.
+// A disabled shortcut is still valid; its cells fail with the reason when generating.
 func ValidateField(ctx context.Context, fields []*db.SLField, field *db.SLField) (*db.FieldShortcut, error) {
 	def, err := Lookup(ctx, field.Shortcut.ID)
 	if err != nil {

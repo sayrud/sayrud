@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Message } from '@arco-design/web-vue'
-import { Check, ChevronRight, Pencil, Search, Sparkles, TriangleAlert, Zap } from '@lucide/vue'
+import { Check, ChevronRight, Pencil, Search, TriangleAlert, Zap } from '@lucide/vue'
 import { computed, nextTick, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 
@@ -51,7 +51,6 @@ onMounted(() => {
 })
 
 const manifest = computed(() => store.shortcutManifest(shortcut.value?.id))
-const shortcutIcon = (m: Pick<FieldShortcutManifest, 'kind'>) => (m.kind === 'ai' ? Sparkles : Zap)
 
 function changeType(t: FieldType) {
   const prev = md.value
@@ -245,7 +244,7 @@ const numberExample = computed(() => formatNumber(1234.5678, String(md.value.for
       <div class="row">
         <div class="row-label">{{ t('fieldEditor.type') }}</div>
         <button ref="typeTrigger" type="button" class="type-trigger" :class="{ open: !!typeMenu }" @click="toggleTypeMenu">
-          <component :is="shortcutIcon(manifest)" v-if="shortcut && manifest" :size="16" class="shortcut-icon" />
+          <Zap v-if="shortcut && manifest" :size="16" class="shortcut-icon" />
           <FieldTypeIcon v-else :type="type" :size="16" />
           <span class="type-trigger-label">{{ shortcut ? (manifest?.name ?? shortcut.id) : fieldTypeInfo(type).label }}</span>
           <ChevronRight :size="16" class="type-trigger-arrow" />
@@ -405,7 +404,7 @@ const numberExample = computed(() => formatNumber(1234.5678, String(md.value.for
             @mouseenter="typeActive = filteredTypes.length + i"
             @click="selectShortcut(m)"
           >
-            <component :is="shortcutIcon(m)" :size="16" class="shortcut-icon" />
+            <Zap :size="16" class="shortcut-icon" />
             <span class="type-item-label">{{ m.name }}</span>
             <Check v-if="shortcut?.id === m.id" :size="15" class="type-check" />
           </div>

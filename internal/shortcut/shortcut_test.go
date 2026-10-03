@@ -7,7 +7,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"gorm.io/datatypes"
 
-	"github.com/wuhan005/sayrud/internal/ai/openai"
 	"github.com/wuhan005/sayrud/internal/conf"
 	"github.com/wuhan005/sayrud/internal/db"
 )
@@ -87,32 +86,14 @@ func TestCellValue(t *testing.T) {
 	}
 }
 
-func TestParseCompletion(t *testing.T) {
-	s := selectField("fldSSSSSSS", db.SingleSelectFieldType, "Bug", "UI Bug", "Feature")
-	m := selectField("fldMMMMMMM", db.MultiSelectFieldType, "UI", "API", "Docs")
-
-	for _, tc := range []struct {
-		field      *db.SLField
-		completion string
-		want       interface{}
-	}{
-		{s, "Feature.", "Feature"},
-		{s, `"UI Bug"`, "UI Bug"},
-		{s, "The category is: UI Bug", "UI Bug"},
-		{s, "NONE", nil},
-		{m, "```json\n[\"API\", \"Docs\", \"Other\"]\n```", []interface{}{"API", "Docs"}},
-		{m, "UI、API", []interface{}{"UI", "API"}},
-		{m, "[]", []interface{}{}},
-		{field("fldTTTTTTT", db.TextFieldType, nil), "```\nHello\n```", "Hello"},
-		{field("fldNNNNNNN", db.NumberFieldType, nil), "None", nil},
-	} {
-		got, err := parseCompletion(tc.field, tc.completion)
-		require.NoError(t, err, tc.completion)
-		require.Equal(t, tc.want, got, tc.completion)
+func TestRemovedBuiltins(t *testing.T) {
+	for _, id := range []string{"ai_classify", "ai_tag", "ai_translate", "ai_summarize", "ai_extract", "ai_custom"} {
+		def, err := Lookup(context.Background(), id)
+		require.Nil(t, def, id)
+		var shortcutErr *Error
+		require.ErrorAs(t, err, &shortcutErr, id)
+		require.Equal(t, "shortcut::not_found", shortcutErr.Key, id)
 	}
-
-	_, err := parseCompletion(m, `["Other"]`)
-	require.Error(t, err)
 }
 
 func TestValidate(t *testing.T) {
@@ -120,11 +101,21 @@ func TestValidate(t *testing.T) {
 	formula := field("fldFFFFFFF", db.FormulaFieldType, nil)
 	target := selectField("fldSSSSSSS", db.SingleSelectFieldType, "A")
 	fields := []*db.SLField{text, formula, target}
-	classify := builtins["ai_classify"].definition()
+	classify := CustomDefinition(&db.CustomFieldShortcut{
+		UID:        "fscAAAAAAA",
+		ResultType: db.SingleSelectFieldType,
+		Code:       `function execute() { return "A" }`,
+		FormItems: datatypes.NewJSONType([]db.ShortcutFormItem{
+			{Key: "source", Label: "Source", Component: db.ShortcutFormFieldSelect, Required: true},
+			{Key: "language", Label: "Language", Component: db.ShortcutFormSelect, Options: []db.ShortcutFormOption{{Value: "English", Label: "English"}}},
+			{Key: "prompt", Label: "Prompt", Component: db.ShortcutFormPrompt},
+		}),
+		Enabled: true,
+	})
 
-	got, err := Validate(classify, fields, target, &db.FieldShortcut{ID: "ai_classify", Inputs: map[string]interface{}{"source": " fldTTTTTTT ", "unknown": "x"}, AutoUpdate: true})
+	got, err := Validate(classify, fields, target, &db.FieldShortcut{ID: classify.ID, Inputs: map[string]interface{}{"source": " fldTTTTTTT ", "unknown": "x"}, AutoUpdate: true})
 	require.NoError(t, err)
-	require.Equal(t, &db.FieldShortcut{ID: "ai_classify", Inputs: map[string]interface{}{"source": "fldTTTTTTT"}, AutoUpdate: true}, got)
+	require.Equal(t, &db.FieldShortcut{ID: classify.ID, Inputs: map[string]interface{}{"source": "fldTTTTTTT"}, AutoUpdate: true}, got)
 
 	for name, tc := range map[string]struct {
 		def    *Definition
@@ -137,8 +128,8 @@ func TestValidate(t *testing.T) {
 		"formula":          {classify, target, map[string]interface{}{"source": "fldFFFFFFF"}, "shortcut::invalid_input_field"},
 		"missing":          {classify, target, map[string]interface{}{"source": "fldXXXXXXX"}, "shortcut::invalid_input_field"},
 		"type":             {classify, text, map[string]interface{}{"source": "fldSSSSSSS"}, "shortcut::unsupported_type"},
-		"option":           {builtins["ai_translate"].definition(), text, map[string]interface{}{"source": "fldSSSSSSS", "language": "Klingon"}, "shortcut::invalid_option"},
-		"prompt reference": {builtins["ai_custom"].definition(), text, map[string]interface{}{"prompt": "Use {fldFFFFFFF}"}, "shortcut::invalid_input_field"},
+		"option":           {classify, target, map[string]interface{}{"source": "fldTTTTTTT", "language": "Klingon"}, "shortcut::invalid_option"},
+		"prompt reference": {classify, target, map[string]interface{}{"source": "fldTTTTTTT", "prompt": "Use {fldFFFFFFF}"}, "shortcut::invalid_input_field"},
 	} {
 		_, err := Validate(tc.def, fields, tc.field, &db.FieldShortcut{ID: tc.def.ID, Inputs: tc.inputs})
 		var shortcutErr *Error
@@ -151,77 +142,50 @@ func TestValidateCycle(t *testing.T) {
 	a := field("fldAAAAAAA", db.TextFieldType, nil)
 	b := field("fldBBBBBBB", db.TextFieldType, nil)
 	c := field("fldCCCCCCC", db.TextFieldType, nil)
-	b.Shortcut = &db.FieldShortcut{ID: "ai_summarize", Inputs: map[string]interface{}{"source": "fldAAAAAAA"}}
-	c.Shortcut = &db.FieldShortcut{ID: "ai_custom", Inputs: map[string]interface{}{"prompt": "Rewrite {fldBBBBBBB}"}}
+	b.Shortcut = &db.FieldShortcut{ID: "fscAAAAAAA", Inputs: map[string]interface{}{"source": "fldAAAAAAA"}}
+	c.Shortcut = &db.FieldShortcut{ID: "fscBBBBBBB", Inputs: map[string]interface{}{"prompt": "Rewrite {fldBBBBBBB}"}}
 	fields := []*db.SLField{a, b, c}
-	summarize := builtins["ai_summarize"].definition()
+	summarize := CustomDefinition(&db.CustomFieldShortcut{
+		UID:        "fscAAAAAAA",
+		ResultType: db.TextFieldType,
+		Code:       `function execute(params) { return params.source }`,
+		FormItems: datatypes.NewJSONType([]db.ShortcutFormItem{
+			{Key: "source", Label: "Source", Component: db.ShortcutFormFieldSelect, Required: true},
+		}),
+		Enabled: true,
+	})
 
 	// a <- b <- c, so a can not read c.
-	_, err := Validate(summarize, fields, a, &db.FieldShortcut{ID: "ai_summarize", Inputs: map[string]interface{}{"source": "fldCCCCCCC"}})
+	_, err := Validate(summarize, fields, a, &db.FieldShortcut{ID: summarize.ID, Inputs: map[string]interface{}{"source": "fldCCCCCCC"}})
 	var shortcutErr *Error
 	require.ErrorAs(t, err, &shortcutErr)
 	require.Equal(t, "shortcut::cycle", shortcutErr.Key)
 
-	_, err = Validate(summarize, fields, c, &db.FieldShortcut{ID: "ai_summarize", Inputs: map[string]interface{}{"source": "fldAAAAAAA"}})
+	_, err = Validate(summarize, fields, c, &db.FieldShortcut{ID: summarize.ID, Inputs: map[string]interface{}{"source": "fldAAAAAAA"}})
 	require.NoError(t, err)
 
 	require.ElementsMatch(t, []string{"fldBBBBBBB"}, Dependencies(c.Shortcut))
 }
 
-type fakeAI struct {
-	reply    string
-	messages []openai.Message
-	calls    int
-}
-
-func (f *fakeAI) Complete(_ context.Context, messages []openai.Message) (string, error) {
-	f.calls++
-	f.messages = messages
-	return f.reply, nil
-}
-
-func TestExecuteAI(t *testing.T) {
-	text := field("fldTTTTTTT", db.TextFieldType, nil)
-	target := selectField("fldSSSSSSS", db.SingleSelectFieldType, "Product", "Service", "Other")
-	target.Shortcut = &db.FieldShortcut{ID: "ai_classify", Inputs: map[string]interface{}{"source": "fldTTTTTTT", "requirement": "Product issues first"}}
-	fields := []*db.SLField{text, target}
-	ai := &fakeAI{reply: "Product"}
-	executor := &Executor{AI: func(context.Context) (AIClient, error) { return ai, nil }}
-	def := builtins["ai_classify"].definition()
-
-	value, err := executor.Execute(context.Background(), def, fields, target, map[string]interface{}{"fldTTTTTTT": "The app crashes"}, Env{})
-	require.NoError(t, err)
-	require.Equal(t, "optA", value)
-	require.Equal(t, 1, ai.calls)
-	require.Contains(t, ai.messages[0].Content, "Product issues first")
-	require.Contains(t, ai.messages[1].Content, "- Product\n- Service\n- Other")
-	require.Contains(t, ai.messages[1].Content, "The app crashes")
-
-	// Empty inputs clear the cell without calling the model.
-	value, err = executor.Execute(context.Background(), def, fields, target, map[string]interface{}{}, Env{})
-	require.NoError(t, err)
-	require.Nil(t, value)
-	require.Equal(t, 1, ai.calls)
-
-	_, err = (&Executor{AI: func(context.Context) (AIClient, error) { return nil, nil }}).Execute(context.Background(), def, fields, target, map[string]interface{}{"fldTTTTTTT": "x"}, Env{})
-	var shortcutErr *Error
-	require.ErrorAs(t, err, &shortcutErr)
-	require.Equal(t, "shortcut::ai_unavailable", shortcutErr.Key)
-}
-
 func TestExecutePrompt(t *testing.T) {
 	name := field("fldNNNNNNN", db.TextFieldType, nil)
 	count := field("fldCCCCCCC", db.NumberFieldType, nil)
-	target := field("fldTTTTTTT", db.NumberFieldType, nil)
-	target.Shortcut = &db.FieldShortcut{ID: "ai_custom", Inputs: map[string]interface{}{"prompt": "Double {fldCCCCCCC} for {fldNNNNNNN}"}}
-	ai := &fakeAI{reply: "42"}
-	executor := &Executor{AI: func(context.Context) (AIClient, error) { return ai, nil }}
+	target := field("fldTTTTTTT", db.TextFieldType, nil)
+	target.Shortcut = &db.FieldShortcut{ID: "fscAAAAAAA", Inputs: map[string]interface{}{"prompt": "Double {fldCCCCCCC} for {fldNNNNNNN}"}}
+	def := CustomDefinition(&db.CustomFieldShortcut{
+		UID:        "fscAAAAAAA",
+		ResultType: db.TextFieldType,
+		Code:       `function execute(params) { return params.prompt }`,
+		FormItems: datatypes.NewJSONType([]db.ShortcutFormItem{
+			{Key: "prompt", Label: "Prompt", Component: db.ShortcutFormPrompt, Required: true},
+		}),
+		Enabled: true,
+	})
 
-	value, err := executor.Execute(context.Background(), builtins["ai_custom"].definition(), []*db.SLField{name, count, target}, target,
+	value, err := NewExecutor().Execute(context.Background(), def, []*db.SLField{name, count, target}, target,
 		map[string]interface{}{"fldCCCCCCC": float64(21), "fldNNNNNNN": "Alice"}, Env{})
 	require.NoError(t, err)
-	require.Equal(t, float64(42), value)
-	require.Equal(t, "Double 21 for Alice", ai.messages[1].Content)
+	require.Equal(t, "Double 21 for Alice", value)
 }
 
 func TestExecuteScript(t *testing.T) {
@@ -257,6 +221,11 @@ func TestExecuteScript(t *testing.T) {
 	require.Equal(t, float64(5), value)
 
 	custom.Code = `function execute() { throw new Error("quota exceeded") }`
+	// Empty inputs clear the cell without executing the script.
+	value, err = NewExecutor().Execute(context.Background(), CustomDefinition(custom), []*db.SLField{source, target}, target, map[string]interface{}{}, Env{})
+	require.NoError(t, err)
+	require.Nil(t, value)
+
 	_, err = NewExecutor().Execute(context.Background(), CustomDefinition(custom), []*db.SLField{source, target}, target, map[string]interface{}{"fldTTTTTTT": "hello"}, Env{})
 	var shortcutErr *Error
 	require.ErrorAs(t, err, &shortcutErr)
@@ -269,12 +238,12 @@ func TestErrorText(t *testing.T) {
 		switch key {
 		case "shortcut::input_required":
 			return "required: " + args[0].(string)
-		case "shortcut::form_source":
+		case "custom::source":
 			return "Source"
 		}
 		return key
 	}
-	require.Equal(t, "required: Source", ErrorText(tr, db.ShortcutJobError{Key: "shortcut::input_required", Args: []string{"shortcut::form_source"}}))
+	require.Equal(t, "required: Source", ErrorText(tr, db.ShortcutJobError{Key: "shortcut::input_required", Args: []string{"custom::source"}}))
 	require.Equal(t, "shortcut::script_error: boom", ErrorText(tr, db.ShortcutJobError{Key: "shortcut::script_error", Detail: "boom"}))
 	require.Empty(t, ErrorText(tr, db.ShortcutJobError{}))
 }

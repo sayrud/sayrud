@@ -478,11 +478,11 @@ export default {
   },
   admin: {
     ai: {
-      description: 'AI 字段捷径调用的大模型，支持任意 OpenAI 兼容的 Chat Completions 接口',
+      description: '全局 AI 模型配置，支持任意 OpenAI 兼容的 Chat Completions 接口',
       secretsMissing: '未配置 auth.secret_key，无法保存 API Key。请在配置文件中设置后重启服务',
       connection: '模型接口',
       enabled: '启用',
-      enabledDescription: '关闭后 AI 字段捷径不可用，已生成的单元格数据保持不变',
+      enabledDescription: '启用或停用 AI 模型调用',
       baseURL: '接口地址',
       model: '模型',
       apiKey: 'API Key',

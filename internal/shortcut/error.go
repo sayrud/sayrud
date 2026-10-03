@@ -1,5 +1,5 @@
 // Package shortcut implements the field shortcuts, which generate the cell values of a field from the other fields of the record
-// by the built-in AI shortcuts or the custom JavaScript shortcuts, and keep them updated in the background.
+// by custom JavaScript shortcuts, and keep them updated in the background.
 package shortcut
 
 import (
@@ -20,7 +20,7 @@ type Error struct {
 	Args []string
 	// Detail is the untranslated text appended to the message, e.g. the error thrown by the script.
 	Detail string
-	// Transient reports whether retrying may succeed, e.g. the model is rate limited.
+	// Transient reports whether retrying may succeed, e.g. execution was interrupted.
 	Transient bool
 }
 
@@ -62,7 +62,7 @@ func ErrorText(tr Translator, jobErr db.ShortcutJobError) string {
 	}
 	args := make([]interface{}, 0, len(jobErr.Args))
 	for _, arg := range jobErr.Args {
-		// The labels of the built-in form items are message keys.
+		// Historical job errors may include translated form item labels.
 		if messageKeyPattern.MatchString(arg) {
 			arg = tr(arg)
 		}

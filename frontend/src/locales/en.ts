@@ -480,11 +480,11 @@ const en: typeof zhCN = {
   },
   admin: {
     ai: {
-      description: 'The model called by the AI field shortcuts, any OpenAI-compatible Chat Completions API is supported',
+      description: 'Global AI model configuration, supporting any OpenAI-compatible Chat Completions API',
       secretsMissing: 'auth.secret_key is not configured, the API key can not be saved. Set it in the config file and restart the server',
       connection: 'Model API',
       enabled: 'Enabled',
-      enabledDescription: 'The AI field shortcuts are unavailable when disabled, the generated cell data stays unchanged',
+      enabledDescription: 'Enable or disable AI model calls',
       baseURL: 'API URL',
       model: 'Model',
       apiKey: 'API key',

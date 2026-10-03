@@ -230,9 +230,9 @@ func (db *settings) SaveSystem(ctx context.Context, s SystemSettings) error {
 	return db.save(ctx, SystemSettingsUserID, s)
 }
 
-// AISettings is the OpenAI-compatible Chat Completions endpoint called by the AI field shortcuts, edited in the admin console.
+// AISettings is the global OpenAI-compatible Chat Completions model configuration, edited in the admin console.
 type AISettings struct {
-	// Enabled reports whether the AI field shortcuts can be executed.
+	// Enabled reports whether the global AI model is enabled.
 	Enabled bool `json:"enabled"`
 	// BaseURL is the API root including the version, e.g. https://api.openai.com/v1.
 	BaseURL string `json:"baseURL"`
@@ -252,7 +252,7 @@ type aiSettingsRow struct {
 const (
 	AIModelMaxLength    = 128
 	AITimeoutSecondsMin = 1
-	// AITimeoutSecondsMax is within the time limit of 2 minutes of executing an AI shortcut.
+	// AITimeoutSecondsMax limits AI completion requests to 2 minutes.
 	AITimeoutSecondsMax = 120
 )
 

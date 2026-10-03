@@ -11,7 +11,7 @@ import { client } from './client'
 
 export type { AdminFieldShortcut, SaveFieldShortcut, ShortcutFormItem, TestFieldShortcutResp }
 
-export type ShortcutKind = 'ai' | 'script'
+export type ShortcutKind = 'script'
 
 export type FieldShortcutManifest = Omit<ApiManifest, 'kind' | 'resultTypes'> & { kind: ShortcutKind; resultTypes: FieldType[] }
 

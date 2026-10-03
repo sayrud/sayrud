@@ -32,15 +32,6 @@ func fieldOptions(field *db.SLField) []selectOption {
 	return options
 }
 
-func optionNames(field *db.SLField) []string {
-	options := fieldOptions(field)
-	names := make([]string, 0, len(options))
-	for _, o := range options {
-		names = append(names, o.Name)
-	}
-	return names
-}
-
 // InputValue converts the cell value to the shortcut input: strings for text and dates, numbers, booleans,
 // the option name for single select and the option names for multiple select. It returns nil for empty cells.
 func InputValue(field *db.SLField, value interface{}) interface{} {

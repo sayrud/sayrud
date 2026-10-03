@@ -1,6 +1,7 @@
 package db
 
 import (
+	"context"
 	"encoding/json"
 	"strings"
 	"testing"
@@ -160,6 +161,16 @@ func TestSettingValues(t *testing.T) {
 		"theme": json.RawMessage(`"dark"`),
 		"other": json.RawMessage(`1`),
 	})))
+}
+
+func TestAISettingsStore(t *testing.T) {
+	ctx := context.Background()
+	store := NewSettingsStore(newTestDB(t, &Setting{}))
+	want := AISettings{Enabled: true, BaseURL: "https://api.openai.com/v1", Model: "test-model", SealedAPIKey: "sealed-key", TimeoutSeconds: 30}
+	require.NoError(t, store.SaveAI(ctx, want))
+	got, err := store.GetAI(ctx)
+	require.NoError(t, err)
+	require.Equal(t, want, *got)
 }
 
 func TestParseAISettings(t *testing.T) {

@@ -9,17 +9,17 @@ import (
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 
+	"github.com/wuhan005/sayrud/internal/ai"
 	"github.com/wuhan005/sayrud/internal/ai/openai"
 	"github.com/wuhan005/sayrud/internal/context"
 	"github.com/wuhan005/sayrud/internal/db"
 	"github.com/wuhan005/sayrud/internal/dto"
 	"github.com/wuhan005/sayrud/internal/form"
-	"github.com/wuhan005/sayrud/internal/shortcut"
 	"github.com/wuhan005/sayrud/internal/sso"
 )
 
 func toAdminAISettings(s *db.AISettings) *dto.AdminAISettings {
-	apiKey, err := shortcut.OpenAPIKey(s.SealedAPIKey)
+	apiKey, err := ai.OpenAPIKey(s.SealedAPIKey)
 	return &dto.AdminAISettings{
 		Enabled:        s.Enabled,
 		BaseURL:        s.BaseURL,
@@ -56,7 +56,7 @@ func formAPIKey(saved *db.AISettings, f form.UpdateAISettings) string {
 	if f.ClearAPIKey {
 		return ""
 	}
-	apiKey, _ := shortcut.OpenAPIKey(saved.SealedAPIKey)
+	apiKey, _ := ai.OpenAPIKey(saved.SealedAPIKey)
 	return apiKey
 }
 
@@ -80,7 +80,7 @@ func (adminRoute) GetAISettings(ctx context.Context) error {
 
 // UpdateAISettings
 // @Summary Update the AI model settings
-// @Description Requires the admin. The API key is encrypted by auth.secret_key, empty keeps the saved one. It applies to the AI field shortcuts immediately.
+// @Description Requires the admin. The API key is encrypted by auth.secret_key, empty keeps the saved one. It updates the global AI model configuration immediately.
 // @Accept json
 // @Produce json
 // @Param data body form.UpdateAISettings true "AI model settings"
@@ -107,7 +107,7 @@ func (adminRoute) UpdateAISettings(ctx context.Context, f form.UpdateAISettings)
 		if !sso.SecretsReady() {
 			return ctx.ApiError(http.StatusBadRequest, "ai::secret_key_required")
 		}
-		if s.SealedAPIKey, err = shortcut.SealAPIKey(strings.TrimSpace(f.APIKey)); err != nil {
+		if s.SealedAPIKey, err = ai.SealAPIKey(strings.TrimSpace(f.APIKey)); err != nil {
 			logrus.WithContext(c).WithError(err).Error("Failed to seal the API key")
 			return ctx.ApiServerError()
 		}
@@ -147,7 +147,7 @@ func (adminRoute) TestAISettings(ctx context.Context, f form.UpdateAISettings) e
 	}
 
 	start := time.Now()
-	reply, err := shortcut.NewAIClient(s, formAPIKey(saved, f)).Complete(c, []openai.Message{
+	reply, err := ai.NewAIClient(s, formAPIKey(saved, f)).Complete(c, []openai.Message{
 		{Role: "system", Content: "This is a connectivity test. Reply with OK only."},
 		{Role: "user", Content: "ping"},
 	})

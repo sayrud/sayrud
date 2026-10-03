@@ -480,11 +480,11 @@ const ja: typeof zhCN = {
   },
   admin: {
     ai: {
-      description: 'AI フィールドショートカットが呼び出すモデルです。OpenAI 互換の Chat Completions API に対応します',
+      description: 'グローバル AI モデル設定。OpenAI 互換の Chat Completions API に対応します',
       secretsMissing: 'auth.secret_key が設定されていないため、API キーを保存できません。設定ファイルで設定してからサーバーを再起動してください',
       connection: 'モデル API',
       enabled: '有効',
-      enabledDescription: '無効にすると AI フィールドショートカットは使用できません。生成済みのセルデータはそのまま残ります',
+      enabledDescription: 'AI モデルの呼び出しを有効または無効にします',
       baseURL: 'API の URL',
       model: 'モデル',
       apiKey: 'API キー',
