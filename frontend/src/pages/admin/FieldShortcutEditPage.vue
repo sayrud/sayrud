@@ -296,9 +296,6 @@ onBeforeUnmount(() => {
   window.removeEventListener('keydown', onKeydown)
 })
 
-const isMac = /Mac|iPhone|iPad/.test(navigator.platform)
-const runKeys = isMac ? '⌘ ↵' : 'Ctrl ↵'
-
 const format = (v: unknown) => (v === undefined ? 'undefined' : JSON.stringify(v, null, 2))
 </script>
 
@@ -381,10 +378,6 @@ const format = (v: unknown) => (v === undefined ? 'undefined' : JSON.stringify(v
 
               <a-tab-pane key="code" :title="t('shortcutAdmin.code')">
                 <div class="pane">
-                  <div class="pane-head">
-                    <span class="text-desc">{{ t('shortcutAdmin.codeDescription') }}</span>
-                    <a-tag size="small" class="lang-tag">JavaScript</a-tag>
-                  </div>
                   <CodeEditor
                     v-model="draft.code"
                     language="javascript"
@@ -400,7 +393,7 @@ const format = (v: unknown) => (v === undefined ? 'undefined' : JSON.stringify(v
                   <a-form-item :label="t('shortcutAdmin.domains')" :extra="t('shortcutAdmin.domainsDescription')">
                     <a-input-tag v-model="draft.domains" :placeholder="t('shortcutAdmin.domainsPlaceholder')" allow-clear unique-value />
                   </a-form-item>
-                  <a-form-item :label="t('shortcutAdmin.credentials')" :extra="t('shortcutAdmin.credentialsDescription')">
+                  <a-form-item :label="t('shortcutAdmin.credentials')">
                     <div class="credentials">
                       <div v-if="draft.credentials.length" class="credential-table">
                         <div class="credential-row credential-head">
@@ -462,12 +455,10 @@ const format = (v: unknown) => (v === undefined ? 'undefined' : JSON.stringify(v
                 :aria-label="t('shortcutAdmin.params')"
                 @submit="test"
               />
-              <div class="text-desc panel-extra">{{ t('shortcutAdmin.paramsDescription') }}</div>
 
               <a-button type="primary" long :loading="testing" @click="test">
                 <template #icon><Play :size="14" /></template>
                 {{ t('shortcutAdmin.run') }}
-                <span class="kbd">{{ runKeys }}</span>
               </a-button>
 
               <div v-if="testResult" class="result">
@@ -539,6 +530,11 @@ const format = (v: unknown) => (v === undefined ? 'undefined' : JSON.stringify(v
   overflow-y: auto;
   border-radius: 8px;
 }
+.aside :deep(.arco-card-header) {
+  box-sizing: border-box;
+  height: 50px !important;
+  padding: 0 24px !important;
+}
 .main > * + * {
   margin-top: 16px;
 }
@@ -549,15 +545,18 @@ const format = (v: unknown) => (v === undefined ? 'undefined' : JSON.stringify(v
   background: var(--bg-body);
 }
 .tabs :deep(.arco-tabs-nav) {
+  height: 50px;
   padding: 0 24px;
 }
 .tabs :deep(.arco-tabs-nav::before) {
   background-color: var(--line-border);
 }
 .tabs :deep(.arco-tabs-tab) {
+  height: 50px;
   margin: 0 28px 0 0;
-  padding: 14px 0;
+  padding: 0;
   font-size: 14px;
+  box-sizing: border-box;
 }
 .tabs :deep(.arco-tabs-tab-title) {
   padding: 0;
@@ -573,17 +572,6 @@ const format = (v: unknown) => (v === undefined ? 'undefined' : JSON.stringify(v
 }
 .pane {
   padding: 20px 24px 24px;
-}
-.pane-head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 16px;
-  margin-bottom: 12px;
-  line-height: 1.6;
-}
-.pane-head .lang-tag {
-  flex: none;
 }
 .tab-title {
   display: inline-flex;
@@ -608,9 +596,6 @@ const format = (v: unknown) => (v === undefined ? 'undefined' : JSON.stringify(v
 }
 .timeout {
   width: 180px;
-}
-.lang-tag {
-  font-family: 'SF Mono', Menlo, Consolas, monospace;
 }
 .credentials {
   display: flex;
@@ -648,29 +633,17 @@ const format = (v: unknown) => (v === undefined ? 'undefined' : JSON.stringify(v
   display: flex;
   flex-direction: column;
   gap: 8px;
+  /* Matches the left pane's 20px top padding; the card body already has 8px. */
   padding: 12px 0 16px;
 }
 .panel-label {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-top: 4px;
+  min-height: 28px;
   font-size: 13px;
   font-weight: 500;
   color: var(--text-title);
-}
-.panel-extra {
-  margin-bottom: 4px;
-  font-size: 12px;
-  line-height: 1.6;
-}
-.kbd {
-  margin-left: 8px;
-  padding: 0 5px;
-  border-radius: 4px;
-  background: rgba(255, 255, 255, 0.2);
-  font-size: 11px;
-  line-height: 18px;
 }
 .result {
   display: flex;

@@ -196,10 +196,6 @@ defineExpose({ focus: () => view?.focus() })
 .code-editor:hover:not(.readonly) {
   border-color: var(--line-border-strong);
 }
-.code-editor.focused:not(.readonly) {
-  border-color: var(--color-primary);
-  box-shadow: 0 0 0 2px var(--bg-primary-soft);
-}
 .code-editor.error,
 .code-editor.error:hover {
   border-color: var(--color-danger);
