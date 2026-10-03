@@ -7,7 +7,7 @@ import { useI18n } from 'vue-i18n'
 import FieldValueEditor from '@/components/cell/FieldValueEditor.vue'
 import FieldTypeIcon from '@/components/field/FieldTypeIcon.vue'
 import { useBaseStore } from '@/stores/base'
-import type { CellValue, FormFieldConfig, RecordData, SLView } from '@/types/bitable'
+import type { CellValue, FormFieldConfig, RecordData, SLField, SLView } from '@/types/bitable'
 import { defaultValueOf, isEmptyValue } from '@/utils/format'
 
 const { t } = useI18n()
@@ -17,14 +17,15 @@ const store = useBaseStore()
 
 const form = computed(() => props.view.config.form ?? { title: props.view.name, description: '', fields: [] })
 
-/** Form field config in the saved order, with the new fields appended, formula fields can not be filled. */
+/** Form field config in the saved order, with the new fields appended, the formula and shortcut fields are generated so they can not be filled. */
+const fillable = (f: SLField | undefined) => !!f && f.type !== 'formula' && !f.shortcut
 const fieldConfigs = computed<FormFieldConfig[]>(() => {
   const saved = form.value.fields.filter((c) => store.fields.some((f) => f.uid === c.fieldUID))
   const known = new Set(saved.map((c) => c.fieldUID))
   const added = store.fields
-    .filter((f) => !known.has(f.uid) && f.type !== 'formula')
+    .filter((f) => !known.has(f.uid) && fillable(f))
     .map((f) => ({ fieldUID: f.uid, required: false, hidden: false }))
-  return [...saved, ...added].filter((c) => store.fields.find((f) => f.uid === c.fieldUID)?.type !== 'formula')
+  return [...saved, ...added].filter((c) => fillable(store.fields.find((f) => f.uid === c.fieldUID)))
 })
 const shown = computed(() => fieldConfigs.value.filter((c) => !c.hidden))
 const fieldOf = (uid: string) => store.fields.find((f) => f.uid === uid)!

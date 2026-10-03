@@ -157,11 +157,31 @@ func TestInitInvalidObservabilityConfig(t *testing.T) {
 	}
 }
 
+func TestInitShortcut(t *testing.T) {
+	restoreConfigAfterTest(t)
+
+	if err := Init(writeTestConfig(t, "app:\n  port: 2830\n")); err != nil {
+		t.Fatalf("Init() failed: %v", err)
+	}
+	if Shortcut.Workers != 4 {
+		t.Errorf("defaults = %#v", Shortcut)
+	}
+
+	if err := Init(writeTestConfig(t, "shortcut:\n  workers: 2\n")); err != nil {
+		t.Fatalf("Init() failed: %v", err)
+	}
+	if Shortcut.Workers != 2 {
+		t.Errorf("configured = %#v", Shortcut)
+	}
+}
+
 func restoreConfigAfterTest(t *testing.T) {
 	t.Helper()
 	previousApp, previousPostgres, previousRedis, previousObservability := App, Postgres, Redis, Observability
+	previousShortcut := Shortcut
 	t.Cleanup(func() {
 		App, Postgres, Redis, Observability = previousApp, previousPostgres, previousRedis, previousObservability
+		Shortcut = previousShortcut
 	})
 }
 

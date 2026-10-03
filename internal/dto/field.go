@@ -8,15 +8,24 @@ import (
 
 // Field is the schemaless table field returned by the management API.
 type Field struct {
-	UID      string `json:"uid"`
+	// UID is the identifier of the field, which is also the key of its values in the record data.
+	UID string `json:"uid"`
+	// TableUID is the table of the field.
 	TableUID string `json:"tableUID"`
-	Label    string `json:"label"`
-	Type     string `json:"type" enums:"text,single_select,multi_select,datetime,number,checkbox,formula"`
+	// Label is the title of the field.
+	Label string `json:"label"`
+	// Type is the type of the field.
+	Type string `json:"type" enums:"text,single_select,multi_select,datetime,number,checkbox,formula"`
 	// Metadata is the type-specific configuration, e.g. select options or the formula expression.
-	Metadata  map[string]interface{} `json:"metadata"`
-	Position  int                    `json:"position"`
-	CreatedAt time.Time              `json:"createdAt"`
-	UpdatedAt time.Time              `json:"updatedAt"`
+	Metadata map[string]interface{} `json:"metadata"`
+	// Position is the order of the field in the table, starting from 0. The first field is the primary field.
+	Position int `json:"position"`
+	// Shortcut generates the cell values from the other fields, it is absent if the values are edited by the users.
+	Shortcut *db.FieldShortcut `json:"shortcut,omitempty"`
+	// CreatedAt is the time the field was created.
+	CreatedAt time.Time `json:"createdAt"`
+	// UpdatedAt is the time the field was last updated.
+	UpdatedAt time.Time `json:"updatedAt"`
 } // @name SLField
 
 func ToField(table *db.SLTable, field *db.SLField) *Field {
@@ -32,6 +41,7 @@ func ToField(table *db.SLTable, field *db.SLField) *Field {
 		Type:      string(field.Type),
 		Metadata:  metadata,
 		Position:  field.Position,
+		Shortcut:  field.Shortcut,
 		CreatedAt: field.CreatedAt,
 		UpdatedAt: field.UpdatedAt,
 	}

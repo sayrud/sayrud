@@ -5,6 +5,7 @@
 package api
 
 import (
+	"bytes"
 	"encoding/json"
 	"net/http"
 
@@ -196,6 +197,7 @@ func (schemalessRoute) CreateRecord(ctx context.Context, hub *collab.Hub, projec
 		return ctx.ApiServerError()
 	}
 	notifyDirty(ctx, hub, project, table, collab.DirtyScope{Records: []string{slRecord.UID}})
+	notifyRecordsChange(ctx, hub, project, table, map[string][]string{slRecord.UID: dataKeys(slRecord.Data)})
 	return ctx.ApiSuccess(dto.ToRecord(table, slRecord))
 }
 
@@ -242,6 +244,7 @@ func (schemalessRoute) BatchCreateRecords(ctx context.Context, hub *collab.Hub, 
 		return ctx.ApiServerError()
 	}
 	notifyDirty(ctx, hub, project, table, collab.DirtyScope{AllRecords: true})
+	notifyRecordsChange(ctx, hub, project, table, lo.SliceToMap(slRecords, func(r *db.SLRecord) (string, []string) { return r.UID, dataKeys(r.Data) }))
 
 	return ctx.ApiSuccess(dto.ToRecords(table, slRecords))
 }
@@ -262,11 +265,13 @@ func (schemalessRoute) BatchCreateRecords(ctx context.Context, hub *collab.Hub, 
 // @ID updateRecord
 // @Router /projects/{projectUID}/tables/{tableUID}/records/{recordUID} [put]
 func (schemalessRoute) UpdateRecord(ctx context.Context, hub *collab.Hub, project *db.Project, table *db.SLTable, record *db.SLRecord, tx dbutil.Transactor, f form.UpdateRecord) error {
+	var changed []string
 	if err := tx.Transaction(func(tx *gorm.DB) error {
 		jsonBytes, err := routeutil.Validate(ctx.Request().Context(), tx, record.SLTableID, f.Data)
 		if err != nil {
 			return errors.Wrap(err, "validate")
 		}
+		changed = changedKeys(record.Data, jsonBytes)
 
 		if err := db.NewSLRecordsStore(tx).Update(ctx.Request().Context(), record.ID, jsonBytes); err != nil {
 			return errors.Wrap(err, "update sl record")
@@ -280,6 +285,7 @@ func (schemalessRoute) UpdateRecord(ctx context.Context, hub *collab.Hub, projec
 		return ctx.ApiServerError()
 	}
 	notifyDirty(ctx, hub, project, table, collab.DirtyScope{Records: []string{record.UID}})
+	notifyRecordsChange(ctx, hub, project, table, map[string][]string{record.UID: changed})
 	return ctx.Status(http.StatusNoContent)
 }
 
@@ -295,11 +301,51 @@ func (schemalessRoute) UpdateRecord(ctx context.Context, hub *collab.Hub, projec
 // @Failure 500 {string} string "Internal server error"
 // @ID deleteRecord
 // @Router /projects/{projectUID}/tables/{tableUID}/records/{recordUID} [delete]
-func (schemalessRoute) DeleteRecord(ctx context.Context, hub *collab.Hub, project *db.Project, table *db.SLTable, record *db.SLRecord) error {
-	if err := db.SLRecords.DeleteByID(ctx.Request().Context(), record.ID); err != nil {
+func (schemalessRoute) DeleteRecord(ctx context.Context, hub *collab.Hub, project *db.Project, table *db.SLTable, record *db.SLRecord, tx dbutil.Transactor) error {
+	if err := tx.Transaction(func(tx *gorm.DB) error {
+		if err := db.NewSLShortcutJobsStore(tx).DeleteByRecords(ctx.Request().Context(), table.ID, []string{record.UID}); err != nil {
+			return errors.Wrap(err, "delete shortcut jobs")
+		}
+		return db.NewSLRecordsStore(tx).DeleteByID(ctx.Request().Context(), record.ID)
+	}); err != nil {
 		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to delete sl record")
 		return ctx.ApiServerError()
 	}
 	notifyDirty(ctx, hub, project, table, collab.DirtyScope{Records: []string{record.UID}})
 	return ctx.Status(http.StatusNoContent)
+}
+
+// notifyRecordsChange tells the field shortcuts the changed fields of the records, keyed by record UID.
+func notifyRecordsChange(ctx context.Context, hub *collab.Hub, project *db.Project, table *db.SLTable, records map[string][]string) {
+	hub.NotifyChange(ctx.Request().Context(), project, table, &collab.Change{Records: records})
+}
+
+// dataKeys returns the field UIDs of the stored record data.
+func dataKeys(raw []byte) []string {
+	data := map[string]json.RawMessage{}
+	_ = json.Unmarshal(raw, &data)
+	return lo.Keys(data)
+}
+
+// changedKeys returns the field UIDs whose values differ between the record data.
+func changedKeys(before, after []byte) []string {
+	a, b := map[string]json.RawMessage{}, map[string]json.RawMessage{}
+	_ = json.Unmarshal(before, &a)
+	_ = json.Unmarshal(after, &b)
+
+	var keys []string
+	for _, k := range lo.Union(lo.Keys(a), lo.Keys(b)) {
+		if !bytes.Equal(compactJSON(a[k]), compactJSON(b[k])) {
+			keys = append(keys, k)
+		}
+	}
+	return lo.Ternary(keys == nil, []string{}, keys)
+}
+
+func compactJSON(raw json.RawMessage) []byte {
+	var buf bytes.Buffer
+	if len(raw) == 0 || json.Compact(&buf, raw) != nil {
+		return raw
+	}
+	return buf.Bytes()
 }

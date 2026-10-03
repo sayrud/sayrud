@@ -67,6 +67,7 @@ func main() {
 		Handler: route.New(route.Options{
 			DB:             db,
 			MetricsHandler: metricsHandler,
+			Context:        ctx,
 		}),
 		ReadHeaderTimeout: 10 * time.Second,
 	}

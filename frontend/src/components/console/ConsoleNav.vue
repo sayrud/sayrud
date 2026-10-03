@@ -9,7 +9,7 @@ const emit = defineEmits<{ navigate: [] }>()
 
 const route = useRoute()
 const router = useRouter()
-const selectedKeys = computed(() => [String(route.name ?? '')])
+const selectedKeys = computed(() => [String(route.meta.nav ?? route.name ?? '')])
 
 function go(name: string) {
   router.push({ name })
