@@ -29,6 +29,10 @@ type SettingsStore interface {
 	GetSystem(ctx context.Context) (*SystemSettings, error)
 	// SaveSystem saves the system settings, the caller must Validate them first.
 	SaveSystem(ctx context.Context, s SystemSettings) error
+	// GetAI returns the AI settings, the unsaved ones take the defaults.
+	GetAI(ctx context.Context) (*AISettings, error)
+	// SaveAI saves the AI settings, the caller must Validate them first.
+	SaveAI(ctx context.Context, s AISettings) error
 	// GetUser returns the settings of the user, the unsaved ones take the defaults.
 	GetUser(ctx context.Context, userID int64) (*UserSettings, error)
 	// SaveUser saves the settings of the user, the caller must Validate them first.
@@ -224,6 +228,124 @@ func (db *settings) SaveSystem(ctx context.Context, s SystemSettings) error {
 	s.LoginNotice = strings.TrimSpace(s.LoginNotice)
 	s.ExternalURL, _ = NormalizeExternalURL(s.ExternalURL)
 	return db.save(ctx, SystemSettingsUserID, s)
+}
+
+// AISettings is the OpenAI-compatible Chat Completions endpoint called by the AI field shortcuts, edited in the admin console.
+type AISettings struct {
+	// Enabled reports whether the AI field shortcuts can be executed.
+	Enabled bool `json:"enabled"`
+	// BaseURL is the API root including the version, e.g. https://api.openai.com/v1.
+	BaseURL string `json:"baseURL"`
+	// Model is the name of the model to call.
+	Model string `json:"model"`
+	// SealedAPIKey is the API key encrypted by auth.secret_key, empty sends the requests without authorization.
+	SealedAPIKey string `json:"sealedAPIKey"`
+	// TimeoutSeconds is the timeout of a completion request.
+	TimeoutSeconds int `json:"timeoutSeconds"`
+}
+
+// aiSettingsRow stores the AI settings as a single row with the key "ai" in the system settings.
+type aiSettingsRow struct {
+	AI AISettings `json:"ai"`
+}
+
+const (
+	AIModelMaxLength    = 128
+	AITimeoutSecondsMin = 1
+	// AITimeoutSecondsMax is within the time limit of 2 minutes of executing an AI shortcut.
+	AITimeoutSecondsMax = 120
+)
+
+// DefaultAISettings returns the defaults before the AI settings are saved.
+func DefaultAISettings() AISettings {
+	return AISettings{BaseURL: "https://api.openai.com/v1", TimeoutSeconds: 60}
+}
+
+// Configured reports whether the AI model is enabled with the API URL and the model filled in.
+func (s AISettings) Configured() bool {
+	return s.Enabled && s.BaseURL != "" && s.Model != ""
+}
+
+// Timeout returns the timeout of a completion request.
+func (s AISettings) Timeout() time.Duration {
+	return time.Duration(s.TimeoutSeconds) * time.Second
+}
+
+// NormalizeAIBaseURL returns the URL without the trailing /, empty is valid, it only accepts http(s) URLs without user info, query and fragment.
+func NormalizeAIBaseURL(raw string) (string, bool) {
+	raw = strings.TrimRight(strings.TrimSpace(raw), "/")
+	if raw == "" {
+		return "", true
+	}
+	u, err := url.Parse(raw)
+	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" ||
+		u.User != nil || u.RawQuery != "" || u.Fragment != "" {
+		return "", false
+	}
+	return raw, true
+}
+
+// ParseAISettings applies the JSON object on top of the defaults, the invalid or out-of-range fields take the defaults.
+func ParseAISettings(raw []byte, defaults AISettings) AISettings {
+	s := defaults
+	if len(raw) > 0 && json.Unmarshal(raw, &s) != nil {
+		return defaults
+	}
+
+	if u, ok := NormalizeAIBaseURL(s.BaseURL); ok {
+		s.BaseURL = u
+	} else {
+		s.BaseURL = defaults.BaseURL
+	}
+	s.Model = strings.TrimSpace(s.Model)
+	if utf8.RuneCountInString(s.Model) > AIModelMaxLength {
+		s.Model = defaults.Model
+	}
+	if s.TimeoutSeconds < AITimeoutSecondsMin || s.TimeoutSeconds > AITimeoutSecondsMax {
+		s.TimeoutSeconds = defaults.TimeoutSeconds
+	}
+	return s
+}
+
+// Validate returns the *i18n.Error to be translated.
+func (s AISettings) Validate() error {
+	baseURL, ok := NormalizeAIBaseURL(s.BaseURL)
+	if !ok {
+		return i18n.Errorf("ai::invalid_base_url")
+	}
+	model := strings.TrimSpace(s.Model)
+	if utf8.RuneCountInString(model) > AIModelMaxLength {
+		return i18n.Errorf("ai::model_too_long", AIModelMaxLength)
+	}
+	if s.Enabled && baseURL == "" {
+		return i18n.Errorf("ai::base_url_required")
+	}
+	if s.Enabled && model == "" {
+		return i18n.Errorf("ai::model_required")
+	}
+	if s.TimeoutSeconds < AITimeoutSecondsMin || s.TimeoutSeconds > AITimeoutSecondsMax {
+		return i18n.Errorf("ai::invalid_timeout", AITimeoutSecondsMin, AITimeoutSecondsMax)
+	}
+	return nil
+}
+
+func (db *settings) GetAI(ctx context.Context) (*AISettings, error) {
+	raw, err := db.load(ctx, SystemSettingsUserID)
+	if err != nil {
+		return nil, err
+	}
+	var row struct {
+		AI json.RawMessage `json:"ai"`
+	}
+	_ = json.Unmarshal(raw, &row)
+	s := ParseAISettings(row.AI, DefaultAISettings())
+	return &s, nil
+}
+
+func (db *settings) SaveAI(ctx context.Context, s AISettings) error {
+	s.BaseURL, _ = NormalizeAIBaseURL(s.BaseURL)
+	s.Model = strings.TrimSpace(s.Model)
+	return db.save(ctx, SystemSettingsUserID, aiSettingsRow{AI: s})
 }
 
 // The appearances of the user interface.

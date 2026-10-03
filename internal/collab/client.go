@@ -303,13 +303,23 @@ func (c *Client) commit(ctx context.Context, reqID int64, data userChangesData) 
 	}
 }
 
-// tr translates the message key in the language of the connection.
+// tr translates the message key in the language of the connection, the MessageKey arguments are translated as well.
 func (c *Client) tr(key string, args ...interface{}) string {
 	if c.locale == nil {
 		return key
 	}
+
+	args = append([]interface{}(nil), args...)
+	for i, arg := range args {
+		if k, ok := arg.(MessageKey); ok {
+			args[i] = c.locale.Translate(string(k))
+		}
+	}
 	return c.locale.Translate(key, args...)
 }
+
+// MessageKey is an argument of a message which is a message key itself, e.g. the label of a built-in form item.
+type MessageKey string
 
 // boolText returns the text of the checkbox value in the language of the connection, or Simplified Chinese without a sender.
 func (c *Client) boolText(v bool) string {

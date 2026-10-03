@@ -242,6 +242,9 @@ func (schemalessRoute) UpdateField(ctx context.Context, hub *collab.Hub, project
 		return ctx.ApiServerError()
 	}
 	notifyDirty(ctx, hub, project, table, collab.DirtyScope{Fields: true, AllRecords: f.Type != nil || f.Metadata != nil})
+	if f.Type != nil || f.Metadata != nil {
+		hub.NotifyChange(ctx.Request().Context(), project, table, &collab.Change{Fields: []string{field.UID}})
+	}
 
 	return ctx.ApiSuccess(dto.ToField(table, updatedField))
 }
@@ -286,6 +289,9 @@ func (schemalessRoute) DeleteField(ctx context.Context, hub *collab.Hub, project
 	if err := tx.Transaction(func(tx *gorm.DB) error {
 		if err := db.NewSLFieldsStore(tx).DeleteByID(ctx.Request().Context(), field.ID); err != nil {
 			return errors.Wrap(err, "delete field")
+		}
+		if err := db.NewSLShortcutJobsStore(tx).DeleteByField(ctx.Request().Context(), table.ID, field.UID); err != nil {
+			return errors.Wrap(err, "delete shortcut jobs")
 		}
 		return db.NewSLRecordsStore(tx).RemoveFieldData(ctx.Request().Context(), table.ID, field.UID)
 	}); err != nil {

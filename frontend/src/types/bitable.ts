@@ -97,14 +97,34 @@ export interface FieldMetadataMap {
 
 export type FieldMetadata = FieldMetadataMap[FieldType]
 
+/** Shortcut attached to a field, which generates the cell values from the other fields on the server. */
+export interface FieldShortcut {
+  /** Built-in shortcut ID, e.g. "ai_classify", or the UID of a custom shortcut. */
+  id: string
+  /** Configured values keyed by form item key, field_select stores the field UID and prompt references the fields by {fldXXXXXXX}. */
+  inputs: Record<string, string>
+  /** Regenerates the cell when any referenced field of the record changes. */
+  autoUpdate: boolean
+}
+
 export interface SLField<T extends FieldType = FieldType> {
+  /** Identifier of the field, which is also the key of its values in the record data. */
   uid: string
+  /** Table of the field. */
   tableUID: string
+  /** Title of the field. */
   label: string
+  /** Type of the field. */
   type: T
+  /** Type-specific configuration, e.g. select options or the formula expression. */
   metadata: FieldMetadataMap[T]
+  /** Order of the field in the table, starting from 0. The first field is the primary field. */
   position: number
+  /** Absent if the values are edited by the users. */
+  shortcut?: FieldShortcut
+  /** Time the field was created, in ISO 8601. */
   createdAt: string
+  /** Time the field was last updated, in ISO 8601. */
   updatedAt: string
 }
 

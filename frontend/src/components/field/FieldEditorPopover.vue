@@ -1,19 +1,21 @@
 <script setup lang="ts">
 import { Message } from '@arco-design/web-vue'
-import { Check, ChevronRight, Pencil, Search, TriangleAlert } from '@lucide/vue'
+import { Check, ChevronRight, Pencil, Search, Sparkles, TriangleAlert, Zap } from '@lucide/vue'
 import { computed, nextTick, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 
+import type { FieldShortcutManifest } from '@/api/shortcut'
 import FloatingPanel from '@/components/common/FloatingPanel.vue'
 import { useBaseStore } from '@/stores/base'
-import type { FieldMetadata, FieldType, SelectOption } from '@/types/bitable'
-import { DATE_FORMATS, defaultMetadata, FIELD_TYPES, fieldTypeInfo, NUMBER_FORMATS } from '@/utils/fieldTypes'
+import type { FieldMetadata, FieldShortcut, FieldType, SelectOption } from '@/types/bitable'
+import { DATE_FORMATS, defaultMetadata, FIELD_TYPES, fieldTypeInfo, NUMBER_FORMATS, type FieldTypeInfo } from '@/utils/fieldTypes'
 import { formatNumber } from '@/utils/format'
 import { expToDisplay } from '@/utils/formula'
+import { missingInput, newShortcut } from '@/utils/shortcut'
 import FieldTypeIcon from './FieldTypeIcon.vue'
 import FormulaModal from './FormulaModal.vue'
 import OptionsEditor from './OptionsEditor.vue'
-
+import ShortcutForm from './ShortcutForm.vue'
 const { t } = useI18n()
 
 const store = useBaseStore()
@@ -30,6 +32,8 @@ const md = ref<Record<string, any>>({})
 const saving = ref(false)
 const formulaVisible = ref(false)
 const labelInput = ref<{ focus: () => void }>()
+/** Shortcut generating the values of the field, null means the values are edited by the users. */
+const shortcut = ref<FieldShortcut | null>(null)
 
 onMounted(() => {
   const f = editing.value
@@ -37,12 +41,17 @@ onMounted(() => {
     label.value = f.label
     type.value = f.type
     md.value = JSON.parse(JSON.stringify(f.metadata))
+    shortcut.value = f.shortcut ? JSON.parse(JSON.stringify(f.shortcut)) : null
   } else {
     type.value = state.value.type ?? 'text'
     md.value = { ...defaultMetadata(type.value) }
   }
+  void store.loadShortcutCatalog()
   nextTick(() => labelInput.value?.focus())
 })
+
+const manifest = computed(() => store.shortcutManifest(shortcut.value?.id))
+const shortcutIcon = (m: Pick<FieldShortcutManifest, 'kind'>) => (m.kind === 'ai' ? Sparkles : Zap)
 
 function changeType(t: FieldType) {
   const prev = md.value
@@ -70,6 +79,19 @@ const filteredTypes = computed(() => {
   return FIELD_TYPES.filter((t) => !k || t.label.toLowerCase().includes(k) || t.type.includes(k))
 })
 
+const filteredShortcuts = computed(() => {
+  const k = typeKeyword.value.trim().toLowerCase()
+  return store.shortcutCatalog.filter((m) => !k || m.name.toLowerCase().includes(k) || m.description.toLowerCase().includes(k))
+})
+
+type MenuEntry = { key: string; type: FieldTypeInfo; shortcut?: never } | { key: string; shortcut: FieldShortcutManifest; type?: never }
+
+/** The basic types followed by the shortcuts, navigated by the keyboard as one list. */
+const menuEntries = computed<MenuEntry[]>(() => [
+  ...filteredTypes.value.map((info) => ({ key: info.type, type: info })),
+  ...filteredShortcuts.value.map((m) => ({ key: `shortcut:${m.id}`, shortcut: m })),
+])
+
 function toggleTypeMenu() {
   if (typeMenu.value) {
     typeMenu.value = null
@@ -80,7 +102,8 @@ function toggleTypeMenu() {
   // Flush against the editor, on the right if there is room, otherwise on the left.
   const x = editor.right + TYPE_MENU_WIDTH <= window.innerWidth - 8 ? editor.right : editor.left - TYPE_MENU_WIDTH
   typeKeyword.value = ''
-  typeActive.value = Math.max(0, FIELD_TYPES.findIndex((t) => t.type === type.value))
+  const current = shortcut.value ? `shortcut:${shortcut.value.id}` : type.value
+  typeActive.value = Math.max(0, menuEntries.value.findIndex((e) => e.key === current))
   // The top of the menu aligns with the top of the trigger.
   typeMenu.value = { x, y: trigger.top }
   nextTick(() => typeSearch.value?.focus())
@@ -88,19 +111,36 @@ function toggleTypeMenu() {
 
 function selectType(t: FieldType) {
   typeMenu.value = null
+  shortcut.value = null
   if (t !== type.value) changeType(t)
 }
 
+function selectShortcut(m: FieldShortcutManifest) {
+  if (!m.available) return
+  typeMenu.value = null
+  if (shortcut.value?.id !== m.id) {
+    const saved = editing.value?.shortcut
+    shortcut.value = saved?.id === m.id ? JSON.parse(JSON.stringify(saved)) : newShortcut(m)
+  }
+  const next = m.resultTypes.includes(type.value) ? type.value : m.resultTypes[0]
+  if (next && next !== type.value) changeType(next)
+}
+
+function selectEntry(entry: MenuEntry) {
+  if (entry.type) selectType(entry.type.type)
+  else selectShortcut(entry.shortcut)
+}
+
 function onTypeSearchKey(e: KeyboardEvent) {
-  const n = filteredTypes.value.length
+  const n = menuEntries.value.length
   if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
     e.preventDefault()
     if (n) typeActive.value = (typeActive.value + (e.key === 'ArrowDown' ? 1 : n - 1)) % n
   } else if (e.key === 'Enter') {
     e.preventDefault()
     e.stopPropagation()
-    const t = filteredTypes.value[typeActive.value]
-    if (t) selectType(t.type)
+    const entry = menuEntries.value[typeActive.value]
+    if (entry) selectEntry(entry)
   }
 }
 
@@ -125,6 +165,8 @@ const options = computed<SelectOption[]>({
 })
 
 const namedOptions = computed(() => options.value.filter((o) => o.name.trim()))
+
+const missingShortcutInput = computed(() => (shortcut.value && manifest.value ? missingInput(manifest.value, shortcut.value.inputs) : null))
 const formulaDisplay = computed(() => expToDisplay(String(md.value.exp ?? ''), store.fields))
 
 function uniqueLabel(base: string) {
@@ -135,7 +177,21 @@ function uniqueLabel(base: string) {
 
 async function save() {
   if (saving.value) return
-  const finalLabel = label.value.trim() || uniqueLabel(fieldTypeInfo(type.value).label)
+  if (shortcut.value) {
+    if (!manifest.value) {
+      Message.warning(t('shortcut.missing'))
+      return
+    }
+    if (missingShortcutInput.value) {
+      Message.warning(t('shortcut.inputRequired', { label: missingShortcutInput.value }))
+      return
+    }
+    if ((type.value === 'single_select' || type.value === 'multi_select') && !namedOptions.value.length) {
+      Message.warning(t('shortcut.optionsRequired'))
+      return
+    }
+  }
+  const finalLabel = label.value.trim() || uniqueLabel(manifest.value?.name ?? fieldTypeInfo(type.value).label)
   const metadata = { ...md.value }
   if (type.value === 'single_select' || type.value === 'multi_select') {
     const names = namedOptions.value.map((o) => o.name.trim())
@@ -154,11 +210,12 @@ async function save() {
         label: finalLabel !== f.label ? finalLabel : undefined,
         type: type.value !== f.type ? type.value : undefined,
         metadata: metadata as FieldMetadata,
+        shortcut: shortcut.value,
       })
       if (res) close()
     } else {
       const created = await store.createField(
-        { label: finalLabel, type: type.value, metadata: metadata as FieldMetadata },
+        { label: finalLabel, type: type.value, metadata: metadata as FieldMetadata, shortcut: shortcut.value ?? undefined },
         state.value.insertIndex,
       )
       if (created) {
@@ -183,13 +240,14 @@ const numberExample = computed(() => formatNumber(1234.5678, String(md.value.for
     <div class="field-editor" @keydown.enter.ctrl="save" @mousedown="onEditorMouseDown">
       <div class="row">
         <div class="row-label">{{ t('fieldEditor.title') }}</div>
-        <a-input ref="labelInput" v-model="label" :placeholder="fieldTypeInfo(type).label" :max-length="100" @press-enter="save" />
+        <a-input ref="labelInput" v-model="label" :placeholder="manifest?.name ?? fieldTypeInfo(type).label" :max-length="100" @press-enter="save" />
       </div>
       <div class="row">
         <div class="row-label">{{ t('fieldEditor.type') }}</div>
         <button ref="typeTrigger" type="button" class="type-trigger" :class="{ open: !!typeMenu }" @click="toggleTypeMenu">
-          <FieldTypeIcon :type="type" :size="16" />
-          <span class="type-trigger-label">{{ fieldTypeInfo(type).label }}</span>
+          <component :is="shortcutIcon(manifest)" v-if="shortcut && manifest" :size="16" class="shortcut-icon" />
+          <FieldTypeIcon v-else :type="type" :size="16" />
+          <span class="type-trigger-label">{{ shortcut ? (manifest?.name ?? shortcut.id) : fieldTypeInfo(type).label }}</span>
           <ChevronRight :size="16" class="type-trigger-arrow" />
         </button>
         <div v-if="typeChanged && store.records.length" class="warn">
@@ -197,7 +255,29 @@ const numberExample = computed(() => formatNumber(1234.5678, String(md.value.for
         </div>
       </div>
 
-      <template v-if="type === 'text'">
+      <template v-if="shortcut">
+        <div v-if="!manifest" class="warn shortcut-warn"><TriangleAlert :size="14" /> {{ t('shortcut.missing') }}</div>
+        <template v-else>
+          <div v-if="!manifest.available" class="warn shortcut-warn"><TriangleAlert :size="14" /> {{ t('shortcut.unavailable') }}</div>
+          <div v-if="manifest.description" class="hint shortcut-description">{{ manifest.description }}</div>
+          <div v-if="manifest.resultTypes.length > 1" class="row">
+            <div class="row-label">{{ t('shortcut.outputType') }}</div>
+            <a-select :model-value="type" @update:model-value="(v: unknown) => changeType(v as FieldType)">
+              <a-option v-for="rt in manifest.resultTypes" :key="rt" :value="rt">
+                <span class="type-option"><FieldTypeIcon :type="rt" /> {{ fieldTypeInfo(rt).label }}</span>
+              </a-option>
+            </a-select>
+          </div>
+          <ShortcutForm v-model="shortcut.inputs" :items="manifest.formItems" :fields="store.fields" :field-u-i-d="editing?.uid" />
+        </template>
+        <div class="row inline">
+          <span>{{ t('shortcut.autoUpdate') }}</span>
+          <a-switch v-model="shortcut.autoUpdate" size="small" />
+        </div>
+        <div class="hint auto-update-hint">{{ t('shortcut.autoUpdateHint') }}</div>
+      </template>
+
+      <template v-if="type === 'text' && !shortcut">
         <div class="row">
           <div class="row-label">{{ t('fieldEditor.default') }}</div>
           <a-input v-model="md.default" :placeholder="t('fieldEditor.defaultPlaceholder')" allow-clear />
@@ -216,7 +296,7 @@ const numberExample = computed(() => formatNumber(1234.5678, String(md.value.for
           </a-select>
           <div class="hint">{{ t('fieldEditor.example', { example: numberExample }) }}</div>
         </div>
-        <div class="row">
+        <div v-if="!shortcut" class="row">
           <div class="row-label">{{ t('fieldEditor.default') }}</div>
           <a-input-number
             :model-value="(md.default as number | null) ?? undefined"
@@ -232,7 +312,7 @@ const numberExample = computed(() => formatNumber(1234.5678, String(md.value.for
           <div class="row-label">{{ t('fieldEditor.options') }}</div>
           <OptionsEditor v-model="options" />
         </div>
-        <div class="row">
+        <div v-if="!shortcut" class="row">
           <div class="row-label">{{ t('fieldEditor.default') }}</div>
           <a-select
             v-if="type === 'single_select'"
@@ -260,7 +340,7 @@ const numberExample = computed(() => formatNumber(1234.5678, String(md.value.for
           <span>{{ t('fieldEditor.withTime') }}</span>
           <a-switch v-model="md.with_time" size="small" />
         </div>
-        <div class="row">
+        <div v-if="!shortcut" class="row">
           <div class="row-label">{{ t('fieldEditor.default') }}</div>
           <a-radio-group v-model="md.default">
             <a-radio value="">{{ t('fieldEditor.none') }}</a-radio>
@@ -303,19 +383,33 @@ const numberExample = computed(() => formatNumber(1234.5678, String(md.value.for
         <div class="type-list">
           <div v-if="filteredTypes.length" class="type-group">{{ t('fieldEditor.basic') }}</div>
           <div
-            v-for="(t, i) in filteredTypes"
-            :key="t.type"
+            v-for="(info, i) in filteredTypes"
+            :key="info.type"
             class="type-item"
             :class="{ active: i === typeActive }"
-            :title="t.description"
+            :title="info.description"
             @mouseenter="typeActive = i"
-            @click="selectType(t.type)"
+            @click="selectType(info.type)"
           >
-            <FieldTypeIcon :type="t.type" :size="16" />
-            <span class="type-item-label">{{ t.label }}</span>
-            <Check v-if="t.type === type" :size="15" class="type-check" />
+            <FieldTypeIcon :type="info.type" :size="16" />
+            <span class="type-item-label">{{ info.label }}</span>
+            <Check v-if="info.type === type && !shortcut" :size="15" class="type-check" />
           </div>
-          <div v-if="!filteredTypes.length" class="type-empty">{{ t('fieldEditor.noType') }}</div>
+          <div v-if="filteredShortcuts.length" class="type-group">{{ t('fieldEditor.shortcuts') }}</div>
+          <div
+            v-for="(m, i) in filteredShortcuts"
+            :key="m.id"
+            class="type-item"
+            :class="{ active: filteredTypes.length + i === typeActive, disabled: !m.available }"
+            :title="m.available ? m.description : t('shortcut.unavailable')"
+            @mouseenter="typeActive = filteredTypes.length + i"
+            @click="selectShortcut(m)"
+          >
+            <component :is="shortcutIcon(m)" :size="16" class="shortcut-icon" />
+            <span class="type-item-label">{{ m.name }}</span>
+            <Check v-if="shortcut?.id === m.id" :size="15" class="type-check" />
+          </div>
+          <div v-if="!menuEntries.length" class="type-empty">{{ t('fieldEditor.noType') }}</div>
         </div>
       </div>
     </FloatingPanel>
@@ -433,6 +527,28 @@ const numberExample = computed(() => formatNumber(1234.5678, String(md.value.for
 }
 .type-check {
   color: var(--color-primary);
+}
+.type-item.disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.shortcut-icon {
+  flex: none;
+  color: var(--color-primary);
+}
+.type-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.shortcut-warn {
+  margin: -6px 0 12px;
+}
+.shortcut-description {
+  margin: -6px 0 12px;
+}
+.auto-update-hint {
+  margin: -8px 0 14px;
 }
 .type-empty {
   padding: 16px 8px;

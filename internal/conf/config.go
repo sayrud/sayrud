@@ -26,6 +26,11 @@ var Redis struct {
 	Password string `mapstructure:"password"`
 }
 
+var Shortcut struct {
+	// Workers is the number of the field shortcut jobs executed concurrently by the server, it defaults to 4.
+	Workers int `mapstructure:"workers"`
+}
+
 type TracingConfig struct {
 	Enabled  bool   `mapstructure:"enabled"`
 	Endpoint string `mapstructure:"endpoint"`
@@ -63,6 +68,12 @@ func Init(configFilePath string) error {
 	}
 	if err := v.UnmarshalKey("observability", &Observability); err != nil {
 		return errors.Wrap(err, "parse observability")
+	}
+	if err := v.UnmarshalKey("shortcut", &Shortcut); err != nil {
+		return errors.Wrap(err, "parse shortcut")
+	}
+	if Shortcut.Workers <= 0 {
+		Shortcut.Workers = 4
 	}
 
 	return nil

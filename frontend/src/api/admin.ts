@@ -1,13 +1,15 @@
 import type {
+  AdminAISettings,
   AdminCreateUser,
   AdminOverview as ApiOverview,
   AdminProject,
   AdminUser as ApiAdminUser,
   SystemSettings,
+  UpdateAISettings,
 } from './api'
 import { client } from './client'
 
-export type { AdminProject, SystemSettings }
+export type { AdminAISettings, AdminProject, SystemSettings, UpdateAISettings }
 
 /** lastSignInAt is null if the user has never signed in. */
 export type AdminUser = Omit<ApiAdminUser, 'lastSignInAt'> & { lastSignInAt: string | null }
@@ -59,4 +61,8 @@ export const adminApi = {
 
   settings: async () => (await client.admin.getSystemSettings()).data as SystemSettings,
   saveSettings: async (s: SystemSettings) => (await client.admin.updateSystemSettings(s)).data as SystemSettings,
+
+  aiSettings: async () => (await client.admin.getAdminAiSettings()).data,
+  saveAISettings: async (body: UpdateAISettings) => (await client.admin.updateAdminAiSettings(body)).data,
+  testAISettings: async (body: UpdateAISettings) => (await client.admin.testAdminAiSettings(body)).data,
 }
