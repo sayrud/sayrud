@@ -1127,8 +1127,6 @@ const ptBR: typeof zhCN = {
     credentialType: 'Tipo',
     noCredentials: 'Ainda não há credenciais, adicione uma para chamar as APIs que exigem autenticação',
     dangerTitle: 'Excluir atalho',
-    dangerDescription: 'Não é possível desfazer, os campos que o usam mantêm seus valores, mas não podem gerar novos',
-    testDescription: 'Executa as alterações atuais sem salvar, nenhum dado é gravado',
     sampleParams: 'A partir do formulário',
     testSuccess: 'Sucesso',
     testFailed: 'Falha',

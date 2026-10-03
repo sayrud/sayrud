@@ -119,7 +119,7 @@ async function load() {
 }
 watch(uid, load, { immediate: true })
 
-const TABS = ['basic', 'code', 'formItems', 'network'] as const
+const TABS = ['basic', 'formItems', 'code', 'network'] as const
 type Tab = (typeof TABS)[number]
 
 // 当前 Tab 记在地址的 query 中，刷新后保持。
@@ -308,7 +308,14 @@ const format = (v: unknown) => (v === undefined ? 'undefined' : JSON.stringify(v
     </a-result>
 
     <a-spin v-else :loading="loading" class="spin">
-      <PageHeader :title="title" :description="isNew ? t('shortcutAdmin.createDescription') : undefined" />
+      <PageHeader :title="title" :description="isNew ? t('shortcutAdmin.createDescription') : undefined">
+        <template v-if="shortcut" #extra>
+          <a-button status="danger" @click="remove">
+            <template #icon><Trash2 :size="16" /></template>
+            {{ t('shortcutAdmin.dangerTitle') }}
+          </a-button>
+        </template>
+      </PageHeader>
 
       <div class="workspace">
         <div class="main">
@@ -350,22 +357,6 @@ const format = (v: unknown) => (v === undefined ? 'undefined' : JSON.stringify(v
                 </a-form>
               </a-tab-pane>
 
-              <a-tab-pane key="code" :title="t('shortcutAdmin.code')">
-                <div class="pane">
-                  <div class="pane-head">
-                    <span class="text-desc">{{ t('shortcutAdmin.codeDescription') }}</span>
-                    <a-tag size="small" class="lang-tag">JavaScript</a-tag>
-                  </div>
-                  <CodeEditor
-                    v-model="draft.code"
-                    language="javascript"
-                    height="clamp(420px, calc(100vh - 380px), 860px)"
-                    :aria-label="t('shortcutAdmin.code')"
-                    @submit="test"
-                  />
-                </div>
-              </a-tab-pane>
-
               <a-tab-pane key="formItems">
                 <template #title>
                   <span class="tab-title">
@@ -387,6 +378,22 @@ const format = (v: unknown) => (v === undefined ? 'undefined' : JSON.stringify(v
                     :aria-label="t('shortcutAdmin.formItems')"
                   />
                   <div v-if="!parsedFormItems" class="field-error">{{ t('shortcutAdmin.invalidFormItems') }}</div>
+                </div>
+              </a-tab-pane>
+
+              <a-tab-pane key="code" :title="t('shortcutAdmin.code')">
+                <div class="pane">
+                  <div class="pane-head">
+                    <span class="text-desc">{{ t('shortcutAdmin.codeDescription') }}</span>
+                    <a-tag size="small" class="lang-tag">JavaScript</a-tag>
+                  </div>
+                  <CodeEditor
+                    v-model="draft.code"
+                    language="javascript"
+                    height="clamp(420px, calc(100vh - 380px), 860px)"
+                    :aria-label="t('shortcutAdmin.code')"
+                    @submit="test"
+                  />
                 </div>
               </a-tab-pane>
 
@@ -436,17 +443,10 @@ const format = (v: unknown) => (v === undefined ? 'undefined' : JSON.stringify(v
               </a-tab-pane>
             </a-tabs>
           </div>
-
-          <SettingsSection v-if="shortcut && tab === 'basic'" danger :title="t('shortcutAdmin.dangerTitle')">
-            <template #extra>
-              <a-button status="danger" @click="remove">{{ t('common.delete') }}</a-button>
-            </template>
-            <div class="danger-row text-desc">{{ t('shortcutAdmin.dangerDescription') }}</div>
-          </SettingsSection>
         </div>
 
         <aside class="aside">
-          <SettingsSection :title="t('shortcutAdmin.test')" :description="t('shortcutAdmin.testDescription')">
+          <SettingsSection :title="t('shortcutAdmin.test')">
             <div class="test-panel">
               <div class="panel-label">
                 <span>{{ t('shortcutAdmin.params') }}</span>
@@ -650,9 +650,6 @@ const format = (v: unknown) => (v === undefined ? 'undefined' : JSON.stringify(v
   border: 1px dashed var(--line-border-strong);
   border-radius: 6px;
   text-align: center;
-}
-.danger-row {
-  padding: 12px 0;
 }
 .test-panel {
   display: flex;

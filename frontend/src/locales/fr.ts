@@ -1127,8 +1127,6 @@ const fr: typeof zhCN = {
     credentialType: 'Type',
     noCredentials: 'Aucun identifiant pour le moment, ajoutez-en pour appeler les API nécessitant une authentification',
     dangerTitle: 'Supprimer le raccourci',
-    dangerDescription: 'Cette action est irréversible, les champs qui l’utilisent conservent leurs valeurs mais ne peuvent plus en générer',
-    testDescription: 'Exécute les modifications en cours sans les enregistrer, aucune donnée n’est écrite',
     sampleParams: 'Depuis le formulaire',
     testSuccess: 'Réussi',
     testFailed: 'Échec',

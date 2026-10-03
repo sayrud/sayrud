@@ -1127,8 +1127,6 @@ const es: typeof zhCN = {
     credentialType: 'Tipo',
     noCredentials: 'Aún no hay credenciales, añade una para llamar a las API que requieren autenticación',
     dangerTitle: 'Eliminar atajo',
-    dangerDescription: 'No se puede deshacer, los campos que lo usan conservan sus valores pero no pueden generar otros nuevos',
-    testDescription: 'Ejecuta los cambios actuales sin guardarlos, no se escriben datos',
     sampleParams: 'Desde el formulario',
     testSuccess: 'Correcto',
     testFailed: 'Error',

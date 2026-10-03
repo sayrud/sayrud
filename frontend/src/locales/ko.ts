@@ -1127,8 +1127,6 @@ const ko: typeof zhCN = {
     credentialType: '유형',
     noCredentials: '아직 자격 증명이 없습니다. 인증이 필요한 API를 호출할 때 추가하세요',
     dangerTitle: '바로가기 삭제',
-    dangerDescription: '삭제하면 되돌릴 수 없습니다. 사용 중인 필드는 기존 값을 유지하지만 새 값을 생성할 수 없습니다',
-    testDescription: '저장하지 않고 현재 편집 내용으로 실행하며 데이터는 기록되지 않습니다',
     sampleParams: '양식 항목에서 생성',
     testSuccess: '실행 성공',
     testFailed: '실행 실패',

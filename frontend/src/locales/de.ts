@@ -1127,8 +1127,6 @@ const de: typeof zhCN = {
     credentialType: 'Typ',
     noCredentials: 'Noch keine Zugangsdaten, fügen Sie welche für APIs mit Authentifizierung hinzu',
     dangerTitle: 'Shortcut löschen',
-    dangerDescription: 'Dies kann nicht rückgängig gemacht werden, die Felder, die ihn verwenden, behalten ihre Werte, können aber keine neuen erzeugen',
-    testDescription: 'Führt die aktuellen Änderungen ohne Speichern aus, es werden keine Daten geschrieben',
     sampleParams: 'Aus Formularelementen',
     testSuccess: 'Erfolgreich',
     testFailed: 'Fehlgeschlagen',

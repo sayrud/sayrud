@@ -1125,8 +1125,6 @@ export default {
     credentialType: '类型',
     noCredentials: '还没有凭据，调用需要鉴权的接口时在此添加',
     dangerTitle: '删除捷径',
-    dangerDescription: '删除后无法恢复，使用它的字段保留已有内容，但无法再生成',
-    testDescription: '使用当前编辑的内容运行，无需保存，不会写入数据',
     sampleParams: '按表单项生成',
     testSuccess: '运行成功',
     testFailed: '运行失败',

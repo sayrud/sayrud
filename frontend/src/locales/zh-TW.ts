@@ -1127,8 +1127,6 @@ const zhTW: typeof zhCN = {
     credentialType: '類型',
     noCredentials: '尚無憑證，呼叫需要驗證的介面時在此新增',
     dangerTitle: '刪除捷徑',
-    dangerDescription: '刪除後無法復原，使用它的欄位保留現有內容，但無法再產生',
-    testDescription: '以目前編輯的內容執行，無須儲存，不會寫入資料',
     sampleParams: '依表單項目產生',
     testSuccess: '執行成功',
     testFailed: '執行失敗',

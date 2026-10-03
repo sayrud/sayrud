@@ -1127,8 +1127,6 @@ const en: typeof zhCN = {
     credentialType: 'Type',
     noCredentials: 'No credentials yet, add one to call the APIs requiring authentication',
     dangerTitle: 'Delete shortcut',
-    dangerDescription: 'This can not be undone, the fields using it keep their values but can not generate new ones',
-    testDescription: 'Runs the current edits without saving, no data is written',
     sampleParams: 'From form items',
     testSuccess: 'Succeeded',
     testFailed: 'Failed',

@@ -1127,8 +1127,6 @@ const ja: typeof zhCN = {
     credentialType: '種類',
     noCredentials: '認証情報はまだありません。認証が必要な API を呼び出す場合に追加します',
     dangerTitle: 'ショートカットを削除',
-    dangerDescription: '削除すると元に戻せません。使用中のフィールドは既存の値を保持しますが、新しい値は生成できなくなります',
-    testDescription: '保存せずに現在の編集内容で実行します。データは書き込まれません',
     sampleParams: 'フォーム項目から生成',
     testSuccess: '実行成功',
     testFailed: '実行失敗',
