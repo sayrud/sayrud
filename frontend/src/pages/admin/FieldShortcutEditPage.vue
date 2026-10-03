@@ -6,6 +6,7 @@ import { useI18n } from 'vue-i18n'
 import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
 
 import { ApiError } from '@/api/client'
+import { adminApi, type AdminAISettings } from '@/api/admin'
 import {
   adminShortcutsApi,
   type AdminFieldShortcut,
@@ -22,7 +23,7 @@ import FieldTypeIcon from '@/components/field/FieldTypeIcon.vue'
 import type { FieldType } from '@/types/bitable'
 import { fieldTypeInfo } from '@/utils/fieldTypes'
 import { formItemIssueKey, formItemIssueName, loadFormItems, validateFormItems } from '@/utils/shortcutFormItems'
-import { SHORTCUT_HOST_TYPES } from '@/utils/shortcut'
+import { sampleShortcutParams, shortcutStarter, SHORTCUT_HOST_TYPES } from '@/utils/shortcut'
 
 const { t } = useI18n()
 const route = useRoute()
@@ -48,34 +49,28 @@ interface Draft {
   credentials: CredentialDraft[]
   timeoutSeconds: number
   enabled: boolean
+  aiEnabled: boolean
 }
-
-const STARTER_ITEMS: ShortcutFormItem[] = [{ key: 'text', label: 'Text', component: 'field_select', required: true }]
-
-const STARTER_CODE = `// params: the form item values keyed by key, a field_select item passes the cell value of the record.
-// context: { projectUID, tableUID, fieldUID, recordUID, fetch(url, options, credentialKey), log(...args) }
-async function execute(params, context) {
-  const text = params.text ?? ''
-  return text.length
-}
-`
 
 function toDraft(s: AdminFieldShortcut | null): Draft {
+  const starter = shortcutStarter(!s && !route.params.shortcutUID && route.query.template === 'ai', {
+    text: t('shortcutAdmin.templateText'),
+    instruction: t('shortcutAdmin.templateInstruction'),
+    instructionDefault: t('shortcutAdmin.templateInstructionDefault'),
+  })
+
   return {
     name: s?.name ?? '',
     description: s?.description ?? '',
-    resultType: (s?.resultType ?? 'number') as FieldType,
-    code: s?.code ?? STARTER_CODE,
-    formItems: JSON.stringify(s?.formItems ?? STARTER_ITEMS, null, 2),
+    resultType: (s?.resultType ?? starter.resultType) as FieldType,
+    code: s?.code ?? starter.code,
+    formItems: JSON.stringify(s?.formItems ?? starter.formItems, null, 2),
     domains: [...(s?.domains ?? [])],
     credentials: (s?.credentials ?? []).map((c) => ({ key: c.key, type: c.type as CredentialType, name: c.name ?? '', value: '', hasValue: c.hasValue })),
-    timeoutSeconds: s?.timeoutSeconds ?? 30,
+    timeoutSeconds: s?.timeoutSeconds ?? starter.timeoutSeconds,
     enabled: s?.enabled ?? true,
+    aiEnabled: s?.aiEnabled ?? starter.aiEnabled,
   }
-}
-
-function sampleParams(items: ShortcutFormItem[]) {
-  return JSON.stringify(Object.fromEntries(items.map((i) => [i.key, i.component === 'select' ? (i.options?.[0]?.value ?? '') : 'Hello'])), null, 2)
 }
 
 const uid = computed(() => (typeof route.params.shortcutUID === 'string' ? route.params.shortcutUID : ''))
@@ -88,14 +83,26 @@ const draft = reactive<Draft>(toDraft(null))
 const baseline = ref(JSON.stringify(draft))
 const dirty = computed(() => JSON.stringify(draft) !== baseline.value)
 
-const params = ref(sampleParams(STARTER_ITEMS))
+const params = ref(sampleShortcutParams(JSON.parse(draft.formItems) as ShortcutFormItem[]))
 const testing = ref(false)
 const testResult = ref<TestFieldShortcutResp | null>(null)
+
+const aiSettings = ref<AdminAISettings | null>(null)
+const aiLoading = ref(true)
+const aiError = ref(false)
+const aiReady = computed(() => !!aiSettings.value?.enabled && !!aiSettings.value.baseURL.trim() && !!aiSettings.value.model.trim())
+const aiStatus = computed(() => {
+  if (aiLoading.value) return t('shortcutAdmin.aiLoading')
+  if (aiError.value) return t('shortcutAdmin.aiLoadFailed')
+  if (!aiReady.value) return t('shortcutAdmin.aiUnavailable')
+
+  return t('shortcutAdmin.aiReady', { model: aiSettings.value!.model })
+})
 
 function reset(s: AdminFieldShortcut | null) {
   Object.assign(draft, toDraft(s))
   baseline.value = JSON.stringify(draft)
-  params.value = sampleParams(s?.formItems ?? STARTER_ITEMS)
+  params.value = sampleShortcutParams(JSON.parse(draft.formItems) as ShortcutFormItem[])
   testResult.value = null
 }
 
@@ -106,7 +113,7 @@ async function load() {
     reset(null)
     return
   }
-  // 新建后切到编辑路由时已有最新数据，不再重复请求。
+  // Reuse the saved shortcut when creation navigates to its edit route.
   if (shortcut.value?.uid === uid.value) return
   loading.value = true
   try {
@@ -124,7 +131,7 @@ watch(uid, load, { immediate: true })
 const TABS = ['basic', 'formItems', 'code', 'network'] as const
 type Tab = (typeof TABS)[number]
 
-// 当前 Tab 记在地址的 query 中，刷新后保持。
+// Keep the active tab in the query so it survives a refresh.
 const tab = computed<Tab>({
   get: () => (TABS.includes(route.query.tab as Tab) ? (route.query.tab as Tab) : 'basic'),
   set: (value) => router.replace({ query: { ...route.query, tab: value === 'basic' ? undefined : value } }),
@@ -181,6 +188,7 @@ function body(): SaveFieldShortcut | null {
     credentials: draft.credentials.map((c) => ({ key: c.key, type: c.type, name: c.type === 'bearer' ? undefined : c.name, value: c.value || undefined })),
     timeoutSeconds: draft.timeoutSeconds,
     enabled: draft.enabled,
+    aiEnabled: draft.aiEnabled,
   }
 }
 
@@ -189,7 +197,7 @@ function addCredential() {
 }
 
 function fillSampleParams() {
-  if (parsedFormItems.value) params.value = sampleParams(parsedFormItems.value)
+  if (parsedFormItems.value) params.value = sampleShortcutParams(parsedFormItems.value)
   else Message.warning(t('shortcutAdmin.invalidFormItems'))
 }
 
@@ -220,7 +228,7 @@ async function save() {
     const created = !shortcut.value
     const saved = shortcut.value ? await adminShortcutsApi.update(shortcut.value.uid, b) : await adminShortcutsApi.create(b)
     shortcut.value = saved
-    // 凭据值保存后不再回显，基线以服务端返回为准，测试结果保留。
+    // Use the server response as the baseline, clear credential values, and preserve the test result.
     const result = testResult.value
     const currentParams = params.value
     reset(saved)
@@ -287,10 +295,19 @@ function onKeydown(e: KeyboardEvent) {
   }
 }
 
-onMounted(() => {
+onMounted(async () => {
   window.addEventListener('beforeunload', onBeforeUnload)
   window.addEventListener('keydown', onKeydown)
+
+  try {
+    aiSettings.value = await adminApi.aiSettings()
+  } catch {
+    aiError.value = true
+  } finally {
+    aiLoading.value = false
+  }
 })
+
 onBeforeUnmount(() => {
   window.removeEventListener('beforeunload', onBeforeUnload)
   window.removeEventListener('keydown', onKeydown)
@@ -315,9 +332,15 @@ const format = (v: unknown) => (v === undefined ? 'undefined' : JSON.stringify(v
     </a-result>
 
     <a-spin v-else :loading="loading" class="spin">
-      <PageHeader :title="title" :description="isNew ? t('shortcutAdmin.createDescription') : undefined">
-        <template v-if="shortcut" #extra>
-          <a-button status="danger" @click="remove">
+      <PageHeader :title="title" :description="isNew ? t('shortcutAdmin.createDescription') : undefined" class="editor-header">
+        <template #extra>
+          <a-tooltip :content="t('shortcutAdmin.enabledDescription')">
+            <div class="shortcut-status">
+              <span>{{ draft.enabled ? t('shortcutAdmin.enabledTag') : t('shortcutAdmin.disabledTag') }}</span>
+              <a-switch v-model="draft.enabled" :aria-label="t('shortcutAdmin.enabled')" />
+            </div>
+          </a-tooltip>
+          <a-button v-if="shortcut" status="danger" @click="remove">
             <template #icon><Trash2 :size="16" /></template>
             {{ t('shortcutAdmin.dangerTitle') }}
           </a-button>
@@ -357,10 +380,18 @@ const format = (v: unknown) => (v === undefined ? 'undefined' : JSON.stringify(v
                         <template #suffix>{{ t('shortcutAdmin.seconds') }}</template>
                       </a-input-number>
                     </a-form-item>
-                    <a-form-item :label="t('shortcutAdmin.enabled')" :extra="t('shortcutAdmin.enabledDescription')">
-                      <a-switch v-model="draft.enabled" />
+                    <a-form-item :label="t('shortcutAdmin.aiEnabled')" :extra="t('shortcutAdmin.aiEnabledDescription')">
+                      <a-switch v-model="draft.aiEnabled" />
                     </a-form-item>
                   </div>
+                  <a-alert v-if="draft.aiEnabled" :type="aiLoading ? 'info' : aiReady ? 'success' : 'warning'">
+                    <a-space wrap>
+                      <span>{{ aiStatus }}</span>
+                      <RouterLink v-slot="{ href, navigate }" :to="{ name: 'admin-ai' }" custom>
+                        <a-link :href="href" @click="navigate">{{ t('shortcutAdmin.aiSettings') }}</a-link>
+                      </RouterLink>
+                    </a-space>
+                  </a-alert>
                 </a-form>
               </a-tab-pane>
 
@@ -508,6 +539,22 @@ const format = (v: unknown) => (v === undefined ? 'undefined' : JSON.stringify(v
 .spin {
   display: block;
 }
+
+.editor-header > :deep(.arco-space) {
+  flex-wrap: wrap;
+  max-width: 100%;
+}
+
+.shortcut-status {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--text-title);
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
 .mono-input :deep(input) {
   font-family: 'SF Mono', Menlo, Consolas, monospace;
   font-size: 12.5px;
@@ -525,7 +572,7 @@ const format = (v: unknown) => (v === undefined ? 'undefined' : JSON.stringify(v
   position: sticky;
   top: 0;
   min-width: 0;
-  /* 顶栏 56px，下方留出保存栏的高度。 */
+  /* Allow for the 56px header and leave room for the save bar below. */
   max-height: calc(100vh - 56px - 96px);
   overflow-y: auto;
   border-radius: 8px;
@@ -589,6 +636,7 @@ const format = (v: unknown) => (v === undefined ? 'undefined' : JSON.stringify(v
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0 24px;
 }
+
 .type-option {
   display: inline-flex;
   align-items: center;
@@ -596,7 +644,9 @@ const format = (v: unknown) => (v === undefined ? 'undefined' : JSON.stringify(v
 }
 .timeout {
   width: 180px;
+  max-width: 100%;
 }
+
 .credentials {
   display: flex;
   flex-direction: column;

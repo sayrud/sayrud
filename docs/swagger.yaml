@@ -281,9 +281,13 @@ definitions:
     type: object
   AdminFieldShortcut:
     properties:
+      aiEnabled:
+        description: AIEnabled allows the script to call the globally configured AI
+          model.
+        type: boolean
       code:
         description: Code defines `async function execute(params, context)` returning
-          the cell value.
+          the cell value, with context.ai.complete using the global model when AIEnabled.
         type: string
       createdAt:
         description: CreatedAt is the time the shortcut was created.
@@ -331,6 +335,7 @@ definitions:
         description: UsedBy is the number of the fields using the shortcut.
         type: integer
     required:
+    - aiEnabled
     - code
     - createdAt
     - credentials
@@ -818,8 +823,13 @@ definitions:
     type: object
   FieldShortcutManifest:
     properties:
+      aiEnabled:
+        description: AIEnabled reports whether the script is allowed to use the globally
+          configured AI model.
+        type: boolean
       available:
-        description: Available is false if the shortcut is disabled.
+        description: Available is false if the shortcut is disabled or its AI configuration
+          is unavailable.
         type: boolean
       description:
         description: Description tells what the shortcut does.
@@ -847,6 +857,7 @@ definitions:
           type: string
         type: array
     required:
+    - aiEnabled
     - available
     - description
     - formItems
@@ -1327,8 +1338,13 @@ definitions:
     type: object
   SaveFieldShortcut:
     properties:
+      aiEnabled:
+        description: AIEnabled allows the script to call the globally configured AI
+          model.
+        type: boolean
       code:
-        description: Code defines `async function execute(params, context)`.
+        description: Code defines `async function execute(params, context)`, with
+          context.ai.complete using the global model when AIEnabled.
         type: string
       credentials:
         description: Credentials are the credentials the script can use when fetching.
@@ -1373,6 +1389,7 @@ definitions:
           300, 0 defaults to 30.
         type: integer
     required:
+    - aiEnabled
     - code
     - credentials
     - description

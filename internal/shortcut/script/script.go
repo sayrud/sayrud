@@ -1,7 +1,7 @@
 // Package script runs the custom field shortcuts written in JavaScript.
 //
 // Every run uses a new goja runtime which has no module loader, file system or process access, and is interrupted on timeout.
-// The network is only reachable by context.fetch, which is limited to the allowed domains and the public addresses.
+// context.fetch is limited to allowed domains and public addresses; context.ai uses the injected server-side model client.
 // goja is an interpreter in the server process rather than an isolation boundary, so the scripts must be published by trusted admins.
 package script
 
@@ -41,6 +41,8 @@ type Options struct {
 	Credentials []Credential
 	// Timeout is the time limit of the run, it defaults to 30 seconds.
 	Timeout time.Duration
+	// AIComplete uses the global model without exposing its configuration or credentials to the script.
+	AIComplete func(ctx context.Context, prompt, system string) (string, error)
 }
 
 // Result is the outcome of a successful run.
@@ -64,6 +66,7 @@ var (
 	ErrTimeout        = errors.New("the script timed out")
 	ErrPendingPromise = errors.New("the promise returned by execute never settles")
 	ErrResultTooLarge = errors.New("the result is too large")
+	ErrAIDisabled     = errors.New("AI is not enabled for this shortcut")
 )
 
 // Error is an error thrown by the script or a syntax error, Message is shown to the users.
@@ -84,11 +87,13 @@ func Compile(code string) error {
 }
 
 type sandbox struct {
-	ctx     context.Context
-	vm      *goja.Runtime
-	opts    Options
-	logs    []string
-	fetcher *fetcher
+	ctx        context.Context
+	vm         *goja.Runtime
+	opts       Options
+	logs       []string
+	fetcher    *fetcher
+	aiCalls    int
+	hostErrors map[*goja.Object]error
 }
 
 // Run executes the script and returns the value returned or resolved by execute.
@@ -152,7 +157,7 @@ func (s *sandbox) execute() (interface{}, error) {
 		return nil, errors.Wrap(err, "build context")
 	}
 
-	// The promise jobs are run before the outermost call returns, and fetch blocks, so an async execute has settled by then.
+	// Promise jobs run before the outermost call returns; fetch and AI calls block, so an async execute has settled by then.
 	value, err := execute(goja.Undefined(), params, contextObject)
 	if err != nil {
 		return nil, s.wrap(err)
@@ -162,7 +167,7 @@ func (s *sandbox) execute() (interface{}, error) {
 		case goja.PromiseStateFulfilled:
 			value = promise.Result()
 		case goja.PromiseStateRejected:
-			return nil, &Error{Message: s.describe(promise.Result())}
+			return nil, s.valueError(promise.Result())
 		default:
 			if s.ctx.Err() != nil {
 				return nil, s.ctxError()
@@ -195,6 +200,15 @@ func (s *sandbox) contextObject() (goja.Value, error) {
 	if err := object.Set("log", s.log); err != nil {
 		return nil, err
 	}
+
+	ai := s.vm.NewObject()
+	if err := ai.Set("complete", s.aiComplete); err != nil {
+		return nil, err
+	}
+	if err := object.Set("ai", ai); err != nil {
+		return nil, err
+	}
+
 	return object, nil
 }
 
@@ -308,7 +322,7 @@ func (s *sandbox) wrap(err error) error {
 	}
 	var exception *goja.Exception
 	if errors.As(err, &exception) {
-		return &Error{Message: s.describe(exception.Value())}
+		return s.valueError(exception.Value())
 	}
 	var syntax *goja.CompilerSyntaxError
 	if errors.As(err, &syntax) {
@@ -319,6 +333,16 @@ func (s *sandbox) wrap(err error) error {
 		return &Error{Message: "maximum call stack size exceeded"}
 	}
 	return &Error{Message: err.Error()}
+}
+
+func (s *sandbox) valueError(value goja.Value) error {
+	if object, ok := value.(*goja.Object); ok {
+		if err := s.hostErrors[object]; err != nil {
+			return err
+		}
+	}
+
+	return &Error{Message: s.describe(value)}
 }
 
 // fetch implements context.fetch(url, options, credentialKey), it blocks and returns the response, the script may await it.

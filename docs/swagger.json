@@ -4934,6 +4934,7 @@
         "AdminFieldShortcut": {
             "type": "object",
             "required": [
+                "aiEnabled",
                 "code",
                 "createdAt",
                 "credentials",
@@ -4949,8 +4950,12 @@
                 "usedBy"
             ],
             "properties": {
+                "aiEnabled": {
+                    "description": "AIEnabled allows the script to call the globally configured AI model.",
+                    "type": "boolean"
+                },
                 "code": {
-                    "description": "Code defines `async function execute(params, context)` returning the cell value.",
+                    "description": "Code defines `async function execute(params, context)` returning the cell value, with context.ai.complete using the global model when AIEnabled.",
                     "type": "string"
                 },
                 "createdAt": {
@@ -5657,6 +5662,7 @@
         "FieldShortcutManifest": {
             "type": "object",
             "required": [
+                "aiEnabled",
                 "available",
                 "description",
                 "formItems",
@@ -5666,8 +5672,12 @@
                 "resultTypes"
             ],
             "properties": {
+                "aiEnabled": {
+                    "description": "AIEnabled reports whether the script is allowed to use the globally configured AI model.",
+                    "type": "boolean"
+                },
                 "available": {
-                    "description": "Available is false if the shortcut is disabled.",
+                    "description": "Available is false if the shortcut is disabled or its AI configuration is unavailable.",
                     "type": "boolean"
                 },
                 "description": {
@@ -6351,6 +6361,7 @@
         "SaveFieldShortcut": {
             "type": "object",
             "required": [
+                "aiEnabled",
                 "code",
                 "credentials",
                 "description",
@@ -6362,8 +6373,12 @@
                 "timeoutSeconds"
             ],
             "properties": {
+                "aiEnabled": {
+                    "description": "AIEnabled allows the script to call the globally configured AI model.",
+                    "type": "boolean"
+                },
                 "code": {
-                    "description": "Code defines `async function execute(params, context)`.",
+                    "description": "Code defines `async function execute(params, context)`, with context.ai.complete using the global model when AIEnabled.",
                     "type": "string"
                 },
                 "credentials": {

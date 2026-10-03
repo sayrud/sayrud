@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Message, Modal, type TableColumnData } from '@arco-design/web-vue'
-import { Plus, Zap } from '@lucide/vue'
+import { ChevronDown, Plus, Sparkles, Zap } from '@lucide/vue'
 import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
@@ -43,8 +43,8 @@ async function load() {
   }
 }
 
-function create() {
-  router.push({ name: 'admin-field-shortcut-new' })
+function create(ai = false) {
+  router.push({ name: 'admin-field-shortcut-new', query: ai ? { template: 'ai' } : undefined })
 }
 
 function edit(s: AdminFieldShortcut) {
@@ -53,6 +53,7 @@ function edit(s: AdminFieldShortcut) {
 
 async function toggle(s: AdminFieldShortcut, enabled: boolean) {
   toggling.value = s.uid
+
   try {
     const saved = await adminShortcutsApi.update(s.uid, {
       name: s.name,
@@ -63,8 +64,10 @@ async function toggle(s: AdminFieldShortcut, enabled: boolean) {
       domains: s.domains,
       credentials: s.credentials.map((c) => ({ key: c.key, type: c.type, name: c.name })),
       timeoutSeconds: s.timeoutSeconds,
+      aiEnabled: s.aiEnabled,
       enabled,
     })
+
     shortcuts.value = shortcuts.value.map((x) => (x.uid === saved.uid ? saved : x))
   } catch (e) {
     Message.error(e instanceof Error ? e.message : String(e))
@@ -100,10 +103,16 @@ onMounted(load)
   <div>
     <PageHeader :title="t('shortcutAdmin.title')" :description="t('shortcutAdmin.pageDescription')">
       <template #extra>
-        <a-button type="primary" @click="create">
-          <template #icon><Plus :size="16" /></template>
-          {{ t('shortcutAdmin.add') }}
-        </a-button>
+        <a-dropdown trigger="click">
+          <a-button type="primary">
+            <template #icon><Plus :size="16" /></template>
+            {{ t('shortcutAdmin.add') }} <ChevronDown :size="14" />
+          </a-button>
+          <template #content>
+            <a-doption @click="create()">{{ t('shortcutAdmin.newScript') }}</a-doption>
+            <a-doption @click="create(true)">{{ t('shortcutAdmin.newAI') }}</a-doption>
+          </template>
+        </a-dropdown>
       </template>
     </PageHeader>
 
@@ -128,7 +137,7 @@ onMounted(load)
         <template #name="{ record }">
           <div class="name-cell">
             <a-avatar shape="square" :size="32" class="name-icon">
-              <Zap :size="16" />
+              <component :is="record.aiEnabled ? Sparkles : Zap" :size="16" />
             </a-avatar>
             <div class="name-text">
               <div class="name ellipsis">{{ record.name }}</div>
@@ -171,10 +180,16 @@ onMounted(load)
         <a-avatar shape="square" :size="48" class="empty-icon"><Zap :size="24" /></a-avatar>
         <div class="empty-title">{{ t('shortcutAdmin.empty') }}</div>
         <div class="text-desc empty-desc">{{ t('shortcutAdmin.emptyDescription') }}</div>
-        <a-button type="primary" @click="create">
-          <template #icon><Plus :size="16" /></template>
-          {{ t('shortcutAdmin.add') }}
-        </a-button>
+        <a-dropdown trigger="click">
+          <a-button type="primary">
+            <template #icon><Plus :size="16" /></template>
+            {{ t('shortcutAdmin.add') }} <ChevronDown :size="14" />
+          </a-button>
+          <template #content>
+            <a-doption @click="create()">{{ t('shortcutAdmin.newScript') }}</a-doption>
+            <a-doption @click="create(true)">{{ t('shortcutAdmin.newAI') }}</a-doption>
+          </template>
+        </a-dropdown>
       </div>
     </SettingsSection>
   </div>

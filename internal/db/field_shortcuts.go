@@ -128,8 +128,10 @@ type CustomFieldShortcut struct {
 	Description string `gorm:"type:text;not null;default:''"`
 	// ResultType is the type of the fields the shortcut can be attached to.
 	ResultType SLFieldType `gorm:"type:varchar(32);not null"`
-	// Code defines `async function execute(params, context)` returning the cell value.
+	// Code defines `async function execute(params, context)` returning the cell value, with context.ai.complete using the global model when AIEnabled.
 	Code string `gorm:"type:text;not null"`
+	// AIEnabled allows the script to call the globally configured AI model.
+	AIEnabled bool `gorm:"not null;default:false"`
 	// FormItems are the inputs configured in the field editor and passed to execute as the params.
 	FormItems datatypes.JSONType[[]ShortcutFormItem] `gorm:"type:jsonb;not null"`
 	// Domains are the hosts the script can fetch, including their subdomains.
@@ -199,6 +201,7 @@ func (db *fieldShortcuts) Update(ctx context.Context, s *CustomFieldShortcut) er
 		"description":     s.Description,
 		"result_type":     s.ResultType,
 		"code":            s.Code,
+		"ai_enabled":      s.AIEnabled,
 		"form_items":      s.FormItems,
 		"domains":         s.Domains,
 		"credentials":     s.Credentials,

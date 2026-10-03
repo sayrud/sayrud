@@ -9,6 +9,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"github.com/thanhpk/randstr"
+	"gorm.io/datatypes"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
@@ -150,6 +151,37 @@ func TestFieldShortcutColumn(t *testing.T) {
 	got, err = store.GetByID(ctx, field.ID)
 	require.NoError(t, err)
 	require.Nil(t, got.Shortcut)
+}
+
+func TestCustomFieldShortcutAIEnabled(t *testing.T) {
+	ctx := context.Background()
+	store := NewFieldShortcutsStore(newTestDB(t, &CustomFieldShortcut{}))
+
+	s := &CustomFieldShortcut{
+		Name:        "Custom AI shortcut",
+		ResultType:  TextFieldType,
+		Code:        "async function execute(params) { return params.text; }",
+		AIEnabled:   true,
+		FormItems:   datatypes.NewJSONType([]ShortcutFormItem{}),
+		Domains:     datatypes.NewJSONType([]string{}),
+		Credentials: datatypes.NewJSONType([]ShortcutCredential{}),
+	}
+	require.NoError(t, store.Create(ctx, s))
+	got, err := store.GetByUID(ctx, s.UID)
+	require.NoError(t, err)
+	require.True(t, got.AIEnabled)
+
+	got.AIEnabled = false
+	require.NoError(t, store.Update(ctx, got))
+	got, err = store.GetByUID(ctx, s.UID)
+	require.NoError(t, err)
+	require.False(t, got.AIEnabled, "disabling AI must persist false")
+
+	s.UID, s.ID, s.AIEnabled = "", 0, false
+	require.NoError(t, store.Create(ctx, s))
+	got, err = store.GetByUID(ctx, s.UID)
+	require.NoError(t, err)
+	require.False(t, got.AIEnabled, "AI must require explicit authorization")
 }
 
 // otherJob returns the job of a and b which is not c.

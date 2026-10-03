@@ -137,7 +137,9 @@ export interface AdminCredential {
 }
 
 export interface AdminFieldShortcut {
-  /** Code defines `async function execute(params, context)` returning the cell value. */
+  /** AIEnabled allows the script to call the globally configured AI model. */
+  aiEnabled: boolean;
+  /** Code defines `async function execute(params, context)` returning the cell value, with context.ai.complete using the global model when AIEnabled. */
   code: string;
   /** CreatedAt is the time the shortcut was created. */
   createdAt: string;
@@ -396,7 +398,9 @@ export interface FieldShortcut {
 }
 
 export interface FieldShortcutManifest {
-  /** Available is false if the shortcut is disabled. */
+  /** AIEnabled reports whether the script is allowed to use the globally configured AI model. */
+  aiEnabled: boolean;
+  /** Available is false if the shortcut is disabled or its AI configuration is unavailable. */
   available: boolean;
   /** Description tells what the shortcut does. */
   description: string;
@@ -614,7 +618,9 @@ export interface SLView {
 }
 
 export interface SaveFieldShortcut {
-  /** Code defines `async function execute(params, context)`. */
+  /** AIEnabled allows the script to call the globally configured AI model. */
+  aiEnabled: boolean;
+  /** Code defines `async function execute(params, context)`, with context.ai.complete using the global model when AIEnabled. */
   code: string;
   /** Credentials are the credentials the script can use when fetching. */
   credentials: SaveShortcutCredential[];

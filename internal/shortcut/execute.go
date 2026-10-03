@@ -124,6 +124,11 @@ func RunCustom(ctx context.Context, custom *db.CustomFieldShortcut, secrets map[
 		credentials = append(credentials, script.Credential{Key: c.Key, Type: c.Type, Name: c.Name, Value: secrets[c.Key]})
 	}
 
+	var complete func(context.Context, string, string) (string, error)
+	if custom.AIEnabled {
+		complete = aiCompleter()
+	}
+
 	result, err := script.Run(ctx, script.Options{
 		Code:   custom.Code,
 		Params: params,
@@ -136,16 +141,24 @@ func RunCustom(ctx context.Context, custom *db.CustomFieldShortcut, secrets map[
 		Domains:     custom.Domains.Data(),
 		Credentials: credentials,
 		Timeout:     time.Duration(custom.TimeoutSeconds) * time.Second,
+		AIComplete:  complete,
 	})
 	if err != nil {
 		return result, scriptError(err)
 	}
+
 	return result, nil
 }
 
 func scriptError(err error) *Error {
+	var shortcutErr *Error
 	var scriptErr *script.Error
+
 	switch {
+	case errors.As(err, &shortcutErr):
+		return shortcutErr
+	case errors.Is(err, script.ErrAIDisabled):
+		return newError("shortcut::ai_disabled")
 	case errors.As(err, &scriptErr):
 		return newError("shortcut::script_error").withDetail("%s", scriptErr.Message)
 	case errors.Is(err, script.ErrTimeout):

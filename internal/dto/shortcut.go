@@ -20,7 +20,9 @@ type FieldShortcutManifest struct {
 	ResultTypes []string `json:"resultTypes"`
 	// FormItems are the inputs to configure in the field editor.
 	FormItems []db.ShortcutFormItem `json:"formItems"`
-	// Available is false if the shortcut is disabled.
+	// AIEnabled reports whether the script is allowed to use the globally configured AI model.
+	AIEnabled bool `json:"aiEnabled"`
+	// Available is false if the shortcut is disabled or its AI configuration is unavailable.
 	Available bool `json:"available"`
 } // @name FieldShortcutManifest
 
@@ -72,8 +74,10 @@ type AdminFieldShortcut struct {
 	Description string `json:"description"`
 	// ResultType is the type of the fields the shortcut can be attached to.
 	ResultType string `json:"resultType"`
-	// Code defines `async function execute(params, context)` returning the cell value.
+	// Code defines `async function execute(params, context)` returning the cell value, with context.ai.complete using the global model when AIEnabled.
 	Code string `json:"code"`
+	// AIEnabled allows the script to call the globally configured AI model.
+	AIEnabled bool `json:"aiEnabled"`
 	// FormItems are the inputs configured in the field editor and passed to execute as the params.
 	FormItems []db.ShortcutFormItem `json:"formItems"`
 	// Domains are the hosts the script can fetch, including their subdomains.
@@ -122,6 +126,7 @@ func ToAdminFieldShortcut(s *db.CustomFieldShortcut, valueKeys map[string]bool, 
 		Description:    s.Description,
 		ResultType:     string(s.ResultType),
 		Code:           s.Code,
+		AIEnabled:      s.AIEnabled,
 		FormItems:      formItems,
 		Domains:        domains,
 		Credentials:    credentials,

@@ -212,6 +212,7 @@ func buildCustomShortcut(f form.SaveFieldShortcut) (*db.CustomFieldShortcut, map
 		Description:    strings.TrimSpace(f.Description),
 		ResultType:     resultType,
 		Code:           f.Code,
+		AIEnabled:      f.AIEnabled,
 		FormItems:      datatypes.NewJSONType(formItems),
 		Domains:        datatypes.NewJSONType(lo.Uniq(domains)),
 		Credentials:    datatypes.NewJSONType(credentials),

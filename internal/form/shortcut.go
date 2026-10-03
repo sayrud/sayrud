@@ -34,8 +34,10 @@ type SaveFieldShortcut struct {
 	Description string `json:"description"`
 	// ResultType is the type of the fields the shortcut can be attached to.
 	ResultType string `json:"resultType" enums:"text,single_select,multi_select,datetime,number,checkbox"`
-	// Code defines `async function execute(params, context)`.
+	// Code defines `async function execute(params, context)`, with context.ai.complete using the global model when AIEnabled.
 	Code string `json:"code"`
+	// AIEnabled allows the script to call the globally configured AI model.
+	AIEnabled bool `json:"aiEnabled"`
 	// FormItems are the inputs configured in the field editor and passed to execute as the params.
 	FormItems []db.ShortcutFormItem `json:"formItems"`
 	// Domains are the hosts the script can fetch, including their subdomains.

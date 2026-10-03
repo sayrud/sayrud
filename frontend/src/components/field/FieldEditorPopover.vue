@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Message } from '@arco-design/web-vue'
-import { Check, ChevronRight, Pencil, Search, TriangleAlert, Zap } from '@lucide/vue'
+import { Check, ChevronRight, Pencil, Search, Sparkles, TriangleAlert, Zap } from '@lucide/vue'
 import { computed, nextTick, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 
@@ -16,6 +16,7 @@ import FieldTypeIcon from './FieldTypeIcon.vue'
 import FormulaModal from './FormulaModal.vue'
 import OptionsEditor from './OptionsEditor.vue'
 import ShortcutForm from './ShortcutForm.vue'
+
 const { t } = useI18n()
 
 const store = useBaseStore()
@@ -32,6 +33,7 @@ const md = ref<Record<string, any>>({})
 const saving = ref(false)
 const formulaVisible = ref(false)
 const labelInput = ref<{ focus: () => void }>()
+
 /** Shortcut generating the values of the field, null means the values are edited by the users. */
 const shortcut = ref<FieldShortcut | null>(null)
 
@@ -244,7 +246,7 @@ const numberExample = computed(() => formatNumber(1234.5678, String(md.value.for
       <div class="row">
         <div class="row-label">{{ t('fieldEditor.type') }}</div>
         <button ref="typeTrigger" type="button" class="type-trigger" :class="{ open: !!typeMenu }" @click="toggleTypeMenu">
-          <Zap v-if="shortcut && manifest" :size="16" class="shortcut-icon" />
+          <component :is="manifest.aiEnabled ? Sparkles : Zap" v-if="shortcut && manifest" :size="16" class="shortcut-icon" />
           <FieldTypeIcon v-else :type="type" :size="16" />
           <span class="type-trigger-label">{{ shortcut ? (manifest?.name ?? shortcut.id) : fieldTypeInfo(type).label }}</span>
           <ChevronRight :size="16" class="type-trigger-arrow" />
@@ -404,7 +406,7 @@ const numberExample = computed(() => formatNumber(1234.5678, String(md.value.for
             @mouseenter="typeActive = filteredTypes.length + i"
             @click="selectShortcut(m)"
           >
-            <Zap :size="16" class="shortcut-icon" />
+            <component :is="m.aiEnabled ? Sparkles : Zap" :size="16" class="shortcut-icon" />
             <span class="type-item-label">{{ m.name }}</span>
             <Check v-if="shortcut?.id === m.id" :size="15" class="type-check" />
           </div>

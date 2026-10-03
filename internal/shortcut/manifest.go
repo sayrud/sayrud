@@ -18,6 +18,7 @@ const KindScript Kind = "script"
 type Definition struct {
 	ID          string
 	Kind        Kind
+	AIEnabled   bool
 	Name        string
 	Description string
 	ResultTypes []db.SLFieldType
@@ -27,8 +28,8 @@ type Definition struct {
 }
 
 // Available reports whether the shortcut can be executed now.
-func (d *Definition) Available() bool {
-	return d.custom != nil && d.custom.Enabled
+func (d *Definition) Available(aiConfigured bool) bool {
+	return d.custom != nil && d.custom.Enabled && (!d.AIEnabled || aiConfigured)
 }
 
 // SupportsType reports whether the shortcut can be attached to a field of the type.
@@ -66,6 +67,7 @@ func CustomDefinition(custom *db.CustomFieldShortcut) *Definition {
 	return &Definition{
 		ID:          custom.UID,
 		Kind:        KindScript,
+		AIEnabled:   custom.AIEnabled,
 		Name:        custom.Name,
 		Description: custom.Description,
 		ResultTypes: []db.SLFieldType{custom.ResultType},

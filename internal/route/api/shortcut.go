@@ -19,15 +19,16 @@ var Shortcut shortcutRoute
 
 type shortcutRoute struct{}
 
-func toManifest(def *shortcut.Definition) *dto.FieldShortcutManifest {
+func toManifest(def *shortcut.Definition, aiConfigured bool) *dto.FieldShortcutManifest {
 	return &dto.FieldShortcutManifest{
 		ID:          def.ID,
 		Kind:        string(def.Kind),
+		AIEnabled:   def.AIEnabled,
 		Name:        def.Name,
 		Description: def.Description,
 		ResultTypes: lo.Map(def.ResultTypes, func(t db.SLFieldType, _ int) string { return string(t) }),
 		FormItems:   lo.Ternary(def.FormItems == nil, []db.ShortcutFormItem{}, def.FormItems),
-		Available:   def.Available(),
+		Available:   def.Available(aiConfigured),
 	}
 }
 
@@ -57,8 +58,19 @@ func (shortcutRoute) List(ctx context.Context) error {
 		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to list field shortcuts")
 		return ctx.ApiServerError()
 	}
+
+	aiConfigured := false
+	if lo.ContainsBy(defs, func(def *shortcut.Definition) bool { return def.AIEnabled }) {
+		settings, err := db.Settings.GetAI(ctx.Request().Context())
+		if err != nil {
+			logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to get AI settings")
+			return ctx.ApiServerError()
+		}
+		aiConfigured = settings.Configured()
+	}
+
 	return ctx.ApiSuccess(lo.Map(defs, func(def *shortcut.Definition, _ int) *dto.FieldShortcutManifest {
-		return toManifest(def)
+		return toManifest(def, aiConfigured)
 	}))
 }
 
