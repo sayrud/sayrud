@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { Message, Modal, type TableColumnData } from '@arco-design/web-vue'
 import { Plus, Zap } from '@lucide/vue'
-import dayjs from 'dayjs'
 import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
@@ -24,9 +23,7 @@ const keyword = ref('')
 const columns = computed<TableColumnData[]>(() => [
   { title: t('shortcutAdmin.name'), slotName: 'name', width: 320 },
   { title: t('shortcutAdmin.resultType'), slotName: 'resultType', width: 140 },
-  { title: t('shortcutAdmin.colUsedBy'), dataIndex: 'usedBy', width: 100, align: 'right' },
   { title: t('shortcutAdmin.colStatus'), slotName: 'status', width: 110 },
-  { title: t('shortcutAdmin.colUpdatedAt'), slotName: 'updatedAt', width: 150 },
   { title: t('common.actions'), slotName: 'actions', width: 140, fixed: 'right' },
 ])
 
@@ -123,7 +120,7 @@ onMounted(load)
         :loading="loading"
         row-key="uid"
         :bordered="false"
-        :scroll="{ x: 960 }"
+        :scroll="{ x: 720 }"
         :pagination="false"
         class="table"
         @row-click="(record) => edit(record as AdminFieldShortcut)"
@@ -158,9 +155,6 @@ onMounted(load)
               {{ record.enabled ? t('shortcutAdmin.enabledTag') : t('shortcutAdmin.disabledTag') }}
             </span>
           </span>
-        </template>
-        <template #updatedAt="{ record }">
-          <span class="text-desc">{{ dayjs(record.updatedAt).format('YYYY-MM-DD HH:mm') }}</span>
         </template>
         <template #actions="{ record }">
           <div class="actions" @click.stop>
