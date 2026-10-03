@@ -42,6 +42,12 @@ const apiKeyPlaceholder = computed(() =>
   original.value?.apiKeySet && !draft.clearAPIKey ? t('admin.ai.apiKeyKeep') : t('admin.ai.apiKeyOptional'),
 )
 
+// 实际请求地址是接口根地址去掉末尾斜杠后加上 /chat/completions。
+const requestURL = computed(() => {
+  const base = draft.baseURL.trim().replace(/\/+$/, '')
+  return base ? `${base}/chat/completions` : ''
+})
+
 function reset() {
   const o = original.value
   if (!o) return
@@ -116,13 +122,16 @@ onMounted(async () => {
             <a-switch v-model="draft.enabled" />
           </template>
         </SettingRow>
-        <SettingRow :label="t('admin.ai.baseURL')" :description="t('admin.ai.baseURLDescription')">
-          <a-input v-model="draft.baseURL" placeholder="https://api.openai.com/v1" class="input" allow-clear />
+        <SettingRow :label="t('admin.ai.baseURL')" class="url-row">
+          <div>
+            <a-input v-model="draft.baseURL" class="input" allow-clear />
+            <div v-if="requestURL" class="text-desc hint request-url">{{ requestURL }}</div>
+          </div>
         </SettingRow>
-        <SettingRow :label="t('admin.ai.model')" :description="t('admin.ai.modelDescription')">
-          <a-input v-model="draft.model" :max-length="128" placeholder="gpt-4o-mini" class="input" />
+        <SettingRow :label="t('admin.ai.model')">
+          <a-input v-model="draft.model" :max-length="128" class="input" />
         </SettingRow>
-        <SettingRow :label="t('admin.ai.apiKey')" :description="t('admin.ai.apiKeyDescription')">
+        <SettingRow :label="t('admin.ai.apiKey')">
           <div class="key-row">
             <a-input-password
               v-model="draft.apiKey"
@@ -180,6 +189,16 @@ onMounted(async () => {
 }
 .input {
   max-width: 360px;
+}
+.url-row {
+  align-items: flex-start;
+}
+.url-row :deep(.label-text) {
+  padding-top: 5px;
+}
+.request-url {
+  max-width: 520px;
+  overflow-wrap: anywhere;
 }
 .num {
   width: 200px;
