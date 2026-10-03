@@ -14,12 +14,14 @@ import {
   type TestFieldShortcutResp,
 } from '@/api/shortcut'
 import CodeEditor from '@/components/common/CodeEditor.vue'
+import ShortcutFormItemsEditor from '@/components/admin/ShortcutFormItemsEditor.vue'
 import PageHeader from '@/components/console/PageHeader.vue'
 import SaveBar from '@/components/console/SaveBar.vue'
 import SettingsSection from '@/components/console/SettingsSection.vue'
 import FieldTypeIcon from '@/components/field/FieldTypeIcon.vue'
 import type { FieldType } from '@/types/bitable'
 import { fieldTypeInfo } from '@/utils/fieldTypes'
+import { formItemIssueKey, formItemIssueName, loadFormItems, validateFormItems } from '@/utils/shortcutFormItems'
 import { SHORTCUT_HOST_TYPES } from '@/utils/shortcut'
 
 const { t } = useI18n()
@@ -134,14 +136,16 @@ const title = computed(() => {
   return isNew.value ? t('shortcutAdmin.createTitle') : ''
 })
 
-/** 表单项 JSON 的解析结果，无效时为 null。 */
+/** Parsed form-item array when the JSON can be loaded into cards, otherwise null. */
 const parsedFormItems = computed<ShortcutFormItem[] | null>(() => {
-  try {
-    const items = JSON.parse(draft.formItems || '[]') as unknown
-    return Array.isArray(items) ? (items as ShortcutFormItem[]) : null
-  } catch {
-    return null
-  }
+  const loaded = loadFormItems(draft.formItems)
+  if (!loaded.ok) return null
+  return JSON.parse(draft.formItems) as ShortcutFormItem[]
+})
+
+const formItemsInvalid = computed(() => {
+  const loaded = loadFormItems(draft.formItems)
+  return !loaded.ok || validateFormItems(loaded.items).length > 0
 })
 
 const paramsInvalid = computed(() => {
@@ -153,11 +157,17 @@ const paramsInvalid = computed(() => {
   }
 })
 
-/** 返回请求体，表单无效时提示用户并返回 null。 */
+/** Returns the request body. Warns and stays on the form-items tab when the JSON cannot be loaded or is invalid. */
 function body(): SaveFieldShortcut | null {
-  const formItems = parsedFormItems.value
-  if (!formItems) {
+  const loaded = loadFormItems(draft.formItems)
+  if (!loaded.ok) {
     Message.warning(t('shortcutAdmin.invalidFormItems'))
+    tab.value = 'formItems'
+    return null
+  }
+  const issue = validateFormItems(loaded.items)[0]
+  if (issue) {
+    Message.warning(t(formItemIssueKey(issue), { key: formItemIssueName(loaded.items, issue) }))
     tab.value = 'formItems'
     return null
   }
@@ -166,7 +176,7 @@ function body(): SaveFieldShortcut | null {
     description: draft.description,
     resultType: draft.resultType as SaveFieldShortcut['resultType'],
     code: draft.code,
-    formItems,
+    formItems: JSON.parse(draft.formItems) as ShortcutFormItem[],
     domains: draft.domains,
     credentials: draft.credentials.map((c) => ({ key: c.key, type: c.type, name: c.type === 'bearer' ? undefined : c.name, value: c.value || undefined })),
     timeoutSeconds: draft.timeoutSeconds,
@@ -361,23 +371,11 @@ const format = (v: unknown) => (v === undefined ? 'undefined' : JSON.stringify(v
                 <template #title>
                   <span class="tab-title">
                     {{ t('shortcutAdmin.formItems') }}
-                    <span v-if="!parsedFormItems" class="tab-dot" />
+                    <span v-if="formItemsInvalid" class="tab-dot" />
                   </span>
                 </template>
                 <div class="pane">
-                  <div class="pane-head">
-                    <span class="text-desc">{{ t('shortcutAdmin.formItemsDescription') }}</span>
-                    <a-tag size="small" class="lang-tag">JSON</a-tag>
-                  </div>
-                  <CodeEditor
-                    v-model="draft.formItems"
-                    language="json"
-                    min-height="320px"
-                    max-height="calc(100vh - 380px)"
-                    :error="!parsedFormItems"
-                    :aria-label="t('shortcutAdmin.formItems')"
-                  />
-                  <div v-if="!parsedFormItems" class="field-error">{{ t('shortcutAdmin.invalidFormItems') }}</div>
+                  <ShortcutFormItemsEditor :key="baseline" v-model="draft.formItems" />
                 </div>
               </a-tab-pane>
 
@@ -613,11 +611,6 @@ const format = (v: unknown) => (v === undefined ? 'undefined' : JSON.stringify(v
 }
 .lang-tag {
   font-family: 'SF Mono', Menlo, Consolas, monospace;
-}
-.field-error {
-  margin-top: 6px;
-  font-size: 12px;
-  color: var(--color-danger);
 }
 .credentials {
   display: flex;
