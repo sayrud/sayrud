@@ -1079,7 +1079,7 @@ const ru: typeof zhCN = {
     templateInstruction: 'Инструкции',
     templateInstructionDefault: 'Напишите краткое резюме входного текста. Верните только резюме.',
     title: 'Ярлыки полей',
-    pageDescription: 'Публикуйте ярлыки полей на JavaScript: скрипты выполняются в песочнице на сервере, а участники используют их в редакторе полей',
+    pageDescription: 'Публикуйте ярлыки полей на JavaScript',
     add: 'Новый ярлык',
     empty: 'Пользовательских ярлыков пока нет',
     disabledTag: 'Отключён',

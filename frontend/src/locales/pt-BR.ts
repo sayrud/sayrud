@@ -1079,7 +1079,7 @@ const ptBR: typeof zhCN = {
     templateInstruction: 'Instruções',
     templateInstructionDefault: 'Escreva um resumo conciso do texto de entrada. Retorne apenas o resumo.',
     title: 'Atalhos de campo',
-    pageDescription: 'Publique atalhos de campo escritos em JavaScript, os scripts são executados em uma sandbox no servidor e os membros podem usá-los no editor de campos',
+    pageDescription: 'Publique atalhos de campo escritos em JavaScript',
     add: 'Novo atalho',
     empty: 'Ainda não há atalhos personalizados',
     disabledTag: 'Desativado',

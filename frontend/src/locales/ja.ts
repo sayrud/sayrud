@@ -1079,7 +1079,7 @@ const ja: typeof zhCN = {
     templateInstruction: '処理の指示',
     templateInstructionDefault: '入力テキストを簡潔に要約してください。要約のみを出力してください。',
     title: 'フィールドショートカット',
-    pageDescription: 'JavaScript で実装したフィールドショートカットを公開します。スクリプトはサーバーのサンドボックスで実行され、メンバーはフィールドエディターで利用できます',
+    pageDescription: 'JavaScript で実装したフィールドショートカットを公開します',
     add: 'ショートカットを作成',
     empty: 'カスタムショートカットはまだありません',
     disabledTag: '無効',

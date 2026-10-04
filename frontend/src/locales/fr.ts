@@ -1079,7 +1079,7 @@ const fr: typeof zhCN = {
     templateInstruction: 'Instructions',
     templateInstructionDefault: 'Rédigez un résumé concis du texte fourni. Renvoyez uniquement le résumé.',
     title: 'Raccourcis de champ',
-    pageDescription: 'Publiez des raccourcis de champ écrits en JavaScript, les scripts s\'exécutent dans un bac à sable sur le serveur et les membres peuvent les utiliser dans l\'éditeur de champ',
+    pageDescription: 'Publiez des raccourcis de champ écrits en JavaScript',
     add: 'Nouveau raccourci',
     empty: 'Aucun raccourci personnalisé pour le moment',
     disabledTag: 'Désactivé',

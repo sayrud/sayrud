@@ -1077,7 +1077,7 @@ export default {
     templateInstruction: '处理指令',
     templateInstructionDefault: '根据输入文本生成简洁的摘要，只输出摘要。',
     title: '字段捷径',
-    pageDescription: '发布由 JavaScript 实现的字段捷径，脚本在服务器沙箱中运行，成员可在字段编辑器中选用',
+    pageDescription: '发布由 JavaScript 实现的字段捷径',
     add: '新建捷径',
     empty: '还没有自定义捷径',
     disabledTag: '已停用',

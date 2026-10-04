@@ -1079,7 +1079,7 @@ const en: typeof zhCN = {
     templateInstruction: 'Instructions',
     templateInstructionDefault: 'Write a concise summary of the input text. Return only the summary.',
     title: 'Field shortcuts',
-    pageDescription: 'Publish field shortcuts written in JavaScript, the scripts run in a sandbox on the server and the members can use them in the field editor',
+    pageDescription: 'Publish field shortcuts written in JavaScript',
     add: 'New shortcut',
     empty: 'No custom shortcuts yet',
     disabledTag: 'Disabled',

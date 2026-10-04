@@ -1079,7 +1079,7 @@ const zhTW: typeof zhCN = {
     templateInstruction: '處理指令',
     templateInstructionDefault: '根據輸入文字產生簡潔的摘要，只輸出摘要。',
     title: '欄位捷徑',
-    pageDescription: '發布以 JavaScript 實作的欄位捷徑，指令碼在伺服器沙箱中執行，成員可在欄位編輯器中選用',
+    pageDescription: '發布以 JavaScript 實作的欄位捷徑',
     add: '新增捷徑',
     empty: '還沒有自訂捷徑',
     disabledTag: '已停用',

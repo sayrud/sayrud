@@ -1079,7 +1079,7 @@ const ko: typeof zhCN = {
     templateInstruction: '처리 지침',
     templateInstructionDefault: '입력 텍스트를 간결하게 요약하세요. 요약만 출력하세요.',
     title: '필드 바로가기',
-    pageDescription: 'JavaScript로 작성한 필드 바로가기를 게시합니다. 스크립트는 서버 샌드박스에서 실행되며 멤버는 필드 편집기에서 사용할 수 있습니다',
+    pageDescription: 'JavaScript로 작성한 필드 바로가기를 게시합니다',
     add: '바로가기 만들기',
     empty: '아직 사용자 지정 바로가기가 없습니다',
     disabledTag: '비활성화됨',

@@ -1079,7 +1079,7 @@ const es: typeof zhCN = {
     templateInstruction: 'Instrucciones',
     templateInstructionDefault: 'Escribe un resumen conciso del texto de entrada. Devuelve solo el resumen.',
     title: 'Atajos de campo',
-    pageDescription: 'Publica atajos de campo escritos en JavaScript, los scripts se ejecutan en un entorno aislado del servidor y los miembros pueden usarlos en el editor de campos',
+    pageDescription: 'Publica atajos de campo escritos en JavaScript',
     add: 'Nuevo atajo',
     empty: 'Aún no hay atajos personalizados',
     disabledTag: 'Desactivado',

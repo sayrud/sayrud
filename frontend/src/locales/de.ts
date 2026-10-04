@@ -1079,7 +1079,7 @@ const de: typeof zhCN = {
     templateInstruction: 'Anweisungen',
     templateInstructionDefault: 'Fassen Sie den Eingabetext knapp zusammen. Geben Sie nur die Zusammenfassung aus.',
     title: 'Feld-Shortcuts',
-    pageDescription: 'Veröffentlichen Sie Feld-Shortcuts in JavaScript, die Skripte laufen in einer Sandbox auf dem Server und Mitglieder können sie im Feldeditor verwenden',
+    pageDescription: 'Veröffentlichen Sie Feld-Shortcuts in JavaScript',
     add: 'Neuer Shortcut',
     empty: 'Noch keine benutzerdefinierten Shortcuts',
     disabledTag: 'Deaktiviert',
