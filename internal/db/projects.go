@@ -58,16 +58,16 @@ type Project struct {
 	// Model contains the primary key and the creation, update and deletion times.
 	dbutil.Model
 	// UID is the unique public identifier of the project, it is generated when creating.
-	UID string `gorm:"uniqueIndex:idx_projects_uid, where:deleted_at IS NULL" json:"uid"`
+	UID string `gorm:"uniqueIndex:idx_projects_uid, where:deleted_at IS NULL"`
 	// OwnerUserID is the ID of the user who owns the project.
 	OwnerUserID int64 `json:"-"`
 	// Name is the display name of the project.
-	Name string `json:"name"`
+	Name string
 
 	// Icon is the optional icon identifier displayed with the project name.
-	Icon string `gorm:"not null;default:''" json:"icon"`
+	Icon string `gorm:"not null;default:''"`
 	// Color is the optional palette color of the project icon.
-	Color string `gorm:"not null;default:''" json:"color"`
+	Color string `gorm:"not null;default:''"`
 }
 
 func (project *Project) BeforeCreate(_ *gorm.DB) error {

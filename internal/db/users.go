@@ -80,21 +80,21 @@ type User struct {
 	// Model contains the primary key and the creation, update and deletion times.
 	dbutil.Model
 	// Email is the unique lowercase email of the user.
-	Email string `gorm:"uniqueIndex:idx_user_email, where:deleted_at IS NULL" json:"email"`
+	Email string `gorm:"uniqueIndex:idx_user_email, where:deleted_at IS NULL"`
 	// EmailMd5 is the MD5 hash of the lowercase email, which is used for the Gravatar avatar.
-	EmailMd5 string `json:"emailMd5"`
+	EmailMd5 string
 	// UserName is the display name of the user.
-	UserName string `json:"userName"`
+	UserName string
 	// AvatarFileUID identifies the current uploaded avatar, empty for the default avatar.
 	AvatarFileUID string `json:"-"`
 	// Password is the bcrypt hash of the password, empty if the user can not sign in with a password.
 	Password string `json:"-"`
 	// IsAdmin reports whether the user is a system admin.
-	IsAdmin bool `gorm:"not null;default:false" json:"isAdmin"`
+	IsAdmin bool `gorm:"not null;default:false"`
 	// DisabledAt is the time the user was disabled, nil if enabled.
-	DisabledAt *time.Time `json:"disabledAt"`
+	DisabledAt *time.Time
 	// LastSignInAt is the time of the last sign-in.
-	LastSignInAt *time.Time `json:"lastSignInAt"`
+	LastSignInAt *time.Time
 }
 
 // Disabled reports whether the user is disabled.

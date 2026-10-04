@@ -52,26 +52,26 @@ type Api struct {
 	dbutil.Model
 
 	// Kind is the operation of the API, e.g. list, view, create, update and delete.
-	Kind string `json:"kind"`
+	Kind string
 	// ProjectID is the ID of the project the API belongs to.
 	ProjectID uint `gorm:"uniqueIndex:idx_sl_table_project_id_name, where:deleted_at IS NULL" json:"-"`
 	// Project is the project the API belongs to, it is preloaded when querying.
 	Project Project `gorm:"foreignKey:ProjectID" json:"-"`
 
 	// Methods are the HTTP methods the API accepts, "*" accepts all methods.
-	Methods pq.StringArray `gorm:"type:text[]" json:"methods"`
+	Methods pq.StringArray `gorm:"type:text[]"`
 	// Path is the request path of the API, relative to the project.
-	Path string `json:"path"`
+	Path string
 	// QueryParams are the definitions of the query parameters.
-	QueryParams datatypes.JSON `gorm:"type:jsonb" json:"queryParams"`
+	QueryParams datatypes.JSON `gorm:"type:jsonb"`
 	// BodyParams are the definitions of the request body parameters.
-	BodyParams datatypes.JSON `gorm:"type:jsonb" json:"bodyParams"`
+	BodyParams datatypes.JSON `gorm:"type:jsonb"`
 	// Options are the kind-specific options, e.g. the datasets to query.
-	Options datatypes.JSON `gorm:"type:jsonb" json:"options"`
+	Options datatypes.JSON `gorm:"type:jsonb"`
 	// Middlewares are the middlewares applied before handling the request, e.g. rate limit and captcha.
-	Middlewares datatypes.JSON `gorm:"type:jsonb" json:"middlewares"`
+	Middlewares datatypes.JSON `gorm:"type:jsonb"`
 	// Response is the template of the response body.
-	Response datatypes.JSON `gorm:"type:jsonb" json:"response"`
+	Response datatypes.JSON `gorm:"type:jsonb"`
 }
 
 type apis struct {
