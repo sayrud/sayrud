@@ -2,11 +2,12 @@ package db
 
 import (
 	"context"
-	"time"
 
 	"github.com/pkg/errors"
 	"github.com/thanhpk/randstr"
 	"gorm.io/gorm"
+
+	"github.com/wuhan005/sayrud/internal/dbutil"
 )
 
 var _ FilesStore = (*files)(nil)
@@ -35,8 +36,10 @@ func NewFilesStore(db *gorm.DB) FilesStore {
 
 // File is a file uploaded to the storage.
 type File struct {
-	ID  int64  `gorm:"primarykey"`
-	UID string `gorm:"uniqueIndex:idx_files_uid"`
+	// Model contains the primary key and the creation, update and deletion times.
+	dbutil.Model
+
+	UID string `gorm:"uniqueIndex:idx_files_uid, where:deleted_at IS NULL"`
 	// Category is the business usage such as avatars and attachments, it is also the first directory of the storage path.
 	Category string `gorm:"index"`
 	// Storage is the storage type when written, local or s3.
@@ -50,8 +53,7 @@ type File struct {
 	ContentType string
 	SHA256      string `gorm:"column:sha256"`
 	// UserID is the uploader.
-	UserID    int64 `gorm:"index"`
-	CreatedAt time.Time
+	UserID int64 `gorm:"index"`
 }
 
 // NewFileUID generates a file UID.

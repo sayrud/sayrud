@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/wuhan005/sayrud/internal/db"
+	"github.com/wuhan005/sayrud/internal/dbutil"
 )
 
 const testBaseURL = "https://sayrud.test"
@@ -24,7 +25,7 @@ func newTestProvider(t *testing.T, typ db.AuthProviderType, c Config, s Secrets)
 	require.NoError(t, err)
 	sealed, err := EncodeSecrets(s)
 	require.NoError(t, err)
-	return &db.AuthProvider{ID: 7, Slug: "test", Type: typ, Enabled: true, Config: raw, Secrets: sealed}
+	return &db.AuthProvider{Model: dbutil.Model{ID: 7}, Slug: "test", Type: typ, Enabled: true, Config: raw, Secrets: sealed}
 }
 
 func s256(verifier string) string {

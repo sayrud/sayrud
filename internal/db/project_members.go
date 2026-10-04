@@ -2,7 +2,6 @@ package db
 
 import (
 	"context"
-	"time"
 
 	"github.com/pkg/errors"
 	"gorm.io/gorm"
@@ -73,12 +72,12 @@ func NewProjectMembersStore(db *gorm.DB) ProjectMembersStore {
 
 // ProjectMember is a collaborator of a project, the owner is not included.
 type ProjectMember struct {
-	ID        int64       `gorm:"primarykey"`
-	ProjectID int64       `gorm:"uniqueIndex:idx_project_members_project_user"`
-	UserID    int64       `gorm:"uniqueIndex:idx_project_members_project_user;index"`
+	// Model contains the primary key and the creation, update and deletion times.
+	dbutil.Model
+
+	ProjectID int64       `gorm:"uniqueIndex:idx_project_members_project_user, where:deleted_at IS NULL"`
+	UserID    int64       `gorm:"uniqueIndex:idx_project_members_project_user, where:deleted_at IS NULL;index"`
 	Role      ProjectRole `gorm:"type:varchar(16)"`
-	CreatedAt time.Time
-	UpdatedAt time.Time
 }
 
 type projectMembers struct {
@@ -121,14 +120,15 @@ func (db *projectMembers) RolesByUserID(ctx context.Context, userID int64, proje
 func (db *projectMembers) Set(ctx context.Context, projectID, userID int64, role ProjectRole) error {
 	now := dbutil.Now()
 	return db.WithContext(ctx).Clauses(clause.OnConflict{
-		Columns:   []clause.Column{{Name: "project_id"}, {Name: "user_id"}},
-		DoUpdates: clause.Assignments(map[string]interface{}{"role": role, "updated_at": now}),
+		Columns: []clause.Column{{Name: "project_id"}, {Name: "user_id"}},
+		// The unique index is partial on deleted_at IS NULL, the conflict target must carry the same predicate to match it.
+		TargetWhere: clause.Where{Exprs: []clause.Expression{clause.Expr{SQL: "deleted_at IS NULL"}}},
+		DoUpdates:   clause.Assignments(map[string]interface{}{"role": role, "updated_at": now}),
 	}).Create(&ProjectMember{
+		Model:     dbutil.Model{CreatedAt: now, UpdatedAt: now},
 		ProjectID: projectID,
 		UserID:    userID,
 		Role:      role,
-		CreatedAt: now,
-		UpdatedAt: now,
 	}).Error
 }
 

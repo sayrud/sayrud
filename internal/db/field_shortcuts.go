@@ -3,7 +3,6 @@ package db
 import (
 	"context"
 	"strings"
-	"time"
 
 	"github.com/cockroachdb/errors"
 	"github.com/thanhpk/randstr"
@@ -121,10 +120,11 @@ type ShortcutCredential struct {
 
 // CustomFieldShortcut is a field shortcut implemented by a JavaScript function, which is executed on the server.
 type CustomFieldShortcut struct {
-	// ID is the primary key.
-	ID int64 `gorm:"primarykey"`
+	// Model contains the primary key and the creation, update and deletion times.
+	dbutil.Model
+
 	// UID is "fsc" followed by 7 random characters, the fields refer to the shortcut by it.
-	UID string `gorm:"type:varchar(16);not null;uniqueIndex:idx_field_shortcuts_uid"`
+	UID string `gorm:"type:varchar(16);not null;uniqueIndex:idx_field_shortcuts_uid, where:deleted_at IS NULL"`
 	// Name is shown in the field editor.
 	Name string `gorm:"type:varchar(64);not null"`
 	// Description tells the members what the shortcut does, empty if not set.
@@ -147,10 +147,6 @@ type CustomFieldShortcut struct {
 	TimeoutSeconds int `gorm:"not null;default:30"`
 	// Enabled reports whether the members can attach and execute the shortcut.
 	Enabled bool `gorm:"not null;default:false"`
-	// CreatedAt is the time the shortcut was created.
-	CreatedAt time.Time
-	// UpdatedAt is the time the shortcut was last updated.
-	UpdatedAt time.Time
 }
 
 // TableName keeps the table name short, as there is no built-in shortcut table.

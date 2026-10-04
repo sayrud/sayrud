@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/wuhan005/sayrud/internal/db"
+	"github.com/wuhan005/sayrud/internal/dbutil"
 )
 
 // fakeUsers only implements the methods used by Resolve, the others panic.
@@ -99,7 +100,7 @@ func withFakeStores(t *testing.T) (*fakeUsers, *fakeIdentities) {
 func TestResolve(t *testing.T) {
 	ctx := context.Background()
 	provider := func(mut func(p *db.AuthProvider)) *db.AuthProvider {
-		p := &db.AuthProvider{ID: 7}
+		p := &db.AuthProvider{Model: dbutil.Model{ID: 7}}
 		if mut != nil {
 			mut(p)
 		}
@@ -175,7 +176,7 @@ func TestResolve(t *testing.T) {
 
 	t.Run("disabled user", func(t *testing.T) {
 		_, fi := withFakeStores(t)
-		fi.identities = append(fi.identities, &db.UserIdentity{ID: 1, UserID: 2, ProviderID: 7, Subject: "eve"})
+		fi.identities = append(fi.identities, &db.UserIdentity{Model: dbutil.Model{ID: 1}, UserID: 2, ProviderID: 7, Subject: "eve"})
 		_, err := Resolve(ctx, provider(nil), &Identity{Subject: "eve"}, 0)
 		assert.Equal(t, CodeAccountDisabled, code(err))
 

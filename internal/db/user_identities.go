@@ -41,13 +41,14 @@ func NewUserIdentitiesStore(db *gorm.DB) UserIdentitiesStore {
 
 // UserIdentity is a third-party account bound to a user.
 type UserIdentity struct {
-	ID         int64 `gorm:"primarykey"`
-	UserID     int64 `gorm:"not null;index;uniqueIndex:idx_user_identities_user_provider"`
-	ProviderID int64 `gorm:"not null;uniqueIndex:idx_user_identities_provider_subject;uniqueIndex:idx_user_identities_user_provider"`
+	// Model contains the primary key and the creation, update and deletion times.
+	dbutil.Model
+
+	UserID     int64 `gorm:"not null;index;uniqueIndex:idx_user_identities_user_provider, where:deleted_at IS NULL"`
+	ProviderID int64 `gorm:"not null;uniqueIndex:idx_user_identities_provider_subject, where:deleted_at IS NULL;uniqueIndex:idx_user_identities_user_provider, where:deleted_at IS NULL"`
 	// Subject is the unique ID of the account in the provider.
-	Subject    string `gorm:"type:varchar(255);not null;uniqueIndex:idx_user_identities_provider_subject"`
+	Subject    string `gorm:"type:varchar(255);not null;uniqueIndex:idx_user_identities_provider_subject, where:deleted_at IS NULL"`
 	Email      string `gorm:"type:varchar(254);not null;default:''"`
-	CreatedAt  time.Time
 	LastUsedAt *time.Time
 }
 

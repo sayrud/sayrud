@@ -2,7 +2,6 @@ package db
 
 import (
 	"context"
-	"time"
 
 	"github.com/pkg/errors"
 	"gorm.io/datatypes"
@@ -68,9 +67,10 @@ func (t AuthProviderType) Redirect() bool {
 
 // AuthProvider is a third-party sign-in provider.
 type AuthProvider struct {
-	ID int64 `gorm:"primarykey"`
+	// Model contains the primary key and the creation, update and deletion times.
+	dbutil.Model
 	// Slug is part of the callback URL and can not be changed after creating.
-	Slug     string           `gorm:"type:varchar(32);not null;uniqueIndex:idx_auth_providers_slug"`
+	Slug     string           `gorm:"type:varchar(32);not null;uniqueIndex:idx_auth_providers_slug, where:deleted_at IS NULL"`
 	Name     string           `gorm:"type:varchar(32);not null"`
 	Icon     string           `gorm:"type:varchar(32);not null;default:''"`
 	Type     AuthProviderType `gorm:"type:varchar(16);not null"`
@@ -84,8 +84,6 @@ type AuthProvider struct {
 	LinkByEmail         bool                        `gorm:"not null;default:false"`
 	AllowedEmailDomains datatypes.JSONSlice[string] `gorm:"type:jsonb;not null;default:'[]'"`
 	AllowedGroups       datatypes.JSONSlice[string] `gorm:"type:jsonb;not null;default:'[]'"`
-	CreatedAt           time.Time
-	UpdatedAt           time.Time
 }
 
 type authProviders struct {
