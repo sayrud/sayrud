@@ -23,4 +23,5 @@
 .vscode
 
 config/sayrud.yaml
+/data/
 .gstack/

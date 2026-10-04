@@ -20,6 +20,7 @@ import (
 	"github.com/wuhan005/sayrud/internal/redis"
 	"github.com/wuhan005/sayrud/internal/route"
 	"github.com/wuhan005/sayrud/internal/sso"
+	"github.com/wuhan005/sayrud/internal/storage"
 )
 
 func main() {
@@ -50,6 +51,10 @@ func main() {
 
 	if _, err := redis.Init(); err != nil {
 		logrus.WithError(err).Fatal("Failed to initialize redis")
+	}
+
+	if err := storage.Init(ctx); err != nil {
+		logrus.WithError(err).Fatal("Failed to initialize storage")
 	}
 
 	address := fmt.Sprintf("0.0.0.0:%d", conf.App.Port)

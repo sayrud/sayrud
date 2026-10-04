@@ -10,6 +10,8 @@ services:
     configs:
       - source: sayrud
         target: /home/app/config/sayrud.yaml
+    volumes:
+      - sayrud_data:/home/app/data
     depends_on:
       postgres:
         condition: service_healthy
@@ -54,3 +56,4 @@ configs:
 
 volumes:
   postgres_data:
+  sayrud_data:

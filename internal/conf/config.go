@@ -1,6 +1,8 @@
 package conf
 
 import (
+	"time"
+
 	"github.com/cockroachdb/errors"
 	"github.com/spf13/viper"
 )
@@ -30,6 +32,40 @@ var Shortcut struct {
 	// Workers is the number of the field shortcut jobs executed concurrently by the server, it defaults to 4.
 	Workers int `mapstructure:"workers"`
 }
+
+// StorageConfig is the storage of the uploaded files.
+type StorageConfig struct {
+	// Type is the storage medium, local or s3, it defaults to local.
+	Type string `mapstructure:"type"`
+	// URLExpiry is the lifetime of the S3 presigned URLs, it defaults to 1 hour.
+	URLExpiry time.Duration      `mapstructure:"url_expiry"`
+	Local     LocalStorageConfig `mapstructure:"local"`
+	S3        S3StorageConfig    `mapstructure:"s3"`
+}
+
+// LocalStorageConfig is the local disk storage.
+type LocalStorageConfig struct {
+	// Path is the root directory of the files, it defaults to ./data/storage.
+	Path string `mapstructure:"path"`
+}
+
+// S3StorageConfig is the S3 or S3-compatible (MinIO, R2, COS, etc.) object storage.
+type S3StorageConfig struct {
+	// Endpoint uses the AWS endpoint if empty.
+	Endpoint string `mapstructure:"endpoint"`
+	Region   string `mapstructure:"region"`
+	Bucket   string `mapstructure:"bucket"`
+	// AccessKeyID uses the AWS default credential chain (environment variables, IAM role, etc.) if empty.
+	AccessKeyID     string `mapstructure:"access_key_id"`
+	SecretAccessKey string `mapstructure:"secret_access_key"`
+	UsePathStyle    bool   `mapstructure:"use_path_style"`
+	// BasePath is the common prefix of all the object keys in the bucket.
+	BasePath string `mapstructure:"base_path"`
+	// PublicURL is the CDN or public-read bucket URL, the file URLs are built from it without presigning when set.
+	PublicURL string `mapstructure:"public_url"`
+}
+
+var Storage StorageConfig
 
 type TracingConfig struct {
 	Enabled  bool   `mapstructure:"enabled"`
@@ -74,6 +110,18 @@ func Init(configFilePath string) error {
 	}
 	if Shortcut.Workers <= 0 {
 		Shortcut.Workers = 4
+	}
+	if err := v.UnmarshalKey("storage", &Storage); err != nil {
+		return errors.Wrap(err, "parse storage")
+	}
+	if Storage.Type == "" {
+		Storage.Type = "local"
+	}
+	if Storage.URLExpiry <= 0 {
+		Storage.URLExpiry = time.Hour
+	}
+	if Storage.Local.Path == "" {
+		Storage.Local.Path = "./data/storage"
 	}
 
 	return nil

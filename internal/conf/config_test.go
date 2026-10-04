@@ -6,6 +6,7 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestInitObservability(t *testing.T) {
@@ -175,13 +176,56 @@ func TestInitShortcut(t *testing.T) {
 	}
 }
 
+func TestInitStorage(t *testing.T) {
+	restoreConfigAfterTest(t)
+
+	Storage = StorageConfig{}
+	if err := Init(writeTestConfig(t, "app:\n  port: 2830\n")); err != nil {
+		t.Fatalf("Init() failed: %v", err)
+	}
+	want := StorageConfig{Type: "local", URLExpiry: time.Hour, Local: LocalStorageConfig{Path: "./data/storage"}}
+	if Storage != want {
+		t.Errorf("defaults = %#v", Storage)
+	}
+
+	Storage = StorageConfig{}
+	if err := Init(writeTestConfig(t, `storage:
+  type: s3
+  url_expiry: 15m
+  s3:
+    endpoint: http://127.0.0.1:9000
+    region: auto
+    bucket: sayrud
+    access_key_id: id
+    secret_access_key: secret
+    use_path_style: true
+    base_path: files
+    public_url: https://cdn.example.com
+`)); err != nil {
+		t.Fatalf("Init() failed: %v", err)
+	}
+	want = StorageConfig{
+		Type:      "s3",
+		URLExpiry: 15 * time.Minute,
+		Local:     LocalStorageConfig{Path: "./data/storage"},
+		S3: S3StorageConfig{
+			Endpoint: "http://127.0.0.1:9000", Region: "auto", Bucket: "sayrud",
+			AccessKeyID: "id", SecretAccessKey: "secret", UsePathStyle: true,
+			BasePath: "files", PublicURL: "https://cdn.example.com",
+		},
+	}
+	if Storage != want {
+		t.Errorf("configured = %#v", Storage)
+	}
+}
+
 func restoreConfigAfterTest(t *testing.T) {
 	t.Helper()
 	previousApp, previousPostgres, previousRedis, previousObservability := App, Postgres, Redis, Observability
-	previousShortcut := Shortcut
+	previousShortcut, previousStorage := Shortcut, Storage
 	t.Cleanup(func() {
 		App, Postgres, Redis, Observability = previousApp, previousPostgres, previousRedis, previousObservability
-		Shortcut = previousShortcut
+		Shortcut, Storage = previousShortcut, previousStorage
 	})
 }
 

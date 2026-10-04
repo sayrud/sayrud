@@ -48,6 +48,8 @@ func Init() (*gorm.DB, error) {
 		&SLTable{}, &SLField{}, &SLRecord{}, &SLView{}, &SLChangeset{},
 		&CustomFieldShortcut{}, &SLShortcutJob{},
 
+		&File{},
+
 		&Api{},
 	}
 	if err := db.AutoMigrate(tables...); err != nil {
@@ -86,6 +88,8 @@ func SetDatabaseStore(db *gorm.DB) {
 	SLChangesets = NewSLChangesetsStore(db)
 	FieldShortcuts = NewFieldShortcutsStore(db)
 	SLShortcutJobs = NewSLShortcutJobsStore(db)
+
+	Files = NewFilesStore(db)
 
 	Apis = NewApisStore(db)
 }

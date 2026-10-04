@@ -29,12 +29,15 @@ FROM alpine:3.24
 
 RUN apk add --no-cache ca-certificates tzdata \
     && addgroup -S -g 10001 app \
-    && adduser -S -D -H -u 10001 -G app app
+    && adduser -S -D -H -u 10001 -G app app \
+    && mkdir -p /home/app/data \
+    && chown app:app /home/app/data
 
 WORKDIR /home/app
 COPY --from=build --chmod=0555 /out/sayrud-server ./sayrud-server
 
 # Mount configuration at /home/app/config/sayrud.yaml, readable by UID 10001.
+# Mount a volume at /home/app/data to persist the locally stored uploaded files.
 USER 10001:10001
 
 EXPOSE 2830
