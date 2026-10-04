@@ -16,6 +16,8 @@ export interface UserBrief {
 export interface Project {
   uid: string
   name: string
+  icon?: string
+  color?: string
   createdAt: string
   updatedAt: string
   role: ProjectRole
@@ -31,6 +33,8 @@ export interface SLTable {
   uid: string
   projectUID: string
   name: string
+  icon?: string
+  color?: string
   createdAt: string
   updatedAt: string
 }

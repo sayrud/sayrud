@@ -1061,7 +1061,11 @@ definitions:
     type: object
   Project:
     properties:
+      color:
+        type: string
       createdAt:
+        type: string
+      icon:
         type: string
       name:
         type: string
@@ -1080,7 +1084,9 @@ definitions:
       updatedAt:
         type: string
     required:
+    - color
     - createdAt
+    - icon
     - name
     - owner
     - role
@@ -1089,7 +1095,11 @@ definitions:
     type: object
   ProjectListItem:
     properties:
+      color:
+        type: string
       createdAt:
+        type: string
+      icon:
         type: string
       name:
         type: string
@@ -1110,7 +1120,9 @@ definitions:
       updatedAt:
         type: string
     required:
+    - color
     - createdAt
+    - icon
     - name
     - owner
     - role
@@ -1301,7 +1313,11 @@ definitions:
     type: object
   SLTable:
     properties:
+      color:
+        type: string
       createdAt:
+        type: string
+      icon:
         type: string
       name:
         type: string
@@ -1312,7 +1328,9 @@ definitions:
       updatedAt:
         type: string
     required:
+    - color
     - createdAt
+    - icon
     - name
     - projectUID
     - uid
@@ -1655,9 +1673,13 @@ definitions:
     type: object
   TableListItem:
     properties:
+      color:
+        type: string
       count:
         type: integer
       createdAt:
+        type: string
+      icon:
         type: string
       name:
         type: string
@@ -1668,8 +1690,10 @@ definitions:
       updatedAt:
         type: string
     required:
+    - color
     - count
     - createdAt
+    - icon
     - name
     - projectUID
     - uid
@@ -1905,10 +1929,17 @@ definitions:
     type: object
   UpdateProject:
     properties:
+      color:
+        description: Color is orange, coral, pink, purple, indigo, blue, teal or green;
+          an empty string resets the color.
+        type: string
+      icon:
+        description: Icon is a lowercase kebab-case identifier, an empty string resets
+          the icon.
+        maxLength: 64
+        type: string
       name:
         type: string
-    required:
-    - name
     type: object
   UpdateProjectMember:
     properties:
@@ -1961,10 +1992,17 @@ definitions:
     type: object
   UpdateTable:
     properties:
+      color:
+        description: Color is orange, coral, pink, purple, indigo, blue, teal or green;
+          an empty string resets the color.
+        type: string
+      icon:
+        description: Icon is a lowercase kebab-case identifier, an empty string resets
+          the icon.
+        maxLength: 64
+        type: string
       name:
         type: string
-    required:
-    - name
     type: object
   UpdateUserSettings:
     properties:

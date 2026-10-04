@@ -9,7 +9,12 @@ type CreateProject struct {
 } // @name CreateProject
 
 type UpdateProject struct {
-	Name string `json:"name" valid:"required"`
+	Name *string `json:"name,omitempty"`
+
+	// Icon is a lowercase kebab-case identifier, an empty string resets the icon.
+	Icon *string `json:"icon,omitempty" maxLength:"64"`
+	// Color is orange, coral, pink, purple, indigo, blue, teal or green; an empty string resets the color.
+	Color *string `json:"color,omitempty"`
 } // @name UpdateProject
 
 type AddProjectMember struct {

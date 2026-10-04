@@ -36,6 +36,7 @@ import { defaultMetadata } from '@/utils/fieldTypes'
 import { defaultValueOf, isEmptyValue } from '@/utils/format'
 import { newFieldUID, newOptionUID, newRecordUID, newViewUID } from '@/utils/id'
 import { ROLE_LABELS, roleAtLeast } from '@/utils/role'
+import type { Appearance } from '@/utils/appearance'
 import { defaultViewConfig, viewTypeInfo } from '@/utils/view'
 
 export interface CreateFieldInput {
@@ -244,8 +245,14 @@ export const useBaseStore = defineStore('base', () => {
 
   async function refreshTables() {
     if (!project.value) return
+
+    const projectUID = pid()
+    const connection = socket.value
+
     try {
-      tableList.value = (await tablesApi.list(pid())).tables as TableListItem[]
+      const list = await tablesApi.list(projectUID)
+
+      if (project.value?.uid === projectUID && socket.value === connection) tableList.value = list.tables as TableListItem[]
     } catch (e) {
       toastError(e)
     }
@@ -315,8 +322,12 @@ export const useBaseStore = defineStore('base', () => {
       s.on('TABLES_CHANGED', () => void refreshTables()),
       s.on('PROJECT_CHANGED', async () => {
         try {
-          project.value = await projectsApi.get(projectUID)
+          const updated = await projectsApi.get(projectUID)
+
+          if (socket.value === s && project.value?.uid === projectUID) project.value = updated
         } catch {
+          if (socket.value !== s || project.value?.uid !== projectUID) return
+
           project.value = null
           Message.warning(t('base.projectDeleted'))
         }
@@ -335,6 +346,15 @@ export const useBaseStore = defineStore('base', () => {
     } catch (e) {
       toastError(e)
     }
+  }
+
+  async function setProjectAppearance(appearance: Appearance) {
+    if (!project.value || !ensureEditable()) return
+
+    const projectUID = pid()
+    await projectsApi.update(projectUID, appearance)
+
+    if (project.value?.uid === projectUID) project.value = { ...project.value, ...appearance }
   }
 
   /** Returns the sync of the table, creating and loading it if absent. */
@@ -425,8 +445,10 @@ export const useBaseStore = defineStore('base', () => {
 
   async function createTable(name: string) {
     if (!ensureEditable()) throw new Error(t('base.noEditPermission'))
+
     const table = await tablesApi.create(pid(), name)
-    tableList.value = [...tableList.value, { ...table, count: 5 }]
+    tableList.value = [...tableList.value.filter((item) => item.uid !== table.uid), { ...table, count: 5 }]
+
     const sync = await ensureSync(table.uid)
     submit(
       [
@@ -465,6 +487,17 @@ export const useBaseStore = defineStore('base', () => {
     }
   }
 
+  async function setTableAppearance(tableUID: string, appearance: Appearance) {
+    if (!tableList.value.some((table) => table.uid === tableUID) || !ensureEditable()) return
+
+    const projectUID = pid()
+    await tablesApi.update(projectUID, tableUID, appearance)
+
+    if (project.value?.uid === projectUID) {
+      tableList.value = tableList.value.map((table) => (table.uid === tableUID ? { ...table, ...appearance } : table))
+    }
+  }
+
   async function deleteTable(tableUID: string) {
     if (!ensureEditable()) return
     await tablesApi.delete(pid(), tableUID)
@@ -481,9 +514,17 @@ export const useBaseStore = defineStore('base', () => {
   async function duplicateTable(tableUID: string) {
     const src = tableList.value.find((t) => t.uid === tableUID)
     if (!src || !ensureEditable()) return
+
     const data = syncs.get(tableUID)?.data ?? (await syncApi.snapshot(pid(), tableUID))
     const table = await tablesApi.create(pid(), t('base.copyName', { name: src.name }))
-    tableList.value = [...tableList.value, { ...table, count: data.records.length }]
+
+    if (src.icon || src.color) {
+      const appearance = { icon: src.icon ?? '', color: src.color ?? '' }
+      await tablesApi.update(pid(), table.uid, appearance)
+      Object.assign(table, appearance)
+    }
+
+    tableList.value = [...tableList.value.filter((item) => item.uid !== table.uid), { ...table, count: data.records.length }]
 
     const map = new Map(data.fields.map((f) => [f.uid, newFieldUID()]))
     const remap = (s: string) => s.replace(/fld[A-Za-z0-9]{7}/g, (m) => map.get(m) ?? m)
@@ -906,9 +947,11 @@ export const useBaseStore = defineStore('base', () => {
     openProject,
     closeProject,
     renameProject,
+    setProjectAppearance,
     openTable,
     createTable,
     renameTable,
+    setTableAppearance,
     deleteTable,
     duplicateTable,
     createField,

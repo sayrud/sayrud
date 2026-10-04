@@ -7,6 +7,8 @@ import { useRoute, useRouter } from 'vue-router'
 
 import ShareDialog from '@/components/base/ShareDialog.vue'
 import TableSidebar from '@/components/base/TableSidebar.vue'
+import AppearanceIcon from '@/components/common/AppearanceIcon.vue'
+import AppearancePicker from '@/components/common/AppearancePicker.vue'
 import UserAvatar from '@/components/common/UserAvatar.vue'
 import UserMenu from '@/components/common/UserMenu.vue'
 import ViewTabs from '@/components/base/ViewTabs.vue'
@@ -20,6 +22,7 @@ import ViewToolbar from '@/components/toolbar/ViewToolbar.vue'
 import { keepRecordInView } from '@/composables/useViewData'
 import { useBaseStore } from '@/stores/base'
 import { useSiteStore } from '@/stores/site'
+import type { Appearance } from '@/utils/appearance'
 
 const { t } = useI18n()
 
@@ -34,9 +37,24 @@ const gridRef = ref<InstanceType<typeof GridView>>()
 const editingName = ref(false)
 const nameText = ref('')
 const nameInput = ref<HTMLInputElement>()
+const savingAppearance = ref(false)
 
 const projectUID = computed(() => String(route.params.projectUID ?? ''))
 const view = computed(() => store.activeView)
+
+async function changeAppearance(appearance: Appearance) {
+  if (savingAppearance.value) return
+
+  savingAppearance.value = true
+
+  try {
+    await store.setProjectAppearance(appearance)
+  } catch (e) {
+    Message.error(e instanceof Error ? e.message : String(e))
+  } finally {
+    savingAppearance.value = false
+  }
+}
 
 async function sync() {
   const pid = projectUID.value
@@ -154,7 +172,29 @@ onBeforeUnmount(() => {
   <div class="base">
     <header class="topbar">
       <button class="icon-btn" :title="t('console.backHome')" @click="router.push('/')"><House :size="17" /></button>
-      <img src="/favicon.svg" class="logo" alt="" />
+      <AppearancePicker
+        v-if="store.project && store.canEdit && !store.accessDenied"
+        :key="store.project.uid"
+        v-slot="{ visible }"
+        :icon="store.project.icon"
+        :color="store.project.color"
+        :saving="savingAppearance"
+        fallback="project"
+        @change="changeAppearance"
+      >
+        <a-button
+          type="text"
+          shape="square"
+          class="appearance-trigger"
+          :title="t('appearance.edit')"
+          :aria-label="t('appearance.edit')"
+          aria-haspopup="dialog"
+          :aria-expanded="visible"
+        >
+          <AppearanceIcon :icon="store.project.icon" :color="store.project.color" :size="26" fallback="project" />
+        </a-button>
+      </AppearancePicker>
+      <AppearanceIcon v-else :icon="store.accessDenied ? undefined : store.project?.icon" :color="store.accessDenied ? undefined : store.project?.color" :size="24" fallback="project" />
       <template v-if="!store.accessDenied">
         <input
           v-if="editingName"
@@ -260,9 +300,8 @@ onBeforeUnmount(() => {
 .topbar > * {
   flex: none;
 }
-.logo {
-  width: 24px;
-  height: 24px;
+.appearance-trigger {
+  padding: 3px;
 }
 .topbar > .base-name {
   flex: 0 1 auto;

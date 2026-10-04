@@ -10,12 +10,14 @@ import { useRouter } from 'vue-router'
 import { membersApi, projectsApi, type ProjectListItem } from '@/api/bitable'
 import logoDark from '@/assets/logo-dark.svg'
 import logo from '@/assets/logo.svg'
+import AppearanceIcon from '@/components/common/AppearanceIcon.vue'
 import UserMenu from '@/components/common/UserMenu.vue'
 import { openMenu, type MenuItem } from '@/composables/useContextMenu'
 import { useAuthStore } from '@/stores/auth'
 import { useSiteStore } from '@/stores/site'
 import { useThemeStore } from '@/stores/theme'
 import { ROLE_LABELS, roleAtLeast } from '@/utils/role'
+import { appearanceBackground } from '@/utils/appearance'
 
 const { t } = useI18n()
 
@@ -199,8 +201,9 @@ onMounted(() => {
             class="card"
             @click="router.push({ name: 'base', params: { projectUID: p.uid } })"
           >
-            <div class="card-cover" :style="{ background: colorOf(p.uid) }">
-              <Table2 :size="30" color="#fff" />
+            <div class="card-cover" :style="{ background: appearanceBackground(p.color) ?? colorOf(p.uid) }">
+              <AppearanceIcon v-if="p.icon || p.color" :icon="p.icon" :color="p.color" :size="48" fallback="project" />
+              <Table2 v-else :size="30" class="default-card-icon" />
               <a-tag v-if="p.role !== 'owner'" size="small" class="role-badge">{{ ROLE_LABELS[p.role] }}</a-tag>
             </div>
             <div class="card-body">
@@ -356,6 +359,9 @@ onMounted(() => {
 }
 .card-body {
   padding: 12px 14px 14px;
+}
+.default-card-icon {
+  color: #fff;
 }
 .card-name {
   font-weight: 600;

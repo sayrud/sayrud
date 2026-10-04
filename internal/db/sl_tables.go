@@ -58,6 +58,12 @@ type SLTable struct {
 	ProjectID int64 `gorm:"index"`
 	// Name is the display name of the table.
 	Name string
+
+	// Icon is the optional icon identifier displayed with the table name.
+	Icon string `gorm:"not null;default:''"`
+	// Color is the optional palette color of the table icon.
+	Color string `gorm:"not null;default:''"`
+
 	// Rev is the revision of the table data, it increases by one for each changeset.
 	Rev int64 `gorm:"not null;default:0"`
 }
@@ -144,14 +150,27 @@ func (db *slTables) Create(ctx context.Context, projectID int64, options CreateS
 // UpdateSLTableOptions are the options of updating a table.
 type UpdateSLTableOptions struct {
 	// Name is the new display name of the table.
-	Name string
+	Name *string
+
+	// Icon and Color replace the appearance when provided, empty strings clear it.
+	Icon  *string
+	Color *string
 }
 
 func (db *slTables) Update(ctx context.Context, tableID int64, options UpdateSLTableOptions) error {
-	if err := db.WithContext(ctx).Model(&SLTable{}).Where("id = ?", tableID).Updates(map[string]interface{}{
-		"name":       options.Name,
-		"updated_at": dbutil.Now(),
-	}).Error; err != nil {
+	updates := map[string]interface{}{"updated_at": dbutil.Now()}
+	if options.Name != nil {
+		updates["name"] = *options.Name
+	}
+
+	if options.Icon != nil {
+		updates["icon"] = *options.Icon
+	}
+	if options.Color != nil {
+		updates["color"] = *options.Color
+	}
+
+	if err := db.WithContext(ctx).Model(&SLTable{}).Where("id = ?", tableID).Updates(updates).Error; err != nil {
 		return errors.Wrap(err, "update")
 	}
 	return nil

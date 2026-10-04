@@ -1,11 +1,14 @@
 <script setup lang="ts">
 import { Message, Modal } from '@arco-design/web-vue'
-import { ChevronsLeft, Copy, Ellipsis, Pencil, Plus, Search, Table2, Trash, X } from '@lucide/vue'
+import { ChevronsLeft, Copy, Ellipsis, Pencil, Plus, Search, Trash, X } from '@lucide/vue'
 import { computed, nextTick, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import { openMenu } from '@/composables/useContextMenu'
 import { useBaseStore } from '@/stores/base'
+import AppearanceIcon from '@/components/common/AppearanceIcon.vue'
+import AppearancePicker from '@/components/common/AppearancePicker.vue'
+import type { Appearance } from '@/utils/appearance'
 
 const { t } = useI18n()
 
@@ -16,6 +19,21 @@ const keyword = ref('')
 const renaming = ref<string | null>(null)
 const renameText = ref('')
 const creating = ref(false)
+const savingAppearance = ref(false)
+
+async function changeAppearance(uid: string, appearance: Appearance) {
+  if (savingAppearance.value) return
+
+  savingAppearance.value = true
+
+  try {
+    await store.setTableAppearance(uid, appearance)
+  } catch (e) {
+    Message.error(e instanceof Error ? e.message : String(e))
+  } finally {
+    savingAppearance.value = false
+  }
+}
 
 const tables = computed(() => {
   const k = keyword.value.trim().toLowerCase()
@@ -114,17 +132,40 @@ function openActions(e: MouseEvent, uid: string, name: string) {
     </div>
     <div class="table-list">
       <div
-        v-for="t in tables"
-        :key="t.uid"
+        v-for="table in tables"
+        :key="table.uid"
         class="table-item"
-        :class="{ active: t.uid === store.activeTableUID, editable: store.canEdit }"
-        @click="emit('select', t.uid)"
-        @dblclick="startRename(t.uid, t.name)"
-        @contextmenu="openActions($event, t.uid, t.name)"
+        :class="{ active: table.uid === store.activeTableUID, editable: store.canEdit }"
+        @click="emit('select', table.uid)"
+        @dblclick="startRename(table.uid, table.name)"
+        @contextmenu="openActions($event, table.uid, table.name)"
       >
-        <Table2 :size="15" class="table-icon" />
+        <AppearancePicker
+          v-if="store.canEdit"
+          v-slot="{ visible }"
+          :icon="table.icon"
+          :color="table.color"
+          :saving="savingAppearance"
+          @change="changeAppearance(table.uid, $event)"
+        >
+          <a-button
+            type="text"
+            shape="square"
+            size="mini"
+            class="table-icon"
+            :title="t('appearance.edit')"
+            :aria-label="t('appearance.edit') + ': ' + table.name"
+            aria-haspopup="dialog"
+            :aria-expanded="visible"
+            @click.stop
+            @dblclick.stop
+          >
+            <AppearanceIcon :icon="table.icon" :color="table.color" :size="22" />
+          </a-button>
+        </AppearancePicker>
+        <AppearanceIcon v-else :icon="table.icon" :color="table.color" :size="22" class="table-icon" />
         <input
-          v-if="renaming === t.uid"
+          v-if="renaming === table.uid"
           v-model="renameText"
           v-focus
           class="rename-input"
@@ -134,9 +175,9 @@ function openActions(e: MouseEvent, uid: string, name: string) {
           @blur="confirmRename"
         />
         <template v-else>
-          <span class="table-name ellipsis">{{ t.name }}</span>
-          <span class="table-count">{{ t.count }}</span>
-          <button v-if="store.canEdit" class="icon-btn sm more" @click.stop="openActions($event, t.uid, t.name)">
+          <span class="table-name ellipsis">{{ table.name }}</span>
+          <span class="table-count">{{ table.count }}</span>
+          <button v-if="store.canEdit" class="icon-btn sm more" @click.stop="openActions($event, table.uid, table.name)">
             <Ellipsis :size="14" />
           </button>
         </template>
@@ -215,7 +256,7 @@ function openActions(e: MouseEvent, uid: string, name: string) {
 .table-icon {
   flex: none;
   color: inherit;
-  opacity: 0.8;
+  padding: 0;
 }
 .table-name {
   flex: 1;

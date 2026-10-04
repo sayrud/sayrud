@@ -205,8 +205,14 @@ func (projectRoute) GetProject(ctx context.Context, project *db.Project, role db
 // @ID updateProject
 // @Router /projects/{projectUID} [put]
 func (projectRoute) UpdateProject(ctx context.Context, hub *collab.Hub, project *db.Project, f form.UpdateProject) error {
+	if !validAppearanceUpdate(f.Name, f.Icon, f.Color) {
+		return ctx.ApiError(http.StatusBadRequest, "common::invalid_body")
+	}
+
 	if err := db.Projects.Update(ctx.Request().Context(), project.ID, db.UpdateProjectOptions{
-		Name: f.Name,
+		Name:  f.Name,
+		Icon:  f.Icon,
+		Color: f.Color,
 	}); err != nil {
 		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to update project")
 		return ctx.ApiServerError()

@@ -27,8 +27,8 @@ export const projectsApi = {
   list: async () => (await client.projects.listProjects({ pageSize: 1000 })).data as { projects: ProjectListItem[]; total: number },
   get: async (projectUID: string) => (await client.projects.getProject(projectUID)).data as Project,
   create: async (name: string) => (await client.projects.createProject({ name })).data as Project,
-  update: async (projectUID: string, name: string) => {
-    await client.projects.updateProject(projectUID, { name })
+  update: async (projectUID: string, patch: string | Partial<Pick<Project, 'name' | 'icon' | 'color'>>) => {
+    await client.projects.updateProject(projectUID, typeof patch === 'string' ? { name: patch } : patch)
   },
   delete: async (projectUID: string) => {
     await client.projects.deleteProject(projectUID)
@@ -55,8 +55,8 @@ export const membersApi = {
 export const tablesApi = {
   list: async (projectUID: string) => (await client.projects.listTables(projectUID, { pageSize: 1000 })).data,
   create: async (projectUID: string, name: string) => (await client.projects.createTable(projectUID, { name })).data as SLTable,
-  update: async (projectUID: string, tableUID: string, name: string) => {
-    await client.projects.updateTable(projectUID, tableUID, { name })
+  update: async (projectUID: string, tableUID: string, patch: string | Partial<Pick<SLTable, 'name' | 'icon' | 'color'>>) => {
+    await client.projects.updateTable(projectUID, tableUID, typeof patch === 'string' ? { name: patch } : patch)
   },
   delete: async (projectUID: string, tableUID: string) => {
     await client.projects.deleteTable(projectUID, tableUID)

@@ -504,7 +504,9 @@ export interface Profile {
 }
 
 export interface Project {
+  color: string;
   createdAt: string;
+  icon: string;
   name: string;
   owner: UserBrief;
   /** Role is the permission of the signed-in user on the project. */
@@ -514,7 +516,9 @@ export interface Project {
 }
 
 export interface ProjectListItem {
+  color: string;
   createdAt: string;
+  icon: string;
   name: string;
   owner: UserBrief;
   /** Role is the permission of the signed-in user on the project. */
@@ -605,7 +609,9 @@ export interface SLRecord {
 }
 
 export interface SLTable {
+  color: string;
   createdAt: string;
+  icon: string;
   name: string;
   projectUID: string;
   uid: string;
@@ -761,8 +767,10 @@ export interface SystemSettings {
 }
 
 export interface TableListItem {
+  color: string;
   count: number;
   createdAt: string;
+  icon: string;
   name: string;
   projectUID: string;
   uid: string;
@@ -880,7 +888,14 @@ export interface UpdateProfile {
 }
 
 export interface UpdateProject {
-  name: string;
+  /** Color is orange, coral, pink, purple, indigo, blue, teal or green; an empty string resets the color. */
+  color?: string;
+  /**
+   * Icon is a lowercase kebab-case identifier, an empty string resets the icon.
+   * @maxLength 64
+   */
+  icon?: string;
+  name?: string;
 }
 
 export interface UpdateProjectMember {
@@ -905,7 +920,14 @@ export interface UpdateSystemSettings {
 }
 
 export interface UpdateTable {
-  name: string;
+  /** Color is orange, coral, pink, purple, indigo, blue, teal or green; an empty string resets the color. */
+  color?: string;
+  /**
+   * Icon is a lowercase kebab-case identifier, an empty string resets the icon.
+   * @maxLength 64
+   */
+  icon?: string;
+  name?: string;
 }
 
 export interface UpdateUserSettings {

@@ -10,6 +10,8 @@ import (
 type Project struct {
 	UID       string    `json:"uid"`
 	Name      string    `json:"name"`
+	Icon      string    `json:"icon"`
+	Color     string    `json:"color"`
 	CreatedAt time.Time `json:"createdAt"`
 	UpdatedAt time.Time `json:"updatedAt"`
 	// Role is the permission of the signed-in user on the project.
@@ -21,6 +23,8 @@ func ToProject(project *db.Project, role db.ProjectRole, owner *db.User) *Projec
 	p := &Project{
 		UID:       project.UID,
 		Name:      project.Name,
+		Icon:      project.Icon,
+		Color:     project.Color,
 		CreatedAt: project.CreatedAt,
 		UpdatedAt: project.UpdatedAt,
 		Role:      string(role),

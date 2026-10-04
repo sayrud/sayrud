@@ -63,6 +63,11 @@ type Project struct {
 	OwnerUserID int64 `json:"-"`
 	// Name is the display name of the project.
 	Name string `json:"name"`
+
+	// Icon is the optional icon identifier displayed with the project name.
+	Icon string `gorm:"not null;default:''" json:"icon"`
+	// Color is the optional palette color of the project icon.
+	Color string `gorm:"not null;default:''" json:"color"`
 }
 
 func (project *Project) BeforeCreate(_ *gorm.DB) error {
@@ -143,20 +148,31 @@ func (db *projects) Create(ctx context.Context, opts CreateProjectOptions) (*Pro
 // UpdateProjectOptions are the options of updating a project.
 type UpdateProjectOptions struct {
 	// Name is the new display name of the project.
-	Name string
+	Name *string
+
+	// Icon and Color replace the appearance when provided, empty strings clear it.
+	Icon  *string
+	Color *string
 }
 
 func (db *projects) Update(ctx context.Context, projectID int64, opts UpdateProjectOptions) error {
-	project, err := db.GetByID(ctx, projectID)
-	if err != nil {
+	if _, err := db.GetByID(ctx, projectID); err != nil {
 		return err
 	}
 
-	project.Name = opts.Name
-	if err := db.WithContext(ctx).Save(project).Error; err != nil {
-		return err
+	updates := map[string]interface{}{"updated_at": dbutil.Now()}
+	if opts.Name != nil {
+		updates["name"] = *opts.Name
 	}
-	return nil
+
+	if opts.Icon != nil {
+		updates["icon"] = *opts.Icon
+	}
+	if opts.Color != nil {
+		updates["color"] = *opts.Color
+	}
+
+	return db.WithContext(ctx).Model(&Project{}).Where("id = ?", projectID).Updates(updates).Error
 }
 
 var ErrProjectNotFound = errors.New("project does not exist")

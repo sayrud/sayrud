@@ -147,12 +147,19 @@ func (schemalessRoute) GetTable(ctx context.Context, project *db.Project, table 
 // @ID updateTable
 // @Router /projects/{projectUID}/tables/{tableUID} [put]
 func (schemalessRoute) UpdateTable(ctx context.Context, hub *collab.Hub, project *db.Project, table *db.SLTable, f form.UpdateTable) error {
+	if !validAppearanceUpdate(f.Name, f.Icon, f.Color) {
+		return ctx.ApiError(http.StatusBadRequest, "common::invalid_body")
+	}
+
 	if err := db.SLTables.Update(ctx.Request().Context(), table.ID, db.UpdateSLTableOptions{
-		Name: f.Name,
+		Name:  f.Name,
+		Icon:  f.Icon,
+		Color: f.Color,
 	}); err != nil {
 		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to update sl table")
 		return ctx.ApiServerError()
 	}
+
 	hub.NotifyProject(project.UID, collab.MessageTablesChanged)
 	return ctx.Status(http.StatusNoContent)
 }
