@@ -5083,7 +5083,9 @@ const docTemplate = `{
         "AdminProject": {
             "type": "object",
             "required": [
+                "color",
                 "createdAt",
+                "icon",
                 "memberCount",
                 "name",
                 "owner",
@@ -5091,7 +5093,13 @@ const docTemplate = `{
                 "uid"
             ],
             "properties": {
+                "color": {
+                    "type": "string"
+                },
                 "createdAt": {
+                    "type": "string"
+                },
+                "icon": {
                     "type": "string"
                 },
                 "memberCount": {

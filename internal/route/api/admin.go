@@ -474,6 +474,8 @@ func (adminRoute) ListProjects(ctx context.Context) error {
 		item := &dto.AdminProject{
 			UID:         p.UID,
 			Name:        p.Name,
+			Icon:        p.Icon,
+			Color:       p.Color,
 			MemberCount: memberCounts[p.ID],
 			TableCount:  tableCounts[p.ID],
 			CreatedAt:   p.CreatedAt,
@@ -483,6 +485,7 @@ func (adminRoute) ListProjects(ctx context.Context) error {
 		}
 		items = append(items, item)
 	}
+
 	return ctx.ApiSuccess(dto.ListAdminProjectsResp{Projects: items, Total: total})
 }
 

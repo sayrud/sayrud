@@ -7,6 +7,7 @@ import { useI18n } from 'vue-i18n'
 
 import { adminApi, type AdminProject } from '@/api/admin'
 import TransferOwnerModal from '@/components/admin/TransferOwnerModal.vue'
+import AppearanceIcon from '@/components/common/AppearanceIcon.vue'
 import UserAvatar from '@/components/common/UserAvatar.vue'
 import PageHeader from '@/components/console/PageHeader.vue'
 import SettingsSection from '@/components/console/SettingsSection.vue'
@@ -132,15 +133,22 @@ onMounted(load)
         :pagination="false"
       >
         <template #name="{ record }">
-          <a-space :size="10">
-            <a-avatar shape="square" :size="28" :style="{ background: colorOf(record.uid) }">
+          <a-space :size="10" fill>
+            <AppearanceIcon
+              v-if="record.icon || record.color"
+              :icon="record.icon"
+              :color="record.color"
+              :size="28"
+              fallback="project"
+            />
+            <a-avatar v-else shape="square" :size="28" :style="{ background: colorOf(record.uid) }">
               <Table2 :size="16" />
             </a-avatar>
             <span class="project-name">{{ record.name }}</span>
           </a-space>
         </template>
         <template #owner="{ record }">
-          <a-space v-if="record.owner" :size="8">
+          <a-space v-if="record.owner" :size="8" fill>
             <UserAvatar :name="record.owner.userName" :color="record.owner.color" :size="24" />
             <span>{{ record.owner.userName }}</span>
           </a-space>

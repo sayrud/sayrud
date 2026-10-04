@@ -379,7 +379,11 @@ definitions:
     type: object
   AdminProject:
     properties:
+      color:
+        type: string
       createdAt:
+        type: string
+      icon:
         type: string
       memberCount:
         description: MemberCount is the number of collaborators, excluding the owner.
@@ -393,7 +397,9 @@ definitions:
       uid:
         type: string
     required:
+    - color
     - createdAt
+    - icon
     - memberCount
     - name
     - owner

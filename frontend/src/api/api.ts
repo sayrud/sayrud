@@ -178,7 +178,9 @@ export interface AdminOverview {
 }
 
 export interface AdminProject {
+  color: string;
   createdAt: string;
+  icon: string;
   /** MemberCount is the number of collaborators, excluding the owner. */
   memberCount: number;
   name: string;

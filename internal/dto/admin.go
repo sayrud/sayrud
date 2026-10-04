@@ -50,6 +50,8 @@ type ListAdminUsersResp struct {
 type AdminProject struct {
 	UID   string     `json:"uid"`
 	Name  string     `json:"name"`
+	Icon  string     `json:"icon"`
+	Color string     `json:"color"`
 	Owner *UserBrief `json:"owner"`
 	// MemberCount is the number of collaborators, excluding the owner.
 	MemberCount int64     `json:"memberCount"`
