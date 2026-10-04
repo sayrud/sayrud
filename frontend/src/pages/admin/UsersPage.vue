@@ -234,8 +234,7 @@ onMounted(load)
           </div>
         </template>
         <template #role="{ record }">
-          <a-tag v-if="record.isAdmin" color="arcoblue" size="small">{{ t('admin.users.statusAdmin') }}</a-tag>
-          <span v-else class="text-caption">{{ t('admin.users.member') }}</span>
+          <span class="text-caption">{{ t(record.isAdmin ? 'admin.users.statusAdmin' : 'admin.users.member') }}</span>
         </template>
         <template #status="{ record }">
           <a-badge :status="record.disabled ? 'normal' : 'success'" :text="record.disabled ? t('admin.users.statusDisabled') : t('admin.users.statusActive')" />
