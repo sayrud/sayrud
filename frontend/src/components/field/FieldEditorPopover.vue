@@ -261,14 +261,6 @@ const numberExample = computed(() => formatNumber(1234.5678, String(md.value.for
         <template v-else>
           <div v-if="!manifest.available" class="warn shortcut-warn"><TriangleAlert :size="14" /> {{ t('shortcut.unavailable') }}</div>
           <div v-if="manifest.description" class="hint shortcut-description">{{ manifest.description }}</div>
-          <div v-if="manifest.resultTypes.length > 1" class="row">
-            <div class="row-label">{{ t('shortcut.outputType') }}</div>
-            <a-select :model-value="type" @update:model-value="(v: unknown) => changeType(v as FieldType)">
-              <a-option v-for="rt in manifest.resultTypes" :key="rt" :value="rt">
-                <span class="type-option"><FieldTypeIcon :type="rt" /> {{ fieldTypeInfo(rt).label }}</span>
-              </a-option>
-            </a-select>
-          </div>
           <ShortcutForm v-model="shortcut.inputs" :items="manifest.formItems" :fields="store.fields" :field-u-i-d="editing?.uid" />
         </template>
         <div class="row inline">
@@ -536,11 +528,6 @@ const numberExample = computed(() => formatNumber(1234.5678, String(md.value.for
 .shortcut-icon {
   flex: none;
   color: var(--color-primary);
-}
-.type-option {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
 }
 .shortcut-warn {
   margin: -6px 0 12px;

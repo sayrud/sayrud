@@ -34,21 +34,19 @@ var _ collab.ShortcutHooks = (*Engine)(nil)
 
 // Engine queues the cells to generate and executes the jobs in the background, it writes the results back as server changesets.
 type Engine struct {
-	db       *gorm.DB
-	hub      *collab.Hub
-	executor *Executor
-	workers  int
-	wake     chan struct{}
+	db      *gorm.DB
+	hub     *collab.Hub
+	workers int
+	wake    chan struct{}
 }
 
 // NewEngine returns the engine connected to the hub, the jobs are executed after Start.
-func NewEngine(gormDB *gorm.DB, hub *collab.Hub, executor *Executor, workers int) *Engine {
+func NewEngine(gormDB *gorm.DB, hub *collab.Hub, workers int) *Engine {
 	e := &Engine{
-		db:       gormDB,
-		hub:      hub,
-		executor: executor,
-		workers:  max(workers, 1),
-		wake:     make(chan struct{}, max(workers, 1)),
+		db:      gormDB,
+		hub:     hub,
+		workers: max(workers, 1),
+		wake:    make(chan struct{}, max(workers, 1)),
 	}
 	hub.SetShortcutHooks(e)
 	return e
@@ -351,7 +349,7 @@ func (e *Engine) process(ctx context.Context, job *db.SLShortcutJob) {
 		return
 	}
 	execCtx, cancel := context.WithTimeout(ctx, executionTimeout(def)+jobTimeoutMargin)
-	value, err := e.executor.Execute(execCtx, def, fields, field, data, Env{ProjectUID: project.UID, TableUID: table.UID, FieldUID: field.UID, RecordUID: record.UID})
+	value, err := Execute(execCtx, def, fields, field, data, Env{ProjectUID: project.UID, TableUID: table.UID, FieldUID: field.UID, RecordUID: record.UID})
 	cancel()
 	if err != nil {
 		e.fail(ctx, target, job, err)
@@ -384,9 +382,9 @@ type jobTarget struct {
 	table   *db.SLTable
 }
 
-func executionTimeout(def *Definition) time.Duration {
-	if def.custom != nil && def.custom.TimeoutSeconds > 0 {
-		return time.Duration(def.custom.TimeoutSeconds) * time.Second
+func executionTimeout(custom *db.CustomFieldShortcut) time.Duration {
+	if custom.TimeoutSeconds > 0 {
+		return time.Duration(custom.TimeoutSeconds) * time.Second
 	}
 	return 2 * time.Minute
 }
@@ -474,7 +472,7 @@ func (e *Engine) Preview(ctx context.Context, project *db.Project, table *db.SLT
 
 			execCtx, cancel := context.WithTimeout(ctx, executionTimeout(def))
 			defer cancel()
-			value, err := e.executor.Execute(execCtx, def, fields, &draft, data, Env{ProjectUID: project.UID, TableUID: table.UID, FieldUID: field.UID, RecordUID: record.UID})
+			value, err := Execute(execCtx, def, fields, &draft, data, Env{ProjectUID: project.UID, TableUID: table.UID, FieldUID: field.UID, RecordUID: record.UID})
 			if err != nil {
 				var shortcutErr *Error
 				if errors.As(err, &shortcutErr) {

@@ -19,16 +19,16 @@ var Shortcut shortcutRoute
 
 type shortcutRoute struct{}
 
-func toManifest(def *shortcut.Definition, aiConfigured bool) *dto.FieldShortcutManifest {
+func toManifest(custom *db.CustomFieldShortcut, aiConfigured bool) *dto.FieldShortcutManifest {
 	return &dto.FieldShortcutManifest{
-		ID:          def.ID,
-		Kind:        string(def.Kind),
-		AIEnabled:   def.AIEnabled,
-		Name:        def.Name,
-		Description: def.Description,
-		ResultTypes: lo.Map(def.ResultTypes, func(t db.SLFieldType, _ int) string { return string(t) }),
-		FormItems:   lo.Ternary(def.FormItems == nil, []db.ShortcutFormItem{}, def.FormItems),
-		Available:   def.Available(aiConfigured),
+		ID:          custom.UID,
+		Kind:        "script",
+		AIEnabled:   custom.AIEnabled,
+		Name:        custom.Name,
+		Description: custom.Description,
+		ResultTypes: []string{string(custom.ResultType)},
+		FormItems:   lo.Ternary(custom.FormItems.Data() == nil, []db.ShortcutFormItem{}, custom.FormItems.Data()),
+		Available:   custom.Enabled && (!custom.AIEnabled || aiConfigured),
 	}
 }
 
@@ -60,7 +60,7 @@ func (shortcutRoute) List(ctx context.Context) error {
 	}
 
 	aiConfigured := false
-	if lo.ContainsBy(defs, func(def *shortcut.Definition) bool { return def.AIEnabled }) {
+	if lo.ContainsBy(defs, func(custom *db.CustomFieldShortcut) bool { return custom.AIEnabled }) {
 		settings, err := db.Settings.GetAI(ctx.Request().Context())
 		if err != nil {
 			logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to get AI settings")
@@ -69,8 +69,8 @@ func (shortcutRoute) List(ctx context.Context) error {
 		aiConfigured = settings.Configured()
 	}
 
-	return ctx.ApiSuccess(lo.Map(defs, func(def *shortcut.Definition, _ int) *dto.FieldShortcutManifest {
-		return toManifest(def, aiConfigured)
+	return ctx.ApiSuccess(lo.Map(defs, func(custom *db.CustomFieldShortcut, _ int) *dto.FieldShortcutManifest {
+		return toManifest(custom, aiConfigured)
 	}))
 }
 

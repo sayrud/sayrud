@@ -101,7 +101,7 @@ func TestValidate(t *testing.T) {
 	formula := field("fldFFFFFFF", db.FormulaFieldType, nil)
 	target := selectField("fldSSSSSSS", db.SingleSelectFieldType, "A")
 	fields := []*db.SLField{text, formula, target}
-	classify := CustomDefinition(&db.CustomFieldShortcut{
+	classify := &db.CustomFieldShortcut{
 		UID:        "fscAAAAAAA",
 		ResultType: db.SingleSelectFieldType,
 		Code:       `function execute() { return "A" }`,
@@ -111,14 +111,14 @@ func TestValidate(t *testing.T) {
 			{Key: "prompt", Label: "Prompt", Component: db.ShortcutFormPrompt},
 		}),
 		Enabled: true,
-	})
+	}
 
-	got, err := Validate(classify, fields, target, &db.FieldShortcut{ID: classify.ID, Inputs: map[string]interface{}{"source": " fldTTTTTTT ", "unknown": "x"}, AutoUpdate: true})
+	got, err := Validate(classify, fields, target, &db.FieldShortcut{ID: classify.UID, Inputs: map[string]interface{}{"source": " fldTTTTTTT ", "unknown": "x"}, AutoUpdate: true})
 	require.NoError(t, err)
-	require.Equal(t, &db.FieldShortcut{ID: classify.ID, Inputs: map[string]interface{}{"source": "fldTTTTTTT"}, AutoUpdate: true}, got)
+	require.Equal(t, &db.FieldShortcut{ID: classify.UID, Inputs: map[string]interface{}{"source": "fldTTTTTTT"}, AutoUpdate: true}, got)
 
 	for name, tc := range map[string]struct {
-		def    *Definition
+		def    *db.CustomFieldShortcut
 		field  *db.SLField
 		inputs map[string]interface{}
 		key    string
@@ -131,7 +131,7 @@ func TestValidate(t *testing.T) {
 		"option":           {classify, target, map[string]interface{}{"source": "fldTTTTTTT", "language": "Klingon"}, "shortcut::invalid_option"},
 		"prompt reference": {classify, target, map[string]interface{}{"source": "fldTTTTTTT", "prompt": "Use {fldFFFFFFF}"}, "shortcut::invalid_input_field"},
 	} {
-		_, err := Validate(tc.def, fields, tc.field, &db.FieldShortcut{ID: tc.def.ID, Inputs: tc.inputs})
+		_, err := Validate(tc.def, fields, tc.field, &db.FieldShortcut{ID: tc.def.UID, Inputs: tc.inputs})
 		var shortcutErr *Error
 		require.ErrorAs(t, err, &shortcutErr, name)
 		require.Equal(t, tc.key, shortcutErr.Key, name)
@@ -145,7 +145,7 @@ func TestValidateCycle(t *testing.T) {
 	b.Shortcut = &db.FieldShortcut{ID: "fscAAAAAAA", Inputs: map[string]interface{}{"source": "fldAAAAAAA"}}
 	c.Shortcut = &db.FieldShortcut{ID: "fscBBBBBBB", Inputs: map[string]interface{}{"prompt": "Rewrite {fldBBBBBBB}"}}
 	fields := []*db.SLField{a, b, c}
-	summarize := CustomDefinition(&db.CustomFieldShortcut{
+	summarize := &db.CustomFieldShortcut{
 		UID:        "fscAAAAAAA",
 		ResultType: db.TextFieldType,
 		Code:       `function execute(params) { return params.source }`,
@@ -153,15 +153,15 @@ func TestValidateCycle(t *testing.T) {
 			{Key: "source", Label: "Source", Component: db.ShortcutFormFieldSelect, Required: true},
 		}),
 		Enabled: true,
-	})
+	}
 
 	// a <- b <- c, so a can not read c.
-	_, err := Validate(summarize, fields, a, &db.FieldShortcut{ID: summarize.ID, Inputs: map[string]interface{}{"source": "fldCCCCCCC"}})
+	_, err := Validate(summarize, fields, a, &db.FieldShortcut{ID: summarize.UID, Inputs: map[string]interface{}{"source": "fldCCCCCCC"}})
 	var shortcutErr *Error
 	require.ErrorAs(t, err, &shortcutErr)
 	require.Equal(t, "shortcut::cycle", shortcutErr.Key)
 
-	_, err = Validate(summarize, fields, c, &db.FieldShortcut{ID: summarize.ID, Inputs: map[string]interface{}{"source": "fldAAAAAAA"}})
+	_, err = Validate(summarize, fields, c, &db.FieldShortcut{ID: summarize.UID, Inputs: map[string]interface{}{"source": "fldAAAAAAA"}})
 	require.NoError(t, err)
 
 	require.ElementsMatch(t, []string{"fldBBBBBBB"}, Dependencies(c.Shortcut))
@@ -172,7 +172,7 @@ func TestExecutePrompt(t *testing.T) {
 	count := field("fldCCCCCCC", db.NumberFieldType, nil)
 	target := field("fldTTTTTTT", db.TextFieldType, nil)
 	target.Shortcut = &db.FieldShortcut{ID: "fscAAAAAAA", Inputs: map[string]interface{}{"prompt": "Double {fldCCCCCCC} for {fldNNNNNNN}"}}
-	def := CustomDefinition(&db.CustomFieldShortcut{
+	def := &db.CustomFieldShortcut{
 		UID:        "fscAAAAAAA",
 		ResultType: db.TextFieldType,
 		Code:       `function execute(params) { return params.prompt }`,
@@ -180,9 +180,9 @@ func TestExecutePrompt(t *testing.T) {
 			{Key: "prompt", Label: "Prompt", Component: db.ShortcutFormPrompt, Required: true},
 		}),
 		Enabled: true,
-	})
+	}
 
-	value, err := NewExecutor().Execute(context.Background(), def, []*db.SLField{name, count, target}, target,
+	value, err := Execute(context.Background(), def, []*db.SLField{name, count, target}, target,
 		map[string]interface{}{"fldCCCCCCC": float64(21), "fldNNNNNNN": "Alice"}, Env{})
 	require.NoError(t, err)
 	require.Equal(t, "Double 21 for Alice", value)
@@ -216,17 +216,17 @@ func TestExecuteScript(t *testing.T) {
 		TimeoutSeconds: 5,
 		Enabled:        true,
 	}
-	value, err := NewExecutor().Execute(context.Background(), CustomDefinition(custom), []*db.SLField{source, target}, target, map[string]interface{}{"fldTTTTTTT": "hello"}, Env{})
+	value, err := Execute(context.Background(), custom, []*db.SLField{source, target}, target, map[string]interface{}{"fldTTTTTTT": "hello"}, Env{})
 	require.NoError(t, err)
 	require.Equal(t, float64(5), value)
 
 	custom.Code = `function execute() { throw new Error("quota exceeded") }`
 	// Empty inputs clear the cell without executing the script.
-	value, err = NewExecutor().Execute(context.Background(), CustomDefinition(custom), []*db.SLField{source, target}, target, map[string]interface{}{}, Env{})
+	value, err = Execute(context.Background(), custom, []*db.SLField{source, target}, target, map[string]interface{}{}, Env{})
 	require.NoError(t, err)
 	require.Nil(t, value)
 
-	_, err = NewExecutor().Execute(context.Background(), CustomDefinition(custom), []*db.SLField{source, target}, target, map[string]interface{}{"fldTTTTTTT": "hello"}, Env{})
+	_, err = Execute(context.Background(), custom, []*db.SLField{source, target}, target, map[string]interface{}{"fldTTTTTTT": "hello"}, Env{})
 	var shortcutErr *Error
 	require.ErrorAs(t, err, &shortcutErr)
 	require.Equal(t, "shortcut::script_error", shortcutErr.Key)

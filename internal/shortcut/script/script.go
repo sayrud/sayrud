@@ -324,10 +324,6 @@ func (s *sandbox) wrap(err error) error {
 	if errors.As(err, &exception) {
 		return s.valueError(exception.Value())
 	}
-	var syntax *goja.CompilerSyntaxError
-	if errors.As(err, &syntax) {
-		return &Error{Message: syntax.Error()}
-	}
 	var stackOverflow *goja.StackOverflowError
 	if errors.As(err, &stackOverflow) {
 		return &Error{Message: "maximum call stack size exceeded"}

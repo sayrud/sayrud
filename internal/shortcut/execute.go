@@ -21,22 +21,14 @@ type Env struct {
 	RecordUID  string
 }
 
-// Executor generates the cell values.
-type Executor struct{}
-
-// NewExecutor returns the custom shortcut executor.
-func NewExecutor() *Executor {
-	return &Executor{}
-}
-
 // Execute generates the cell value of the field by its shortcut from the record data, which is keyed by field UID.
 // It returns nil without executing if all the referenced fields are empty, and *Error if the execution fails.
-func (e *Executor) Execute(ctx context.Context, def *Definition, fields []*db.SLField, field *db.SLField, data map[string]interface{}, env Env) (interface{}, error) {
+func Execute(ctx context.Context, custom *db.CustomFieldShortcut, fields []*db.SLField, field *db.SLField, data map[string]interface{}, env Env) (interface{}, error) {
 	if field.Shortcut == nil {
 		return nil, newError("shortcut::invalid_config")
 	}
 
-	params, empty, err := resolveInputs(def, fields, field, data)
+	params, empty, err := resolveInputs(custom, fields, field, data)
 	if err != nil {
 		return nil, err
 	}
@@ -44,17 +36,14 @@ func (e *Executor) Execute(ctx context.Context, def *Definition, fields []*db.SL
 		return nil, nil
 	}
 
-	if def.custom == nil {
-		return nil, newError("shortcut::not_found")
-	}
-	secrets, err := DecodeSecrets(def.custom.Secrets)
+	secrets, err := DecodeSecrets(custom.Secrets)
 	if err != nil {
 		return nil, newError("shortcut::secrets_unavailable")
 	}
-	if !def.custom.Enabled {
+	if !custom.Enabled {
 		return nil, newError("shortcut::disabled")
 	}
-	result, err := RunCustom(ctx, def.custom, secrets, params, env)
+	result, err := RunCustom(ctx, custom, secrets, params, env)
 	if err != nil {
 		return nil, err
 	}
@@ -63,9 +52,9 @@ func (e *Executor) Execute(ctx context.Context, def *Definition, fields []*db.SL
 
 // resolveInputs returns the parameters from the record data, empty reports whether the shortcut reads
 // any field and all of them are empty.
-func resolveInputs(def *Definition, fields []*db.SLField, field *db.SLField, data map[string]interface{}) (params map[string]interface{}, empty bool, err error) {
+func resolveInputs(custom *db.CustomFieldShortcut, fields []*db.SLField, field *db.SLField, data map[string]interface{}) (params map[string]interface{}, empty bool, err error) {
 	byUID := lo.KeyBy(fields, func(f *db.SLField) string { return f.UID })
-	params = make(map[string]interface{}, len(def.FormItems))
+	params = make(map[string]interface{}, len(custom.FormItems.Data()))
 	readsFields, anyFilled := false, false
 
 	read := func(uid string) (interface{}, bool) {
@@ -81,7 +70,7 @@ func resolveInputs(def *Definition, fields []*db.SLField, field *db.SLField, dat
 		return value, true
 	}
 
-	for _, item := range def.FormItems {
+	for _, item := range custom.FormItems.Data() {
 		raw, _ := field.Shortcut.Inputs[item.Key].(string)
 		switch item.Component {
 		case db.ShortcutFormFieldSelect:

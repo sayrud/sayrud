@@ -81,10 +81,9 @@ func TestEngine(t *testing.T) {
 	catalog, err := Catalog(ctx)
 	require.NoError(t, err)
 	require.Len(t, catalog, 1)
-	require.Equal(t, custom.UID, catalog[0].ID)
-	require.Equal(t, KindScript, catalog[0].Kind)
+	require.Equal(t, custom.UID, catalog[0].UID)
 
-	engine := NewEngine(gormDB, hub, NewExecutor(), 1)
+	engine := NewEngine(gormDB, hub, 1)
 	jobs := db.NewSLShortcutJobsStore(gormDB)
 
 	const source, category = "fldSourceX", "fldCategry"

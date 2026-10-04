@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { GripVertical, Plus, Trash2 } from '@lucide/vue'
-import { computed, nextTick, ref } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import CodeEditor from '@/components/common/CodeEditor.vue'
@@ -54,14 +54,12 @@ function init() {
   mode.value = 'visual'
 }
 init()
+// Update JSON before save or test handlers can run in the same tick.
+watch(items, () => { model.value = serializeFormItems(items.value) }, { deep: true, flush: 'sync' })
 
 const loaded = computed(() => loadFormItems(model.value))
 const loadable = computed(() => loaded.value.ok)
 const cardIssues = computed(() => validateFormItems(items.value))
-
-function commit() {
-  model.value = serializeFormItems(items.value)
-}
 
 function help(index: number, field: FormItemIssue['field'], option?: number): string {
   const issue = cardIssues.value.find((entry) => entry.index === index && entry.field === field && entry.option === option)
@@ -76,16 +74,10 @@ const jsonError = computed(() => {
   return issue ? t(formItemIssueKey(issue), { key: formItemIssueName(result.items, issue) }) : ''
 })
 
-function setText<K extends 'key' | 'label' | 'placeholder'>(item: EditorItem, field: K, value: string) {
-  item[field] = value
-  commit()
-}
-
 function trimText<K extends 'key' | 'label' | 'placeholder'>(item: EditorItem, field: K) {
   const next = item[field].trim()
   if (next === item[field]) return
   item[field] = next
-  commit()
 }
 
 function setComponent(item: EditorItem, component: string) {
@@ -93,24 +85,14 @@ function setComponent(item: EditorItem, component: string) {
   if (component !== 'field_select') item.fieldTypes = []
   if (component !== 'select') item.options = []
   if (component === 'field_select') item.defaultValue = ''
-  commit()
 }
 
 function setFieldTypes(item: EditorItem, value: unknown) {
   item.fieldTypes = Array.isArray(value) ? value.filter((entry): entry is string => typeof entry === 'string') : []
-  commit()
 }
 
 function setDefault(item: EditorItem, value: unknown) {
   item.defaultValue = typeof value === 'string' ? value : ''
-  commit()
-}
-
-function setOption(item: EditorItem, index: number, field: 'value' | 'label', value: string) {
-  const option = item.options[index]
-  if (!option) return
-  option[field] = value
-  commit()
 }
 
 function trimOptionLabel(item: EditorItem, index: number) {
@@ -119,7 +101,6 @@ function trimOptionLabel(item: EditorItem, index: number) {
   const next = option.label.trim()
   if (next === option.label) return
   option.label = next
-  commit()
 }
 
 function componentChoices(component: string): string[] {
@@ -172,25 +153,21 @@ async function addItem() {
       defaultValue: '',
     }),
   )
-  commit()
   await nextTick()
   labelRefs.get(id)?.focus()
 }
 
 function removeItem(index: number) {
   items.value.splice(index, 1)
-  commit()
 }
 
 function addOption(item: EditorItem) {
   item.options.push({ value: '', label: '' })
-  commit()
 }
 
 function removeOption(item: EditorItem, index: number) {
   item.options.splice(index, 1)
   if (item.defaultValue !== '' && !item.options.some((option) => option.value === item.defaultValue)) item.defaultValue = ''
-  commit()
 }
 
 function dropItem() {
@@ -202,7 +179,6 @@ function dropItem() {
   const [moved] = items.value.splice(from, 1)
   if (!moved) return
   items.value.splice(to, 0, moved)
-  commit()
 }
 
 function startOptionDrag(item: number, from: number) {
@@ -218,7 +194,6 @@ function endOptionDrag() {
   const [moved] = item.options.splice(drag.from, 1)
   if (!moved) return
   item.options.splice(drag.over, 0, moved)
-  commit()
 }
 
 function setMode(value: string | number | boolean) {
@@ -230,8 +205,6 @@ function setMode(value: string | number | boolean) {
   if (value !== 'visual') return
   const result = loadFormItems(model.value)
   if (!result.ok) return
-  const next = serializeFormItems(result.items)
-  if (next !== model.value) model.value = next
   items.value = result.items.map(withId)
   mode.value = 'visual'
 }
@@ -268,21 +241,20 @@ function setMode(value: string | number | boolean) {
           <a-form :model="item" layout="vertical" size="small" class="card-body">
             <div class="grid">
               <a-form-item :label="t('shortcutAdmin.itemKey')" :validate-status="help(index, 'key') ? 'error' : undefined" :help="help(index, 'key') || undefined">
-                <a-input :model-value="item.key" class="mono-input" @update:model-value="(value: string) => setText(item, 'key', value)" @blur="trimText(item, 'key')" />
+                <a-input v-model="item.key" class="mono-input" @blur="trimText(item, 'key')" />
               </a-form-item>
               <a-form-item :label="t('shortcutAdmin.itemLabel')" :validate-status="help(index, 'label') ? 'error' : undefined" :help="help(index, 'label') || undefined">
                 <a-input
                   :ref="(el: unknown) => bindLabel(item.id, el)"
-                  :model-value="item.label"
-                  @update:model-value="(value: string) => setText(item, 'label', value)"
+                  v-model="item.label"
                   @blur="trimText(item, 'label')"
                 />
               </a-form-item>
               <a-form-item :label="t('shortcutAdmin.itemPlaceholder')">
-                <a-input :model-value="item.placeholder" @update:model-value="(value: string) => setText(item, 'placeholder', value)" @blur="trimText(item, 'placeholder')" />
+                <a-input v-model="item.placeholder" @blur="trimText(item, 'placeholder')" />
               </a-form-item>
               <a-form-item :label="t('shortcutAdmin.itemRequired')">
-                <a-switch :model-value="item.required" @change="(value: string | number | boolean) => { if (typeof value === 'boolean') { item.required = value; commit() } }" />
+                <a-switch v-model="item.required" />
               </a-form-item>
             </div>
             <div class="extra">
@@ -326,11 +298,10 @@ function setMode(value: string | number | boolean) {
                   @drop.stop.prevent="endOptionDrag"
                 >
                   <span class="grip" draggable="true" @dragstart.stop="startOptionDrag(index, optionIndex)" @dragend="endOptionDrag"><GripVertical :size="14" /></span>
-                  <a-input :model-value="option.value" :placeholder="t('shortcutAdmin.optionValue')" @update:model-value="(value: string) => setOption(item, optionIndex, 'value', value)" />
+                  <a-input v-model="option.value" :placeholder="t('shortcutAdmin.optionValue')" />
                   <a-input
-                    :model-value="option.label"
+                    v-model="option.label"
                     :placeholder="t('shortcutAdmin.optionLabelPlaceholder')"
-                    @update:model-value="(value: string) => setOption(item, optionIndex, 'label', value)"
                     @blur="trimOptionLabel(item, optionIndex)"
                   />
                   <a-button type="text" status="danger" shape="square" :aria-label="t('common.delete')" @click="removeOption(item, optionIndex)">

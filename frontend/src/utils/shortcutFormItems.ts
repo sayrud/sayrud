@@ -62,14 +62,7 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
 
 function stringList(value: unknown): string[] {
   if (!Array.isArray(value)) return []
-  const seen = new Set<string>()
-  const out: string[] = []
-  for (const entry of value) {
-    if (typeof entry !== 'string' || seen.has(entry)) continue
-    seen.add(entry)
-    out.push(entry)
-  }
-  return out
+  return [...new Set(value.filter((entry): entry is string => typeof entry === 'string'))]
 }
 
 function optionValue(value: unknown): string {

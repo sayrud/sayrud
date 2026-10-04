@@ -4,7 +4,7 @@ import { javascript } from '@codemirror/lang-javascript'
 import { json, jsonParseLinter } from '@codemirror/lang-json'
 import { HighlightStyle, syntaxHighlighting } from '@codemirror/language'
 import { linter } from '@codemirror/lint'
-import { Compartment, EditorState, Prec, type Extension } from '@codemirror/state'
+import { Compartment, EditorState, Prec } from '@codemirror/state'
 import { EditorView, keymap } from '@codemirror/view'
 import { tags } from '@lezer/highlight'
 import { basicSetup } from 'codemirror'
@@ -44,8 +44,6 @@ const focused = ref(false)
 let view: EditorView | undefined
 
 const themeSlot = new Compartment()
-const readonlySlot = new Compartment()
-const languageSlot = new Compartment()
 
 // 颜色取自 CSS 变量，亮暗主题只需切换变量。
 const highlightStyle = HighlightStyle.define([
@@ -108,14 +106,6 @@ function editorTheme(dark: boolean) {
   )
 }
 
-function languageExtension(): Extension {
-  return props.language === 'json' ? [json(), linter(jsonParseLinter(), { delay: 300 })] : javascript()
-}
-
-function readonlyExtension(): Extension {
-  return [EditorState.readOnly.of(props.readonly), EditorView.editable.of(!props.readonly)]
-}
-
 onMounted(() => {
   view = new EditorView({
     parent: root.value!,
@@ -137,8 +127,9 @@ onMounted(() => {
         ),
         syntaxHighlighting(highlightStyle),
         EditorState.tabSize.of(2),
-        languageSlot.of(languageExtension()),
-        readonlySlot.of(readonlyExtension()),
+        props.language === 'json' ? [json(), linter(jsonParseLinter(), { delay: 300 })] : javascript(),
+        EditorState.readOnly.of(props.readonly),
+        EditorView.editable.of(!props.readonly),
         themeSlot.of(editorTheme(themeStore.theme === 'dark')),
         EditorView.contentAttributes.of(props.ariaLabel ? { 'aria-label': props.ariaLabel } : {}),
         EditorView.updateListener.of((u) => {
@@ -160,20 +151,10 @@ watch(
   () => themeStore.theme,
   (theme) => view?.dispatch({ effects: themeSlot.reconfigure(editorTheme(theme === 'dark')) }),
 )
-watch(
-  () => props.readonly,
-  () => view?.dispatch({ effects: readonlySlot.reconfigure(readonlyExtension()) }),
-)
-watch(
-  () => props.language,
-  () => view?.dispatch({ effects: languageSlot.reconfigure(languageExtension()) }),
-)
 
 const sizeStyle = computed(() =>
   props.height ? { '--editor-height': props.height } : { '--editor-min-height': props.minHeight, '--editor-max-height': props.maxHeight },
 )
-
-defineExpose({ focus: () => view?.focus() })
 </script>
 
 <template>

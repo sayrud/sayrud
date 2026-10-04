@@ -17,17 +17,17 @@ var (
 	fieldRefPattern = regexp.MustCompile(`\{(fld[A-Za-z0-9]{7})\}`)
 )
 
-// Validate checks the shortcut of the field against the definition and the table fields, and returns the normalized shortcut,
+// Validate checks the shortcut of the field against the custom shortcut and the table fields, and returns the normalized shortcut,
 // which only keeps the inputs of the form items. fields are the fields of the table, the field itself may or may not be in it.
 // It returns *Error if invalid.
-func Validate(def *Definition, fields []*db.SLField, field *db.SLField, shortcut *db.FieldShortcut) (*db.FieldShortcut, error) {
-	if !field.Type.CanHostShortcut() || !def.SupportsType(field.Type) {
+func Validate(custom *db.CustomFieldShortcut, fields []*db.SLField, field *db.SLField, shortcut *db.FieldShortcut) (*db.FieldShortcut, error) {
+	if !field.Type.CanHostShortcut() || field.Type != custom.ResultType {
 		return nil, newError("shortcut::unsupported_type")
 	}
 
 	byUID := lo.KeyBy(fields, func(f *db.SLField) string { return f.UID })
-	normalized := &db.FieldShortcut{ID: def.ID, Inputs: map[string]interface{}{}, AutoUpdate: shortcut.AutoUpdate}
-	for _, item := range def.FormItems {
+	normalized := &db.FieldShortcut{ID: custom.UID, Inputs: map[string]interface{}{}, AutoUpdate: shortcut.AutoUpdate}
+	for _, item := range custom.FormItems.Data() {
 		raw, _ := shortcut.Inputs[item.Key].(string)
 		value := strings.TrimSpace(raw)
 		if value == "" {

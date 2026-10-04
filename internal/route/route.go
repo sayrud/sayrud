@@ -43,7 +43,7 @@ func New(opts Options) *flamego.Flame {
 		appcontext.Contexter(opts.DB),
 	)
 	hub := collab.NewHub(opts.DB)
-	engine := shortcut.NewEngine(opts.DB, hub, shortcut.NewExecutor(), conf.Shortcut.Workers)
+	engine := shortcut.NewEngine(opts.DB, hub, conf.Shortcut.Workers)
 	if opts.Context != nil {
 		engine.Start(opts.Context)
 	}

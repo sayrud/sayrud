@@ -86,8 +86,6 @@ func TestRunCustomAI(t *testing.T) {
 	require.Equal(t, "Bearer "+apiKey, first.Auth)
 	require.Equal(t, []openai.Message{{Role: "system", Content: "Summarize"}, {Role: "user", Content: "Record text"}}, first.Messages)
 	require.Equal(t, []openai.Message{{Role: "user", Content: "Record text"}}, second.Messages)
-	require.True(t, CustomDefinition(custom).Available(true))
-	require.False(t, CustomDefinition(custom).Available(false))
 
 	custom.Code = `async function execute(params, context) { return await context.ai.complete({prompt: params.text}) }`
 	store.settings.BaseURL = server.URL + "/retry"
@@ -141,5 +139,4 @@ func TestRunCustomAI(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "plain script", result.Value)
 	require.Equal(t, reads, store.reads)
-	require.True(t, CustomDefinition(custom).Available(false))
 }
