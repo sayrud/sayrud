@@ -2,6 +2,7 @@ package db
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"github.com/cockroachdb/errors"
@@ -21,6 +22,8 @@ var FieldShortcuts FieldShortcutsStore
 type FieldShortcutsStore interface {
 	// List returns all the custom shortcuts in creation order.
 	List(ctx context.Context) ([]*CustomFieldShortcut, error)
+	// ListAdmin returns a page of matching shortcuts and the total number of matches in creation order.
+	ListAdmin(ctx context.Context, opts ListFieldShortcutsOptions) ([]*CustomFieldShortcut, int64, error)
 	// GetByUID returns the shortcut with the given UID, it returns ErrFieldShortcutNotFound if not found.
 	GetByUID(ctx context.Context, uid string) (*CustomFieldShortcut, error)
 	// Create creates the shortcut, a random UID is generated if empty.
@@ -172,6 +175,31 @@ func (db *fieldShortcuts) List(ctx context.Context) ([]*CustomFieldShortcut, err
 		return nil, errors.Wrap(err, "find")
 	}
 	return list, nil
+}
+
+// ListFieldShortcutsOptions are the options of listing shortcuts in the admin console.
+type ListFieldShortcutsOptions struct {
+	dbutil.Pagination
+	// Keyword matches the name or description case-insensitively.
+	Keyword string
+}
+
+func (db *fieldShortcuts) ListAdmin(ctx context.Context, opts ListFieldShortcutsOptions) ([]*CustomFieldShortcut, int64, error) {
+	q := db.WithContext(ctx).Model(&CustomFieldShortcut{})
+	if k := strings.TrimSpace(opts.Keyword); k != "" {
+		pattern := "%" + dbutil.EscapeLike(strings.ToLower(k)) + "%"
+		q = q.Where("LOWER(name) LIKE ? OR LOWER(description) LIKE ?", pattern, pattern)
+	}
+	var total int64
+	if err := q.Count(&total).Error; err != nil {
+		return nil, 0, errors.Wrap(err, "count")
+	}
+	limit, offset := opts.LimitOffset()
+	var list []*CustomFieldShortcut
+	if err := q.Order("id ASC").Limit(limit).Offset(offset).Find(&list).Error; err != nil {
+		return nil, 0, errors.Wrap(err, "find")
+	}
+	return list, total, nil
 }
 
 func (db *fieldShortcuts) GetByUID(ctx context.Context, uid string) (*CustomFieldShortcut, error) {

@@ -892,6 +892,18 @@ definitions:
     - providers
     - secretsReady
     type: object
+  ListAdminFieldShortcutsResp:
+    properties:
+      shortcuts:
+        items:
+          $ref: '#/definitions/AdminFieldShortcut'
+        type: array
+      total:
+        type: integer
+    required:
+    - shortcuts
+    - total
+    type: object
   ListAdminProjectsResp:
     properties:
       projects:
@@ -2381,15 +2393,26 @@ paths:
     get:
       description: Requires the admin. The credential values are not returned.
       operationId: listAdminFieldShortcuts
+      parameters:
+      - description: Page number, starting from 1
+        in: query
+        name: page
+        type: integer
+      - description: Page size, defaults to 20
+        in: query
+        name: pageSize
+        type: integer
+      - description: Matches the shortcut name or description
+        in: query
+        name: keyword
+        type: string
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            items:
-              $ref: '#/definitions/AdminFieldShortcut'
-            type: array
+            $ref: '#/definitions/ListAdminFieldShortcutsResp'
         "403":
           description: Not an admin
           schema:

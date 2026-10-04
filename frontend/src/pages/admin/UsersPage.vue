@@ -289,7 +289,11 @@ onMounted(load)
           :show-jumper="pagination.total > pagination.pageSize"
           @change="onPageChange"
           @page-size-change="onPageSizeChange"
-        />
+        >
+          <template #total="{ total }">
+            {{ t('admin.users.total', { n: total }, total) }}
+          </template>
+        </a-pagination>
       </div>
     </SettingsSection>
 

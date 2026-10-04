@@ -4,7 +4,6 @@ import {
   ChevronRight,
   Database,
   Layers,
-  LockKeyhole,
   MonitorSmartphone,
   Table2,
   UserPlus,
@@ -185,18 +184,6 @@ onMounted(async () => {
               <a-descriptions-item label="Go">{{ data.system.goVersion }}</a-descriptions-item>
             </a-descriptions>
           </SettingsSection>
-          <SettingsSection :title="t('admin.overview.shortcuts')">
-            <a-space direction="vertical" fill class="shortcuts">
-              <a-button long @click="router.push({ name: 'admin-users' })">
-                <template #icon><UserPlus :size="15" /></template>
-                {{ t('admin.users.create') }}
-              </a-button>
-              <a-button long @click="router.push({ name: 'admin-security' })">
-                <template #icon><LockKeyhole :size="15" /></template>
-                {{ t('consoleNav.adminSecurity') }}
-              </a-button>
-            </a-space>
-          </SettingsSection>
         </a-col>
       </a-row>
     </a-spin>
@@ -235,14 +222,6 @@ onMounted(async () => {
 .columns {
   margin-top: 16px;
 }
-.side {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-.side :deep(.settings-section + .settings-section) {
-  margin-top: 0;
-}
 .recent :deep(.arco-list-item) {
   align-items: center;
   padding: 12px 24px !important;
@@ -256,9 +235,6 @@ onMounted(async () => {
 }
 .info :deep(.arco-descriptions-item-label) {
   color: var(--text-caption);
-}
-.shortcuts {
-  padding: 8px 0 16px;
 }
 @media (max-width: 991px) {
   .side {

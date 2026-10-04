@@ -62,6 +62,12 @@ function onPageChange(page: number) {
   load()
 }
 
+function onPageSizeChange(pageSize: number) {
+  pagination.pageSize = pageSize
+  pagination.current = 1
+  load()
+}
+
 const transferVisible = ref(false)
 const target = ref<AdminProject | null>(null)
 
@@ -113,7 +119,6 @@ onMounted(load)
 
     <SettingsSection flush>
       <div class="toolbar">
-        <span class="text-desc">{{ t('admin.projects.total', { n: pagination.total }, pagination.total) }}</span>
         <a-input-search v-model="keyword" :placeholder="t('admin.projects.search')" allow-clear class="search" />
       </div>
 
@@ -124,8 +129,7 @@ onMounted(load)
         row-key="uid"
         :bordered="false"
         :scroll="{ x: 920 }"
-        :pagination="{ ...pagination, showTotal: true, hideOnSinglePage: true }"
-        @page-change="onPageChange"
+        :pagination="false"
       >
         <template #name="{ record }">
           <a-space :size="10">
@@ -152,6 +156,25 @@ onMounted(load)
           </div>
         </template>
       </a-table>
+
+      <div class="pagination-footer">
+        <a-pagination
+          :current="pagination.current"
+          :page-size="pagination.pageSize"
+          :total="pagination.total"
+          :disabled="loading"
+          :page-size-options="[10, 20, 50, 100]"
+          show-total
+          show-page-size
+          :show-jumper="pagination.total > pagination.pageSize"
+          @change="onPageChange"
+          @page-size-change="onPageSizeChange"
+        >
+          <template #total="{ total }">
+            {{ t('admin.projects.total', { n: total }, total) }}
+          </template>
+        </a-pagination>
+      </div>
     </SettingsSection>
 
     <TransferOwnerModal v-model:visible="transferVisible" :project="target" @transferred="load" />
@@ -169,7 +192,7 @@ onMounted(load)
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: 12px;
   padding: 16px 24px;
 }
@@ -183,12 +206,29 @@ onMounted(load)
 :deep(.arco-table-th) {
   background: var(--bg-base);
 }
-:deep(.arco-table-pagination) {
-  padding: 0 24px 16px;
+.pagination-footer {
+  padding: 16px 24px;
+}
+.pagination-footer :deep(.arco-pagination) {
+  width: 100%;
+  flex-wrap: wrap;
+  row-gap: 12px;
+}
+.pagination-footer :deep(.arco-pagination-total) {
+  margin-right: auto;
+  color: var(--text-caption);
+}
+.pagination-footer :deep(.arco-pagination-list) {
+  max-width: 100%;
+  overflow-x: auto;
 }
 @media (max-width: 768px) {
-  .toolbar {
+  .toolbar,
+  .pagination-footer {
     padding: 12px 16px;
+  }
+  .pagination-footer :deep(.arco-pagination-total) {
+    flex-basis: 100%;
   }
   .search {
     width: 100%;

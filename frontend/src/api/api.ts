@@ -428,6 +428,11 @@ export interface ListAdminAuthProvidersResp {
   secretsReady: boolean;
 }
 
+export interface ListAdminFieldShortcutsResp {
+  shortcuts: AdminFieldShortcut[];
+  total: number;
+}
+
 export interface ListAdminProjectsResp {
   projects: AdminProject[];
   total: number;
@@ -988,7 +993,7 @@ export type UpdateAdminAuthProviderData = AdminAuthProvider;
 
 export type DeleteAdminAuthProviderData = any;
 
-export type ListAdminFieldShortcutsData = AdminFieldShortcut[];
+export type ListAdminFieldShortcutsData = ListAdminFieldShortcutsResp;
 
 export type CreateAdminFieldShortcutData = AdminFieldShortcut;
 
@@ -1492,10 +1497,21 @@ export class Api<
      * @summary List the custom field shortcuts
      * @request GET:/admin/field-shortcuts
      */
-    listAdminFieldShortcuts: (params: RequestParams = {}) =>
+    listAdminFieldShortcuts: (
+      query?: {
+        /** Page number, starting from 1 */
+        page?: number;
+        /** Page size, defaults to 20 */
+        pageSize?: number;
+        /** Matches the shortcut name or description */
+        keyword?: string;
+      },
+      params: RequestParams = {},
+    ) =>
       this.request<ListAdminFieldShortcutsData, string>({
         path: `/admin/field-shortcuts`,
         method: "GET",
+        query: query,
         format: "json",
         ...params,
       }),

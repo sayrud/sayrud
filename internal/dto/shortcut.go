@@ -96,6 +96,12 @@ type AdminFieldShortcut struct {
 	UpdatedAt time.Time `json:"updatedAt"`
 } // @name AdminFieldShortcut
 
+// ListAdminFieldShortcutsResp is a page of shortcuts matching the admin search.
+type ListAdminFieldShortcutsResp struct {
+	Shortcuts []*AdminFieldShortcut `json:"shortcuts"`
+	Total     int64                 `json:"total"`
+} // @name ListAdminFieldShortcutsResp
+
 // AdminCredential is a credential of a custom shortcut, HasValue reports whether its value is saved.
 type AdminCredential struct {
 	Key      string `json:"key"`

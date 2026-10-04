@@ -429,14 +429,31 @@ const docTemplate = `{
                 ],
                 "summary": "List the custom field shortcuts",
                 "operationId": "listAdminFieldShortcuts",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Page number, starting from 1",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Page size, defaults to 20",
+                        "name": "pageSize",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Matches the shortcut name or description",
+                        "name": "keyword",
+                        "in": "query"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/AdminFieldShortcut"
-                            }
+                            "$ref": "#/definitions/ListAdminFieldShortcutsResp"
                         }
                     },
                     "403": {
@@ -5758,6 +5775,24 @@ const docTemplate = `{
                 "secretsReady": {
                     "description": "SecretsReady reports whether auth.secret_key is configured.",
                     "type": "boolean"
+                }
+            }
+        },
+        "ListAdminFieldShortcutsResp": {
+            "type": "object",
+            "required": [
+                "shortcuts",
+                "total"
+            ],
+            "properties": {
+                "shortcuts": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/AdminFieldShortcut"
+                    }
+                },
+                "total": {
+                    "type": "integer"
                 }
             }
         },

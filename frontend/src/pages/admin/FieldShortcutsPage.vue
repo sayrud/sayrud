@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { Message, Modal, type TableColumnData } from '@arco-design/web-vue'
 import { Plus, Sparkles, Zap } from '@lucide/vue'
-import { computed, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 
@@ -19,6 +19,7 @@ const shortcuts = ref<AdminFieldShortcut[]>([])
 const loading = ref(true)
 const toggling = ref('')
 const keyword = ref('')
+const pagination = reactive({ current: 1, pageSize: 20, total: 0 })
 
 const columns = computed<TableColumnData[]>(() => [
   { title: t('shortcutAdmin.name'), slotName: 'name', width: 320 },
@@ -27,20 +28,49 @@ const columns = computed<TableColumnData[]>(() => [
   { title: t('common.actions'), slotName: 'actions', width: 140, fixed: 'right' },
 ])
 
-const filtered = computed(() => {
-  const k = keyword.value.trim().toLowerCase()
-  if (!k) return shortcuts.value
-  return shortcuts.value.filter((s) => s.name.toLowerCase().includes(k) || s.description.toLowerCase().includes(k))
+let requestId = 0
+async function load() {
+  const request = ++requestId
+  loading.value = true
+  try {
+    const resp = await adminShortcutsApi.list({
+      page: pagination.current,
+      pageSize: pagination.pageSize,
+      keyword: keyword.value.trim() || undefined,
+    })
+    if (request !== requestId) return
+    shortcuts.value = resp.shortcuts
+    pagination.total = resp.total
+  } catch (e) {
+    if (request === requestId) Message.error(e instanceof Error ? e.message : String(e))
+  } finally {
+    if (request === requestId) loading.value = false
+  }
+}
+
+function reload() {
+  pagination.current = 1
+  load()
+}
+
+let timer: ReturnType<typeof setTimeout> | undefined
+watch(keyword, () => {
+  clearTimeout(timer)
+  timer = setTimeout(reload, 300)
+})
+onBeforeUnmount(() => {
+  clearTimeout(timer)
+  requestId++
 })
 
-async function load() {
-  try {
-    shortcuts.value = await adminShortcutsApi.list()
-  } catch (e) {
-    Message.error(e instanceof Error ? e.message : String(e))
-  } finally {
-    loading.value = false
-  }
+function onPageChange(page: number) {
+  pagination.current = page
+  load()
+}
+
+function onPageSizeChange(pageSize: number) {
+  pagination.pageSize = pageSize
+  reload()
 }
 
 function create() {
@@ -89,7 +119,7 @@ function remove(s: AdminFieldShortcut) {
         Message.error(e instanceof Error ? e.message : String(e))
         return false
       }
-      shortcuts.value = shortcuts.value.filter((x) => x.uid !== s.uid)
+      await load()
       Message.success(t('common.deleted'))
       return true
     },
@@ -111,15 +141,14 @@ onMounted(load)
     </PageHeader>
 
     <SettingsSection flush>
-      <div v-if="loading || shortcuts.length" class="toolbar">
-        <span class="text-desc">{{ t('shortcutAdmin.total', { n: shortcuts.length }, shortcuts.length) }}</span>
+      <div class="toolbar">
         <a-input-search v-model="keyword" :placeholder="t('shortcutAdmin.search')" allow-clear class="search" />
       </div>
 
       <a-table
-        v-if="loading || shortcuts.length"
+        v-if="loading || shortcuts.length || keyword.trim()"
         :columns="columns"
-        :data="filtered"
+        :data="shortcuts"
         :loading="loading"
         row-key="uid"
         :bordered="false"
@@ -179,6 +208,25 @@ onMounted(load)
           {{ t('shortcutAdmin.add') }}
         </a-button>
       </div>
+
+      <div class="pagination-footer">
+        <a-pagination
+          :current="pagination.current"
+          :page-size="pagination.pageSize"
+          :total="pagination.total"
+          :disabled="loading"
+          :page-size-options="[10, 20, 50, 100]"
+          show-total
+          show-page-size
+          :show-jumper="pagination.total > pagination.pageSize"
+          @change="onPageChange"
+          @page-size-change="onPageSizeChange"
+        >
+          <template #total="{ total }">
+            {{ t('shortcutAdmin.total', { n: total }, total) }}
+          </template>
+        </a-pagination>
+      </div>
     </SettingsSection>
   </div>
 </template>
@@ -188,15 +236,12 @@ onMounted(load)
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: 12px;
   padding: 16px 24px;
 }
 .search {
   width: 260px;
-}
-.table {
-  padding-bottom: 28px;
 }
 .table :deep(.arco-table-tr) {
   cursor: pointer;
@@ -267,9 +312,29 @@ onMounted(load)
   max-width: 420px;
   margin-bottom: 12px;
 }
+.pagination-footer {
+  padding: 16px 24px;
+}
+.pagination-footer :deep(.arco-pagination) {
+  width: 100%;
+  flex-wrap: wrap;
+  row-gap: 12px;
+}
+.pagination-footer :deep(.arco-pagination-total) {
+  margin-right: auto;
+  color: var(--text-caption);
+}
+.pagination-footer :deep(.arco-pagination-list) {
+  max-width: 100%;
+  overflow-x: auto;
+}
 @media (max-width: 768px) {
-  .toolbar {
+  .toolbar,
+  .pagination-footer {
     padding: 12px 16px;
+  }
+  .pagination-footer :deep(.arco-pagination-total) {
+    flex-basis: 100%;
   }
   .search {
     width: 100%;

@@ -14,6 +14,7 @@ import (
 
 	"github.com/wuhan005/sayrud/internal/context"
 	"github.com/wuhan005/sayrud/internal/db"
+	"github.com/wuhan005/sayrud/internal/dbutil"
 	"github.com/wuhan005/sayrud/internal/dto"
 	"github.com/wuhan005/sayrud/internal/form"
 	"github.com/wuhan005/sayrud/internal/i18n"
@@ -54,14 +55,20 @@ func toAdminFieldShortcut(s *db.CustomFieldShortcut, counts map[string]int64) (*
 // @Summary List the custom field shortcuts
 // @Description Requires the admin. The credential values are not returned.
 // @Produce json
-// @Success 200 {array} dto.AdminFieldShortcut
+// @Param page query int false "Page number, starting from 1"
+// @Param pageSize query int false "Page size, defaults to 20"
+// @Param keyword query string false "Matches the shortcut name or description"
+// @Success 200 {object} dto.ListAdminFieldShortcutsResp
 // @Failure 403 {string} string "Not an admin"
 // @Failure 500 {string} string "Internal server error"
 // @ID listAdminFieldShortcuts
 // @Router /admin/field-shortcuts [get]
 func (adminRoute) ListFieldShortcuts(ctx context.Context) error {
 	c := ctx.Request().Context()
-	list, err := db.FieldShortcuts.List(c)
+	list, total, err := db.FieldShortcuts.ListAdmin(c, db.ListFieldShortcutsOptions{
+		Pagination: dbutil.Pagination{Page: ctx.QueryInt("page"), PageSize: ctx.QueryInt("pageSize")},
+		Keyword:    ctx.Query("keyword"),
+	})
 	if err != nil {
 		logrus.WithContext(c).WithError(err).Error("Failed to list field shortcuts")
 		return ctx.ApiServerError()
@@ -81,7 +88,7 @@ func (adminRoute) ListFieldShortcuts(ctx context.Context) error {
 		}
 		resp = append(resp, item)
 	}
-	return ctx.ApiSuccess(resp)
+	return ctx.ApiSuccess(dto.ListAdminFieldShortcutsResp{Shortcuts: resp, Total: total})
 }
 
 // GetFieldShortcut
