@@ -792,6 +792,7 @@ const en: typeof zhCN = {
     deleteContent: 'The fields, records and views in it will also be deleted.',
     create: 'New table',
     collapse: 'Collapse sidebar',
+    resize: 'Adjust sidebar width',
   },
   viewTabs: {
     rename: 'Rename view',

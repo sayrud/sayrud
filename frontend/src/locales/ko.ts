@@ -792,6 +792,7 @@ const ko: typeof zhCN = {
     deleteContent: '테이블의 필드, 레코드 및 보기도 함께 삭제됩니다.',
     create: '새 테이블',
     collapse: '사이드바 접기',
+    resize: '사이드바 너비 조절',
   },
   viewTabs: {
     rename: '보기 이름 변경',

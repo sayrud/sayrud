@@ -32,6 +32,7 @@ const store = useBaseStore()
 const site = useSiteStore()
 
 const sidebarCollapsed = ref(window.innerWidth < 768)
+const sidebarWidth = ref(240)
 const shareVisible = ref(false)
 const gridRef = ref<InstanceType<typeof GridView>>()
 const editingName = ref(false)
@@ -248,7 +249,7 @@ onBeforeUnmount(() => {
     </div>
 
     <div v-else class="base-body">
-      <TableSidebar v-if="!sidebarCollapsed" @select="selectTable" @collapse="sidebarCollapsed = true" />
+      <TableSidebar v-if="!sidebarCollapsed" v-model:width="sidebarWidth" @select="selectTable" @collapse="sidebarCollapsed = true" />
       <main class="main">
         <div v-if="sidebarCollapsed || store.activeTableUID" class="main-head">
           <button v-if="sidebarCollapsed" class="icon-btn expand-side" :title="t('base.expandSidebar')" @click="sidebarCollapsed = false">

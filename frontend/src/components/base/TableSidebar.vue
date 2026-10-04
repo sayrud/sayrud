@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { Message, Modal } from '@arco-design/web-vue'
 import { ChevronsLeft, Copy, Ellipsis, Pencil, Plus, Search, Trash, X } from '@lucide/vue'
-import { computed, nextTick, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import { openMenu } from '@/composables/useContextMenu'
@@ -12,8 +12,56 @@ import type { Appearance } from '@/utils/appearance'
 
 const { t } = useI18n()
 
+const width = defineModel<number>('width', { default: 240 })
 const emit = defineEmits<{ select: [tableUID: string]; collapse: [] }>()
 const store = useBaseStore()
+
+const sidebar = ref<HTMLElement>()
+const maxWidth = ref(0)
+let sizeObserver: ResizeObserver | undefined
+let resize: { pointerId: number; startX: number; startWidth: number } | null = null
+
+function setWidth(value: number) {
+  const max = (sidebar.value?.parentElement?.clientWidth ?? 0) / 2
+  width.value = Math.min(max, Math.max(Math.min(180, max), value))
+}
+
+function startResize(e: PointerEvent) {
+  if (e.button !== 0 || !e.isPrimary || !sidebar.value) return
+  e.preventDefault()
+  resize = { pointerId: e.pointerId, startX: e.clientX, startWidth: sidebar.value.getBoundingClientRect().width }
+  const handle = e.currentTarget as HTMLElement
+  handle.setPointerCapture(e.pointerId)
+  document.body.classList.add('resizing-sidebar')
+}
+
+function moveResize(e: PointerEvent) {
+  if (resize?.pointerId !== e.pointerId) return
+  setWidth(resize.startWidth + e.clientX - resize.startX)
+}
+
+function stopResize() {
+  resize = null
+  document.body.classList.remove('resizing-sidebar')
+}
+
+function resizeWithKey(e: KeyboardEvent) {
+  if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) return
+  e.preventDefault()
+  const current = sidebar.value?.getBoundingClientRect().width ?? width.value
+  setWidth(e.key === 'Home' ? 0 : e.key === 'End' ? Infinity : current + (e.key === 'ArrowLeft' ? -10 : 10))
+}
+
+onMounted(() => {
+  const parent = sidebar.value?.parentElement
+  if (!parent) return
+  sizeObserver = new ResizeObserver(() => { maxWidth.value = parent.clientWidth / 2 })
+  sizeObserver.observe(parent)
+})
+onBeforeUnmount(() => {
+  stopResize()
+  sizeObserver?.disconnect()
+})
 
 const keyword = ref('')
 const renaming = ref<string | null>(null)
@@ -116,7 +164,7 @@ function openActions(e: MouseEvent, uid: string, name: string) {
 </script>
 
 <template>
-  <aside class="sidebar">
+  <aside ref="sidebar" class="sidebar" :style="{ width: width + 'px' }">
     <div class="side-head">
       <label class="side-search">
         <Search :size="15" class="search-icon" />
@@ -183,17 +231,57 @@ function openActions(e: MouseEvent, uid: string, name: string) {
         </template>
       </div>
     </div>
+    <div
+      class="sidebar-resize-handle"
+      role="separator"
+      tabindex="0"
+      aria-orientation="vertical"
+      :aria-label="t('tableSidebar.resize')"
+      :aria-valuemin="Math.min(180, maxWidth)"
+      :aria-valuemax="maxWidth"
+      :aria-valuenow="Math.min(maxWidth, Math.max(180, width))"
+      @pointerdown="startResize"
+      @pointermove="moveResize"
+      @pointerup="stopResize"
+      @pointercancel="stopResize"
+      @lostpointercapture="stopResize"
+      @keydown="resizeWithKey"
+    />
   </aside>
 </template>
 
 <style scoped>
 .sidebar {
-  width: 240px;
+  position: relative;
+  min-width: min(180px, 50%);
+  max-width: 50%;
   flex: none;
   display: flex;
   flex-direction: column;
   background: var(--bg-sidebar);
   border-right: 1px solid var(--line-border);
+}
+.sidebar-resize-handle {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: -4px;
+  width: 8px;
+  z-index: 10;
+  cursor: col-resize;
+  touch-action: none;
+}
+.sidebar-resize-handle::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 3px;
+  width: 2px;
+}
+.sidebar-resize-handle:hover::after,
+.sidebar-resize-handle:focus-visible::after {
+  background: var(--color-primary);
 }
 .side-head {
   display: flex;
@@ -283,5 +371,13 @@ function openActions(e: MouseEvent, uid: string, name: string) {
   border-radius: 4px;
   outline: none;
   font-size: 13px;
+}
+</style>
+
+<style>
+body.resizing-sidebar,
+body.resizing-sidebar * {
+  cursor: col-resize !important;
+  user-select: none !important;
 }
 </style>

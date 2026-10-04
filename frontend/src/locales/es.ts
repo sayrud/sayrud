@@ -792,6 +792,7 @@ const es: typeof zhCN = {
     deleteContent: 'También se eliminarán sus campos, registros y vistas.',
     create: 'Nueva tabla',
     collapse: 'Contraer barra lateral',
+    resize: 'Ajustar el ancho de la barra lateral',
   },
   viewTabs: {
     rename: 'Cambiar nombre de vista',

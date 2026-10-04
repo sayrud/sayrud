@@ -792,6 +792,7 @@ const fr: typeof zhCN = {
     deleteContent: 'Ses champs, enregistrements et vues seront également supprimés.',
     create: 'Nouvelle table',
     collapse: 'Réduire la barre latérale',
+    resize: 'Ajuster la largeur de la barre latérale',
   },
   viewTabs: {
     rename: 'Renommer la vue',

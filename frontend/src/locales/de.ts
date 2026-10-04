@@ -792,6 +792,7 @@ const de: typeof zhCN = {
     deleteContent: 'Die enthaltenen Felder, Datensätze und Ansichten werden ebenfalls gelöscht.',
     create: 'Neue Tabelle',
     collapse: 'Seitenleiste einklappen',
+    resize: 'Breite der Seitenleiste anpassen',
   },
   viewTabs: {
     rename: 'Ansicht umbenennen',

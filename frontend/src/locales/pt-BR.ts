@@ -792,6 +792,7 @@ const ptBR: typeof zhCN = {
     deleteContent: 'Os campos, registros e visualizações também serão excluídos.',
     create: 'Nova tabela',
     collapse: 'Recolher barra lateral',
+    resize: 'Ajustar largura da barra lateral',
   },
   viewTabs: {
     rename: 'Renomear visualização',

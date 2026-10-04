@@ -790,6 +790,7 @@ export default {
     deleteContent: '表中的字段、记录和视图将被一并删除。',
     create: '新建数据表',
     collapse: '收起侧边栏',
+    resize: '调整侧边栏宽度',
   },
   viewTabs: {
     rename: '重命名视图',

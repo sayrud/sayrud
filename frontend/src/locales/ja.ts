@@ -792,6 +792,7 @@ const ja: typeof zhCN = {
     deleteContent: '内部のフィールド、レコード、ビューも削除されます。',
     create: 'テーブルを作成',
     collapse: 'サイドバーを折りたたむ',
+    resize: 'サイドバーの幅を調整',
   },
   viewTabs: {
     rename: 'ビューの名前を変更',

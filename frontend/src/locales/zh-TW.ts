@@ -792,6 +792,7 @@ const zhTW: typeof zhCN = {
     deleteContent: '其中的欄位、記錄及檢視也將一併刪除。',
     create: '新增資料表',
     collapse: '收合側邊欄',
+    resize: '調整側邊欄寬度',
   },
   viewTabs: {
     rename: '重新命名檢視',
