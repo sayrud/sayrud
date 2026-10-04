@@ -1,13 +1,15 @@
 <script setup lang="ts">
-import { Message } from '@arco-design/web-vue'
+import { Message, type SelectOptionData } from '@arco-design/web-vue'
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import { adminApi, type AdminAISettings, type UpdateAISettings } from '@/api/admin'
+import ProviderIcon from '@/components/common/ProviderIcon.vue'
 import PageHeader from '@/components/console/PageHeader.vue'
 import SaveBar from '@/components/console/SaveBar.vue'
 import SettingRow from '@/components/console/SettingRow.vue'
 import SettingsSection from '@/components/console/SettingsSection.vue'
+import { AI_PROVIDERS, findAIProvider, normalizeAIBaseURL } from '@/utils/aiProviders'
 
 const { t } = useI18n()
 
@@ -24,6 +26,16 @@ const loading = ref(true)
 const saving = ref(false)
 const testing = ref(false)
 const testResult = ref<{ reply: string; durationMs: number } | { error: string } | null>(null)
+const providerOptions = computed(() => [
+  { value: 'custom', label: t('admin.ai.customProvider'), icon: 'custom', baseURL: '' },
+  ...AI_PROVIDERS.map((provider) => ({ ...provider, value: provider.id, label: t(`admin.ai.providerNames.${provider.id}`) })),
+])
+const selectedProvider = computed(() => findAIProvider(draft.baseURL))
+const endpointChanged = computed(() =>
+  !!original.value && normalizeAIBaseURL(draft.baseURL) !== normalizeAIBaseURL(original.value.baseURL),
+)
+// Never reuse the saved key at a different endpoint; returning to the saved URL keeps it.
+const clearSavedAPIKey = computed(() => draft.clearAPIKey || (!!original.value?.apiKeySet && endpointChanged.value))
 
 const dirty = computed(() => {
   const o = original.value
@@ -39,14 +51,29 @@ const dirty = computed(() => {
 })
 
 const apiKeyPlaceholder = computed(() =>
-  original.value?.apiKeySet && !draft.clearAPIKey ? t('admin.ai.apiKeyKeep') : t('admin.ai.apiKeyOptional'),
+  original.value?.apiKeySet && !clearSavedAPIKey.value ? t('admin.ai.apiKeyKeep') : t('admin.ai.apiKeyOptional'),
 )
 
 // 实际请求地址是接口根地址去掉末尾斜杠后加上 /chat/completions。
 const requestURL = computed(() => {
-  const base = draft.baseURL.trim().replace(/\/+$/, '')
+  const base = normalizeAIBaseURL(draft.baseURL)
   return base ? `${base}/chat/completions` : ''
 })
+
+function filterProvider(input: string, option: SelectOptionData) {
+  return `${option.label ?? ''} ${option.name ?? ''}`.toLowerCase().includes(input.trim().toLowerCase())
+}
+
+function selectProvider(value: unknown) {
+  const baseURL = value === 'custom' ? '' : AI_PROVIDERS.find((provider) => provider.id === value)?.baseURL
+  if (baseURL === undefined) return
+  // A key for the previous endpoint must not be sent to another provider.
+  if (normalizeAIBaseURL(draft.baseURL) !== baseURL) {
+    draft.apiKey = ''
+  }
+  draft.baseURL = baseURL
+  testResult.value = null
+}
 
 function reset() {
   const o = original.value
@@ -59,6 +86,7 @@ function reset() {
     apiKey: '',
     clearAPIKey: false,
   })
+  testResult.value = null
 }
 
 function body(): UpdateAISettings {
@@ -68,7 +96,7 @@ function body(): UpdateAISettings {
     model: draft.model.trim(),
     timeoutSeconds: draft.timeoutSeconds,
     apiKey: draft.apiKey.trim() || undefined,
-    clearAPIKey: draft.clearAPIKey || undefined,
+    clearAPIKey: (clearSavedAPIKey.value && !draft.apiKey.trim()) || undefined,
   }
 }
 
@@ -122,6 +150,32 @@ onMounted(async () => {
             <a-switch v-model="draft.enabled" />
           </template>
         </SettingRow>
+        <SettingRow :label="t('admin.ai.provider')">
+          <a-select
+            :model-value="selectedProvider?.id ?? 'custom'"
+            :options="providerOptions"
+            :filter-option="filterProvider"
+            :placeholder="t('admin.ai.customProvider')"
+            :aria-label="t('admin.ai.provider')"
+            :disabled="loading"
+            allow-search
+            class="input"
+            @change="selectProvider"
+          >
+            <template #label="{ data }">
+              <span class="provider-label"><ProviderIcon :icon="data.icon" />{{ data.label }}</span>
+            </template>
+            <template #option="{ data }">
+              <div class="provider-option">
+                <ProviderIcon :icon="data.icon" :size="20" />
+                <div class="provider-details">
+                  <div>{{ data.label }}</div>
+                  <div v-if="data.baseURL" class="provider-url" :title="data.baseURL">{{ data.baseURL }}</div>
+                </div>
+              </div>
+            </template>
+          </a-select>
+        </SettingRow>
         <SettingRow :label="t('admin.ai.baseURL')" class="url-row">
           <div>
             <a-input v-model="draft.baseURL" class="input" allow-clear />
@@ -136,12 +190,11 @@ onMounted(async () => {
             <a-input-password
               v-model="draft.apiKey"
               :placeholder="apiKeyPlaceholder"
-              :disabled="draft.clearAPIKey"
               autocomplete="new-password"
               class="input"
             />
             <a-button
-              v-if="original?.apiKeySet && !draft.apiKey"
+              v-if="original?.apiKeySet && !draft.apiKey && !endpointChanged"
               size="small"
               type="text"
               :status="draft.clearAPIKey ? 'normal' : 'danger'"
@@ -150,7 +203,7 @@ onMounted(async () => {
               {{ draft.clearAPIKey ? t('admin.ai.keepAPIKey') : t('admin.ai.clearAPIKey') }}
             </a-button>
           </div>
-          <div v-if="draft.clearAPIKey" class="text-desc hint">{{ t('admin.ai.apiKeyCleared') }}</div>
+          <div v-if="clearSavedAPIKey && !draft.apiKey.trim()" class="text-desc hint">{{ t('admin.ai.apiKeyCleared') }}</div>
         </SettingRow>
         <SettingRow :label="t('admin.ai.timeout')" :description="t('admin.ai.timeoutDescription')">
           <a-input-number v-model="draft.timeoutSeconds" :min="1" :max="120" :step="1" mode="button" class="num">
@@ -187,8 +240,30 @@ onMounted(async () => {
 .alert {
   margin-bottom: 16px;
 }
-.input {
+:deep(.input) {
   max-width: 360px;
+}
+.provider-label,
+.provider-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.provider-option {
+  min-height: 46px;
+  padding: 4px 0;
+  line-height: 20px;
+}
+.provider-details {
+  min-width: 0;
+}
+.provider-url {
+  overflow: hidden;
+  color: var(--text-caption);
+  font-size: 12px;
+  line-height: 18px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .url-row {
   align-items: flex-start;
