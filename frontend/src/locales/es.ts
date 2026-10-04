@@ -1083,8 +1083,6 @@ const es: typeof zhCN = {
     generating: 'Generando…',
   },
   shortcutAdmin: {
-    newScript: 'Atajo JavaScript',
-    newAI: 'Atajo de IA',
     aiEnabled: 'Capacidad de IA',
     aiEnabledDescription: 'Permitir que el script llame al modelo de IA global. El modelo y la clave API se gestionan en la configuración global.',
     aiLoading: 'Cargando la configuración global de IA…',
@@ -1093,8 +1091,6 @@ const es: typeof zhCN = {
     aiReady: 'Modelo de IA global en uso: {model}',
     aiSettings: 'Configuración del modelo de IA',
     templateText: 'Texto de entrada',
-    templateInstruction: 'Instrucciones',
-    templateInstructionDefault: 'Escribe un resumen conciso del texto de entrada. Devuelve solo el resumen.',
     title: 'Atajos de campo',
     pageDescription: 'Publica atajos de campo escritos en JavaScript',
     add: 'Nuevo atajo',

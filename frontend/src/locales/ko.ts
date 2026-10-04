@@ -1083,8 +1083,6 @@ const ko: typeof zhCN = {
     generating: '생성 중…',
   },
   shortcutAdmin: {
-    newScript: 'JavaScript 바로가기',
-    newAI: 'AI 바로가기',
     aiEnabled: 'AI 기능',
     aiEnabledDescription: '스크립트에서 전역 AI 모델을 호출하도록 허용합니다. 모델과 API 키는 전역 설정에서 관리합니다.',
     aiLoading: '전역 AI 설정을 불러오는 중…',
@@ -1093,8 +1091,6 @@ const ko: typeof zhCN = {
     aiReady: '사용 중인 전역 AI 모델: {model}',
     aiSettings: 'AI 모델 설정',
     templateText: '입력 텍스트',
-    templateInstruction: '처리 지침',
-    templateInstructionDefault: '입력 텍스트를 간결하게 요약하세요. 요약만 출력하세요.',
     title: '필드 바로가기',
     pageDescription: 'JavaScript로 작성한 필드 바로가기를 게시합니다',
     add: '바로가기 만들기',

@@ -1083,8 +1083,6 @@ const zhTW: typeof zhCN = {
     generating: '產生中…',
   },
   shortcutAdmin: {
-    newScript: 'JavaScript 捷徑',
-    newAI: 'AI 捷徑',
     aiEnabled: 'AI 能力',
     aiEnabledDescription: '允許指令碼呼叫全域 AI 模型，模型與金鑰由全域設定管理。',
     aiLoading: '正在讀取全域 AI 設定…',
@@ -1093,8 +1091,6 @@ const zhTW: typeof zhCN = {
     aiReady: '使用全域 AI 模型：{model}',
     aiSettings: 'AI 模型設定',
     templateText: '輸入文字',
-    templateInstruction: '處理指令',
-    templateInstructionDefault: '根據輸入文字產生簡潔的摘要，只輸出摘要。',
     title: '欄位捷徑',
     pageDescription: '發布以 JavaScript 實作的欄位捷徑',
     add: '新增捷徑',

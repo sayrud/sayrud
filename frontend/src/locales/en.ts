@@ -1083,8 +1083,6 @@ const en: typeof zhCN = {
     generating: 'Generating…',
   },
   shortcutAdmin: {
-    newScript: 'JavaScript shortcut',
-    newAI: 'AI shortcut',
     aiEnabled: 'AI capability',
     aiEnabledDescription: 'Allow the script to call the global AI model. The model and API key are managed in the global settings.',
     aiLoading: 'Loading global AI settings…',
@@ -1093,8 +1091,6 @@ const en: typeof zhCN = {
     aiReady: 'Using the global AI model: {model}',
     aiSettings: 'AI model settings',
     templateText: 'Input text',
-    templateInstruction: 'Instructions',
-    templateInstructionDefault: 'Write a concise summary of the input text. Return only the summary.',
     title: 'Field shortcuts',
     pageDescription: 'Publish field shortcuts written in JavaScript',
     add: 'New shortcut',

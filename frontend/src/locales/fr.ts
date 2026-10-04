@@ -1083,8 +1083,6 @@ const fr: typeof zhCN = {
     generating: 'Génération…',
   },
   shortcutAdmin: {
-    newScript: 'Raccourci JavaScript',
-    newAI: 'Raccourci IA',
     aiEnabled: 'Fonction IA',
     aiEnabledDescription: 'Autoriser le script à appeler le modèle IA global. Le modèle et la clé API sont gérés dans les paramètres globaux.',
     aiLoading: 'Chargement des paramètres IA globaux…',
@@ -1093,8 +1091,6 @@ const fr: typeof zhCN = {
     aiReady: 'Modèle IA global utilisé : {model}',
     aiSettings: 'Paramètres du modèle IA',
     templateText: 'Texte à traiter',
-    templateInstruction: 'Instructions',
-    templateInstructionDefault: 'Rédigez un résumé concis du texte fourni. Renvoyez uniquement le résumé.',
     title: 'Raccourcis de champ',
     pageDescription: 'Publiez des raccourcis de champ écrits en JavaScript',
     add: 'Nouveau raccourci',

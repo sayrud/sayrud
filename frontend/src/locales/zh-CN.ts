@@ -1081,8 +1081,6 @@ export default {
     generating: '生成中…',
   },
   shortcutAdmin: {
-    newScript: 'JavaScript 捷径',
-    newAI: 'AI 捷径',
     aiEnabled: 'AI 能力',
     aiEnabledDescription: '允许脚本调用全局 AI 模型，模型和密钥由全局配置管理',
     aiLoading: '正在读取全局 AI 配置…',
@@ -1091,8 +1089,6 @@ export default {
     aiReady: '使用全局 AI 模型：{model}',
     aiSettings: 'AI 模型设置',
     templateText: '输入文本',
-    templateInstruction: '处理指令',
-    templateInstructionDefault: '根据输入文本生成简洁的摘要，只输出摘要。',
     title: '字段捷径',
     pageDescription: '发布由 JavaScript 实现的字段捷径',
     add: '新建捷径',

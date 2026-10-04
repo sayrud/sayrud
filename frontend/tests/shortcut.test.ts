@@ -41,31 +41,22 @@ test('new shortcuts start with the default inputs and report the missing ones', 
   assert.equal(missingInput(manifest, { language: 'English', source: 'fldAAAAAAA' }), null)
 })
 
-test('AI starters use the global AI capability and translated instruction defaults', async () => {
-  const labels = { text: '输入文本', instruction: '处理指令', instructionDefault: '只输出摘要。' }
-  const starter = shortcutStarter(true, labels)
+test('new shortcuts start with a runnable JavaScript example', async () => {
+  const textLabel = '输入文本'
+  const starter = shortcutStarter(textLabel)
 
-  assert.equal(starter.aiEnabled, true)
-  assert.equal(starter.resultType, 'text')
-  assert.equal(starter.timeoutSeconds, 120)
+  assert.equal(starter.aiEnabled, false)
+  assert.equal(starter.resultType, 'number')
+  assert.equal(starter.timeoutSeconds, 30)
   assert.deepEqual(starter.formItems.map((item) => [item.key, item.label, item.component]), [
-    ['text', labels.text, 'field_select'], ['instruction', labels.instruction, 'textarea'],
+    ['text', textLabel, 'field_select'],
   ])
 
   const params = JSON.parse(sampleShortcutParams(starter.formItems))
-  assert.deepEqual(params, { text: 'Hello', instruction: labels.instructionDefault })
+  assert.deepEqual(params, { text: 'Hello' })
 
   const execute = new Function(`${starter.code}; return execute`)()
-  assert.equal(await execute(params, { ai: { complete: async (request: unknown) => {
-    assert.deepEqual(request, { prompt: 'Hello', system: labels.instructionDefault })
-
-    return 'Summary'
-  } } }), 'Summary')
-
-  const script = shortcutStarter(false, labels)
-  assert.equal(script.aiEnabled, false)
-  assert.equal(script.resultType, 'number')
-  assert.equal(script.formItems.length, 1)
+  assert.equal(await execute(params, {}), 5)
 
   assert.equal(sampleShortcutParams([{ key: 'choice', label: 'Choice', component: 'select', default: 'second', options: [{ value: 'first', label: 'First' }, { value: 'second', label: 'Second' }] }]), '{\n  "choice": "second"\n}')
 })

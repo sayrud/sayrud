@@ -1083,8 +1083,6 @@ const de: typeof zhCN = {
     generating: 'Wird generiert…',
   },
   shortcutAdmin: {
-    newScript: 'JavaScript-Shortcut',
-    newAI: 'KI-Shortcut',
     aiEnabled: 'KI-Funktion',
     aiEnabledDescription: 'Dem Skript den Aufruf des globalen KI-Modells erlauben. Modell und API-Schlüssel werden in den globalen Einstellungen verwaltet.',
     aiLoading: 'Globale KI-Einstellungen werden geladen…',
@@ -1093,8 +1091,6 @@ const de: typeof zhCN = {
     aiReady: 'Verwendetes globales KI-Modell: {model}',
     aiSettings: 'KI-Modelleinstellungen',
     templateText: 'Eingabetext',
-    templateInstruction: 'Anweisungen',
-    templateInstructionDefault: 'Fassen Sie den Eingabetext knapp zusammen. Geben Sie nur die Zusammenfassung aus.',
     title: 'Feld-Shortcuts',
     pageDescription: 'Veröffentlichen Sie Feld-Shortcuts in JavaScript',
     add: 'Neuer Shortcut',

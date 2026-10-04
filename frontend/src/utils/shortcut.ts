@@ -5,27 +5,16 @@ import type { FieldShortcut, FieldType, SLField } from '@/types/bitable'
 export const SHORTCUT_HOST_TYPES: FieldType[] = ['text', 'number', 'single_select', 'multi_select', 'checkbox', 'datetime']
 
 /** Starter drafts only become available to members after an admin saves them. */
-export function shortcutStarter(ai: boolean, labels: { text: string; instruction: string; instructionDefault: string }):
+export function shortcutStarter(textLabel: string):
   Pick<SaveFieldShortcut, 'aiEnabled' | 'resultType' | 'code' | 'formItems' | 'timeoutSeconds'> {
   return {
-    aiEnabled: ai,
-    resultType: ai ? 'text' : 'number',
-    timeoutSeconds: ai ? 120 : 30,
+    aiEnabled: false,
+    resultType: 'number',
+    timeoutSeconds: 30,
     formItems: [
-      { key: 'text', label: labels.text, component: 'field_select', required: true },
-      ...(ai ? [{ key: 'instruction', label: labels.instruction, component: 'textarea' as const, required: true, default: labels.instructionDefault }] : []),
+      { key: 'text', label: textLabel, component: 'field_select', required: true },
     ],
-    code: ai
-      ? `async function execute(params, context) {
-  const result = await context.ai.complete({
-    prompt: String(params.text ?? ''),
-    system: params.instruction,
-  })
-
-  return result
-}
-`
-      : `// params: the form item values keyed by key, a field_select item passes the cell value of the record.
+    code: `// params: the form item values keyed by key, a field_select item passes the cell value of the record.
 // context: { projectUID, tableUID, fieldUID, recordUID, fetch(url, options, credentialKey), ai.complete({ prompt, system? }), log(...args) }
 async function execute(params, context) {
   const text = params.text ?? ''

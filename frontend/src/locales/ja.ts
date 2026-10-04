@@ -1083,8 +1083,6 @@ const ja: typeof zhCN = {
     generating: '生成中…',
   },
   shortcutAdmin: {
-    newScript: 'JavaScript ショートカット',
-    newAI: 'AI ショートカット',
     aiEnabled: 'AI 機能',
     aiEnabledDescription: 'スクリプトからグローバル AI モデルを呼び出せます。モデルと API キーはグローバル設定で管理します。',
     aiLoading: 'グローバル AI 設定を読み込み中…',
@@ -1093,8 +1091,6 @@ const ja: typeof zhCN = {
     aiReady: '使用するグローバル AI モデル：{model}',
     aiSettings: 'AI モデル設定',
     templateText: '入力テキスト',
-    templateInstruction: '処理の指示',
-    templateInstructionDefault: '入力テキストを簡潔に要約してください。要約のみを出力してください。',
     title: 'フィールドショートカット',
     pageDescription: 'JavaScript で実装したフィールドショートカットを公開します',
     add: 'ショートカットを作成',

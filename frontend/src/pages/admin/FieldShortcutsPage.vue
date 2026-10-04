@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Message, Modal, type TableColumnData } from '@arco-design/web-vue'
-import { ChevronDown, Plus, Sparkles, Zap } from '@lucide/vue'
+import { Plus, Sparkles, Zap } from '@lucide/vue'
 import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
@@ -43,8 +43,8 @@ async function load() {
   }
 }
 
-function create(ai = false) {
-  router.push({ name: 'admin-field-shortcut-new', query: ai ? { template: 'ai' } : undefined })
+function create() {
+  router.push({ name: 'admin-field-shortcut-new' })
 }
 
 function edit(s: AdminFieldShortcut) {
@@ -103,16 +103,10 @@ onMounted(load)
   <div>
     <PageHeader :title="t('shortcutAdmin.title')" :description="t('shortcutAdmin.pageDescription')">
       <template #extra>
-        <a-dropdown trigger="click">
-          <a-button type="primary">
-            <template #icon><Plus :size="16" /></template>
-            {{ t('shortcutAdmin.add') }} <ChevronDown :size="14" />
-          </a-button>
-          <template #content>
-            <a-doption @click="create()">{{ t('shortcutAdmin.newScript') }}</a-doption>
-            <a-doption @click="create(true)">{{ t('shortcutAdmin.newAI') }}</a-doption>
-          </template>
-        </a-dropdown>
+        <a-button type="primary" @click="create">
+          <template #icon><Plus :size="16" /></template>
+          {{ t('shortcutAdmin.add') }}
+        </a-button>
       </template>
     </PageHeader>
 
@@ -180,16 +174,10 @@ onMounted(load)
         <a-avatar shape="square" :size="48" class="empty-icon"><Zap :size="24" /></a-avatar>
         <div class="empty-title">{{ t('shortcutAdmin.empty') }}</div>
         <div class="text-desc empty-desc">{{ t('shortcutAdmin.emptyDescription') }}</div>
-        <a-dropdown trigger="click">
-          <a-button type="primary">
-            <template #icon><Plus :size="16" /></template>
-            {{ t('shortcutAdmin.add') }} <ChevronDown :size="14" />
-          </a-button>
-          <template #content>
-            <a-doption @click="create()">{{ t('shortcutAdmin.newScript') }}</a-doption>
-            <a-doption @click="create(true)">{{ t('shortcutAdmin.newAI') }}</a-doption>
-          </template>
-        </a-dropdown>
+        <a-button type="primary" @click="create">
+          <template #icon><Plus :size="16" /></template>
+          {{ t('shortcutAdmin.add') }}
+        </a-button>
       </div>
     </SettingsSection>
   </div>
@@ -206,6 +194,9 @@ onMounted(load)
 }
 .search {
   width: 260px;
+}
+.table {
+  padding-bottom: 28px;
 }
 .table :deep(.arco-table-tr) {
   cursor: pointer;

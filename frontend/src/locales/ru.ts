@@ -1083,8 +1083,6 @@ const ru: typeof zhCN = {
     generating: 'Генерация…',
   },
   shortcutAdmin: {
-    newScript: 'JavaScript-ярлык',
-    newAI: 'ИИ-ярлык',
     aiEnabled: 'Возможности ИИ',
     aiEnabledDescription: 'Разрешить скрипту вызывать глобальную модель ИИ. Модель и ключ API управляются в глобальных настройках.',
     aiLoading: 'Загрузка глобальных настроек ИИ…',
@@ -1093,8 +1091,6 @@ const ru: typeof zhCN = {
     aiReady: 'Используется глобальная модель ИИ: {model}',
     aiSettings: 'Настройки модели ИИ',
     templateText: 'Входной текст',
-    templateInstruction: 'Инструкции',
-    templateInstructionDefault: 'Напишите краткое резюме входного текста. Верните только резюме.',
     title: 'Ярлыки полей',
     pageDescription: 'Публикуйте ярлыки полей на JavaScript',
     add: 'Новый ярлык',

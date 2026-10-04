@@ -53,11 +53,7 @@ interface Draft {
 }
 
 function toDraft(s: AdminFieldShortcut | null): Draft {
-  const starter = shortcutStarter(!s && !route.params.shortcutUID && route.query.template === 'ai', {
-    text: t('shortcutAdmin.templateText'),
-    instruction: t('shortcutAdmin.templateInstruction'),
-    instructionDefault: t('shortcutAdmin.templateInstructionDefault'),
-  })
+  const starter = shortcutStarter(t('shortcutAdmin.templateText'))
 
   return {
     name: s?.name ?? '',
