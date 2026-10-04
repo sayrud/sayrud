@@ -35,6 +35,8 @@ type SLFieldsStore interface {
 	SetType(ctx context.Context, fieldID int64, slFieldType SLFieldType, metadata SLFieldMetadata) error
 	// SetMetadata replaces the metadata of the field.
 	SetMetadata(ctx context.Context, fieldID int64, metadata SLFieldMetadata) error
+	// SetShortcut replaces the shortcut of the field, nil removes it.
+	SetShortcut(ctx context.Context, fieldID int64, shortcut *FieldShortcut) error
 	// SetPosition sets the position of the field, the fields at or after the position are moved back by one.
 	SetPosition(ctx context.Context, fieldID int64, position int64) error
 	// Move moves the field to the zero-based index among the table fields, and renumbers all the field positions.
@@ -43,6 +45,8 @@ type SLFieldsStore interface {
 	DeleteByID(ctx context.Context, fieldID int64) error
 	// Count returns the number of fields in the table.
 	Count(ctx context.Context, tableID int64) (int64, error)
+	// CountByShortcutID returns the number of the fields using each shortcut, keyed by shortcut ID.
+	CountByShortcutID(ctx context.Context) (map[string]int64, error)
 }
 
 func NewSLFieldsStore(db *gorm.DB) SLFieldsStore {
@@ -70,6 +74,8 @@ type SLField struct {
 	Metadata datatypes.JSONType[SLFieldMetadata]
 	// Position is the order of the field in the table, starting from 0. The first field is the primary field.
 	Position int
+	// Shortcut generates the cell values from the other fields, nil means the values are edited by the users.
+	Shortcut *FieldShortcut `gorm:"type:jsonb"`
 }
 
 func (slField *SLField) BeforeCreate(_ *gorm.DB) error {
@@ -106,6 +112,8 @@ type CreateSLFieldOptions struct {
 	Metadata SLFieldMetadata
 	// Position is the order of the field in the table.
 	Position int
+	// Shortcut is the optional shortcut of the field.
+	Shortcut *FieldShortcut
 }
 
 var (
@@ -126,6 +134,7 @@ func (db *slFields) Create(ctx context.Context, options CreateSLFieldOptions) (*
 		Type:      options.Type,
 		Metadata:  datatypes.NewJSONType(options.Metadata),
 		Position:  options.Position,
+		Shortcut:  options.Shortcut,
 	}
 	if err := db.WithContext(ctx).Create(slField).Error; err != nil {
 		if dbutil.IsUniqueViolation(err, "idx_sl_table_id_uid") {
@@ -175,6 +184,12 @@ func (db *slFields) SetMetadata(ctx context.Context, fieldID int64, metadata SLF
 	})
 }
 
+func (db *slFields) SetShortcut(ctx context.Context, fieldID int64, shortcut *FieldShortcut) error {
+	return db.set(ctx, fieldID, map[string]interface{}{
+		"shortcut": shortcut,
+	})
+}
+
 func (db *slFields) SetPosition(ctx context.Context, fieldID int64, position int64) error {
 	return db.Transaction(func(tx *gorm.DB) error {
 		var tableID int64
@@ -219,6 +234,23 @@ func (db *slFields) DeleteByID(ctx context.Context, fieldID int64) error {
 		return errors.Wrap(err, "delete")
 	}
 	return nil
+}
+
+func (db *slFields) CountByShortcutID(ctx context.Context) (map[string]int64, error) {
+	var rows []struct {
+		ShortcutID string
+		Count      int64
+	}
+	if err := db.WithContext(ctx).Model(&SLField{}).Select("shortcut->>'id' AS shortcut_id, COUNT(*) AS count").
+		Where("shortcut IS NOT NULL").Group("shortcut->>'id'").Scan(&rows).Error; err != nil {
+		return nil, errors.Wrap(err, "count")
+	}
+
+	counts := make(map[string]int64, len(rows))
+	for _, row := range rows {
+		counts[row.ShortcutID] = row.Count
+	}
+	return counts, nil
 }
 
 func (db *slFields) Count(ctx context.Context, tableID int64) (int64, error) {

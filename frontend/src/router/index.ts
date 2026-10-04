@@ -5,6 +5,17 @@ import { t } from '@/i18n'
 import { ADMIN_NAV, SETTINGS_NAV } from '@/layouts/consoleNav'
 import { useAuthStore } from '@/stores/auth'
 
+declare module 'vue-router' {
+  interface RouteMeta {
+    admin?: boolean
+    guest?: boolean
+    /** 高亮的菜单项路由名，子页面指向所属的列表页。 */
+    nav?: string
+    /** 内容区使用加宽布局，用于带代码编辑器的页面。 */
+    wide?: boolean
+  }
+}
+
 const router = createRouter({
   history: createWebHistory(),
   routes: [
@@ -52,6 +63,24 @@ const router = createRouter({
           component: () => import('@/pages/admin/SecuritySettingsPage.vue'),
         },
         { path: 'site', name: 'admin-site', component: () => import('@/pages/admin/SitePage.vue') },
+        { path: 'ai', name: 'admin-ai', component: () => import('@/pages/admin/AIModelPage.vue') },
+        {
+          path: 'field-shortcuts',
+          name: 'admin-field-shortcuts',
+          component: () => import('@/pages/admin/FieldShortcutsPage.vue'),
+        },
+        {
+          path: 'field-shortcuts/new',
+          name: 'admin-field-shortcut-new',
+          component: () => import('@/pages/admin/FieldShortcutEditPage.vue'),
+          meta: { nav: 'admin-field-shortcuts', wide: true },
+        },
+        {
+          path: 'field-shortcuts/:shortcutUID',
+          name: 'admin-field-shortcut-edit',
+          component: () => import('@/pages/admin/FieldShortcutEditPage.vue'),
+          meta: { nav: 'admin-field-shortcuts', wide: true },
+        },
       ],
     },
     { path: '/login', name: 'login', component: () => import('@/pages/AuthPage.vue'), meta: { guest: true } },

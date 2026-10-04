@@ -3,10 +3,12 @@ package collab
 import (
 	"context"
 	"encoding/json"
+	"reflect"
 	"strings"
 
 	"github.com/pkg/errors"
 	"github.com/samber/lo"
+	"gorm.io/datatypes"
 	"gorm.io/gorm"
 
 	"github.com/wuhan005/sayrud/internal/db"
@@ -32,20 +34,30 @@ func rejectf(key string, args ...interface{}) error {
 // The actions targeting the resources deleted concurrently are dropped instead of rejected, and the cell values which no longer
 // match the field (e.g. the option was removed concurrently) are dropped, the affected data is reported in dirty for the clients to reload.
 type applier struct {
-	ctx   context.Context
-	tx    *gorm.DB
+	// ctx is the context of the request applying the operations.
+	ctx context.Context
+	// tx is the transaction the operations are applied in.
+	tx *gorm.DB
+	// table is the table the operations are applied to.
 	table *db.SLTable
 
+	// fields are the current fields of the table, reloaded after the field actions.
 	fields []*db.SLField
-	views  []*db.SLView
-	dirty  DirtyScope
+	// views are the current views of the table.
+	views []*db.SLView
+	// dirty is the data changed by the server, which the clients should reload.
+	dirty DirtyScope
+	// change is the data changed by the operations, which the field shortcuts regenerate the dependent cells by.
+	change Change
 
 	// boolText returns the text of the checkbox values when converting them to text.
 	boolText func(bool) string
+	// shortcuts validates the field shortcuts, the shortcuts are rejected if it is nil.
+	shortcuts ShortcutHooks
 }
 
-func newApplier(ctx context.Context, tx *gorm.DB, table *db.SLTable, boolText func(bool) string) (*applier, error) {
-	a := &applier{ctx: ctx, tx: tx, table: table, boolText: boolText}
+func newApplier(ctx context.Context, tx *gorm.DB, table *db.SLTable, boolText func(bool) string, shortcuts ShortcutHooks) (*applier, error) {
+	a := &applier{ctx: ctx, tx: tx, table: table, boolText: boolText, shortcuts: shortcuts}
 	if err := a.reloadFields(); err != nil {
 		return nil, err
 	}
@@ -127,6 +139,9 @@ func (a *applier) applyActions(actions []Action) ([]Action, error) {
 func (a *applier) applyAction(action Action) (*Action, error) {
 	switch action.Action {
 	case ActionDeleteRecords:
+		if err := db.NewSLShortcutJobsStore(a.tx).DeleteByRecords(a.ctx, a.table.ID, action.RecordUIDs); err != nil {
+			return nil, errors.Wrap(err, "delete shortcut jobs")
+		}
 		return &action, db.NewSLRecordsStore(a.tx).DeleteByUIDs(a.ctx, a.table.ID, action.RecordUIDs)
 	case ActionAddField:
 		return a.addField(action)
@@ -134,6 +149,8 @@ func (a *applier) applyAction(action Action) (*Action, error) {
 		return a.setField(action)
 	case ActionSetFieldType:
 		return a.setFieldType(action)
+	case ActionSetFieldShortcut:
+		return a.setFieldShortcut(action)
 	case ActionMoveField:
 		return a.moveField(action)
 	case ActionDeleteField:
@@ -163,6 +180,7 @@ func (a *applier) addRecords(actions []Action) ([]Action, error) {
 		if dropped {
 			a.dirty.addRecords(action.RecordUID)
 		}
+		a.change.AddRecord(action.RecordUID, lo.Keys(data))
 		jsonBytes, err := json.Marshal(data)
 		if err != nil {
 			return nil, errors.Wrap(err, "encode data")
@@ -213,6 +231,7 @@ func (a *applier) setRecords(actions []Action) ([]Action, error) {
 				data[fieldUID] = value
 			}
 		}
+		a.change.AddRecord(action.RecordUID, lo.Keys(action.Values))
 		kept = append(kept, action)
 	}
 
@@ -263,6 +282,25 @@ func (a *applier) addField(action Action) (*Action, error) {
 		metadata = map[string]interface{}{}
 	}
 
+	var shortcut *db.FieldShortcut
+	if action.Field.Shortcut != nil {
+		var err error
+		shortcut, err = a.validateShortcut(&db.SLField{
+			UID:      action.FieldUID,
+			Label:    label,
+			Type:     db.SLFieldType(*action.Field.Type),
+			Metadata: datatypes.NewJSONType[db.SLFieldMetadata](metadata),
+			Shortcut: action.Field.Shortcut,
+		})
+		if err != nil {
+			return nil, err
+		}
+		action.Field.Shortcut = shortcut
+		if !action.KeepValues {
+			a.change.Shortcuts = append(a.change.Shortcuts, action.FieldUID)
+		}
+	}
+
 	fieldsStore := db.NewSLFieldsStore(a.tx)
 	field, err := fieldsStore.Create(a.ctx, db.CreateSLFieldOptions{
 		UID:       action.FieldUID,
@@ -271,6 +309,7 @@ func (a *applier) addField(action Action) (*Action, error) {
 		Type:      db.SLFieldType(*action.Field.Type),
 		Metadata:  metadata,
 		Position:  len(a.fields),
+		Shortcut:  shortcut,
 	})
 	if err != nil {
 		switch {
@@ -323,8 +362,52 @@ func (a *applier) setField(action Action) (*Action, error) {
 		if err := a.normalizeFieldValues(a.field(field.UID)); err != nil {
 			return nil, err
 		}
+		a.change.Fields = append(a.change.Fields, field.UID)
 	}
 	return &action, nil
+}
+
+// validateShortcut returns the normalized shortcut of the field, which is not saved yet.
+func (a *applier) validateShortcut(field *db.SLField) (*db.FieldShortcut, error) {
+	if a.shortcuts == nil {
+		return nil, rejectf("collab::shortcut_unavailable")
+	}
+	fields := lo.Filter(a.fields, func(f *db.SLField, _ int) bool { return f.UID != field.UID })
+	return a.shortcuts.ValidateShortcut(a.ctx, append(fields, field), field)
+}
+
+func (a *applier) setFieldShortcut(action Action) (*Action, error) {
+	field := a.field(action.FieldUID)
+	if field == nil {
+		return nil, nil
+	}
+
+	var shortcut *db.FieldShortcut
+	if action.Shortcut != nil {
+		draft := *field
+		draft.Shortcut = action.Shortcut
+		var err error
+		if shortcut, err = a.validateShortcut(&draft); err != nil {
+			return nil, err
+		}
+
+		// Only toggling the auto update keeps the generated values.
+		sameConfig := field.Shortcut != nil && field.Shortcut.ID == shortcut.ID && reflect.DeepEqual(field.Shortcut.Inputs, shortcut.Inputs)
+		if !sameConfig && !action.KeepValues {
+			a.change.Shortcuts = append(a.change.Shortcuts, field.UID)
+		}
+	} else {
+		if err := db.NewSLShortcutJobsStore(a.tx).DeleteByField(a.ctx, a.table.ID, field.UID); err != nil {
+			return nil, errors.Wrap(err, "delete shortcut jobs")
+		}
+		a.change.RemovedShortcuts = append(a.change.RemovedShortcuts, field.UID)
+	}
+
+	if err := db.NewSLFieldsStore(a.tx).SetShortcut(a.ctx, field.ID, shortcut); err != nil {
+		return nil, errors.Wrap(err, "set shortcut")
+	}
+	action.Shortcut = shortcut
+	return &action, a.reloadFields()
 }
 
 // normalizeFieldValues drops the values of the field which no longer match the field, and reports the changed records as dirty.
@@ -424,7 +507,40 @@ func (a *applier) setFieldType(action Action) (*Action, error) {
 
 	// The metadata may be changed by the conversion, e.g. the options generated from the text values.
 	a.dirty.Fields = true
+	a.change.Fields = append(a.change.Fields, field.UID)
+
+	// The shortcut may not support the new type, it is removed then and the client sets a new one in the same changeset if needed.
+	// Otherwise the converted values are regenerated in the new type.
+	if converted := a.field(field.UID); converted.Shortcut != nil {
+		if _, err := a.validateShortcut(converted); err != nil {
+			var operationErr *OperationError
+			if !errors.As(err, &operationErr) {
+				return nil, err
+			}
+			if err := a.removeShortcut(converted); err != nil {
+				return nil, err
+			}
+		} else {
+			a.change.Shortcuts = append(a.change.Shortcuts, field.UID)
+		}
+	}
 	return &action, nil
+}
+
+// hasShortcuts reports whether any field of the table has a shortcut.
+func (a *applier) hasShortcuts() bool {
+	return lo.ContainsBy(a.fields, func(f *db.SLField) bool { return f.Shortcut != nil })
+}
+
+func (a *applier) removeShortcut(field *db.SLField) error {
+	if err := db.NewSLFieldsStore(a.tx).SetShortcut(a.ctx, field.ID, nil); err != nil {
+		return errors.Wrap(err, "remove shortcut")
+	}
+	if err := db.NewSLShortcutJobsStore(a.tx).DeleteByField(a.ctx, a.table.ID, field.UID); err != nil {
+		return errors.Wrap(err, "delete shortcut jobs")
+	}
+	a.change.RemovedShortcuts = append(a.change.RemovedShortcuts, field.UID)
+	return a.reloadFields()
 }
 
 func (a *applier) moveField(action Action) (*Action, error) {
@@ -451,6 +567,12 @@ func (a *applier) deleteField(action Action) (*Action, error) {
 	}
 	if err := db.NewSLRecordsStore(a.tx).RemoveFieldData(a.ctx, a.table.ID, field.UID); err != nil {
 		return nil, errors.Wrap(err, "remove field data")
+	}
+	if err := db.NewSLShortcutJobsStore(a.tx).DeleteByField(a.ctx, a.table.ID, field.UID); err != nil {
+		return nil, errors.Wrap(err, "delete shortcut jobs")
+	}
+	if field.Shortcut != nil {
+		a.change.RemovedShortcuts = append(a.change.RemovedShortcuts, field.UID)
 	}
 	return &action, a.reloadFields()
 }

@@ -46,6 +46,7 @@ func Init() (*gorm.DB, error) {
 		&Project{}, &ProjectMember{},
 
 		&SLTable{}, &SLField{}, &SLRecord{}, &SLView{}, &SLChangeset{},
+		&CustomFieldShortcut{}, &SLShortcutJob{},
 
 		&Api{},
 	}
@@ -83,6 +84,8 @@ func SetDatabaseStore(db *gorm.DB) {
 	SLRecords = NewSLRecordsStore(db)
 	SLViews = NewSLViewsStore(db)
 	SLChangesets = NewSLChangesetsStore(db)
+	FieldShortcuts = NewFieldShortcutsStore(db)
+	SLShortcutJobs = NewSLShortcutJobsStore(db)
 
 	Apis = NewApisStore(db)
 }

@@ -36,6 +36,8 @@ type SLRecordsStore interface {
 	ListByUIDs(ctx context.Context, slTableID int64, uids []string) ([]*SLRecord, error)
 	// ListAll returns all the records of the table in creation order.
 	ListAll(ctx context.Context, slTableID int64) ([]*SLRecord, error)
+	// ListUIDs returns the UIDs of the records in creation order, only the ones without the value of the field if emptyFieldUID is not empty.
+	ListUIDs(ctx context.Context, slTableID int64, emptyFieldUID string) ([]string, error)
 	// Query returns the paginated records matching the filter, group and order options, along with the filtered total count.
 	// It returns ErrSLFieldNotFound if any referenced field does not exist, ErrSLFieldNotQueryable if any referenced field is a formula,
 	// and ErrUnsupportedFilterOperation, ErrInvalidFilterValue or ErrInvalidSortOrder if the options are invalid.
@@ -487,6 +489,19 @@ func (db *slRecords) ListAll(ctx context.Context, slTableID int64) ([]*SLRecord,
 		return nil, errors.Wrap(err, "find")
 	}
 	return records, nil
+}
+
+func (db *slRecords) ListUIDs(ctx context.Context, slTableID int64, emptyFieldUID string) ([]string, error) {
+	q := db.WithContext(ctx).Model(&SLRecord{}).Where("sl_table_id = ?", slTableID)
+	if emptyFieldUID != "" {
+		q = q.Where("NOT jsonb_exists(data, ?)", emptyFieldUID)
+	}
+
+	var uids []string
+	if err := q.Order("id ASC").Pluck("uid", &uids).Error; err != nil {
+		return nil, errors.Wrap(err, "pluck")
+	}
+	return uids, nil
 }
 
 func (db *slRecords) DeleteByUIDs(ctx context.Context, slTableID int64, uids []string) error {

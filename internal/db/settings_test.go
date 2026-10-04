@@ -1,6 +1,7 @@
 package db
 
 import (
+	"context"
 	"encoding/json"
 	"strings"
 	"testing"
@@ -160,4 +161,56 @@ func TestSettingValues(t *testing.T) {
 		"theme": json.RawMessage(`"dark"`),
 		"other": json.RawMessage(`1`),
 	})))
+}
+
+func TestAISettingsStore(t *testing.T) {
+	ctx := context.Background()
+	store := NewSettingsStore(newTestDB(t, &Setting{}))
+	want := AISettings{Enabled: true, BaseURL: "https://api.openai.com/v1", Model: "test-model", SealedAPIKey: "sealed-key", TimeoutSeconds: 30}
+	require.NoError(t, store.SaveAI(ctx, want))
+	got, err := store.GetAI(ctx)
+	require.NoError(t, err)
+	require.Equal(t, want, *got)
+}
+
+func TestParseAISettings(t *testing.T) {
+	defaults := DefaultAISettings()
+	require.False(t, defaults.Configured())
+	require.Equal(t, defaults, ParseAISettings(nil, defaults))
+	require.Equal(t, defaults, ParseAISettings([]byte("not json"), defaults))
+
+	got := ParseAISettings([]byte(`{"enabled":true,"baseURL":"http://127.0.0.1:11434/v1/","model":" qwen3 ","sealedAPIKey":"x","timeoutSeconds":90}`), defaults)
+	require.Equal(t, AISettings{Enabled: true, BaseURL: "http://127.0.0.1:11434/v1", Model: "qwen3", SealedAPIKey: "x", TimeoutSeconds: 90}, got)
+	require.True(t, got.Configured())
+
+	got = ParseAISettings([]byte(`{"baseURL":"ftp://example.com","timeoutSeconds":9999}`), defaults)
+	require.Equal(t, defaults.BaseURL, got.BaseURL)
+	require.Equal(t, defaults.TimeoutSeconds, got.TimeoutSeconds)
+
+	values, err := settingValues(aiSettingsRow{AI: got})
+	require.NoError(t, err)
+	require.Len(t, values, 1)
+	require.Contains(t, values, "ai")
+}
+
+func TestAISettingsValidate(t *testing.T) {
+	require.NoError(t, AISettings{TimeoutSeconds: 60}.Validate())
+	require.NoError(t, AISettings{Enabled: true, BaseURL: "https://api.openai.com/v1", Model: "gpt-4o-mini", TimeoutSeconds: 60}.Validate())
+
+	for _, tc := range []struct {
+		s   AISettings
+		key string
+	}{
+		{AISettings{BaseURL: "api.openai.com", TimeoutSeconds: 60}, "ai::invalid_base_url"},
+		{AISettings{BaseURL: "https://u:p@api.openai.com/v1", TimeoutSeconds: 60}, "ai::invalid_base_url"},
+		{AISettings{Enabled: true, Model: "m", TimeoutSeconds: 60}, "ai::base_url_required"},
+		{AISettings{Enabled: true, BaseURL: "https://a.example.com/v1", Model: "  ", TimeoutSeconds: 60}, "ai::model_required"},
+		{AISettings{Model: strings.Repeat("m", AIModelMaxLength+1), TimeoutSeconds: 60}, "ai::model_too_long"},
+		{AISettings{TimeoutSeconds: 0}, "ai::invalid_timeout"},
+		{AISettings{TimeoutSeconds: AITimeoutSecondsMax + 1}, "ai::invalid_timeout"},
+	} {
+		var e *i18n.Error
+		require.ErrorAs(t, tc.s.Validate(), &e, "%+v", tc.s)
+		assert.Equal(t, tc.key, e.Key, "%+v", tc.s)
+	}
 }

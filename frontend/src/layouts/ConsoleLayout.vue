@@ -24,7 +24,7 @@ const drawerVisible = ref(false)
 
 watch(
   [() => route.name, () => site.info.siteName, locale],
-  () => (document.title = site.title(navLabel(props.nav, route.name) ?? props.title)),
+  () => (document.title = site.title(navLabel(props.nav, route.meta.nav ?? route.name) ?? props.title)),
   { immediate: true },
 )
 site.ensureLoaded()
@@ -55,7 +55,7 @@ site.ensureLoaded()
         <ConsoleNav :nav="nav" />
       </a-layout-sider>
       <a-layout-content class="console-main">
-        <div class="console-content">
+        <div class="console-content" :class="{ wide: route.meta.wide }">
           <RouterView />
         </div>
       </a-layout-content>
@@ -145,6 +145,9 @@ site.ensureLoaded()
   max-width: 1080px;
   margin: 0 auto;
   padding: 24px 32px 48px;
+}
+.console-content.wide {
+  max-width: 1440px;
 }
 @media (max-width: 768px) {
   .console-header {

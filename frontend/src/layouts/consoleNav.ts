@@ -6,9 +6,11 @@ import {
   MonitorSmartphone,
   Palette,
   ShieldCheck,
+  Sparkles,
   Table2,
   UserRound,
   UsersRound,
+  Zap,
 } from '@lucide/vue'
 import type { Component } from 'vue'
 
@@ -74,7 +76,10 @@ export const ADMIN_NAV: NavGroup[] = [
     get title() {
       return t('consoleNav.data')
     },
-    items: [navItem('admin-projects', Table2, () => t('consoleNav.projects'))],
+    items: [
+      navItem('admin-projects', Table2, () => t('consoleNav.projects')),
+      navItem('admin-field-shortcuts', Zap, () => t('consoleNav.fieldShortcuts')),
+    ],
   },
   {
     get title() {
@@ -84,6 +89,7 @@ export const ADMIN_NAV: NavGroup[] = [
       navItem('admin-site', Globe, () => t('consoleNav.site')),
       navItem('admin-security', LockKeyhole, () => t('consoleNav.adminSecurity')),
       navItem('admin-sign-in-methods', LogIn, () => t('sso.admin.title')),
+      navItem('admin-ai', Sparkles, () => t('consoleNav.aiModel')),
     ],
   },
 ]

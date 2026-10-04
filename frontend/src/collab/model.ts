@@ -1,4 +1,15 @@
-import type { CellValue, FieldMetadata, FieldType, RecordData, SLField, SLRecord, SLView, ViewConfig, ViewType } from '@/types/bitable'
+import type {
+  CellValue,
+  FieldMetadata,
+  FieldShortcut,
+  FieldType,
+  RecordData,
+  SLField,
+  SLRecord,
+  SLView,
+  ViewConfig,
+  ViewType,
+} from '@/types/bitable'
 import { isEmptyValue } from '@/utils/format'
 import type { Action, Operation } from './types'
 
@@ -87,6 +98,14 @@ class Draft {
       case 'field.set':
       case 'field.setType':
         return this.setField(a)
+      case 'field.setShortcut': {
+        const fields = this.mutableFields()
+        const i = fields.findIndex((f) => f.uid === a.fieldUID)
+        if (i < 0) return
+        const { shortcut: _removed, ...field } = fields[i]!
+        fields[i] = { ...field, ...(a.shortcut && { shortcut: a.shortcut as FieldShortcut }), updatedAt: this.now } as SLField
+        return
+      }
       case 'field.move': {
         const field = this.fieldList.find((f) => f.uid === a.fieldUID)
         if (!field || a.index === undefined) return
@@ -157,6 +176,7 @@ class Draft {
       type: (a.field.type ?? 'text') as FieldType,
       metadata: (a.field.metadata ?? {}) as FieldMetadata,
       position: 0,
+      ...(a.field.shortcut && { shortcut: a.field.shortcut as FieldShortcut }),
       createdAt: this.now,
       updatedAt: this.now,
     }

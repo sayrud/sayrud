@@ -8,15 +8,19 @@ import {
   Check,
   ChevronDown,
   ChevronRight,
+  CircleAlert,
   Copy,
   EyeOff,
   LayoutList,
   ListFilter,
+  LoaderCircle,
   Maximize2,
   Pencil,
   Plus,
+  RefreshCw,
   Snowflake,
   Trash,
+  WandSparkles,
 } from '@lucide/vue'
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
@@ -783,11 +787,35 @@ async function addRecord(preset: RecordData = {}, focusField = true) {
   }
 }
 
+// ---- Field shortcuts ----
+
+function jobAt(recordUID: string, fieldUID: string) {
+  return store.shortcutJobs.size ? store.shortcutJob(recordUID, fieldUID) : undefined
+}
+
+/** Regenerates the shortcut cells of the records, in the selected columns if the selection covers the row, or in all the visible columns. */
+function regenerateItem(recordUIDs: string[], inRange: boolean): MenuItem | null {
+  const rc = rect.value
+  const shortcutFields = cols.value
+    .filter((c) => c.field.shortcut && (!inRange || !rc || (c.index >= rc.c1 && c.index <= rc.c2)))
+    .map((c) => c.field)
+  if (!shortcutFields.length) return null
+  return {
+    label: t('shortcut.regenerateCells'),
+    icon: RefreshCw,
+    onClick: () => {
+      for (const f of shortcutFields) void store.runShortcut(f.uid, 'records', recordUIDs)
+    },
+  }
+}
+
 function onRowContextMenu(e: MouseEvent, item: RecordItem) {
   const multi = store.selectedRecords.length > 1 && store.selectedRecords.includes(item.record.uid)
   const rc = rect.value
   const rangeRows = rc && rc.r2 > rc.r1 && item.nav >= rc.r1 && item.nav <= rc.r2 ? layout.value.nav.slice(rc.r1, rc.r2 + 1) : null
   const toDelete = multi ? [...store.selectedRecords] : rangeRows ? rangeRows.map((r) => r.uid) : [item.record.uid]
+  const inRange = !multi && !!rc && item.nav >= rc.r1 && item.nav <= rc.r2
+  const regenerate = regenerateItem(toDelete, inRange)
   if (!store.canEdit) {
     openMenu(e, [{ label: t('grid.expandRecord'), icon: Maximize2, hint: t('grid.spaceKey'), onClick: () => expand(item.record) }])
     return
@@ -803,6 +831,7 @@ function onRowContextMenu(e: MouseEvent, item: RecordItem) {
       },
     },
     { divider: true },
+    ...(regenerate ? [regenerate] : []),
     {
       label: t('grid.clearCells'),
       icon: Pencil,
@@ -942,6 +971,12 @@ function openFieldMenu(e: MouseEvent, col: Col) {
   const edit = (item: MenuItem) => (editOnly.add(item), item)
   const items: MenuItem[] = [
     edit({ label: t('grid.editField'), icon: Pencil, onClick: () => editField(f) }),
+    ...(f.shortcut
+      ? [
+          edit({ label: t('shortcut.regenerateAll'), icon: RefreshCw, onClick: () => confirmRegenerateAll(f) }),
+          edit({ label: t('shortcut.generateEmpty'), icon: WandSparkles, onClick: () => store.runShortcut(f.uid, 'empty') }),
+        ]
+      : []),
     { divider: true },
     edit({ label: t('grid.insertLeft'), icon: ArrowLeftToLine, disabled: isPrimary, onClick: () => addField(undefined, globalIndex(f.uid), f.uid) }),
     edit({ label: t('grid.insertRight'), icon: ArrowRightToLine, onClick: () => addField(undefined, globalIndex(f.uid) + 1, f.uid) }),
@@ -1000,6 +1035,16 @@ function openFieldMenu(e: MouseEvent, col: Col) {
     }),
   ]
   openMenu(pos, store.canEdit ? items : items.filter((item) => !editOnly.has(item)))
+}
+
+function confirmRegenerateAll(f: SLField) {
+  Modal.confirm({
+    title: t('shortcut.regenerateAllTitle', { name: f.label }),
+    content: t('shortcut.regenerateAllContent', { n: store.records.length }, store.records.length),
+    okText: t('shortcut.regenerate'),
+    cancelText: t('common.cancel'),
+    onOk: () => store.runShortcut(f.uid, 'all'),
+  })
 }
 
 // ---- Summary bar ----
@@ -1159,6 +1204,19 @@ defineExpose({ addRecord })
                   :lines="lines"
                   @toggle="toggleCheckbox(item.record, col.field)"
                 />
+                <span
+                  v-if="col.field.shortcut && jobAt(item.record.uid, col.field.uid)"
+                  class="shortcut-status"
+                  :class="jobAt(item.record.uid, col.field.uid)!.status"
+                  :title="
+                    jobAt(item.record.uid, col.field.uid)!.status === 'failed'
+                      ? t('shortcut.failed', { error: jobAt(item.record.uid, col.field.uid)!.error ?? '' })
+                      : t('shortcut.generating')
+                  "
+                >
+                  <CircleAlert v-if="jobAt(item.record.uid, col.field.uid)!.status === 'failed'" :size="14" />
+                  <LoaderCircle v-else :size="14" class="spin" />
+                </span>
                 <span
                   v-if="peersAt(item.record.uid, col.field.uid).length"
                   class="peer-cursor"
@@ -1395,6 +1453,29 @@ defineExpose({ addRecord })
 }
 .header-label {
   flex: 1;
+}
+.shortcut-status {
+  position: absolute;
+  top: 50%;
+  right: 4px;
+  z-index: 2;
+  display: flex;
+  padding: 2px;
+  border-radius: 4px;
+  background: var(--bg-body);
+  transform: translateY(-50%);
+  color: var(--color-primary);
+}
+.shortcut-status.failed {
+  color: var(--color-danger);
+}
+.spin {
+  animation: shortcut-spin 1s linear infinite;
+}
+@keyframes shortcut-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 .header-menu {
   opacity: 0;
