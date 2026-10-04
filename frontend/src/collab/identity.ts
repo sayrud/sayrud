@@ -3,4 +3,5 @@ export interface Identity {
   memberId: string
   name: string
   color: string
+  avatarUrl?: string
 }

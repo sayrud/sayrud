@@ -10,6 +10,7 @@ export interface UserBrief {
   email: string
   emailMd5: string
   userName: string
+  avatarUrl?: string
   color: string
 }
 

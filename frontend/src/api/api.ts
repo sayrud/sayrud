@@ -216,6 +216,7 @@ export interface AdminUpdateUser {
 }
 
 export interface AdminUser {
+  avatarUrl: string;
   color: string;
   createdAt: string;
   disabled: boolean;
@@ -492,6 +493,7 @@ export interface PreviewFieldShortcut {
 }
 
 export interface Profile {
+  avatarUrl: string;
   /** Color is the avatar color of the user. */
   color: string;
   createdAt: string;
@@ -948,6 +950,7 @@ export interface UpdateUserSettings {
 }
 
 export interface UserBrief {
+  avatarUrl: string;
   color: string;
   email: string;
   emailMd5: string;
@@ -1059,6 +1062,18 @@ export type SetAdminUserStatusData = any;
 
 export type DeleteAccountData = any;
 
+export interface UploadAvatarPayload {
+  /**
+   * Avatar image
+   * @format binary
+   */
+  file: File;
+}
+
+export type UploadAvatarData = Profile;
+
+export type RemoveAvatarData = Profile;
+
 export type ListIdentitiesData = UserIdentity[];
 
 export type DeleteIdentityData = any;
@@ -1088,6 +1103,9 @@ export type SignOutData = any;
 export type SignUpData = Profile;
 
 export type SsoMetadataData = string;
+
+/** @format binary */
+export type GetAvatarData = File;
 
 export type ListProjectsData = ListProjectsResp;
 
@@ -1922,6 +1940,38 @@ export class Api<
       }),
 
     /**
+     * @description Accept a PNG, JPEG or GIF up to 2 MiB and 4096 pixels per edge. Store a static PNG with its longest edge at most 512 pixels.
+     *
+     * @name UploadAvatar
+     * @summary Upload the avatar of the signed-in user
+     * @request POST:/auth/avatar
+     */
+    uploadAvatar: (data: UploadAvatarPayload, params: RequestParams = {}) =>
+      this.request<UploadAvatarData, string>({
+        path: `/auth/avatar`,
+        method: "POST",
+        body: data,
+        type: ContentType.FormData,
+        format: "json",
+        ...params,
+      }),
+
+    /**
+     * No description
+     *
+     * @name RemoveAvatar
+     * @summary Restore the default avatar of the signed-in user
+     * @request DELETE:/auth/avatar
+     */
+    removeAvatar: (params: RequestParams = {}) =>
+      this.request<RemoveAvatarData, string>({
+        path: `/auth/avatar`,
+        method: "DELETE",
+        format: "json",
+        ...params,
+      }),
+
+    /**
      * No description
      *
      * @name ListIdentities
@@ -2215,6 +2265,22 @@ export class Api<
         path: `/auth/sso/${slug}/start`,
         method: "GET",
         query: query,
+        ...params,
+      }),
+  };
+  avatars = {
+    /**
+     * No description
+     *
+     * @name GetAvatar
+     * @summary Get a current uploaded avatar
+     * @request GET:/avatars/{fileUID}
+     */
+    getAvatar: (fileUid: string, params: RequestParams = {}) =>
+      this.request<GetAvatarData, string>({
+        path: `/avatars/${fileUid}`,
+        method: "GET",
+        format: "blob",
         ...params,
       }),
   };

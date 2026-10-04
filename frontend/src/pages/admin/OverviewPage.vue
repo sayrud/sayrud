@@ -143,7 +143,7 @@ onMounted(async () => {
                 <a-list-item :key="(item as AdminUser).id">
                   <a-list-item-meta>
                     <template #avatar>
-                      <UserAvatar :name="(item as AdminUser).userName" :color="(item as AdminUser).color" :size="32" />
+                      <UserAvatar :name="(item as AdminUser).userName" :color="(item as AdminUser).color" :avatar-url="(item as AdminUser).avatarUrl" :size="32" />
                     </template>
                     <template #title>
                       <a-space :size="6">

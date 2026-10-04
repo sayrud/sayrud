@@ -33,11 +33,13 @@ var upgrader = websocket.Upgrader{
 
 // Identity is the signed-in collaborator of a connection.
 type Identity struct {
-	UserID   int64
-	MemberID string
-	Name     string
-	Color    string
-	CanEdit  bool
+	UserID    int64
+	MemberID  string
+	Name      string
+	Color     string
+	AvatarURL string
+	UpdatedAt time.Time
+	CanEdit   bool
 }
 
 // Client is a WebSocket connection of a project.
@@ -51,10 +53,11 @@ type Client struct {
 	out        chan []byte
 	closeOnce  sync.Once
 
-	mu      sync.Mutex
-	member  Member
-	canEdit bool
-	tables  map[string]*db.SLTable
+	mu              sync.Mutex
+	member          Member
+	canEdit         bool
+	avatarUpdatedAt time.Time
+	tables          map[string]*db.SLTable
 }
 
 // Serve upgrades the request to WebSocket and serves the connection until it is closed.
@@ -73,17 +76,32 @@ func (h *Hub) Serve(w http.ResponseWriter, r *http.Request, project *db.Project,
 		locale:     locale,
 		out:        make(chan []byte, sendBufferSize),
 		member: Member{
-			ClientID: "cli" + randstr.String(12),
-			MemberID: identity.MemberID,
-			Name:     identity.Name,
-			Color:    identity.Color,
+			ClientID:  "cli" + randstr.String(12),
+			MemberID:  identity.MemberID,
+			Name:      identity.Name,
+			Color:     identity.Color,
+			AvatarURL: identity.AvatarURL,
 		},
-		canEdit: identity.CanEdit,
-		tables:  make(map[string]*db.SLTable),
+		canEdit:         identity.CanEdit,
+		avatarUpdatedAt: identity.UpdatedAt,
+		tables:          make(map[string]*db.SLTable),
 	}
 
 	h.register(c)
 	go c.writePump()
+
+	// Authentication may have read the profile before an avatar update that finished before registration.
+	if user, err := db.Users.GetByID(r.Context(), identity.UserID); err != nil {
+		logrus.WithContext(r.Context()).WithError(err).Warn("Failed to refresh collaborator avatar")
+	} else {
+		var avatarURL string
+		if user.AvatarFileUID != "" {
+			avatarURL = "/_/avatars/" + user.AvatarFileUID
+		}
+
+		h.UpdateUserAvatar(user.ID, avatarURL, user.UpdatedAt)
+	}
+
 	c.readPump(r.Context())
 	h.unregister(c)
 	return nil

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"sort"
 	"sync"
+	"time"
 
 	"github.com/pkg/errors"
 	"gorm.io/gorm"
@@ -86,16 +87,51 @@ func (h *Hub) clients(projectUID string) []*Client {
 }
 
 func (h *Hub) broadcastMembers(projectUID string) {
-	clients := h.clients(projectUID)
+	// Snapshot and queue under the same lock so an older presence broadcast can not follow an avatar update.
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	clients := h.projects[projectUID]
 	members := make([]Member, 0, len(clients))
-	for _, c := range clients {
+	for c := range clients {
 		members = append(members, c.presence())
 	}
 	sort.Slice(members, func(i, j int) bool { return members[i].ClientID < members[j].ClientID })
 
 	message := newMessage(MessageMembers, 0, membersData{Members: members})
-	for _, c := range clients {
+	for c := range clients {
 		c.send(message)
+	}
+}
+
+// UpdateUserAvatar refreshes all connections of the user, ignoring an older concurrent update.
+func (h *Hub) UpdateUserAvatar(userID int64, avatarURL string, updatedAt time.Time) {
+	var projects []string
+
+	h.mu.Lock()
+	for projectUID, clients := range h.projects {
+		changed := false
+		for c := range clients {
+			if c.userID != userID {
+				continue
+			}
+
+			c.mu.Lock()
+			if !c.avatarUpdatedAt.After(updatedAt) {
+				c.member.AvatarURL = avatarURL
+				c.avatarUpdatedAt = updatedAt
+				changed = true
+			}
+			c.mu.Unlock()
+		}
+
+		if changed {
+			projects = append(projects, projectUID)
+		}
+	}
+	h.mu.Unlock()
+
+	for _, projectUID := range projects {
+		h.broadcastMembers(projectUID)
 	}
 }
 

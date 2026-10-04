@@ -12,6 +12,7 @@ type AdminUser struct {
 	Email             string     `json:"email"`
 	EmailMd5          string     `json:"emailMd5"`
 	UserName          string     `json:"userName"`
+	AvatarURL         string     `json:"avatarUrl"`
 	Color             string     `json:"color"`
 	IsAdmin           bool       `json:"isAdmin"`
 	Disabled          bool       `json:"disabled"`
@@ -32,6 +33,7 @@ func ToAdminUser(user *db.User, ownedProjectCount int64, providers []*AuthProvid
 		Email:             user.Email,
 		EmailMd5:          user.EmailMd5,
 		UserName:          user.UserName,
+		AvatarURL:         UserAvatarURL(user),
 		Color:             UserColor(user.ID),
 		IsAdmin:           user.IsAdmin,
 		Disabled:          user.Disabled(),

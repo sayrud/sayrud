@@ -9,10 +9,11 @@ import (
 
 // Profile is the profile of the signed-in user.
 type Profile struct {
-	ID       int64  `json:"id"`
-	Email    string `json:"email"`
-	EmailMd5 string `json:"emailMd5"`
-	UserName string `json:"userName"`
+	ID        int64  `json:"id"`
+	Email     string `json:"email"`
+	EmailMd5  string `json:"emailMd5"`
+	UserName  string `json:"userName"`
+	AvatarURL string `json:"avatarUrl"`
 	// Color is the avatar color of the user.
 	Color string `json:"color"`
 	// IsAdmin reports whether the user is a system admin.
@@ -28,6 +29,7 @@ func ToProfile(user *db.User) *Profile {
 		Email:       user.Email,
 		EmailMd5:    user.EmailMd5,
 		UserName:    user.UserName,
+		AvatarURL:   UserAvatarURL(user),
 		Color:       UserColor(user.ID),
 		IsAdmin:     user.IsAdmin,
 		HasPassword: user.HasPassword(),
@@ -37,21 +39,32 @@ func ToProfile(user *db.User) *Profile {
 
 // UserBrief is the public information of a user shown to the collaborators.
 type UserBrief struct {
-	ID       int64  `json:"id"`
-	Email    string `json:"email"`
-	EmailMd5 string `json:"emailMd5"`
-	UserName string `json:"userName"`
-	Color    string `json:"color"`
+	ID        int64  `json:"id"`
+	Email     string `json:"email"`
+	EmailMd5  string `json:"emailMd5"`
+	UserName  string `json:"userName"`
+	AvatarURL string `json:"avatarUrl"`
+	Color     string `json:"color"`
 } // @name UserBrief
 
 func ToUserBrief(user *db.User) *UserBrief {
 	return &UserBrief{
-		ID:       user.ID,
-		Email:    user.Email,
-		EmailMd5: user.EmailMd5,
-		UserName: user.UserName,
-		Color:    UserColor(user.ID),
+		ID:        user.ID,
+		Email:     user.Email,
+		EmailMd5:  user.EmailMd5,
+		UserName:  user.UserName,
+		AvatarURL: UserAvatarURL(user),
+		Color:     UserColor(user.ID),
 	}
+}
+
+// UserAvatarURL returns the immutable application URL of an uploaded avatar.
+func UserAvatarURL(user *db.User) string {
+	if user.AvatarFileUID == "" {
+		return ""
+	}
+
+	return "/_/avatars/" + user.AvatarFileUID
 }
 
 var userColors = []string{"#3370ff", "#f54a45", "#ff8800", "#14c0a7", "#7f3bf5", "#f5319d", "#00b2d6", "#8fac02"}

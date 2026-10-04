@@ -1480,6 +1480,87 @@ const docTemplate = `{
                 }
             }
         },
+        "/auth/avatar": {
+            "post": {
+                "description": "Accept a PNG, JPEG or GIF up to 2 MiB and 4096 pixels per edge. Store a static PNG with its longest edge at most 512 pixels.",
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "Upload the avatar of the signed-in user",
+                "operationId": "uploadAvatar",
+                "parameters": [
+                    {
+                        "type": "file",
+                        "description": "Avatar image",
+                        "name": "file",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/Profile"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid image or multipart body",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "401": {
+                        "description": "Not signed in",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "413": {
+                        "description": "Image is too large",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "Restore the default avatar of the signed-in user",
+                "operationId": "removeAvatar",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/Profile"
+                        }
+                    },
+                    "401": {
+                        "description": "Not signed in",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
         "/auth/identities": {
             "get": {
                 "produces": [
@@ -2210,6 +2291,44 @@ const docTemplate = `{
                 "responses": {
                     "302": {
                         "description": "Redirect to the identity provider"
+                    }
+                }
+            }
+        },
+        "/avatars/{fileUID}": {
+            "get": {
+                "produces": [
+                    "image/png"
+                ],
+                "summary": "Get a current uploaded avatar",
+                "operationId": "getAvatar",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Avatar file UID",
+                        "name": "fileUID",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "file"
+                        }
+                    },
+                    "404": {
+                        "description": "Avatar not found",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "string"
+                        }
                     }
                 }
             }
@@ -5197,6 +5316,7 @@ const docTemplate = `{
         "AdminUser": {
             "type": "object",
             "required": [
+                "avatarUrl",
                 "color",
                 "createdAt",
                 "disabled",
@@ -5210,6 +5330,9 @@ const docTemplate = `{
                 "userName"
             ],
             "properties": {
+                "avatarUrl": {
+                    "type": "string"
+                },
                 "color": {
                     "type": "string"
                 },
@@ -5982,6 +6105,7 @@ const docTemplate = `{
         "Profile": {
             "type": "object",
             "required": [
+                "avatarUrl",
                 "color",
                 "createdAt",
                 "email",
@@ -5992,6 +6116,9 @@ const docTemplate = `{
                 "userName"
             ],
             "properties": {
+                "avatarUrl": {
+                    "type": "string"
+                },
                 "color": {
                     "description": "Color is the avatar color of the user.",
                     "type": "string"
@@ -7294,6 +7421,7 @@ const docTemplate = `{
         "UserBrief": {
             "type": "object",
             "required": [
+                "avatarUrl",
                 "color",
                 "email",
                 "emailMd5",
@@ -7301,6 +7429,9 @@ const docTemplate = `{
                 "userName"
             ],
             "properties": {
+                "avatarUrl": {
+                    "type": "string"
+                },
                 "color": {
                     "type": "string"
                 },

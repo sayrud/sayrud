@@ -15,6 +15,7 @@ export interface Member {
   memberId: string
   name: string
   color: string
+  avatarUrl?: string
   tableUID?: string
   viewUID?: string
   recordUID?: string

@@ -35,11 +35,13 @@ type collabRoute struct{}
 // @Router /projects/{projectUID}/ws [get]
 func (collabRoute) Serve(ctx context.Context, hub *collab.Hub, project *db.Project, user *db.User, role db.ProjectRole) error {
 	if err := hub.Serve(ctx.ResponseWriter(), ctx.Request().Request, project, collab.Identity{
-		UserID:   user.ID,
-		MemberID: dto.MemberID(user.ID),
-		Name:     user.UserName,
-		Color:    dto.UserColor(user.ID),
-		CanEdit:  role.AtLeast(db.ProjectRoleEditor),
+		UserID:    user.ID,
+		MemberID:  dto.MemberID(user.ID),
+		Name:      user.UserName,
+		Color:     dto.UserColor(user.ID),
+		AvatarURL: dto.UserAvatarURL(user),
+		UpdatedAt: user.UpdatedAt,
+		CanEdit:   role.AtLeast(db.ProjectRoleEditor),
 	}, ctx.Locale()); err != nil {
 		// The upgrader has written the error response.
 		logrus.WithContext(ctx.Request().Context()).WithError(err).Warn("Failed to serve WebSocket")

@@ -1,4 +1,4 @@
-import type { Profile } from './api'
+import type { Profile, RequestParams } from './api'
 import { client } from './client'
 
 export type { Profile }
@@ -11,7 +11,13 @@ export const authApi = {
   signOut: async () => {
     await client.auth.signOut()
   },
+
   updateProfile: async (userName: string) => (await client.auth.updateProfile({ userName })).data as Profile,
+
+  uploadAvatar: async (file: File, params: RequestParams = {}) =>
+    (await client.auth.uploadAvatar({ file }, params)).data as Profile,
+  removeAvatar: async () => (await client.auth.removeAvatar()).data as Profile,
+
   updatePassword: async (oldPassword: string, newPassword: string) => {
     await client.auth.updatePassword({ oldPassword, newPassword })
   },

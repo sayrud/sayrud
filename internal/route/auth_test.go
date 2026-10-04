@@ -17,6 +17,8 @@ func TestAPIRequiresSignIn(t *testing.T) {
 		{http.MethodGet, "/_/auth/profile"},
 		{http.MethodPut, "/_/auth/profile"},
 		{http.MethodPut, "/_/auth/password"},
+		{http.MethodPost, "/_/auth/avatar"},
+		{http.MethodDelete, "/_/auth/avatar"},
 		{http.MethodGet, "/_/projects"},
 		{http.MethodPost, "/_/projects"},
 		{http.MethodGet, "/_/projects/prjabc/tables"},

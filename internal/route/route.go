@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/MEDIGO/go-healthz"
+	"github.com/flamego/binding"
 	"github.com/flamego/flamego"
 	"gorm.io/gorm"
 
@@ -55,6 +56,7 @@ func New(opts Options) *flamego.Flame {
 
 	f.Group("/_", func() {
 		f.Get("/site", api.Site.Get)
+		f.Get("/avatars/{fileUID}", api.Auth.Avatar)
 
 		f.Group("/auth", func() {
 			f.Post("/sign-up", form.Bind(form.SignUp{}), api.Auth.SignUp)
@@ -65,6 +67,13 @@ func New(opts Options) *flamego.Flame {
 				Get(api.Auth.Profile).
 				Put(form.Bind(form.UpdateProfile{}), api.Auth.UpdateProfile)
 			f.Put("/password", api.Auth.Authenticator, form.Bind(form.UpdatePassword{}), api.Auth.UpdatePassword)
+			f.Combo("/avatar", api.Auth.Authenticator).
+				Post(
+					api.Auth.LimitAvatarUpload,
+					binding.MultipartForm(form.UploadAvatar{}, binding.Options{MaxMemory: api.AvatarMaxSize}),
+					api.Auth.UploadAvatar,
+				).
+				Delete(api.Auth.RemoveAvatar)
 			f.Group("/sessions", func() {
 				f.Combo("").
 					Get(api.Account.ListSessions).

@@ -456,6 +456,8 @@ definitions:
     type: object
   AdminUser:
     properties:
+      avatarUrl:
+        type: string
       color:
         type: string
       createdAt:
@@ -482,6 +484,7 @@ definitions:
       userName:
         type: string
     required:
+    - avatarUrl
     - color
     - createdAt
     - disabled
@@ -1035,6 +1038,8 @@ definitions:
     type: object
   Profile:
     properties:
+      avatarUrl:
+        type: string
       color:
         description: Color is the avatar color of the user.
         type: string
@@ -1056,6 +1061,7 @@ definitions:
       userName:
         type: string
     required:
+    - avatarUrl
     - color
     - createdAt
     - email
@@ -2034,6 +2040,8 @@ definitions:
     type: object
   UserBrief:
     properties:
+      avatarUrl:
+        type: string
       color:
         type: string
       email:
@@ -2045,6 +2053,7 @@ definitions:
       userName:
         type: string
     required:
+    - avatarUrl
     - color
     - email
     - emailMd5
@@ -3149,6 +3158,61 @@ paths:
           schema:
             type: string
       summary: Delete the account of the signed-in user
+  /auth/avatar:
+    delete:
+      operationId: removeAvatar
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/Profile'
+        "401":
+          description: Not signed in
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      summary: Restore the default avatar of the signed-in user
+    post:
+      consumes:
+      - multipart/form-data
+      description: Accept a PNG, JPEG or GIF up to 2 MiB and 4096 pixels per edge.
+        Store a static PNG with its longest edge at most 512 pixels.
+      operationId: uploadAvatar
+      parameters:
+      - description: Avatar image
+        in: formData
+        name: file
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/Profile'
+        "400":
+          description: Invalid image or multipart body
+          schema:
+            type: string
+        "401":
+          description: Not signed in
+          schema:
+            type: string
+        "413":
+          description: Image is too large
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      summary: Upload the avatar of the signed-in user
   /auth/identities:
     get:
       operationId: listIdentities
@@ -3645,6 +3709,31 @@ paths:
         "302":
           description: Redirect to the identity provider
       summary: Start a third-party sign-in
+  /avatars/{fileUID}:
+    get:
+      operationId: getAvatar
+      parameters:
+      - description: Avatar file UID
+        in: path
+        name: fileUID
+        required: true
+        type: string
+      produces:
+      - image/png
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: file
+        "404":
+          description: Avatar not found
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      summary: Get a current uploaded avatar
   /projects:
     get:
       description: List the projects owned by or shared with the signed-in user, with

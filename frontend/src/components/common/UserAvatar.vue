@@ -1,7 +1,10 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 
-const props = withDefaults(defineProps<{ name: string; color: string; size?: number }>(), { size: 28 })
+const props = withDefaults(defineProps<{ name: string; color: string; avatarUrl?: string; size?: number }>(), { size: 28 })
+
+const failedUrl = ref<string>()
+const imageUrl = computed(() => (props.avatarUrl !== failedUrl.value ? props.avatarUrl : undefined))
 
 // Chinese names show the last two characters, the others show the uppercase initial.
 const text = computed(() => {
@@ -11,5 +14,14 @@ const text = computed(() => {
 </script>
 
 <template>
-  <a-avatar :size="size" :style="{ backgroundColor: color, flex: 'none' }">{{ text }}</a-avatar>
+  <a-avatar
+    :key="imageUrl"
+    :image-url="imageUrl"
+    :size="size"
+    role="img"
+    :aria-label="name"
+    :style="{ backgroundColor: imageUrl ? 'transparent' : color, flex: 'none' }"
+    object-fit="cover"
+    @error="failedUrl = avatarUrl"
+  >{{ text }}</a-avatar>
 </template>

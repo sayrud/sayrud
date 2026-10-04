@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 
 import { accountApi, type DeleteAccount } from '@/api/account'
+import type { RequestParams } from '@/api/api'
 import { authApi, type Profile } from '@/api/auth'
 import { ApiError } from '@/api/client'
 import { ssoApi } from '@/api/sso'
@@ -9,6 +10,10 @@ import type { Identity } from '@/collab/identity'
 
 export const useAuthStore = defineStore('auth', () => {
   const user = ref<Profile | null>(null)
+
+  // Keep profile controls locked even when their page is left and reopened during a request.
+  const updatingProfile = ref(false)
+
   let loading: Promise<Profile | null> | null = null
   /** The profile has been requested, so the guest pages do not request it again on every navigation. */
   let checked = false
@@ -18,6 +23,7 @@ export const useAuthStore = defineStore('auth', () => {
     memberId: user.value ? `usr${user.value.id}` : '',
     name: user.value?.userName ?? '',
     color: user.value?.color ?? '#3370ff',
+    avatarUrl: user.value?.avatarUrl ?? '',
   }))
 
   /** Loads the profile once, it resolves null if not signed in. */
@@ -58,8 +64,29 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  async function updateName(userName: string) {
-    user.value = await authApi.updateProfile(userName)
+  async function saveProfile(request: Promise<Profile>) {
+    updatingProfile.value = true
+
+    try {
+      const profile = await request
+      if (user.value?.id === profile.id) user.value = profile
+
+      return profile
+    } finally {
+      updatingProfile.value = false
+    }
+  }
+
+  function updateName(userName: string) {
+    return saveProfile(authApi.updateProfile(userName))
+  }
+
+  function uploadAvatar(file: File, params: RequestParams = {}) {
+    return saveProfile(authApi.uploadAvatar(file, params))
+  }
+
+  function removeAvatar() {
+    return saveProfile(authApi.removeAvatar())
   }
 
   async function deleteAccount(confirm: DeleteAccount) {
@@ -74,6 +101,7 @@ export const useAuthStore = defineStore('auth', () => {
 
   return {
     user,
+    updatingProfile,
     identity,
     ensureLoaded,
     signIn,
@@ -81,6 +109,8 @@ export const useAuthStore = defineStore('auth', () => {
     ldapSignIn,
     signOut,
     updateName,
+    uploadAvatar,
+    removeAvatar,
     updatePassword: authApi.updatePassword,
     deleteAccount,
     clear,

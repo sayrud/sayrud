@@ -220,7 +220,7 @@ onMounted(load)
       >
         <template #user="{ record }">
           <div class="user-cell">
-            <UserAvatar :name="record.userName" :color="record.color" :size="32" />
+            <UserAvatar :name="record.userName" :color="record.color" :avatar-url="record.avatarUrl" :size="32" />
             <div class="user-text">
               <div class="user-name">
                 <span class="ellipsis">{{ record.userName }}</span>

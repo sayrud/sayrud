@@ -1,5 +1,7 @@
 package form
 
+import "mime/multipart"
+
 type SignUp struct {
 	Email    string `json:"email" valid:"required;email;maxlen:254"`
 	UserName string `json:"userName" valid:"required;maxlen:32"`
@@ -15,6 +17,10 @@ type SignIn struct {
 type UpdateProfile struct {
 	UserName string `json:"userName" valid:"required;maxlen:32"`
 } // @name UpdateProfile
+
+type UploadAvatar struct {
+	File *multipart.FileHeader `form:"file" validate:"required"`
+} // @name UploadAvatar
 
 type UpdateUserSettings struct {
 	Theme    *string `json:"theme,omitempty" enums:"light,dark,system"`

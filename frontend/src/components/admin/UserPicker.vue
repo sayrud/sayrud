@@ -12,6 +12,7 @@ export interface PickerUser {
   userName: string
   email: string
   color: string
+  avatarUrl?: string
 }
 
 const props = defineProps<{
@@ -71,7 +72,7 @@ search('')
   >
     <a-option v-for="u in options" :key="u.id" :value="u.id" :label="`${u.userName}（${u.email}）`">
       <div class="picker-option">
-        <UserAvatar :name="u.userName" :color="u.color" :size="22" />
+        <UserAvatar :name="u.userName" :color="u.color" :avatar-url="u.avatarUrl" :size="22" />
         <span class="ellipsis">{{ u.userName }}</span>
         <span class="text-desc ellipsis">{{ u.email }}</span>
       </div>

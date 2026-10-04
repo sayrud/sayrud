@@ -76,6 +76,7 @@ type Member struct {
 	MemberID  string `json:"memberId"`
 	Name      string `json:"name"`
 	Color     string `json:"color"`
+	AvatarURL string `json:"avatarUrl"`
 	TableUID  string `json:"tableUID,omitempty"`
 	ViewUID   string `json:"viewUID,omitempty"`
 	RecordUID string `json:"recordUID,omitempty"`

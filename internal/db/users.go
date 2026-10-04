@@ -45,6 +45,8 @@ type UsersStore interface {
 	// Update updates the user with the given ID.
 	// It returns ErrUserNotFound if the user does not exist.
 	Update(ctx context.Context, id int64, options UpdateUserOptions) error
+	// SetAvatar replaces the avatar atomically, returning the updated user and the previous file UID for cleanup.
+	SetAvatar(ctx context.Context, id int64, fileUID string) (*User, string, error)
 	// UpdatePassword sets the password of the user with the given ID.
 	UpdatePassword(ctx context.Context, id int64, password string) error
 	// DeleteByID deletes the user with the given ID.
@@ -83,6 +85,8 @@ type User struct {
 	EmailMd5 string `json:"emailMd5"`
 	// UserName is the display name of the user.
 	UserName string `json:"userName"`
+	// AvatarFileUID identifies the current uploaded avatar, empty for the default avatar.
+	AvatarFileUID string `json:"-"`
 	// Password is the bcrypt hash of the password, empty if the user can not sign in with a password.
 	Password string `json:"-"`
 	// IsAdmin reports whether the user is a system admin.
@@ -253,6 +257,31 @@ func (db *users) Update(ctx context.Context, id int64, options UpdateUserOptions
 		return ErrUserNotFound
 	}
 	return nil
+}
+
+func (db *users) SetAvatar(ctx context.Context, id int64, fileUID string) (*User, string, error) {
+	var user User
+	var previous string
+
+	err := db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&user, id).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return ErrUserNotFound
+			}
+
+			return err
+		}
+
+		previous = user.AvatarFileUID
+		if err := tx.Model(&user).Update("avatar_file_uid", fileUID).Error; err != nil {
+			return err
+		}
+		user.AvatarFileUID = fileUID
+
+		return nil
+	})
+
+	return &user, previous, err
 }
 
 func (db *users) UpdatePassword(ctx context.Context, id int64, password string) error {

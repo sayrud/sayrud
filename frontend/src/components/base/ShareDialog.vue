@@ -208,7 +208,7 @@ function copyLink() {
       </div>
       <div v-if="lookingUp" class="candidate hint"><a-spin :size="14" /> {{ t('share.lookingUp') }}</div>
       <div v-else-if="candidate" class="candidate">
-        <UserAvatar :name="candidate.userName" :color="candidate.color" :size="28" />
+        <UserAvatar :name="candidate.userName" :color="candidate.color" :avatar-url="candidate.avatarUrl" :size="28" />
         <div class="member-text">
           <div class="member-name ellipsis">{{ candidate.userName }}</div>
           <div class="member-email ellipsis">{{ candidate.email }}</div>
@@ -222,7 +222,7 @@ function copyLink() {
     <div class="section-title">{{ t('share.members', { n: members.length }, members.length) }}</div>
     <a-spin :loading="loading" class="list">
       <div v-for="m in members" :key="m.user.id" class="member">
-        <UserAvatar :name="m.user.userName" :color="m.user.color" :size="32" />
+        <UserAvatar :name="m.user.userName" :color="m.user.color" :avatar-url="m.user.avatarUrl" :size="32" />
         <div class="member-text">
           <div class="member-name ellipsis">
             {{ m.user.userName }}<span v-if="m.user.id === myID" class="me">{{ t('share.me') }}</span>

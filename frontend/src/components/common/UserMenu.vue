@@ -30,10 +30,10 @@ async function signOut() {
 
 <template>
   <a-dropdown v-if="auth.user" trigger="click" position="br" :popup-max-height="false">
-    <UserAvatar :name="auth.user.userName" :color="auth.user.color" :size="size" class="trigger" />
+    <UserAvatar :name="auth.user.userName" :color="auth.user.color" :avatar-url="auth.user.avatarUrl" :size="size" class="trigger" />
     <template #content>
       <div class="profile">
-        <UserAvatar :name="auth.user.userName" :color="auth.user.color" :size="36" />
+        <UserAvatar :name="auth.user.userName" :color="auth.user.color" :avatar-url="auth.user.avatarUrl" :size="36" />
         <div class="profile-text">
           <div class="profile-name ellipsis">{{ auth.user.userName }}</div>
           <div class="profile-email ellipsis">{{ auth.user.email }}</div>
