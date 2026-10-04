@@ -83,6 +83,11 @@ function onPageChange(page: number) {
   load()
 }
 
+function onPageSizeChange(pageSize: number) {
+  pagination.pageSize = pageSize
+  reload()
+}
+
 const formVisible = ref(false)
 const editingUser = ref<AdminUser | null>(null)
 const resetVisible = ref(false)
@@ -211,8 +216,7 @@ onMounted(load)
         row-key="id"
         :bordered="false"
         :scroll="{ x: 960 }"
-        :pagination="{ ...pagination, showTotal: true, hideOnSinglePage: true }"
-        @page-change="onPageChange"
+        :pagination="false"
       >
         <template #user="{ record }">
           <div class="user-cell">
@@ -272,6 +276,21 @@ onMounted(load)
           </div>
         </template>
       </a-table>
+
+      <div class="pagination-footer">
+        <a-pagination
+          :current="pagination.current"
+          :page-size="pagination.pageSize"
+          :total="pagination.total"
+          :disabled="loading"
+          :page-size-options="[10, 20, 50, 100]"
+          show-total
+          show-page-size
+          :show-jumper="pagination.total > pagination.pageSize"
+          @change="onPageChange"
+          @page-size-change="onPageSizeChange"
+        />
+      </div>
     </SettingsSection>
 
     <UserFormModal v-model:visible="formVisible" :user="editingUser" @saved="load" />
@@ -320,12 +339,29 @@ onMounted(load)
 :deep(.arco-table-th) {
   background: var(--bg-base);
 }
-:deep(.arco-table-pagination) {
-  padding: 0 24px 16px;
+.pagination-footer {
+  padding: 16px 24px;
+}
+.pagination-footer :deep(.arco-pagination) {
+  width: 100%;
+  flex-wrap: wrap;
+  row-gap: 12px;
+}
+.pagination-footer :deep(.arco-pagination-total) {
+  margin-right: auto;
+  color: var(--text-caption);
+}
+.pagination-footer :deep(.arco-pagination-list) {
+  max-width: 100%;
+  overflow-x: auto;
 }
 @media (max-width: 768px) {
-  .toolbar {
+  .toolbar,
+  .pagination-footer {
     padding: 12px 16px;
+  }
+  .pagination-footer :deep(.arco-pagination-total) {
+    flex-basis: 100%;
   }
   .search {
     width: 100%;
