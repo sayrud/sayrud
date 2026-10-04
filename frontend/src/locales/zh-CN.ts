@@ -1166,7 +1166,7 @@ export default {
     invalidFormItems: '表单项不是有效的 JSON 数组',
     invalidParams: '参数不是有效的 JSON 对象',
     total: '共 {n} 个捷径',
-    search: '搜索名称、描述或 UID',
+    search: '搜索名称、描述',
     colStatus: '状态',
     enabledTag: '已启用',
     noMatch: '没有匹配的捷径',

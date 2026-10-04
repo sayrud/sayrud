@@ -1168,7 +1168,7 @@ const es: typeof zhCN = {
     invalidFormItems: 'Los elementos del formulario no son un array JSON válido',
     invalidParams: 'Los parámetros no son un objeto JSON válido',
     total: '{n} atajo | {n} atajos',
-    search: 'Buscar por nombre, descripción o UID',
+    search: 'Buscar por nombre o descripción',
     colStatus: 'Estado',
     enabledTag: 'Activado',
     noMatch: 'No hay atajos que coincidan',

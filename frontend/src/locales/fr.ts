@@ -1168,7 +1168,7 @@ const fr: typeof zhCN = {
     invalidFormItems: 'Les éléments du formulaire ne sont pas un tableau JSON valide',
     invalidParams: 'Les paramètres ne sont pas un objet JSON valide',
     total: '{n} raccourci | {n} raccourcis',
-    search: 'Rechercher par nom, description ou UID',
+    search: 'Rechercher par nom ou description',
     colStatus: 'Statut',
     enabledTag: 'Activé',
     noMatch: 'Aucun raccourci correspondant',

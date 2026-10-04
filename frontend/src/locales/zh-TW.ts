@@ -1168,7 +1168,7 @@ const zhTW: typeof zhCN = {
     invalidFormItems: '表單項目不是有效的 JSON 陣列',
     invalidParams: '參數不是有效的 JSON 物件',
     total: '共 {n} 個捷徑',
-    search: '搜尋名稱、描述或 UID',
+    search: '搜尋名稱、描述',
     colStatus: '狀態',
     enabledTag: '已啟用',
     noMatch: '沒有符合的捷徑',

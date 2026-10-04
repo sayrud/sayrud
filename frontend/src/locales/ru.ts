@@ -1168,7 +1168,7 @@ const ru: typeof zhCN = {
     invalidFormItems: 'Элементы формы не являются корректным JSON-массивом',
     invalidParams: 'Параметры не являются корректным JSON-объектом',
     total: 'Ярлыков: {n}',
-    search: 'Поиск по названию, описанию или UID',
+    search: 'Поиск по названию или описанию',
     colStatus: 'Статус',
     enabledTag: 'Включён',
     noMatch: 'Нет подходящих ярлыков',

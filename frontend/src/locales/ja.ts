@@ -1168,7 +1168,7 @@ const ja: typeof zhCN = {
     invalidFormItems: 'フォーム項目が有効な JSON 配列ではありません',
     invalidParams: 'パラメーターが有効な JSON オブジェクトではありません',
     total: '{n} 件のショートカット',
-    search: '名前、説明、UID で検索',
+    search: '名前、説明で検索',
     colStatus: 'ステータス',
     enabledTag: '有効',
     noMatch: '一致するショートカットはありません',

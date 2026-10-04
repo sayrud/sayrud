@@ -30,7 +30,7 @@ const columns = computed<TableColumnData[]>(() => [
 const filtered = computed(() => {
   const k = keyword.value.trim().toLowerCase()
   if (!k) return shortcuts.value
-  return shortcuts.value.filter((s) => s.name.toLowerCase().includes(k) || s.description.toLowerCase().includes(k) || s.uid.toLowerCase().includes(k))
+  return shortcuts.value.filter((s) => s.name.toLowerCase().includes(k) || s.description.toLowerCase().includes(k))
 })
 
 async function load() {

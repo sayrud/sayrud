@@ -1168,7 +1168,7 @@ const ptBR: typeof zhCN = {
     invalidFormItems: 'Os itens do formulário não são um array JSON válido',
     invalidParams: 'Os parâmetros não são um objeto JSON válido',
     total: '{n} atalho | {n} atalhos',
-    search: 'Pesquisar por nome, descrição ou UID',
+    search: 'Pesquisar por nome ou descrição',
     colStatus: 'Status',
     enabledTag: 'Ativado',
     noMatch: 'Nenhum atalho correspondente',

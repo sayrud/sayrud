@@ -1168,7 +1168,7 @@ const ko: typeof zhCN = {
     invalidFormItems: '양식 항목이 올바른 JSON 배열이 아닙니다',
     invalidParams: '매개변수가 올바른 JSON 객체가 아닙니다',
     total: '바로가기 {n}개',
-    search: '이름, 설명 또는 UID로 검색',
+    search: '이름 또는 설명으로 검색',
     colStatus: '상태',
     enabledTag: '사용 중',
     noMatch: '일치하는 바로가기가 없습니다',

@@ -1168,7 +1168,7 @@ const de: typeof zhCN = {
     invalidFormItems: 'Die Formularelemente sind kein gültiges JSON-Array',
     invalidParams: 'Die Parameter sind kein gültiges JSON-Objekt',
     total: '{n} Shortcut | {n} Shortcuts',
-    search: 'Nach Name, Beschreibung oder UID suchen',
+    search: 'Nach Name oder Beschreibung suchen',
     colStatus: 'Status',
     enabledTag: 'Aktiviert',
     noMatch: 'Keine passenden Shortcuts',
