@@ -167,6 +167,7 @@ function compatible(field: SLField | undefined, target: SLField): boolean {
             class="condition-operation"
             :model-value="c.operation"
             :disabled="!sourceField(c.fieldUID)"
+            :trigger-props="{ autoFitPopupWidth: false, autoFitPopupMinWidth: true }"
             @update:model-value="(v) => patch(i, { operation: v as typeof c.operation, value: '', valueFieldUID: needsValue(v as typeof c.operation) ? c.valueFieldUID ?? '' : '' })"
           >
             <a-option v-for="op in FILTER_OPERATIONS[sourceField(c.fieldUID)?.type ?? 'text']" :key="op.value" :value="op.value">{{ op.label }}</a-option>
