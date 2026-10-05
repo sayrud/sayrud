@@ -451,7 +451,6 @@ const es: typeof zhCN = {
     commitFailed: 'Error al enviar',
   },
   appearance: {
-    title: 'Icono',
     chooseColor: 'Elegir color',
     chooseIcon: 'Elegir icono',
     remove: 'Quitar',
@@ -667,7 +666,6 @@ const es: typeof zhCN = {
       days: '{n} día | {n} días',
       version: 'Versión',
       devBuild: 'Versión de desarrollo',
-      shortcuts: 'Accesos directos',
     },
     projects: {
       title: 'Bases',

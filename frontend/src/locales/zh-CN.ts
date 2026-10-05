@@ -449,7 +449,6 @@ export default {
     commitFailed: '提交失败',
   },
   appearance: {
-    title: '图标',
     chooseColor: '选择颜色',
     chooseIcon: '选择图标',
     remove: '移除',
@@ -665,7 +664,6 @@ export default {
       days: '{n} 天',
       version: '版本',
       devBuild: '开发版本',
-      shortcuts: '快捷入口',
     },
     projects: {
       title: '多维表格',

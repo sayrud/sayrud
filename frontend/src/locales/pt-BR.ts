@@ -451,7 +451,6 @@ const ptBR: typeof zhCN = {
     commitFailed: 'Falha ao enviar',
   },
   appearance: {
-    title: 'Ícone',
     chooseColor: 'Escolher cor',
     chooseIcon: 'Escolher ícone',
     remove: 'Remover',
@@ -667,7 +666,6 @@ const ptBR: typeof zhCN = {
       days: '{n} dia | {n} dias',
       version: 'Versão',
       devBuild: 'Versão de desenvolvimento',
-      shortcuts: 'Atalhos',
     },
     projects: {
       title: 'Bases',

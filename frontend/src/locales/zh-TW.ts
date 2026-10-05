@@ -451,7 +451,6 @@ const zhTW: typeof zhCN = {
     commitFailed: '提交失敗',
   },
   appearance: {
-    title: '圖示',
     chooseColor: '選擇顏色',
     chooseIcon: '選擇圖示',
     remove: '移除',
@@ -667,7 +666,6 @@ const zhTW: typeof zhCN = {
       days: '{n} 天',
       version: '版本',
       devBuild: '開發版本',
-      shortcuts: '快捷入口',
     },
     projects: {
       title: '多維表格',

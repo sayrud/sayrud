@@ -9,6 +9,7 @@
     "preview": "vite preview",
     "lint": "eslint . --max-warnings=0",
     "test": "node --experimental-transform-types --test tests/*.test.ts",
+    "i18n:check": "node --experimental-transform-types scripts/check-i18n.mjs",
     "type-check": "vue-tsc -b",
     "swagger": "node src/scripts/swagger.js"
   },

@@ -451,7 +451,6 @@ const de: typeof zhCN = {
     commitFailed: 'Senden fehlgeschlagen',
   },
   appearance: {
-    title: 'Symbol',
     chooseColor: 'Farbe auswählen',
     chooseIcon: 'Symbol auswählen',
     remove: 'Entfernen',
@@ -667,7 +666,6 @@ const de: typeof zhCN = {
       days: '{n} Tag | {n} Tage',
       version: 'Version',
       devBuild: 'Entwicklungsversion',
-      shortcuts: 'Schnellzugriffe',
     },
     projects: {
       title: 'Bases',

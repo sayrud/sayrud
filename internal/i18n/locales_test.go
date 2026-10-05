@@ -9,9 +9,11 @@ import (
 	"path/filepath"
 	"reflect"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"testing"
+	"unicode"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -67,37 +69,181 @@ func TestLocalesConsistent(t *testing.T) {
 
 var keyRe = regexp.MustCompile(`^[a-z0-9_]+::[a-z0-9_]+$`)
 
-// TestLocaleKeysUsed checks that every message key in the source and every validated form field label is defined.
-func TestLocaleKeysUsed(t *testing.T) {
-	zh := loadMessages(t, LangZhCN)
-	err := filepath.WalkDir("..", func(path string, d fs.DirEntry, err error) error {
-		if err != nil || d.IsDir() || !strings.HasSuffix(path, ".go") || strings.HasSuffix(path, "_test.go") {
-			return err
+// Exact exceptions for native language names, import syntax and legacy checkbox fallbacks.
+var literalAllowlist = map[string][]string{
+	"internal/i18n/i18n.go":       {"简体中文", "繁體中文", "日本語"},
+	"internal/collab/convert.go":  {"是", "年", "月", "日"},
+	"internal/collab/client.go":   {"是", "否"},
+	"internal/context/context.go": {"success"}, // API success marker, not displayed as UI text.
+}
+
+// inspectLocaleSource uses the Go AST so comments cannot keep dead keys alive.
+func inspectLocaleSource(path string, source interface{}) (map[string]token.Position, []string, error) {
+	fset := token.NewFileSet()
+	file, err := parser.ParseFile(fset, path, source, 0)
+	if err != nil {
+		return nil, nil, err
+	}
+	used := map[string]token.Position{}
+	issues := map[string]bool{}
+	path = strings.TrimPrefix(filepath.ToSlash(filepath.Clean(path)), "../../")
+	allowed := func(text string) bool {
+		for _, value := range literalAllowlist[path] {
+			if text == value {
+				return true
+			}
 		}
-		file, err := parser.ParseFile(token.NewFileSet(), path, nil, 0)
+		return false
+	}
+	literal := func(n ast.Node) string {
+		if lit, ok := n.(*ast.BasicLit); ok && lit.Kind == token.STRING {
+			text, _ := strconv.Unquote(lit.Value)
+			return text
+		}
+		return ""
+	}
+	report := func(n ast.Node, text string) {
+		if strings.ContainsFunc(text, unicode.IsLetter) && !allowed(text) {
+			issues[fset.Position(n.Pos()).String()+": hardcoded UI text: "+strconv.Quote(text)] = true
+		}
+	}
+	var rawText func(ast.Node)
+	rawText = func(n ast.Node) {
+		switch n := n.(type) {
+		case *ast.BasicLit:
+			report(n, literal(n))
+		case *ast.BinaryExpr:
+			rawText(n.X)
+			rawText(n.Y)
+		case *ast.CallExpr:
+			if fun, ok := n.Fun.(*ast.SelectorExpr); ok && fun.Sel.Name == "Sprintf" && len(n.Args) > 0 {
+				rawText(n.Args[0])
+			}
+		}
+	}
+	ast.Inspect(file, func(n ast.Node) bool {
+		switch n := n.(type) {
+		case *ast.Field:
+			if n.Tag != nil {
+				if tag := literal(n.Tag); reflect.StructTag(tag).Get("valid") != "" {
+					for _, name := range n.Names {
+						used[FieldLabelKey(name.Name)] = fset.Position(name.Pos())
+					}
+				}
+				return false // Struct tags are metadata, not text.
+			}
+		case *ast.ValueSpec:
+			// LDAP error responses assemble "sso::" + e.Code from these constants.
+			if path == "internal/sso/identity.go" {
+				for i, name := range n.Names {
+					if strings.HasPrefix(name.Name, "Code") && i < len(n.Values) && literal(n.Values[i]) != "" {
+						used["sso::"+literal(n.Values[i])] = fset.Position(name.Pos())
+					}
+				}
+			}
+		case *ast.CallExpr:
+			if fun, ok := n.Fun.(*ast.SelectorExpr); ok {
+				switch fun.Sel.Name {
+				case "ApiErrorMessage", "writeError":
+					if len(n.Args) > 1 {
+						rawText(n.Args[1])
+					}
+				case "ApiError":
+					if len(n.Args) > 1 && literal(n.Args[1]) != "" && !keyRe.MatchString(literal(n.Args[1])) {
+						rawText(n.Args[1])
+					}
+				case "Tr", "Translate":
+					if len(n.Args) > 0 && literal(n.Args[0]) != "" && !keyRe.MatchString(literal(n.Args[0])) {
+						rawText(n.Args[0])
+					}
+				case "Errorf":
+					if pkg, ok := fun.X.(*ast.Ident); ok && pkg.Name == "i18n" && len(n.Args) > 0 && literal(n.Args[0]) != "" && !keyRe.MatchString(literal(n.Args[0])) {
+						rawText(n.Args[0])
+					}
+				}
+			}
+		case *ast.KeyValueExpr:
+			if key := literal(n.Key); key == "msg" || key == "message" {
+				rawText(n.Value)
+			}
+		case *ast.BasicLit:
+			text := literal(n)
+			if keyRe.MatchString(text) {
+				used[text] = fset.Position(n.Pos())
+			} else if strings.ContainsFunc(text, func(r rune) bool { return unicode.Is(unicode.Han, r) }) {
+				report(n, text)
+			}
+		}
+		return true
+	})
+	out := make([]string, 0, len(issues))
+	for issue := range issues {
+		out = append(out, issue)
+	}
+	sort.Strings(out)
+	return used, out, nil
+}
+
+// TestLocaleSourceAudit checks missing/unused keys and untranslated source text without a server or database.
+func TestLocaleSourceAudit(t *testing.T) {
+	zh := loadMessages(t, LangZhCN)
+	used := map[string]bool{}
+	err := filepath.WalkDir("../..", func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
-		ast.Inspect(file, func(n ast.Node) bool {
-			if field, ok := n.(*ast.Field); ok && field.Tag != nil {
-				// Validated fields take their labels from the locale files, see form.Validate.
-				if tag, err := strconv.Unquote(field.Tag.Value); err == nil && reflect.StructTag(tag).Get("valid") != "" {
-					for _, name := range field.Names {
-						assert.Contains(t, zh, FieldLabelKey(name.Name), "missing field label in %s", path)
-					}
-				}
-				return true
+		if d.IsDir() {
+			if d.Name() == ".git" || d.Name() == "node_modules" || d.Name() == "vendor" || d.Name() == "docs" {
+				return filepath.SkipDir
 			}
-			lit, ok := n.(*ast.BasicLit)
-			if !ok || lit.Kind != token.STRING {
-				return true
-			}
-			if s, err := strconv.Unquote(lit.Value); err == nil && keyRe.MatchString(s) {
-				assert.Contains(t, zh, s, "undefined key in %s", path)
-			}
-			return true
-		})
+			return nil
+		}
+		if !strings.HasSuffix(path, ".go") || strings.HasSuffix(path, "_test.go") {
+			return nil
+		}
+		keys, issues, err := inspectLocaleSource(path, nil)
+		if err != nil {
+			return err
+		}
+		for key, position := range keys {
+			used[key] = true
+			assert.Contains(t, zh, key, "%s: undefined translation key", position)
+		}
+		for _, issue := range issues {
+			t.Error(issue)
+		}
 		return nil
 	})
 	require.NoError(t, err)
+	var unused []string
+	for key := range zh {
+		if !used[key] {
+			unused = append(unused, key)
+		}
+	}
+	sort.Strings(unused)
+	for _, key := range unused {
+		t.Errorf("locales/locale_zh-CN.ini: unused translation key: %s", key)
+	}
+}
+
+func TestInspectLocaleSource(t *testing.T) {
+	keys, issues, err := inspectLocaleSource("example.go", `package example
+// "common::comment_only" is not a reference.
+type Form struct { NewPassword string `+"`valid:\"required\"`"+` }
+func handle() {
+ ctx.ApiError(400, "common::invalid_body")
+ ctx.ApiErrorMessage(400, "Please try again")
+ ctx.ApiError(400, "Missing translation")
+ ctx.ApiErrorMessage(400, "Failure: " + detail)
+ i18n.Errorf("Missing translation")
+ text := "请先登录"
+ log.Error("technical diagnostic")
+ _ = text
+}`)
+	require.NoError(t, err)
+	assert.Contains(t, keys, "common::invalid_body")
+	assert.Contains(t, keys, "form_field::new_password")
+	assert.NotContains(t, keys, "common::comment_only")
+	assert.Len(t, issues, 5)
 }

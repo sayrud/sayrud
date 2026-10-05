@@ -451,7 +451,6 @@ const ko: typeof zhCN = {
     commitFailed: '제출 실패',
   },
   appearance: {
-    title: '아이콘',
     chooseColor: '색상 선택',
     chooseIcon: '아이콘 선택',
     remove: '제거',
@@ -667,7 +666,6 @@ const ko: typeof zhCN = {
       days: '{n}일',
       version: '버전',
       devBuild: '개발 버전',
-      shortcuts: '바로가기',
     },
     projects: {
       title: '베이스',

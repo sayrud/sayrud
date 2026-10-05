@@ -451,7 +451,6 @@ const ja: typeof zhCN = {
     commitFailed: '送信に失敗しました',
   },
   appearance: {
-    title: 'アイコン',
     chooseColor: '色を選択',
     chooseIcon: 'アイコンを選択',
     remove: '削除',
@@ -667,7 +666,6 @@ const ja: typeof zhCN = {
       days: '{n} 日',
       version: 'バージョン',
       devBuild: '開発版',
-      shortcuts: 'ショートカット',
     },
     projects: {
       title: 'ベース',

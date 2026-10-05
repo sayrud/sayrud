@@ -1,0 +1,47 @@
+name: i18n
+
+on:
+  push:
+    branches: [ master ]
+    paths:
+      - 'frontend/**'
+      - '**/*.go'
+      - 'internal/i18n/locales/**'
+      - 'scripts/check-i18n.sh'
+      - 'go.mod'
+      - 'go.sum'
+      - '.github/workflows/i18n.yml'
+  pull_request:
+    paths:
+      - 'frontend/**'
+      - '**/*.go'
+      - 'internal/i18n/locales/**'
+      - 'scripts/check-i18n.sh'
+      - 'go.mod'
+      - 'go.sum'
+      - '.github/workflows/i18n.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Translation audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version: 1.27.x
+          cache: true
+          cache-dependency-path: go.sum
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+      - run: pnpm --dir frontend install --frozen-lockfile
+      - run: bash scripts/check-i18n.sh

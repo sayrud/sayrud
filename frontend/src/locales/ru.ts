@@ -451,7 +451,6 @@ const ru: typeof zhCN = {
     commitFailed: 'Не удалось отправить',
   },
   appearance: {
-    title: 'Значок',
     chooseColor: 'Выбрать цвет',
     chooseIcon: 'Выбрать значок',
     remove: 'Убрать',
@@ -667,7 +666,6 @@ const ru: typeof zhCN = {
       days: 'Дней: {n}',
       version: 'Версия',
       devBuild: 'Версия для разработки',
-      shortcuts: 'Быстрый доступ',
     },
     projects: {
       title: 'Базы',
