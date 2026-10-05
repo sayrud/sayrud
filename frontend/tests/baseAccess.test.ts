@@ -94,10 +94,12 @@ test('normal table URLs preserve member permissions and open public shares with 
     const dependencies: Record<string, unknown> = {
       vue: { ...vue, watch: () => () => {}, onMounted: () => {}, onBeforeUnmount: () => {} },
       '@arco-design/web-vue': { Message: { error: (message: string) => errors.push(message) } },
+      '@arco-design/web-vue/es/icon': {},
       '@lucide/vue': {},
       'vue-i18n': { useI18n: () => ({ t: (key: string) => key }) },
       'vue-router': { useRoute: () => route, useRouter: () => ({ replace: (target: unknown) => redirects.push(target) }) },
       '@/api/client': { ApiError },
+      '@/assets/share-no-permission.svg': { default: '/share-no-permission.svg' },
       '@/stores/base': { useBaseStore: () => store },
       '@/stores/auth': { useAuthStore: () => auth },
       '@/stores/site': { useSiteStore: () => ({ ensureLoaded: () => {} }) },

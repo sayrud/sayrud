@@ -1,12 +1,14 @@
 <script setup lang="ts">
 import { Message } from '@arco-design/web-vue'
-import { CloudCheck, CloudOff, Eye, House, LoaderCircle, LockKeyhole, PanelLeftOpen, Share2 } from '@lucide/vue'
+import { IconLock } from '@arco-design/web-vue/es/icon'
+import { CloudCheck, CloudOff, Eye, House, LoaderCircle, PanelLeftOpen, Share2 } from '@lucide/vue'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 
 import { ApiError } from '@/api/client'
 import { sharesApi } from '@/api/share'
+import shareNoPermission from '@/assets/share-no-permission.svg'
 
 import ShareDialog from '@/components/base/ShareDialog.vue'
 import TableSidebar from '@/components/base/TableSidebar.vue'
@@ -243,7 +245,13 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="base">
-    <header class="topbar">
+    <header v-if="passwordRequired" class="topbar password-topbar">
+      <a-space :size="10">
+        <IconLock :size="16" aria-hidden="true" />
+        <a-typography-text type="secondary">{{ t('base.accessDenied') }}</a-typography-text>
+      </a-space>
+    </header>
+    <header v-else class="topbar">
       <button v-if="!publicPage" class="icon-btn" :title="t('console.backHome')" @click="router.push('/')"><House :size="17" /></button>
       <AppearancePicker
         v-if="store.project && store.canEdit && !store.accessDenied"
@@ -312,18 +320,20 @@ onBeforeUnmount(() => {
       <UserMenu v-if="!publicPage" />
     </header>
 
-    <div v-if="passwordRequired" class="denied">
-      <a-card class="password-card" :title="t('share.passwordRequired')">
-        <template #extra><LockKeyhole :size="20" /></template>
-        <a-typography-paragraph type="secondary">{{ t('share.enterPasswordHint') }}</a-typography-paragraph>
-        <a-form :model="{ password }" layout="vertical" @submit-success="unlock">
-          <a-form-item :label="t('auth.password')" :help="passwordError" :validate-status="passwordError ? 'error' : undefined">
-            <a-input-password v-model="password" autofocus :disabled="unlocking" :placeholder="t('auth.passwordRequired')" @input="passwordError = ''" />
-          </a-form-item>
-          <a-button type="primary" html-type="submit" long :loading="unlocking">{{ t('share.access') }}</a-button>
-        </a-form>
-      </a-card>
-    </div>
+    <main v-if="passwordRequired" class="password-gate" aria-labelledby="password-title">
+      <a-result :status="null" class="password-panel">
+        <template #icon><a-image :src="shareNoPermission" :width="140" :height="140" :preview="false" alt="" /></template>
+        <template #title><a-typography-title id="password-title" class="password-title">{{ t('share.passwordRequired') }}</a-typography-title></template>
+        <template #extra>
+          <a-form :model="{ password }" layout="vertical" @submit-success="unlock">
+            <a-form-item field="password" hide-label :help="passwordError" :validate-status="passwordError ? 'error' : undefined" class="password-field">
+              <a-input-password v-model="password" size="large" :invisible-button="false" :disabled="unlocking" :placeholder="t('auth.passwordRequired')" :input-attrs="{ autofocus: true, autocomplete: 'current-password', 'aria-label': t('auth.password') }" @input="passwordError = ''" />
+            </a-form-item>
+            <a-button type="primary" html-type="submit" size="large" long :disabled="!password" :loading="unlocking">{{ t('common.confirm') }}</a-button>
+          </a-form>
+        </template>
+      </a-result>
+    </main>
     <div v-else-if="publicError" class="denied">
       <a-result status="404" :title="t('share.unavailable')" :subtitle="publicError">
         <template #extra><a-button @click="sync(true)">{{ t('share.refresh') }}</a-button></template>
@@ -437,8 +447,55 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: center;
 }
-.password-card {
-  width: min(400px, calc(100vw - 32px));
+.password-topbar {
+  color: var(--text-caption);
+}
+.password-gate {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: clamp(48px, 20vh, 200px) 24px 48px;
+  overflow: auto;
+  background: var(--bg-body);
+}
+.password-panel {
+  width: min(280px, 100%);
+  padding: 0;
+}
+.password-panel :deep(.arco-result-icon) {
+  margin-bottom: 28px;
+}
+.password-title {
+  margin: 0;
+  color: var(--text-caption);
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 24px;
+}
+.password-panel :deep(.arco-result-extra) {
+  margin-top: 24px;
+}
+.password-panel :deep(.arco-btn-primary:disabled) {
+  background: var(--text-disabled);
+  border-color: var(--text-disabled);
+}
+.password-field {
+  margin-bottom: 12px;
+}
+.password-field :deep(.arco-input-wrapper) {
+  background: var(--bg-body);
+  border-color: var(--line-border);
+}
+.password-field :deep(.arco-input-wrapper:focus-within) {
+  border-color: var(--color-primary);
+}
+.password-field :deep(.arco-input-wrapper.arco-input-error) {
+  border-color: var(--color-danger);
+}
+.password-field :deep(input) {
+  text-align: center;
 }
 .name-input {
   width: 240px;
