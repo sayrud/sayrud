@@ -1214,19 +1214,20 @@ defineExpose({ addRecord })
                   @toggle="toggleCheckbox(item.record, col.field)"
                   @open="openAttachment(item, col)"
                 />
-                <span
+                <a-tooltip
                   v-if="col.field.shortcut && jobAt(item.record.uid, col.field.uid)"
-                  class="shortcut-status"
-                  :class="jobAt(item.record.uid, col.field.uid)!.status"
-                  :title="
+                  :content="
                     jobAt(item.record.uid, col.field.uid)!.status === 'failed'
                       ? t('shortcut.failed', { error: jobAt(item.record.uid, col.field.uid)!.error ?? '' })
                       : t('shortcut.generating')
                   "
+                  :content-style="{ whiteSpace: 'pre-wrap' }"
                 >
-                  <CircleAlert v-if="jobAt(item.record.uid, col.field.uid)!.status === 'failed'" :size="14" />
-                  <LoaderCircle v-else :size="14" class="spin" />
-                </span>
+                  <span class="shortcut-status" :class="jobAt(item.record.uid, col.field.uid)!.status">
+                    <CircleAlert v-if="jobAt(item.record.uid, col.field.uid)!.status === 'failed'" :size="14" />
+                    <LoaderCircle v-else :size="14" class="spin" />
+                  </span>
+                </a-tooltip>
                 <span
                   v-if="peersAt(item.record.uid, col.field.uid).length"
                   class="peer-cursor"
