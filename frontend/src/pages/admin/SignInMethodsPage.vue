@@ -39,7 +39,7 @@ const initial = ref<ProviderDraft | null>(null)
 
 const GENERIC_KEYS = ['oidc', 'oauth2', 'saml', 'ldap']
 
-// 通用协议卡片的名称本身就是协议，不再重复显示协议角标。
+// Generic cards already name their protocol, so they omit the protocol badge.
 const pickerGroups = computed(() => [
   { title: t('sso.admin.templatePreset'), showType: true, templates: TEMPLATES.filter((tpl) => !GENERIC_KEYS.includes(tpl.key)) },
   { title: t('sso.admin.templateGeneric'), showType: false, templates: TEMPLATES.filter((tpl) => GENERIC_KEYS.includes(tpl.key)) },
@@ -307,7 +307,7 @@ onMounted(load)
   font: inherit;
   transition: box-shadow 0.15s;
 }
-/* 悬停描边画在卡片外侧，避免盖住或露出右上角角标的边缘。 */
+/* Draw the hover outline outside the card to keep the corner badge edges intact. */
 .picker-card:hover {
   box-shadow:
     0 0 0 1px rgb(var(--primary-6)),

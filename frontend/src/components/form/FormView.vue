@@ -42,6 +42,7 @@ const values = reactive<RecordData>({})
 const errors = reactive<Record<string, boolean>>({})
 const submitted = ref(false)
 const submitting = ref(false)
+const uploadingFields = reactive(new Set<string>())
 
 function reset() {
   for (const k of Object.keys(values)) delete values[k]
@@ -59,6 +60,7 @@ function setValue(uid: string, v: CellValue) {
 }
 
 async function submit() {
+  if (uploadingFields.size || submitting.value) return
   let ok = true
   for (const c of shown.value) {
     const v = values[c.fieldUID]
@@ -152,13 +154,15 @@ function share() {
             <FieldValueEditor
               :field="fieldOf(c.fieldUID)"
               :value="values[c.fieldUID]"
+              :readonly="!store.canEdit || submitting"
               @change="(v) => setValue(c.fieldUID, v)"
+              @busy="(busy) => busy ? uploadingFields.add(c.fieldUID) : uploadingFields.delete(c.fieldUID)"
             />
             <div v-if="errors[c.fieldUID]" class="error-text">{{ t('formView.required') }}</div>
           </div>
           <div v-if="!shown.length" class="no-field">{{ store.canEdit ? t('formView.noFieldsHint') : t('formView.noFields') }}</div>
           <div class="form-submit">
-            <a-button type="primary" long size="large" :loading="submitting" :disabled="!store.canEdit" @click="submit">{{ t('formView.submit') }}</a-button>
+            <a-button type="primary" long size="large" :loading="submitting" :disabled="!store.canEdit || !!uploadingFields.size" @click="submit">{{ t('formView.submit') }}</a-button>
             <div v-if="!store.canEdit" class="readonly-tip">{{ t('formView.readonly') }}</div>
           </div>
         </template>

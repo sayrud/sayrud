@@ -1,5 +1,5 @@
 import type { Component } from 'vue'
-import { Calendar, CircleChevronDown, Hash, ListChecks, Sigma, SquareCheck, Type } from '@lucide/vue'
+import { Calendar, CircleChevronDown, Hash, ListChecks, Paperclip, Sigma, SquareCheck, Type } from '@lucide/vue'
 
 import { t } from '@/i18n'
 import type { FieldMetadataMap, FieldType, SLField } from '@/types/bitable'
@@ -74,6 +74,16 @@ export const FIELD_TYPES: FieldTypeInfo[] = [
     },
   },
   {
+    type: 'attachment',
+    icon: Paperclip,
+    get label() {
+      return t('fieldType.attachment')
+    },
+    get description() {
+      return t('fieldType.attachmentDescription')
+    },
+  },
+  {
     type: 'formula',
     icon: Sigma,
     get label() {
@@ -99,14 +109,15 @@ export function defaultMetadata<T extends FieldType>(type: T): FieldMetadataMap[
     datetime: { format: 'YYYY/MM/DD', with_time: false, default: '' },
     number: { format: '0', default: null },
     checkbox: {},
+    attachment: {},
     formula: { exp: '' },
   }
   return map[type]
 }
 
-/** The backend can not filter, sort or group by formula fields, whose values are not stored. */
+/** Formula and attachment fields are excluded from server sorting and grouping. */
 export function isQueryable(field: SLField): boolean {
-  return field.type !== 'formula'
+  return field.type !== 'formula' && field.type !== 'attachment'
 }
 
 export function isSelectField(

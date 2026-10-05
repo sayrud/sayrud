@@ -6,7 +6,6 @@ import { useI18n } from 'vue-i18n'
 
 import { useBaseStore } from '@/stores/base'
 import type { FilterConjunction, FilterOperation, QueryFilter, SLField, SLView } from '@/types/bitable'
-import { isQueryable } from '@/utils/fieldTypes'
 import { defaultFilterFor, FILTER_OPERATIONS, isListOperation, needsValue } from '@/utils/filters'
 import { optionsOf } from '@/utils/format'
 import FieldSelect from './FieldSelect.vue'
@@ -16,7 +15,7 @@ const { t } = useI18n()
 const props = defineProps<{ view: SLView }>()
 const store = useBaseStore()
 
-const fields = computed(() => store.fields.filter(isQueryable))
+const fields = computed(() => store.fields.filter((field) => field.type !== 'formula'))
 const filters = computed(() => props.view.config.filter)
 const fieldOf = (uid: string) => store.fields.find((f) => f.uid === uid)
 

@@ -47,6 +47,7 @@ export type FieldType =
   | 'datetime'
   | 'number'
   | 'checkbox'
+  | 'attachment'
   | 'formula'
 
 export interface SelectOption {
@@ -85,6 +86,10 @@ export interface NumberMetadata {
 
 export type CheckboxMetadata = Record<string, never>
 
+export type AttachmentMetadata = Record<string, never>
+
+export type Attachment = import('@/api/api').Attachment
+
 export interface FormulaMetadata {
   /** The expression references the fields by {fldXXXXXXX}. */
   exp: string
@@ -97,6 +102,7 @@ export interface FieldMetadataMap {
   datetime: DateTimeMetadata
   number: NumberMetadata
   checkbox: CheckboxMetadata
+  attachment: AttachmentMetadata
   formula: FormulaMetadata
 }
 
@@ -133,8 +139,8 @@ export interface SLField<T extends FieldType = FieldType> {
   updatedAt: string
 }
 
-/** Cell value: string for text, option UID for single select, option UID[] for multiple select, RFC 3339 string for date, number and boolean for checkbox. */
-export type CellValue = string | number | boolean | string[] | null | undefined
+/** Cell value: string for text, option UID for single select, option UID[] for multiple select, attachment files, RFC 3339 string for date, number and boolean for checkbox. */
+export type CellValue = string | number | boolean | string[] | Attachment[] | null | undefined
 
 export type RecordData = Record<string, CellValue>
 

@@ -193,7 +193,7 @@ async function save() {
     }
   }
   const finalLabel = label.value.trim() || uniqueLabel(manifest.value?.name ?? fieldTypeInfo(type.value).label)
-  const metadata = { ...md.value }
+  const metadata: Record<string, unknown> = type.value === 'attachment' ? {} : { ...md.value }
   if (type.value === 'single_select' || type.value === 'multi_select') {
     const names = namedOptions.value.map((o) => o.name.trim())
     if (new Set(names).size !== names.length) {

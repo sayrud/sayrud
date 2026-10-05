@@ -54,6 +54,8 @@ type File struct {
 	SHA256      string `gorm:"column:sha256"`
 	// UserID is the uploader.
 	UserID int64 `gorm:"index"`
+	// ProjectID scopes an attachment to its project; record and table copies may reuse it.
+	ProjectID int64 `gorm:"index"`
 }
 
 // NewFileUID generates a file UID.
@@ -76,6 +78,7 @@ type CreateFileOptions struct {
 	ContentType string
 	SHA256      string
 	UserID      int64
+	ProjectID   int64
 }
 
 func (db *files) Create(ctx context.Context, opts CreateFileOptions) (*File, error) {
@@ -89,6 +92,7 @@ func (db *files) Create(ctx context.Context, opts CreateFileOptions) (*File, err
 		ContentType: opts.ContentType,
 		SHA256:      opts.SHA256,
 		UserID:      opts.UserID,
+		ProjectID:   opts.ProjectID,
 	}
 	if err := db.WithContext(ctx).Create(file).Error; err != nil {
 		return nil, errors.Wrap(err, "create file")

@@ -238,6 +238,14 @@ export interface AdminUserStats {
   total: number;
 }
 
+export interface Attachment {
+  contentType: string;
+  name: string;
+  size: number;
+  uid: string;
+  url: string;
+}
+
 export interface AuthProviderBrief {
   icon: string;
   name: string;
@@ -332,6 +340,7 @@ export interface CreateField {
     | "datetime"
     | "number"
     | "checkbox"
+    | "attachment"
     | "formula";
 }
 
@@ -385,6 +394,7 @@ export interface FieldAttrs {
     | "datetime"
     | "number"
     | "checkbox"
+    | "attachment"
     | "formula";
 }
 
@@ -596,6 +606,7 @@ export interface SLField {
     | "datetime"
     | "number"
     | "checkbox"
+    | "attachment"
     | "formula";
   /** UID is the identifier of the field, which is also the key of its values in the record data. */
   uid: string;
@@ -874,6 +885,7 @@ export interface UpdateField {
     | "datetime"
     | "number"
     | "checkbox"
+    | "attachment"
     | "formula";
 }
 
@@ -1121,6 +1133,9 @@ export type AiAdviceData = AIAdviceResp;
 
 export type AiApplyData = any;
 
+/** @format binary */
+export type GetAttachmentData = File;
+
 export type ListFieldShortcutsData = FieldShortcutManifest[];
 
 export type ListProjectMembersData = ProjectMember[];
@@ -1156,6 +1171,13 @@ export type CreateFieldsData = SLField[];
 export type UpdateFieldData = SLField;
 
 export type DeleteFieldData = any;
+
+export interface UploadAttachmentPayload {
+  /** Attachment file */
+  file: File;
+}
+
+export type UploadAttachmentData = Attachment;
 
 export type UpdateFieldPositionData = any;
 
@@ -2415,6 +2437,29 @@ export class Api<
       }),
 
     /**
+     * @description Read a file uploaded in this project. Project membership is checked on every request.
+     *
+     * @name GetAttachment
+     * @summary Read an attachment
+     * @request GET:/projects/{projectUID}/attachments/{fileUID}
+     */
+    getAttachment: (
+      projectUid: string,
+      fileUid: string,
+      query?: {
+        /** Force file download */
+        download?: boolean;
+      },
+      params: RequestParams = {},
+    ) =>
+      this.request<GetAttachmentData, string>({
+        path: `/projects/${projectUid}/attachments/${fileUid}`,
+        method: "GET",
+        query: query,
+        ...params,
+      }),
+
+    /**
      * @description List the enabled custom shortcuts, with the forms to configure them.
      *
      * @name ListFieldShortcuts
@@ -2770,6 +2815,29 @@ export class Api<
       this.request<DeleteFieldData, string>({
         path: `/projects/${projectUid}/tables/${tableUid}/fields/${fieldUid}`,
         method: "DELETE",
+        ...params,
+      }),
+
+    /**
+     * @description Upload a single file up to 20 MiB for an attachment field. The returned descriptor can be used in record values within this project.
+     *
+     * @name UploadAttachment
+     * @summary Upload an attachment
+     * @request POST:/projects/{projectUID}/tables/{tableUID}/fields/{fieldUID}/attachments
+     */
+    uploadAttachment: (
+      projectUid: string,
+      tableUid: string,
+      fieldUid: string,
+      data: UploadAttachmentPayload,
+      params: RequestParams = {},
+    ) =>
+      this.request<UploadAttachmentData, string>({
+        path: `/projects/${projectUid}/tables/${tableUid}/fields/${fieldUid}/attachments`,
+        method: "POST",
+        body: data,
+        type: ContentType.FormData,
+        format: "json",
         ...params,
       }),
 

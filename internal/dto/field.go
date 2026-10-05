@@ -15,7 +15,7 @@ type Field struct {
 	// Label is the title of the field.
 	Label string `json:"label"`
 	// Type is the type of the field.
-	Type string `json:"type" enums:"text,single_select,multi_select,datetime,number,checkbox,formula"`
+	Type string `json:"type" enums:"text,single_select,multi_select,datetime,number,checkbox,attachment,formula"`
 	// Metadata is the type-specific configuration, e.g. select options or the formula expression.
 	Metadata map[string]interface{} `json:"metadata"`
 	// Position is the order of the field in the table, starting from 0. The first field is the primary field.

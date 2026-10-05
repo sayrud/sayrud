@@ -22,7 +22,7 @@ const listEl = ref<HTMLElement>()
 
 const selected = computed<string[]>(() => {
   const v = props.value
-  if (Array.isArray(v)) return v
+  if (Array.isArray(v)) return v.filter((uid): uid is string => typeof uid === 'string')
   return typeof v === 'string' && v ? [v] : []
 })
 

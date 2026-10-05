@@ -52,12 +52,13 @@ function onMouseDown(e: MouseEvent) {
   const target = e.target as Node
   if (el.value?.contains(target)) return
   // The dropdowns and date panels of Arco are mounted on body, clicking them should not close the panel.
-  if ((target as Element).closest?.('.arco-trigger-popup, .arco-modal-container, .floating-panel')) return
+  if ((target as Element).closest?.('.arco-trigger-popup, .arco-modal-container, .arco-image-preview, .floating-panel')) return
   emit('close')
 }
 
 function onKey(e: KeyboardEvent) {
   if (e.key === 'Escape') {
+    if (document.querySelector('.arco-image-preview:not(.arco-image-preview-hide)')) return
     e.stopPropagation()
     emit('close')
   }
@@ -108,6 +109,7 @@ defineExpose({ place })
 <style scoped>
 .floating-panel {
   position: fixed;
+  max-width: calc(100vw - 16px);
   z-index: 1100;
   background: var(--bg-popover);
   border-radius: 8px;

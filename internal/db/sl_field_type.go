@@ -15,6 +15,7 @@ var AllFieldTypes = []SLFieldType{
 	DateTimeFieldType,
 	NumberFieldType,
 	CheckboxFieldType,
+	AttachmentFieldType,
 	FormulaFieldType,
 }
 
@@ -35,6 +36,7 @@ const (
 	DateTimeFieldType     SLFieldType = "datetime"
 	NumberFieldType       SLFieldType = "number"
 	CheckboxFieldType     SLFieldType = "checkbox"
+	AttachmentFieldType   SLFieldType = "attachment"
 	FormulaFieldType      SLFieldType = "formula"
 	UnknownFieldType      SLFieldType = "unknown"
 )
@@ -54,6 +56,8 @@ func (t SLFieldType) LabelKey() string {
 		return "field_type::number"
 	case CheckboxFieldType:
 		return "field_type::checkbox"
+	case AttachmentFieldType:
+		return "field_type::attachment"
 	case FormulaFieldType:
 		return "field_type::formula"
 	default:

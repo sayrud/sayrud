@@ -51,6 +51,23 @@ func TestParseDate(t *testing.T) {
 	assert.False(t, ok)
 }
 
+func TestAttachmentConversions(t *testing.T) {
+	field := newTestField("fldFiles", db.AttachmentFieldType, map[string]interface{}{})
+	values := []interface{}{
+		map[string]interface{}{"uid": "filOne", "name": "photo.png", "size": 12.0, "contentType": "image/png", "url": "/_/projects/prjOne/attachments/filOne"},
+		map[string]interface{}{"uid": "filTwo", "name": "report.pdf", "size": 24.0, "contentType": "application/pdf", "url": "/_/projects/prjOne/attachments/filTwo"},
+	}
+	raw, err := json.Marshal(map[string]interface{}{field.UID: values})
+	require.NoError(t, err)
+	records := []*db.SLRecord{{UID: "recOne", Data: raw}}
+	conversion, err := convertField(field, db.TextFieldType, map[string]interface{}{}, records, testBoolText)
+	require.NoError(t, err)
+	require.Equal(t, "photo.png, report.pdf", conversion.values["recOne"])
+	conversion, err = convertField(field, db.AttachmentFieldType, map[string]interface{}{}, records, testBoolText)
+	require.NoError(t, err)
+	require.Equal(t, values, conversion.values["recOne"])
+}
+
 func newTestField(uid string, fieldType db.SLFieldType, metadata map[string]interface{}) *db.SLField {
 	return &db.SLField{UID: uid, Type: fieldType, Metadata: datatypes.NewJSONType[db.SLFieldMetadata](metadata)}
 }

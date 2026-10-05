@@ -4,6 +4,7 @@ import { computed, nextTick, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import SelectPanel from '@/components/cell/SelectPanel.vue'
+import AttachmentPanel from '@/components/cell/AttachmentPanel.vue'
 import FloatingPanel, { type Anchor } from '@/components/common/FloatingPanel.vue'
 import type { CellValue, SLField, SLRecord } from '@/types/bitable'
 import { formatNumber, parseNumber } from '@/utils/format'
@@ -35,6 +36,8 @@ const isTextual = computed(() => props.field.type === 'text' || props.field.type
 
 const draft = ref('')
 const inputEl = ref<HTMLTextAreaElement | HTMLInputElement>()
+const attachmentBusy = ref(false)
+const attachmentPreview = ref(false)
 let done = false
 
 onMounted(() => {
@@ -137,6 +140,18 @@ function onDate(_v: unknown, date?: Date) {
       @blur="commit('none')"
     />
   </div>
+
+  <FloatingPanel
+    v-else-if="field.type === 'attachment'"
+    :anchor="anchor"
+    placement="bottom"
+    :width="Math.max(anchor.width ?? 0, 420)"
+    :close-on-outside="!attachmentBusy && !attachmentPreview"
+    :hidden="attachmentPreview"
+    @close="!attachmentBusy && !attachmentPreview && emit('cancel')"
+  >
+    <AttachmentPanel :field="field" :value="value" :record-u-i-d="record.uid" autofocus @change="(v) => emit('change', v)" @busy="attachmentBusy = $event" @preview="attachmentPreview = $event" />
+  </FloatingPanel>
 
   <FloatingPanel
     v-else-if="field.type === 'single_select' || field.type === 'multi_select'"

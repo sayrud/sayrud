@@ -41,6 +41,8 @@ type UploadOptions struct {
 	Category Category
 	// UserID is the uploader.
 	UserID int64
+	// ProjectID scopes attachments to a project; avatars leave it at zero.
+	ProjectID int64
 	// Name is the original file name, only its last element is kept and the control characters are removed.
 	Name   string
 	Reader io.Reader
@@ -82,6 +84,7 @@ func Upload(ctx context.Context, opts UploadOptions) (*db.File, error) {
 		ContentType: contentType,
 		SHA256:      hex.EncodeToString(hash.Sum(nil)),
 		UserID:      opts.UserID,
+		ProjectID:   opts.ProjectID,
 	})
 	if err != nil {
 		if delErr := Default.Delete(context.WithoutCancel(ctx), p); delErr != nil {

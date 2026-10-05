@@ -97,7 +97,7 @@ function cleanViewConfig(config: ViewConfig, fieldUID: string, mode: 'delete' | 
   const drop = <T extends { fieldUID: string }>(list: T[]) => list.filter((x) => x.fieldUID !== fieldUID)
   c.filter = drop(c.filter)
   delete c.summary[fieldUID]
-  if (mode === 'delete' || mode === 'formula') {
+  if (mode === 'delete' || mode === 'formula' || mode === 'attachment') {
     c.sort = drop(c.sort)
     c.group = drop(c.group)
   }

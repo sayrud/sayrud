@@ -1,10 +1,12 @@
 <script setup lang="ts">
-import { Check } from '@lucide/vue'
+import { Check, ChevronDown, File, Plus } from '@lucide/vue'
 import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 
 import { useBaseStore } from '@/stores/base'
 import type { SelectOption, SLField, SLRecord } from '@/types/bitable'
 import { findOption } from '@/utils/format'
+import { attachmentsOf, isAttachmentImage } from '@/utils/attachments'
 import SelectTag from './SelectTag.vue'
 
 const props = withDefaults(
@@ -15,11 +17,14 @@ const props = withDefaults(
     lines?: number
     /** Allows the tags to wrap when shown in cards. */
     wrap?: boolean
+    /** Opens the attachment cell's panel from the grid. */
+    attachmentControls?: boolean
   }>(),
-  { lines: 1, wrap: false },
+  { lines: 1, wrap: false, attachmentControls: false },
 )
 
-const emit = defineEmits<{ toggle: [] }>()
+const emit = defineEmits<{ toggle: []; open: [] }>()
+const { t } = useI18n()
 
 const store = useBaseStore()
 
@@ -35,13 +40,14 @@ const options = computed<SelectOption[]>(() => {
     return o ? [o] : []
   }
   if (props.field.type === 'multi_select' && Array.isArray(v)) {
-    return v.map((uid) => findOption(props.field, uid)).filter(Boolean) as SelectOption[]
+    return v.flatMap((uid) => typeof uid === 'string' ? findOption(props.field, uid) ?? [] : [])
   }
   return []
 })
 
 const formula = computed(() => (props.field.type === 'formula' ? store.ctx.formula(props.record, props.field) : null))
 const text = computed(() => store.ctx.text(props.record, props.field))
+const attachments = computed(() => attachmentsOf(value.value))
 const isNumeric = computed(
   () =>
     props.field.type === 'number' ||
@@ -60,6 +66,51 @@ const isNumeric = computed(
       <div class="tags" :class="{ wrap: wrap || lines > 1 }">
         <SelectTag v-for="o in options" :key="o.uid" :name="o.name" :color="o.color" />
       </div>
+    </template>
+    <template v-else-if="field.type === 'attachment'">
+      <div class="attachment-thumbnails" :class="{ wrap }">
+        <a-button
+          v-if="attachmentControls && store.canEdit"
+          type="text"
+          size="small"
+          class="attachment-add"
+          :title="t('cell.addLocalFiles')"
+          :aria-label="t('cell.addLocalFiles')"
+          @mousedown.stop.prevent
+          @click.stop="emit('open')"
+        >
+          <template #icon><Plus :size="16" /></template>
+        </a-button>
+        <a-button
+          v-for="file in attachments"
+          :key="file.uid"
+          type="secondary"
+          size="small"
+          class="attachment-thumb"
+          :href="attachmentControls ? undefined : file.url"
+          :title="file.name"
+          :aria-label="file.name"
+          :target="attachmentControls ? undefined : '_blank'"
+          :rel="attachmentControls ? undefined : 'noopener noreferrer'"
+          @mousedown="attachmentControls && ($event.stopPropagation(), $event.preventDefault())"
+          @click.stop="attachmentControls && emit('open')"
+        >
+          <a-image v-if="isAttachmentImage(file)" :src="file.url" :alt="file.name" width="100%" height="100%" fit="cover" :preview="false" :show-loader="false" loading="lazy" />
+          <File v-else :size="18" />
+        </a-button>
+      </div>
+      <a-button
+        v-if="attachmentControls && (attachments.length || store.canEdit)"
+        type="text"
+        size="mini"
+        class="attachment-arrow"
+        :title="field.label"
+        :aria-label="field.label"
+        @mousedown.stop.prevent
+        @click.stop="emit('open')"
+      >
+        <template #icon><ChevronDown :size="14" /></template>
+      </a-button>
     </template>
     <template v-else-if="field.type === 'formula'">
       <span v-if="formula?.error" class="formula-error" :title="formula.error">{{ formula.error }}</span>
@@ -83,6 +134,13 @@ const isNumeric = computed(
   justify-content: flex-end;
   font-variant-numeric: tabular-nums;
 }
+.attachment-thumbnails { display: flex; align-items: center; gap: 6px; min-width: 0; overflow: hidden; height: 100%; }
+.attachment-thumbnails.wrap { flex-wrap: wrap; }
+.attachment-thumb, .attachment-add { display: flex; align-items: center; justify-content: center; flex: none; width: 28px; height: 28px; padding: 0; border: 1px solid var(--line-border); border-radius: 4px; overflow: hidden; background: var(--fill-hover); color: var(--text-caption); cursor: pointer; }
+.attachment-thumb :deep(.arco-image) { display: block; border-radius: 0; }
+.attachment-thumb :deep(.arco-image-img) { display: block; }
+.attachment-add { border-color: transparent; }
+.attachment-arrow.arco-btn { margin-left: auto; flex: none; width: 22px; height: 22px; padding: 0; border-radius: 4px; color: var(--text-caption); }
 .text {
   display: -webkit-box;
   -webkit-box-orient: vertical;

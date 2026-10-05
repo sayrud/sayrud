@@ -54,7 +54,7 @@ const apiKeyPlaceholder = computed(() =>
   original.value?.apiKeySet && !clearSavedAPIKey.value ? t('admin.ai.apiKeyKeep') : t('admin.ai.apiKeyOptional'),
 )
 
-// 实际请求地址是接口根地址去掉末尾斜杠后加上 /chat/completions。
+// Append /chat/completions to the API base URL after trimming trailing slashes.
 const requestURL = computed(() => {
   const base = normalizeAIBaseURL(draft.baseURL)
   return base ? `${base}/chat/completions` : ''

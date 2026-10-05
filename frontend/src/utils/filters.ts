@@ -60,6 +60,7 @@ export const FILTER_OPERATIONS: Record<FieldType, OperationOption[]> = {
     ...EMPTY,
   ],
   checkbox: [op('eq', () => t('filter.eq'))],
+  attachment: [...EMPTY],
   formula: [],
 }
 

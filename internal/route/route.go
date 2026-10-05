@@ -176,6 +176,7 @@ func New(opts Options) *flamego.Flame {
 
 				f.Get("/ws", api.Collab.Serve)
 				f.Get("/field-shortcuts", api.Shortcut.List)
+				f.Get("/attachments/{fileUID}", api.Schemaless.Attachment)
 
 				f.Group("/tables", func() {
 					f.Combo("").
@@ -205,6 +206,7 @@ func New(opts Options) *flamego.Flame {
 									Delete(canEdit, api.Schemaless.DeleteField)
 								f.Put("/position", canEdit, form.Bind(form.UpdateFieldPosition{}), api.Schemaless.UpdateFieldPosition)
 								f.Post("/shortcut/run", canEdit, form.Bind(form.RunFieldShortcut{}), api.Shortcut.Run)
+								f.Post("/attachments", canEdit, api.Schemaless.LimitAttachmentUpload, api.Schemaless.UploadAttachment)
 							}, api.Schemaless.Fielder)
 						})
 

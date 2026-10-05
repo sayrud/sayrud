@@ -15,12 +15,12 @@ import { useThemeStore } from '@/stores/theme'
 const props = withDefaults(
   defineProps<{
     language?: 'javascript' | 'json'
-    /** 固定高度，设置后忽略 minHeight 与 maxHeight。 */
+    /** Fixed height overrides minHeight and maxHeight. */
     height?: string
     minHeight?: string
     maxHeight?: string
     readonly?: boolean
-    /** 外框显示为错误状态。 */
+    /** Display the border in the error state. */
     error?: boolean
     ariaLabel?: string
   }>(),
@@ -35,7 +35,7 @@ const props = withDefaults(
   },
 )
 const model = defineModel<string>({ required: true })
-// Mod-Enter 在编辑器内触发，默认的插入空行被覆盖。
+// Mod-Enter submits from the editor instead of inserting a blank line.
 const emit = defineEmits<{ submit: [] }>()
 
 const themeStore = useThemeStore()
@@ -45,7 +45,7 @@ let view: EditorView | undefined
 
 const themeSlot = new Compartment()
 
-// 颜色取自 CSS 变量，亮暗主题只需切换变量。
+// CSS variables supply colors, so switching them updates the light and dark themes.
 const highlightStyle = HighlightStyle.define([
   { tag: [tags.keyword, tags.controlKeyword, tags.moduleKeyword, tags.operatorKeyword, tags.definitionKeyword, tags.modifier, tags.self], color: 'var(--code-keyword)' },
   { tag: [tags.string, tags.special(tags.string), tags.regexp, tags.escape], color: 'var(--code-string)' },

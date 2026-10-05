@@ -334,7 +334,7 @@ function startTypingEdit(text: string) {
   const rc = rect.value
   if (!rc) return
   const col = cols.value[rc.a.c]
-  if (!col || col.field.type === 'formula' || col.field.type === 'checkbox' || col.field.type === 'datetime') return
+  if (!col || col.field.type === 'formula' || col.field.type === 'checkbox' || col.field.type === 'datetime' || col.field.type === 'attachment') return
   startEdit(text)
 }
 
@@ -469,11 +469,12 @@ const expanded = computed(() => {
 
 function startEdit(initial?: string) {
   const rc = rect.value
-  if (!rc || !store.canEdit) return
+  if (!rc) return
   const col = cols.value[rc.a.c]
   const rec = layout.value.nav[rc.a.r]
   if (!col || !rec) return
   const f = col.field
+  if (!store.canEdit && f.type !== 'attachment') return
   if (f.type === 'formula') {
     Message.info({ content: t('grid.formulaReadonly'), duration: 1500 })
     return
@@ -483,7 +484,8 @@ function startEdit(initial?: string) {
     return
   }
   scrollIntoView(rc.a.r, rc.a.c)
-  nextTick(() => {
+  // Let the cell's automatic scroll finish before opening an editor that closes on scrolling.
+  nextTick(() => requestAnimationFrame(() => {
     const item = recordItems.value.get(rec.uid)
     const cellEl = scroller.value?.querySelector(`[data-cell="${rec.uid}:${f.uid}"]`)
     if (!item || !cellEl) return
@@ -499,7 +501,13 @@ function startEdit(initial?: string) {
       },
       anchor: cellEl.getBoundingClientRect(),
     }
-  })
+  }))
+}
+
+function openAttachment(item: RecordItem, col: Col) {
+  focusGrid()
+  select(item.nav, col.index)
+  startEdit()
 }
 
 function onEditorCommit(value: CellValue, move: EditorMove) {
@@ -597,7 +605,7 @@ function onKeyDown(e: KeyboardEvent) {
   }
   if (e.key.length === 1 && !e.altKey && rect.value) {
     const col = cols.value[rect.value.a.c]
-    if (!col || col.field.type === 'formula' || col.field.type === 'checkbox') return
+    if (!col || col.field.type === 'formula' || col.field.type === 'checkbox' || col.field.type === 'attachment') return
     e.preventDefault()
     startEdit(col.field.type === 'datetime' ? undefined : e.key)
   }
@@ -720,7 +728,7 @@ async function pasteText(text: string) {
   for (const tg of targets) {
     const rec = nav[tg.r]
     const f = store.fields.find((x) => x.uid === cols.value[tg.c]!.field.uid)
-    if (!rec || !f || f.type === 'formula') continue
+    if (!rec || !f || f.type === 'formula' || f.type === 'attachment') continue
     if (!patches.has(rec.uid)) patches.set(rec.uid, {})
     patches.get(rec.uid)![f.uid] = textToValue(f, tg.text).value
   }
@@ -863,7 +871,7 @@ function groupOption(node: GroupNode) {
 }
 function groupOptions(node: GroupNode) {
   if (node.field.type !== 'multi_select' || !Array.isArray(node.value)) return []
-  return node.value.map((u) => findOption(node.field, u)).filter(Boolean)
+  return node.value.flatMap((u) => typeof u === 'string' ? findOption(node.field, u) ?? [] : [])
 }
 
 // ---- Header: dragging to reorder, resizing and field menu ----
@@ -1002,7 +1010,7 @@ function openFieldMenu(e: MouseEvent, col: Col) {
     {
       label: t('grid.filterBy'),
       icon: ListFilter,
-      disabled: !queryable,
+      disabled: f.type === 'formula',
       onClick: () => (store.toolbarRequest = { panel: 'filter', fieldUID: f.uid }),
     },
     { divider: true },
@@ -1202,7 +1210,9 @@ defineExpose({ addRecord })
                   :field="col.field"
                   :record="item.record"
                   :lines="lines"
+                  attachment-controls
                   @toggle="toggleCheckbox(item.record, col.field)"
+                  @open="openAttachment(item, col)"
                 />
                 <span
                   v-if="col.field.shortcut && jobAt(item.record.uid, col.field.uid)"
@@ -1574,6 +1584,10 @@ defineExpose({ addRecord })
   line-height: 15px;
   white-space: nowrap;
   text-overflow: ellipsis;
+}
+.data-cell:not(.active) :deep(.attachment-add),
+.data-cell:not(.active) :deep(.attachment-arrow) {
+  display: none;
 }
 .data-cell.active::before {
   content: '';

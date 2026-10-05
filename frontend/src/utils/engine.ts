@@ -83,6 +83,7 @@ export class TableContext {
         return new Date(String(v))
       case 'single_select':
       case 'multi_select':
+      case 'attachment':
         return valueToText(f, v)
       default:
         return String(v)
@@ -169,7 +170,7 @@ export function matchFilter(ctx: TableContext, record: SLRecord, filter: QueryFi
 
   switch (field.type) {
     case 'multi_select': {
-      const values = Array.isArray(raw) ? raw : []
+      const values = Array.isArray(raw) ? raw.filter((v): v is string => typeof v === 'string') : []
       if (op === 'eq') return values.includes(filter.value)
       if (op === 'neq') return !values.includes(filter.value)
       const list = parseList(filter.value)

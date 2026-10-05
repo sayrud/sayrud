@@ -1,6 +1,6 @@
-import type { FieldType, MemberRole, Project, ProjectMember, SLField, SLRecord, SLTable, SLView, UserBrief } from '@/types/bitable'
+import type { Attachment, FieldType, MemberRole, Project, ProjectMember, SLField, SLRecord, SLTable, SLView, UserBrief } from '@/types/bitable'
 import type { Changeset } from '@/collab/types'
-import type { SLField as ApiField, SLRecord as ApiRecord, SLView as ApiView } from './api'
+import type { RequestParams, SLField as ApiField, SLRecord as ApiRecord, SLView as ApiView } from './api'
 import { client } from './client'
 
 export interface ProjectListItem extends Project {
@@ -22,6 +22,11 @@ export interface TableSnapshot {
 const asFields = (list: ApiField[]) => list as unknown as SLField[]
 const asRecords = (list: ApiRecord[]) => list as unknown as SLRecord[]
 const asViews = (list: ApiView[]) => list as unknown as SLView[]
+
+export const attachmentsApi = {
+  upload: async (projectUID: string, field: SLField, file: File, params: RequestParams = {}): Promise<Attachment> =>
+    (await client.projects.uploadAttachment(projectUID, field.tableUID, field.uid, { file }, params)).data,
+}
 
 export const projectsApi = {
   list: async () => (await client.projects.listProjects({ pageSize: 1000 })).data as { projects: ProjectListItem[]; total: number },

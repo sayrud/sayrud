@@ -1,8 +1,25 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
+import type { Attachment, SLField } from '../src/types/bitable.ts'
 import { compileFormula, FormulaError } from '../src/utils/formula.ts'
-import { formatNumber, parseNumber, parseTSV, toTSV } from '../src/utils/format.ts'
+import { formatNumber, isEmptyValue, parseNumber, parseTSV, textToValue, toTSV, valueToText } from '../src/utils/format.ts'
+
+test('attachments copy and search by filename and cannot be fabricated from pasted text', () => {
+  const field: SLField<'attachment'> = {
+    uid: 'fldAttachment', tableUID: 'tblTest', label: 'Attachment', type: 'attachment',
+    metadata: {}, position: 1, createdAt: '', updatedAt: '',
+  }
+  const files: Attachment[] = [
+    { uid: 'filePhoto', name: 'photo.png', size: 12, contentType: 'image/png', url: '/files/photo' },
+    { uid: 'fileNotes', name: 'notes.pdf', size: 34, contentType: 'application/pdf', url: '/files/notes' },
+  ]
+  assert.equal(valueToText(field, files), 'photo.png, notes.pdf')
+  assert.equal(valueToText(field, []), '')
+  assert.equal(isEmptyValue([]), true)
+  assert.equal(isEmptyValue(files), false)
+  assert.equal(textToValue(field, 'photo.png').value, null)
+})
 
 test('formulas respect precedence and resolve unique field references', () => {
   assert.equal(compileFormula('2 + 3 * 4').run(() => null), 14)

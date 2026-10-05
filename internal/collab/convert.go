@@ -64,6 +64,8 @@ func convertField(old *db.SLField, newType db.SLFieldType, metadata map[string]i
 	for uid, raw := range oldValues {
 		var next interface{}
 		switch {
+		case old.Type == db.AttachmentFieldType && newType == db.AttachmentFieldType:
+			next = raw
 		case selectToSelect:
 			var values []interface{}
 			switch v := raw.(type) {
@@ -197,6 +199,16 @@ func valueToText(field *db.SLField, value interface{}, boolText func(bool) strin
 		return boolText(v)
 	case []interface{}:
 		names := make([]string, 0, len(v))
+		if field.Type == db.AttachmentFieldType {
+			for _, value := range v {
+				if attachment, ok := value.(map[string]interface{}); ok {
+					if name, ok := attachment["name"].(string); ok && name != "" {
+						names = append(names, name)
+					}
+				}
+			}
+			return strings.Join(names, ", ")
+		}
 		for _, uid := range v {
 			if uid, ok := uid.(string); ok {
 				if name := optionName(field, uid); name != "" {

@@ -27,7 +27,7 @@
 Sayrud is a self-hosted collaborative spreadsheet database for organizing projects, tasks, and shared data.
 
 - Grid, kanban, gallery, and form views over the same table.
-- Text, number, date, single-select, multi-select, checkbox, and formula fields.
+- Text, number, date, single-select, multi-select, checkbox, attachment, and formula fields.
 - Custom JavaScript field shortcuts published by admins. They regenerate automatically when the referenced fields change.
 - Each view has its own filters, sorting, grouping, and visible fields.
 - Edit together in real time and see who is online and which cells they are editing.

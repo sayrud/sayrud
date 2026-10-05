@@ -513,6 +513,25 @@ definitions:
     - newLast7Days
     - total
     type: object
+  Attachment:
+    properties:
+      contentType:
+        type: string
+      name:
+        type: string
+      size:
+        type: integer
+      uid:
+        type: string
+      url:
+        type: string
+    required:
+    - contentType
+    - name
+    - size
+    - uid
+    - url
+    type: object
   AuthProviderBrief:
     properties:
       icon:
@@ -717,6 +736,7 @@ definitions:
         - datetime
         - number
         - checkbox
+        - attachment
         - formula
         type: string
     required:
@@ -807,6 +827,7 @@ definitions:
         - datetime
         - number
         - checkbox
+        - attachment
         - formula
         type: string
     type: object
@@ -1283,6 +1304,7 @@ definitions:
         - datetime
         - number
         - checkbox
+        - attachment
         - formula
         type: string
       uid:
@@ -1910,6 +1932,7 @@ definitions:
         - datetime
         - number
         - checkbox
+        - attachment
         - formula
         type: string
     type: object
@@ -3979,6 +4002,48 @@ paths:
           schema:
             type: string
       summary: Apply the AI advice
+  /projects/{projectUID}/attachments/{fileUID}:
+    get:
+      description: Read a file uploaded in this project. Project membership is checked
+        on every request.
+      operationId: getAttachment
+      parameters:
+      - description: Project UID
+        in: path
+        name: projectUID
+        required: true
+        type: string
+      - description: Attachment UID
+        in: path
+        name: fileUID
+        required: true
+        type: string
+      - description: Force file download
+        in: query
+        name: download
+        type: boolean
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: file
+        "401":
+          description: Not signed in
+          schema:
+            type: string
+        "403":
+          description: Permission denied
+          schema:
+            type: string
+        "404":
+          description: Project or attachment not found
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      summary: Read an attachment
   /projects/{projectUID}/field-shortcuts:
     get:
       description: List the enabled custom shortcuts, with the forms to configure
@@ -4655,6 +4720,66 @@ paths:
           schema:
             type: string
       summary: Update a field
+  /projects/{projectUID}/tables/{tableUID}/fields/{fieldUID}/attachments:
+    post:
+      consumes:
+      - multipart/form-data
+      description: Upload a single file up to 20 MiB for an attachment field. The
+        returned descriptor can be used in record values within this project.
+      operationId: uploadAttachment
+      parameters:
+      - description: Project UID
+        in: path
+        name: projectUID
+        required: true
+        type: string
+      - description: Table UID
+        in: path
+        name: tableUID
+        required: true
+        type: string
+      - description: Attachment field UID
+        in: path
+        name: fieldUID
+        required: true
+        type: string
+      - description: Attachment file
+        in: formData
+        name: file
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/Attachment'
+        "400":
+          description: Invalid multipart body or field type
+          schema:
+            type: string
+        "401":
+          description: Not signed in
+          schema:
+            type: string
+        "403":
+          description: Permission denied
+          schema:
+            type: string
+        "404":
+          description: Project, table or field not found
+          schema:
+            type: string
+        "413":
+          description: File is too large
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      summary: Upload an attachment
   /projects/{projectUID}/tables/{tableUID}/fields/{fieldUID}/position:
     put:
       consumes:

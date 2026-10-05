@@ -157,6 +157,8 @@ func recordErrorResponse(err error) (statusCode int, msg string, ok bool) {
 		return http.StatusBadRequest, "record::field_type_mismatch", true
 	case errors.Is(err, db.ErrSLFieldNotFound):
 		return http.StatusBadRequest, "record::referenced_field_not_found", true
+	case errors.Is(err, routeutil.ErrInvalidAttachment):
+		return http.StatusBadRequest, "attachment::invalid_reference", true
 	default:
 		return 0, "", false
 	}

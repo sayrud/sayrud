@@ -77,7 +77,7 @@ type FieldAttrs struct {
 	// Label is the title of the field.
 	Label *string `json:"label,omitempty"`
 	// Type is the type of the field, the values are converted for field.setType.
-	Type *string `json:"type,omitempty" enums:"text,single_select,multi_select,datetime,number,checkbox,formula"`
+	Type *string `json:"type,omitempty" enums:"text,single_select,multi_select,datetime,number,checkbox,attachment,formula"`
 	// Metadata is the type-specific configuration, e.g. select options or the formula expression.
 	Metadata map[string]interface{} `json:"metadata,omitempty"`
 	// Shortcut is the optional shortcut of the new field for field.add.

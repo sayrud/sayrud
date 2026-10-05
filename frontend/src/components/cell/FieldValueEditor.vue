@@ -10,6 +10,7 @@ import { formatNumber, optionsOf, parseNumber } from '@/utils/format'
 import CellDisplay from './CellDisplay.vue'
 import SelectPanel from './SelectPanel.vue'
 import SelectTag from './SelectTag.vue'
+import AttachmentPanel from './AttachmentPanel.vue'
 
 const { t } = useI18n()
 
@@ -22,7 +23,7 @@ const props = defineProps<{
   /** Shows the value only, e.g. for the viewers. */
   readonly?: boolean
 }>()
-const emit = defineEmits<{ change: [value: CellValue] }>()
+const emit = defineEmits<{ change: [value: CellValue]; busy: [value: boolean] }>()
 
 const md = computed(() => props.field.metadata as Record<string, unknown>)
 
@@ -56,7 +57,7 @@ function openSelect(e: MouseEvent) {
 }
 const selectedOptions = computed(() => {
   const v = props.value
-  const uids = Array.isArray(v) ? v : typeof v === 'string' && v ? [v] : []
+  const uids = Array.isArray(v) ? v.filter((uid): uid is string => typeof uid === 'string') : typeof v === 'string' && v ? [v] : []
   const opts = optionsOf(props.field)
   return uids.map((u) => opts.find((o) => o.uid === u)).filter(Boolean) as SelectOption[]
 })
@@ -76,7 +77,9 @@ const formulaRecord = computed(() => props.record)
 
 <template>
   <div class="field-editor" :class="`type-${field.type}`">
-    <div v-if="readonly && record" class="readonly readonly-value">
+    <AttachmentPanel v-if="field.type === 'attachment'" :field="field" :value="value" :record-u-i-d="record?.uid" :readonly="readonly" @change="emit('change', $event)" @busy="emit('busy', $event)" />
+
+    <div v-else-if="readonly && record" class="readonly readonly-value">
       <CellDisplay :field="field" :record="record" :lines="8" wrap />
     </div>
 

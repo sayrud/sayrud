@@ -139,7 +139,7 @@ export const TEMPLATES: ProviderTemplate[] = [
   },
 ]
 
-/** 可选图标，与 ProviderIcon 支持的取值一致。 */
+/** Available icons match the values supported by ProviderIcon. */
 export const ICONS = ['github', 'gitlab', 'gogs', 'gitea', 'google', 'microsoft', 'windows', 'keycloak', 'oidc', 'oauth2', 'saml', 'ldap']
 
 /** Data of the admin form, the empty secrets keep the saved ones. */

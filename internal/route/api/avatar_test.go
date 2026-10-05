@@ -75,7 +75,7 @@ func (s *avatarFilesStore) Create(_ stdcontext.Context, opts db.CreateFileOption
 	file := &db.File{
 		Model: dbutil.Model{ID: int64(len(s.files) + 1), CreatedAt: time.Now()},
 		UID:   opts.UID, Category: opts.Category, Storage: opts.Storage, Path: opts.Path,
-		Name: opts.Name, Size: opts.Size, ContentType: opts.ContentType, SHA256: opts.SHA256, UserID: opts.UserID,
+		Name: opts.Name, Size: opts.Size, ContentType: opts.ContentType, SHA256: opts.SHA256, UserID: opts.UserID, ProjectID: opts.ProjectID,
 	}
 	s.files[file.UID] = file
 	return file, nil

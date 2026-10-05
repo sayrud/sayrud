@@ -2694,6 +2694,67 @@ const docTemplate = `{
                 }
             }
         },
+        "/projects/{projectUID}/attachments/{fileUID}": {
+            "get": {
+                "description": "Read a file uploaded in this project. Project membership is checked on every request.",
+                "summary": "Read an attachment",
+                "operationId": "getAttachment",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Project UID",
+                        "name": "projectUID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Attachment UID",
+                        "name": "fileUID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Force file download",
+                        "name": "download",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "file"
+                        }
+                    },
+                    "401": {
+                        "description": "Not signed in",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "403": {
+                        "description": "Permission denied",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "404": {
+                        "description": "Project or attachment not found",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
         "/projects/{projectUID}/field-shortcuts": {
             "get": {
                 "description": "List the enabled custom shortcuts, with the forms to configure them.",
@@ -3714,6 +3775,93 @@ const docTemplate = `{
                     },
                     "404": {
                         "description": "Project, table or field not found",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/projects/{projectUID}/tables/{tableUID}/fields/{fieldUID}/attachments": {
+            "post": {
+                "description": "Upload a single file up to 20 MiB for an attachment field. The returned descriptor can be used in record values within this project.",
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "Upload an attachment",
+                "operationId": "uploadAttachment",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Project UID",
+                        "name": "projectUID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Table UID",
+                        "name": "tableUID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Attachment field UID",
+                        "name": "fieldUID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "file",
+                        "description": "Attachment file",
+                        "name": "file",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/Attachment"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid multipart body or field type",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "401": {
+                        "description": "Not signed in",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "403": {
+                        "description": "Permission denied",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "404": {
+                        "description": "Project, table or field not found",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "413": {
+                        "description": "File is too large",
                         "schema": {
                             "type": "string"
                         }
@@ -5395,6 +5543,33 @@ const docTemplate = `{
                 }
             }
         },
+        "Attachment": {
+            "type": "object",
+            "required": [
+                "contentType",
+                "name",
+                "size",
+                "uid",
+                "url"
+            ],
+            "properties": {
+                "contentType": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "size": {
+                    "type": "integer"
+                },
+                "uid": {
+                    "type": "string"
+                },
+                "url": {
+                    "type": "string"
+                }
+            }
+        },
         "AuthProviderBrief": {
             "type": "object",
             "required": [
@@ -5659,6 +5834,7 @@ const docTemplate = `{
                         "datetime",
                         "number",
                         "checkbox",
+                        "attachment",
                         "formula"
                     ]
                 }
@@ -5787,6 +5963,7 @@ const docTemplate = `{
                         "datetime",
                         "number",
                         "checkbox",
+                        "attachment",
                         "formula"
                     ]
                 }
@@ -6444,6 +6621,7 @@ const docTemplate = `{
                         "datetime",
                         "number",
                         "checkbox",
+                        "attachment",
                         "formula"
                     ]
                 },
@@ -7247,6 +7425,7 @@ const docTemplate = `{
                         "datetime",
                         "number",
                         "checkbox",
+                        "attachment",
                         "formula"
                     ]
                 }

@@ -73,7 +73,12 @@ export function valueToText(field: SLField, value: CellValue): string {
       return findOption(field, String(value))?.name ?? ''
     case 'multi_select':
       return (Array.isArray(value) ? value : [])
-        .map((uid) => findOption(field, uid)?.name)
+        .map((uid) => typeof uid === 'string' ? findOption(field, uid)?.name : undefined)
+        .filter(Boolean)
+        .join(', ')
+    case 'attachment':
+      return (Array.isArray(value) ? value : [])
+        .map((file) => file && typeof file === 'object' ? file.name : '')
         .filter(Boolean)
         .join(', ')
     case 'datetime': {

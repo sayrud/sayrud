@@ -172,12 +172,20 @@ func (a *applier) addRecords(actions []Action) ([]Action, error) {
 	validator := routeutil.NewRecordValidator(a.fields)
 	uids := make([]string, 0, len(actions))
 	dataList := make([]json.RawMessage, 0, len(actions))
-	for _, action := range actions {
+	for i, action := range actions {
 		if !recordUIDPattern.MatchString(action.RecordUID) {
 			return nil, rejectf("collab::invalid_record_uid")
 		}
 		data, dropped := validator.Normalize(action.Values)
-		if dropped {
+		canonicalized, err := validator.ValidateAttachments(a.ctx, a.tx, a.table.ID, data)
+		if err != nil {
+			if errors.Is(err, routeutil.ErrInvalidAttachment) {
+				return nil, rejectf("attachment::invalid_reference")
+			}
+			return nil, err
+		}
+		actions[i].Values = data
+		if dropped || canonicalized {
 			a.dirty.addRecords(action.RecordUID)
 		}
 		a.change.AddRecord(action.RecordUID, lo.Keys(data))
@@ -238,7 +246,23 @@ func (a *applier) setRecords(actions []Action) ([]Action, error) {
 	validator := routeutil.NewRecordValidator(a.fields)
 	for _, record := range records {
 		data, dropped := validator.Normalize(dataSets[record.UID])
-		if dropped {
+		canonicalized, err := validator.ValidateAttachments(a.ctx, a.tx, a.table.ID, data)
+		if err != nil {
+			if errors.Is(err, routeutil.ErrInvalidAttachment) {
+				return nil, rejectf("attachment::invalid_reference")
+			}
+			return nil, err
+		}
+		for i := range kept {
+			if kept[i].RecordUID == record.UID {
+				for uid := range kept[i].Values {
+					if field := a.field(uid); field != nil && field.Type == db.AttachmentFieldType {
+						kept[i].Values[uid] = data[uid]
+					}
+				}
+			}
+		}
+		if dropped || canonicalized {
 			a.dirty.addRecords(record.UID)
 		}
 		jsonBytes, err := json.Marshal(data)

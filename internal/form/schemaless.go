@@ -23,7 +23,7 @@ type CreateFields struct {
 
 type CreateField struct {
 	Label string `json:"label" valid:"required"`
-	Type  string `json:"type" valid:"required" enums:"text,single_select,multi_select,datetime,number,checkbox,formula"`
+	Type  string `json:"type" valid:"required" enums:"text,single_select,multi_select,datetime,number,checkbox,attachment,formula"`
 	// Metadata is the type-specific configuration, e.g. select options or the formula expression.
 	Metadata map[string]interface{} `json:"metadata,omitempty"`
 } // @name CreateField
@@ -31,7 +31,7 @@ type CreateField struct {
 // UpdateField only updates the non-null properties.
 type UpdateField struct {
 	Label *string `json:"label,omitempty"`
-	Type  *string `json:"type,omitempty" enums:"text,single_select,multi_select,datetime,number,checkbox,formula"`
+	Type  *string `json:"type,omitempty" enums:"text,single_select,multi_select,datetime,number,checkbox,attachment,formula"`
 	// Metadata replaces the whole field configuration, it is required when the type changes.
 	Metadata map[string]interface{} `json:"metadata,omitempty"`
 } // @name UpdateField

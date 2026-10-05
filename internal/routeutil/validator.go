@@ -28,8 +28,12 @@ func Validate(ctx context.Context, tx *gorm.DB, tableID int64, data map[string]i
 		return nil, errors.Wrap(err, "list fields")
 	}
 
-	result, err := NewRecordValidator(fields).Validate(data)
+	validator := NewRecordValidator(fields)
+	result, err := validator.Validate(data)
 	if err != nil {
+		return nil, err
+	}
+	if _, err := validator.ValidateAttachments(ctx, tx, tableID, result); err != nil {
 		return nil, err
 	}
 	jsonBytes, err := json.Marshal(result)
@@ -147,6 +151,8 @@ func CheckValue(field *db.SLField, value interface{}) bool {
 			}
 		}
 		return true
+	case db.AttachmentFieldType:
+		return checkAttachmentValue(value)
 	default:
 		return false
 	}

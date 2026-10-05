@@ -9,9 +9,9 @@ declare module 'vue-router' {
   interface RouteMeta {
     admin?: boolean
     guest?: boolean
-    /** 高亮的菜单项路由名，子页面指向所属的列表页。 */
+    /** Route name of the highlighted menu item; child pages point to their parent list page. */
     nav?: string
-    /** 内容区使用加宽布局，用于带代码编辑器的页面。 */
+    /** Use a wider content area for pages with code editors. */
     wide?: boolean
   }
 }
