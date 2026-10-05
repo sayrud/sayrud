@@ -1244,6 +1244,24 @@ definitions:
     required:
     - fieldUID
     type: object
+  ResolveFieldOptions:
+    properties:
+      data:
+        additionalProperties: true
+        type: object
+      fieldUID:
+        type: string
+      metadata:
+        additionalProperties: true
+        type: object
+      type:
+        type: string
+    required:
+    - data
+    - fieldUID
+    - metadata
+    - type
+    type: object
   RunFieldShortcut:
     properties:
       recordUIDs:
@@ -4880,6 +4898,47 @@ paths:
           schema:
             type: string
       summary: Generate the cells of a field shortcut
+  /projects/{projectUID}/tables/{tableUID}/fields/options/resolve:
+    post:
+      consumes:
+      - application/json
+      operationId: resolveFieldOptions
+      parameters:
+      - description: Project UID
+        in: path
+        name: projectUID
+        required: true
+        type: string
+      - description: Table UID
+        in: path
+        name: tableUID
+        required: true
+        type: string
+      - description: Field configuration and record values
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/ResolveFieldOptions'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              additionalProperties: true
+              type: object
+            type: array
+        "400":
+          description: Invalid option reference
+          schema:
+            type: string
+        "403":
+          description: Permission denied
+          schema:
+            type: string
+      summary: Resolve referenced select options for a record or draft field
   /projects/{projectUID}/tables/{tableUID}/records:
     get:
       description: List the records of the table, the newest first.

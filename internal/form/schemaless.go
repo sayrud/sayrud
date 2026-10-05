@@ -21,6 +21,13 @@ type CreateFields struct {
 	Fields []CreateField `json:"fields" valid:"required"`
 } // @name CreateFields
 
+type ResolveFieldOptions struct {
+	FieldUID string                 `json:"fieldUID"`
+	Type     string                 `json:"type"`
+	Metadata map[string]interface{} `json:"metadata"`
+	Data     map[string]interface{} `json:"data"`
+} // @name ResolveFieldOptions
+
 type CreateField struct {
 	Label string `json:"label" valid:"required"`
 	Type  string `json:"type" valid:"required" enums:"text,single_select,multi_select,datetime,number,checkbox,attachment,formula"`

@@ -252,6 +252,7 @@ func (h *Hub) commit(ctx context.Context, project *db.Project, table *db.SLTable
 		h.broadcastChangeset(project, changeset, ternary(i == 0, sender, nil))
 	}
 	h.NotifyChange(ctx, project, table, &change)
+	h.notifyOptionReferences(ctx, project, table, operations)
 	return true, nil
 }
 
@@ -291,6 +292,7 @@ func (h *Hub) NotifyDirty(ctx context.Context, project *db.Project, table *db.SL
 		return err
 	}
 	h.broadcastChangeset(project, changeset, nil)
+	h.notifyOptionReferences(ctx, project, table, changeset.Operations)
 	return nil
 }
 

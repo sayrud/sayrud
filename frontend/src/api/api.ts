@@ -573,6 +573,13 @@ export interface QueryRecordsSort {
   order?: "asc" | "desc";
 }
 
+export interface ResolveFieldOptions {
+  data: Record<string, any>;
+  fieldUID: string;
+  metadata: Record<string, any>;
+  type: string;
+}
+
 export interface RunFieldShortcut {
   /** RecordUIDs are the records to generate if Scope is records. */
   recordUIDs?: string[];
@@ -1173,6 +1180,8 @@ export type ListChangesetsData = ListChangesetsResp;
 export type ListFieldsData = SLField[];
 
 export type CreateFieldsData = SLField[];
+
+export type ResolveFieldOptionsData = Record<string, any>[];
 
 export type UpdateFieldData = SLField;
 
@@ -2775,6 +2784,28 @@ export class Api<
     ) =>
       this.request<CreateFieldsData, string>({
         path: `/projects/${projectUid}/tables/${tableUid}/fields`,
+        method: "POST",
+        body: data,
+        type: ContentType.Json,
+        format: "json",
+        ...params,
+      }),
+
+    /**
+     * No description
+     *
+     * @name ResolveFieldOptions
+     * @summary Resolve referenced select options for a record or draft field
+     * @request POST:/projects/{projectUID}/tables/{tableUID}/fields/options/resolve
+     */
+    resolveFieldOptions: (
+      projectUid: string,
+      tableUid: string,
+      data: ResolveFieldOptions,
+      params: RequestParams = {},
+    ) =>
+      this.request<ResolveFieldOptionsData, string>({
+        path: `/projects/${projectUid}/tables/${tableUid}/fields/options/resolve`,
         method: "POST",
         body: data,
         type: ContentType.Json,

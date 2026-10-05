@@ -33,7 +33,8 @@ func Validate(custom *db.CustomFieldShortcut, fields []*db.SLField, field *db.SL
 				return nil, newError("shortcut::unsupported_type")
 			}
 			names := optionNames(field)
-			if item.Required && len(names) == 0 {
+			md, _ := field.Metadata.Data().(map[string]interface{})
+			if item.Required && len(names) == 0 && md["optionsReference"] == nil {
 				return nil, newError("shortcut::input_required", item.Label)
 			}
 			if len(lo.Uniq(names)) != len(names) {

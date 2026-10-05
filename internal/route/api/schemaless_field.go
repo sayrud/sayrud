@@ -6,11 +6,13 @@ package api
 
 import (
 	"net/http"
+	"reflect"
 	"strings"
 
 	"github.com/pkg/errors"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
+	"gorm.io/datatypes"
 	"gorm.io/gorm"
 
 	"github.com/wuhan005/sayrud/internal/collab"
@@ -87,6 +89,8 @@ func checkFieldLabel(label string, otherLabels []string) error {
 // fieldErrorResponse returns the response of the field validation errors, ok is false if the error is unexpected.
 func fieldErrorResponse(err error) (statusCode int, msg string, ok bool) {
 	switch {
+	case errors.Is(err, db.ErrOptionReference):
+		return http.StatusBadRequest, "field::invalid_options_reference", true
 	case errors.Is(err, ErrEmptyFieldLabel):
 		return http.StatusBadRequest, "field::title_required", true
 	case errors.Is(err, ErrReserveUIDField):
@@ -98,6 +102,63 @@ func fieldErrorResponse(err error) (statusCode int, msg string, ok bool) {
 	default:
 		return 0, "", false
 	}
+}
+
+// ResolveOptions
+// @Summary Resolve referenced select options for a record or draft field
+// @Accept json
+// @Produce json
+// @Param projectUID path string true "Project UID"
+// @Param tableUID path string true "Table UID"
+// @Param data body form.ResolveFieldOptions true "Field configuration and record values"
+// @Success 200 {array} map[string]interface{}
+// @Failure 400 {string} string "Invalid option reference"
+// @Failure 403 {string} string "Permission denied"
+// @ID resolveFieldOptions
+// @Router /projects/{projectUID}/tables/{tableUID}/fields/options/resolve [post]
+func (schemalessRoute) ResolveOptions(ctx context.Context, table *db.SLTable, tx dbutil.Transactor, f form.ResolveFieldOptions) error {
+	var options interface{}
+	err := tx.Transaction(func(tx *gorm.DB) error {
+		stored, err := db.NewSLFieldsStore(tx).GetByUID(ctx.Request().Context(), f.FieldUID)
+		if err != nil && !errors.Is(err, db.ErrSLFieldNotFound) {
+			return err
+		}
+
+		// Keep persisted option IDs while source metadata synchronization is pending.
+		if stored == nil || stored.SLTableID != table.ID || stored.Type != db.SLFieldType(f.Type) || !reflect.DeepEqual(stored.Metadata.Data(), f.Metadata) {
+			if err := db.PrepareSelectMetadata(ctx.Request().Context(), tx, table.ID, f.FieldUID, db.SLFieldType(f.Type), f.Metadata); err != nil {
+				return err
+			}
+		}
+
+		fields, err := db.NewSLFieldsStore(tx).ListByTableID(ctx.Request().Context(), table.ID)
+		if err != nil {
+			return err
+		}
+
+		field := &db.SLField{UID: f.FieldUID, SLTableID: table.ID, Type: db.SLFieldType(f.Type), Metadata: datatypes.NewJSONType[db.SLFieldMetadata](f.Metadata)}
+		filtered, err := db.FilterReferencedOptions(ctx.Request().Context(), tx, field, fields, f.Data)
+		if err != nil {
+			return err
+		}
+
+		md, _ := filtered.Metadata.Data().(map[string]interface{})
+		options = md["options"]
+		return nil
+	})
+
+	if err != nil {
+		if code, msg, ok := fieldErrorResponse(err); ok {
+			return ctx.ApiError(code, msg)
+		}
+		return ctx.ApiServerError()
+	}
+
+	if options == nil {
+		options = []interface{}{}
+	}
+
+	return ctx.ApiSuccess(options)
 }
 
 // CreateFields

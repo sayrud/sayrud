@@ -162,6 +162,7 @@ function onDate(_v: unknown, date?: Date) {
   >
     <SelectPanel
       :field="field"
+      :data="record.data"
       :value="value"
       :initial-query="initial"
       @change="(v) => emit('change', v)"

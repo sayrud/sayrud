@@ -36,6 +36,12 @@ func Validate(ctx context.Context, tx *gorm.DB, tableID int64, data map[string]i
 	if _, err := validator.ValidateAttachments(ctx, tx, tableID, result); err != nil {
 		return nil, err
 	}
+	if changed, err := validator.NormalizeReferencedOptions(ctx, tx, result); err != nil {
+		return nil, err
+	} else if changed {
+		return nil, ErrFieldTypeMismatch
+	}
+
 	jsonBytes, err := json.Marshal(result)
 	if err != nil {
 		return nil, errors.Wrap(err, "encode data")
@@ -43,15 +49,89 @@ func Validate(ctx context.Context, tx *gorm.DB, tableID int64, data map[string]i
 	return jsonBytes, nil
 }
 
+// NormalizeReferencedOptions applies the current record's cascading conditions, including when a parent value changes.
+func (v *RecordValidator) NormalizeReferencedOptions(ctx context.Context, tx *gorm.DB, data map[string]interface{}) (bool, error) {
+	changed := false
+	for _, field := range v.optionFields {
+		uid := field.UID
+		value, exists := data[uid]
+		if !exists {
+			continue
+		}
+
+		filtered, err := db.FilterReferencedOptions(ctx, tx, field, lo.Values(v.fields), data)
+		if err != nil {
+			if errors.Is(err, db.ErrOptionReference) {
+				continue
+			}
+			return false, err
+		}
+		if CheckValue(filtered, value) {
+			continue
+		}
+
+		delete(data, uid)
+		if list, ok := value.([]interface{}); ok && field.Type == db.MultiSelectFieldType {
+			allowed := OptionUIDs(filtered)
+			kept := lo.Filter(list, func(raw interface{}, _ int) bool {
+				id, ok := raw.(string)
+				return ok && lo.Contains(allowed, id)
+			})
+			if len(kept) > 0 {
+				data[uid] = kept
+			}
+		}
+		changed = true
+	}
+
+	return changed, nil
+}
+
 // RecordValidator checks the record data against the fields of a table.
 type RecordValidator struct {
-	fields map[string]*db.SLField
+	fields       map[string]*db.SLField
+	optionFields []*db.SLField
 }
 
 func NewRecordValidator(fields []*db.SLField) *RecordValidator {
-	return &RecordValidator{
+	v := &RecordValidator{
 		fields: lo.KeyBy(fields, func(field *db.SLField) string { return field.UID }),
 	}
+
+	// Normalize parent fields before their dependent option fields.
+	visited := map[string]bool{}
+	var visit func(string)
+	visit = func(uid string) {
+		if visited[uid] {
+			return
+		}
+
+		visited[uid] = true
+		f := v.fields[uid]
+		if f == nil {
+			return
+		}
+
+		md, _ := f.Metadata.Data().(map[string]interface{})
+		ref, _ := db.ReadOptionReference(md)
+		if ref == nil {
+			return
+		}
+
+		for _, c := range ref.Conditions {
+			if c.ValueFieldUID != "" {
+				visit(c.ValueFieldUID)
+			}
+		}
+
+		v.optionFields = append(v.optionFields, f)
+	}
+
+	for _, f := range fields {
+		visit(f.UID)
+	}
+
+	return v
 }
 
 // Validate returns the data to be stored, see the Validate function for the rules.

@@ -5,7 +5,7 @@ import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import FloatingPanel, { type Anchor } from '@/components/common/FloatingPanel.vue'
-import type { CellValue, SelectOption, SLField, SLRecord } from '@/types/bitable'
+import type { CellValue, RecordData, SelectOption, SLField, SLRecord } from '@/types/bitable'
 import { formatNumber, optionsOf, parseNumber } from '@/utils/format'
 import CellDisplay from './CellDisplay.vue'
 import SelectPanel from './SelectPanel.vue'
@@ -22,6 +22,7 @@ const props = defineProps<{
   placeholder?: string
   /** Shows the value only, e.g. for the viewers. */
   readonly?: boolean
+  data?: RecordData
 }>()
 const emit = defineEmits<{ change: [value: CellValue]; busy: [value: boolean] }>()
 
@@ -148,7 +149,7 @@ const formulaRecord = computed(() => props.record)
       :width="Math.max(selectAnchor.width ?? 0, 260)"
       @close="selectAnchor = null"
     >
-      <SelectPanel :field="field" :value="value" @change="(v) => emit('change', v)" @close="selectAnchor = null" />
+      <SelectPanel :field="field" :value="value" :data="data ?? record?.data" @change="(v) => emit('change', v)" @close="selectAnchor = null" />
     </FloatingPanel>
   </div>
 </template>

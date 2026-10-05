@@ -153,6 +153,7 @@ function share() {
             </div>
             <FieldValueEditor
               :field="fieldOf(c.fieldUID)"
+              :data="values"
               :value="values[c.fieldUID]"
               :readonly="!store.canEdit || submitting"
               @change="(v) => setValue(c.fieldUID, v)"

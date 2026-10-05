@@ -3652,6 +3652,67 @@ const docTemplate = `{
                 }
             }
         },
+        "/projects/{projectUID}/tables/{tableUID}/fields/options/resolve": {
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "Resolve referenced select options for a record or draft field",
+                "operationId": "resolveFieldOptions",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Project UID",
+                        "name": "projectUID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Table UID",
+                        "name": "tableUID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Field configuration and record values",
+                        "name": "data",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/ResolveFieldOptions"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "additionalProperties": true
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid option reference",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "403": {
+                        "description": "Permission denied",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
         "/projects/{projectUID}/tables/{tableUID}/fields/{fieldUID}": {
             "put": {
                 "description": "Update the label, type or metadata of the field. Existing record values are kept as is when the type changes.",
@@ -6530,6 +6591,31 @@ const docTemplate = `{
                         "asc",
                         "desc"
                     ]
+                }
+            }
+        },
+        "ResolveFieldOptions": {
+            "type": "object",
+            "required": [
+                "data",
+                "fieldUID",
+                "metadata",
+                "type"
+            ],
+            "properties": {
+                "data": {
+                    "type": "object",
+                    "additionalProperties": true
+                },
+                "fieldUID": {
+                    "type": "string"
+                },
+                "metadata": {
+                    "type": "object",
+                    "additionalProperties": true
+                },
+                "type": {
+                    "type": "string"
                 }
             }
         },

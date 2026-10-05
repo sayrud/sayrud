@@ -7,15 +7,16 @@ import { useI18n } from 'vue-i18n'
 import type { FieldShortcutManifest } from '@/api/shortcut'
 import FloatingPanel from '@/components/common/FloatingPanel.vue'
 import { useBaseStore } from '@/stores/base'
-import type { FieldMetadata, FieldShortcut, FieldType, SelectOption } from '@/types/bitable'
+import type { FieldMetadata, FieldShortcut, FieldType, OptionReference, SelectOption } from '@/types/bitable'
 import { DATE_FORMATS, defaultMetadata, FIELD_TYPES, fieldTypeInfo, NUMBER_FORMATS, type FieldTypeInfo } from '@/utils/fieldTypes'
 import { formatNumber } from '@/utils/format'
 import { expToDisplay } from '@/utils/formula'
 import { newOptionUID } from '@/utils/id'
 import { legacyOptionNames, missingInput, newShortcut } from '@/utils/shortcut'
+import { referenceComplete } from '@/utils/optionReference'
 import FieldTypeIcon from './FieldTypeIcon.vue'
 import FormulaModal from './FormulaModal.vue'
-import OptionsEditor from './OptionsEditor.vue'
+import SelectOptionsEditor from './SelectOptionsEditor.vue'
 import ShortcutForm from './ShortcutForm.vue'
 
 const { t } = useI18n()
@@ -61,6 +62,7 @@ function changeType(t: FieldType) {
   const isSelect = (x: FieldType) => x === 'single_select' || x === 'multi_select'
   // Keep the options when switching between single and multiple select.
   if (isSelect(t) && Array.isArray(prev.options)) next.options = prev.options
+  if (isSelect(t) && prev.optionsReference) next.optionsReference = prev.optionsReference
   if (editing.value?.type === t) Object.assign(next, JSON.parse(JSON.stringify(editing.value.metadata)))
   type.value = t
   md.value = next
@@ -176,6 +178,15 @@ const options = computed<SelectOption[]>({
 })
 
 const namedOptions = computed(() => options.value.filter((o) => o.name.trim()))
+
+const optionsReference = computed<OptionReference | undefined>({
+  get: () => md.value.optionsReference,
+  set: (v) => {
+    if (v) md.value.optionsReference = v
+    else delete md.value.optionsReference
+  },
+})
+
 const hasOptionsItem = computed(() => manifest.value?.formItems.some((item) => item.component === 'field_options'))
 
 const missingShortcutInput = computed(() => (shortcut.value && manifest.value ? missingInput(manifest.value, shortcut.value.inputs) : null))
@@ -189,6 +200,12 @@ function uniqueLabel(base: string) {
 
 async function save() {
   if (saving.value) return
+
+  if (optionsReference.value && !referenceComplete(optionsReference.value)) {
+    Message.warning(t('options.referenceRequired'))
+    return
+  }
+
   if (shortcut.value) {
     if (!manifest.value) {
       Message.warning(t('shortcut.missing'))
@@ -198,7 +215,7 @@ async function save() {
       Message.warning(t('shortcut.inputRequired', { label: missingShortcutInput.value }))
       return
     }
-    if ((type.value === 'single_select' || type.value === 'multi_select') && !namedOptions.value.length) {
+    if ((type.value === 'single_select' || type.value === 'multi_select') && !namedOptions.value.length && !optionsReference.value) {
       Message.warning(t('shortcut.optionsRequired'))
       return
     }
@@ -248,7 +265,7 @@ const numberExample = computed(() => formatNumber(1234.5678, String(md.value.for
 </script>
 
 <template>
-  <FloatingPanel :anchor="state.anchor" :width="340" :close-on-outside="!formulaVisible" :hidden="formulaVisible" @close="close">
+  <FloatingPanel :anchor="state.anchor" :width="optionsReference ? 560 : 340" :close-on-outside="!formulaVisible" :hidden="formulaVisible" @close="close">
     <div class="field-editor" @keydown.enter.ctrl="save" @mousedown="onEditorMouseDown">
       <div class="row">
         <div class="row-label">{{ t('fieldEditor.title') }}</div>
@@ -272,7 +289,7 @@ const numberExample = computed(() => formatNumber(1234.5678, String(md.value.for
         <template v-else>
           <div v-if="!manifest.available" class="warn shortcut-warn"><TriangleAlert :size="14" /> {{ t('shortcut.unavailable') }}</div>
           <div v-if="manifest.description" class="hint shortcut-description">{{ manifest.description }}</div>
-          <ShortcutForm v-model="shortcut.inputs" v-model:options="options" :items="manifest.formItems" :fields="store.fields" :field-u-i-d="editing?.uid" />
+          <ShortcutForm v-model="shortcut.inputs" v-model:options="options" v-model:reference="optionsReference" :items="manifest.formItems" :fields="store.fields" :field-u-i-d="editing?.uid" />
         </template>
         <div class="row inline">
           <span>{{ t('shortcut.autoUpdate') }}</span>
@@ -313,10 +330,9 @@ const numberExample = computed(() => formatNumber(1234.5678, String(md.value.for
 
       <template v-else-if="type === 'single_select' || type === 'multi_select'">
         <div v-if="!hasOptionsItem" class="row">
-          <div class="row-label">{{ t('fieldEditor.options') }}</div>
-          <OptionsEditor v-model="options" />
+          <SelectOptionsEditor v-model="options" v-model:reference="optionsReference" :label="t('fieldEditor.options')" :field-u-i-d="editing?.uid" />
         </div>
-        <div v-if="!shortcut" class="row">
+        <div v-if="!shortcut && !optionsReference" class="row">
           <div class="row-label">{{ t('fieldEditor.default') }}</div>
           <a-select
             v-if="type === 'single_select'"

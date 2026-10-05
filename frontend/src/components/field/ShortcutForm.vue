@@ -4,10 +4,10 @@ import { nextTick, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import type { ShortcutFormItem } from '@/api/shortcut'
-import type { SelectOption, SLField } from '@/types/bitable'
+import type { OptionReference, SelectOption, SLField } from '@/types/bitable'
 import { promptFromDisplay, promptToDisplay, selectableFields } from '@/utils/shortcut'
 import FieldTypeIcon from './FieldTypeIcon.vue'
-import OptionsEditor from './OptionsEditor.vue'
+import SelectOptionsEditor from './SelectOptionsEditor.vue'
 
 /** Renders the form items of a shortcut, the values are the inputs of FieldShortcut. */
 const props = defineProps<{
@@ -19,6 +19,7 @@ const props = defineProps<{
 
 const inputs = defineModel<Record<string, string>>({ required: true })
 const options = defineModel<SelectOption[]>('options', { default: () => [] })
+const reference = defineModel<OptionReference | undefined>('reference')
 
 const { t } = useI18n()
 
@@ -55,11 +56,11 @@ async function insertField(item: ShortcutFormItem, field: SLField) {
 <template>
   <div class="shortcut-form">
     <div v-for="item in items" :key="item.key" class="row">
-      <div class="row-label">
+      <div v-if="item.component !== 'field_options'" class="row-label">
         {{ item.label }}<span v-if="item.required" class="required">*</span>
       </div>
 
-      <OptionsEditor v-if="item.component === 'field_options'" v-model="options" />
+      <SelectOptionsEditor v-if="item.component === 'field_options'" v-model="options" v-model:reference="reference" :label="item.label" :required="item.required" :field-u-i-d="fieldUID" />
 
       <a-select
         v-else-if="item.component === 'field_select'"

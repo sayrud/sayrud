@@ -55,6 +55,15 @@ export interface SelectOption {
   name: string
   /** Index of the palette, see utils/colors.ts. */
   color: number
+  /** Stable identity in the referenced source field. */
+  sourceUID?: string
+}
+
+export interface OptionReference {
+  tableUID: string
+  fieldUID: string
+  match?: 'all' | 'any'
+  conditions: (QueryFilter & { valueFieldUID?: string })[]
 }
 
 export interface TextMetadata {
@@ -63,12 +72,14 @@ export interface TextMetadata {
 
 export interface SingleSelectMetadata {
   options: SelectOption[]
+  optionsReference?: OptionReference
   /** UID of the default option, empty means no default value. */
   default: string
 }
 
 export interface MultiSelectMetadata {
   options: SelectOption[]
+  optionsReference?: OptionReference
   default: string[]
 }
 

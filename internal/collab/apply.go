@@ -127,6 +127,9 @@ func (a *applier) applyActions(actions []Action) ([]Action, error) {
 			}
 		}
 		if err != nil {
+			if errors.Is(err, db.ErrOptionReference) {
+				return nil, rejectf("field::invalid_options_reference")
+			}
 			return nil, err
 		}
 		applied = append(applied, kept...)
@@ -176,7 +179,14 @@ func (a *applier) addRecords(actions []Action) ([]Action, error) {
 		if !recordUIDPattern.MatchString(action.RecordUID) {
 			return nil, rejectf("collab::invalid_record_uid")
 		}
+
 		data, dropped := validator.Normalize(action.Values)
+		referenceChanged, err := validator.NormalizeReferencedOptions(a.ctx, a.tx, data)
+		if err != nil {
+			return nil, err
+		}
+		dropped = dropped || referenceChanged
+
 		canonicalized, err := validator.ValidateAttachments(a.ctx, a.tx, a.table.ID, data)
 		if err != nil {
 			if errors.Is(err, routeutil.ErrInvalidAttachment) {
@@ -246,6 +256,12 @@ func (a *applier) setRecords(actions []Action) ([]Action, error) {
 	validator := routeutil.NewRecordValidator(a.fields)
 	for _, record := range records {
 		data, dropped := validator.Normalize(dataSets[record.UID])
+		referenceChanged, err := validator.NormalizeReferencedOptions(a.ctx, a.tx, data)
+		if err != nil {
+			return nil, err
+		}
+		dropped = dropped || referenceChanged
+
 		canonicalized, err := validator.ValidateAttachments(a.ctx, a.tx, a.table.ID, data)
 		if err != nil {
 			if errors.Is(err, routeutil.ErrInvalidAttachment) {
@@ -304,6 +320,9 @@ func (a *applier) addField(action Action) (*Action, error) {
 	metadata := action.Field.Metadata
 	if metadata == nil {
 		metadata = map[string]interface{}{}
+	}
+	if err := db.PrepareSelectMetadata(a.ctx, a.tx, a.table.ID, action.FieldUID, db.SLFieldType(*action.Field.Type), metadata); err != nil {
+		return nil, err
 	}
 
 	var shortcut *db.FieldShortcut
@@ -388,7 +407,9 @@ func (a *applier) setField(action Action) (*Action, error) {
 		}
 		a.change.Fields = append(a.change.Fields, field.UID)
 		// Category changes affect this shortcut too; color and ordering edits do not need another execution.
-		if field.Shortcut != nil && field.Shortcut.AutoUpdate && !reflect.DeepEqual(optionNames(field), optionNames(a.field(field.UID))) {
+		oldMD, _ := field.Metadata.Data().(map[string]interface{})
+		newMD, _ := a.field(field.UID).Metadata.Data().(map[string]interface{})
+		if field.Shortcut != nil && field.Shortcut.AutoUpdate && (!reflect.DeepEqual(optionNames(field), optionNames(a.field(field.UID))) || !reflect.DeepEqual(oldMD["optionsReference"], newMD["optionsReference"])) {
 			a.change.Shortcuts = append(a.change.Shortcuts, field.UID)
 		}
 	}

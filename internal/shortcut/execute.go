@@ -28,6 +28,18 @@ func Execute(ctx context.Context, custom *db.CustomFieldShortcut, fields []*db.S
 		return nil, newError("shortcut::invalid_config")
 	}
 
+	md, _ := field.Metadata.Data().(map[string]interface{})
+	if md["optionsReference"] != nil {
+		var err error
+		field, err = db.SLFields.FilterOptions(ctx, field, fields, data)
+		if err != nil {
+			return nil, newError("field::invalid_options_reference")
+		}
+		if len(optionNames(field)) == 0 {
+			return nil, nil
+		}
+	}
+
 	params, empty, err := resolveInputs(custom, fields, field, data)
 	if err != nil {
 		return nil, err

@@ -1,4 +1,4 @@
-import type { Attachment, FieldType, MemberRole, Project, ProjectMember, SLField, SLRecord, SLTable, SLView, UserBrief } from '@/types/bitable'
+import type { Attachment, FieldType, MemberRole, Project, ProjectMember, RecordData, SelectOption, SLField, SLRecord, SLTable, SLView, UserBrief } from '@/types/bitable'
 import type { Changeset } from '@/collab/types'
 import type { RequestParams, SLField as ApiField, SLRecord as ApiRecord, SLView as ApiView } from './api'
 import { client } from './client'
@@ -70,6 +70,8 @@ export const tablesApi = {
 }
 
 export const syncApi = {
+  options: async (projectUID: string, field: SLField, data: RecordData) =>
+    (await client.projects.resolveFieldOptions(projectUID, field.tableUID, { fieldUID: field.uid, type: field.type, metadata: field.metadata, data })).data as unknown as SelectOption[],
   snapshot: async (projectUID: string, tableUID: string): Promise<TableSnapshot> => {
     const s = (await client.projects.getTableSnapshot(projectUID, tableUID)).data
     return { rev: s.rev, fields: asFields(s.fields), views: asViews(s.views), records: asRecords(s.records) }

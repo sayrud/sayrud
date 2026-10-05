@@ -111,6 +111,8 @@ const (
 	FilterOperationIn                 FilterOperation = "in"
 	FilterOperationNotIn              FilterOperation = "nin"
 	FilterOperationLike               FilterOperation = "like"
+	FilterOperationEmpty              FilterOperation = "empty"
+	FilterOperationNotEmpty           FilterOperation = "not_empty"
 )
 
 // QuerySLRecordsFilter is a condition on a field value.
@@ -277,6 +279,21 @@ var slRecordLikeEscaper = strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`)
 
 func buildSLRecordFilter(field *SLField, filter QuerySLRecordsFilter) (string, []interface{}, error) {
 	expr := slRecordFieldExpr(field)
+	if filter.Operation == FilterOperationEmpty || filter.Operation == FilterOperationNotEmpty {
+		condition := "(data -> ? IS NULL OR data -> ? IN ('null'::jsonb, '\"\"'::jsonb, '[]'::jsonb))"
+		if field.Type == CheckboxFieldType {
+			condition = "NOT " + expr
+			if filter.Operation == FilterOperationNotEmpty {
+				condition = expr
+			}
+			return condition, nil, nil
+		}
+		if filter.Operation == FilterOperationNotEmpty {
+			condition = "NOT " + condition
+		}
+		return condition, []interface{}{field.UID, field.UID}, nil
+	}
+
 	unsupported := errors.Wrapf(ErrUnsupportedFilterOperation, "field %q (%s) operation %q", field.UID, field.Type, filter.Operation)
 
 	// Multi-select values are arrays of option UIDs, matched with "contains" semantics.

@@ -52,7 +52,7 @@ func convertField(old *db.SLField, newType db.SLFieldType, metadata map[string]i
 
 	isSelect := func(t db.SLFieldType) bool { return t == db.SingleSelectFieldType || t == db.MultiSelectFieldType }
 	selectToSelect := isSelect(old.Type) && isSelect(newType)
-	if isSelect(newType) && !selectToSelect {
+	if isSelect(newType) && !selectToSelect && metadata["optionsReference"] == nil {
 		conversion.metadata = appendOptions(metadata, newType, lo.Values(texts))
 	}
 	newField := &db.SLField{

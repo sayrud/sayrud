@@ -5,7 +5,7 @@ import { useI18n } from 'vue-i18n'
 
 const { t } = useI18n()
 
-defineProps<{ fields: SLField[]; modelValue?: string; placeholder?: string; disabledUIDs?: string[] }>()
+defineProps<{ fields: SLField[]; modelValue?: string; placeholder?: string; disabled?: boolean; disabledUIDs?: string[] }>()
 defineEmits<{ 'update:modelValue': [string] }>()
 </script>
 
@@ -13,6 +13,7 @@ defineEmits<{ 'update:modelValue': [string] }>()
   <a-select
     :model-value="modelValue"
     :placeholder="placeholder ?? t('toolbar.selectField')"
+    :disabled="disabled"
     allow-search
     :filter-option="(input: string, option: { label?: string }) => (option.label ?? '').toLowerCase().includes(input.toLowerCase())"
     @update:model-value="(v: unknown) => $emit('update:modelValue', v as string)"

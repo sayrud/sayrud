@@ -18,6 +18,8 @@ var SLFields SLFieldsStore
 
 // SLFieldsStore is the persistent interface for the fields of schemaless tables.
 type SLFieldsStore interface {
+	// FilterOptions returns the select options allowed by the record's reference conditions.
+	FilterOptions(ctx context.Context, field *SLField, fields []*SLField, data map[string]interface{}) (*SLField, error)
 	// ListByTableID returns all the fields of the table ordered by position.
 	ListByTableID(ctx context.Context, tableID int64) (SLFieldList, error)
 	// GetByID returns the field with the given ID.
@@ -47,6 +49,10 @@ type SLFieldsStore interface {
 	Count(ctx context.Context, tableID int64) (int64, error)
 	// CountByShortcutID returns the number of the fields using each shortcut, keyed by shortcut ID.
 	CountByShortcutID(ctx context.Context) (map[string]int64, error)
+}
+
+func (db *slFields) FilterOptions(ctx context.Context, field *SLField, fields []*SLField, data map[string]interface{}) (*SLField, error) {
+	return FilterReferencedOptions(ctx, db.DB, field, fields, data)
 }
 
 func NewSLFieldsStore(db *gorm.DB) SLFieldsStore {
@@ -126,6 +132,11 @@ func (db *slFields) Create(ctx context.Context, options CreateSLFieldOptions) (*
 	if !options.Type.Check() {
 		return nil, ErrUnexpectedType
 	}
+	if md, ok := options.Metadata.(map[string]interface{}); ok {
+		if err := PrepareSelectMetadata(ctx, db.DB, options.SLTableID, options.UID, options.Type, md); err != nil {
+			return nil, err
+		}
+	}
 
 	slField := &SLField{
 		UID:       options.UID,
@@ -172,6 +183,10 @@ func (db *slFields) SetLabel(ctx context.Context, fieldID int64, label string) e
 }
 
 func (db *slFields) SetType(ctx context.Context, fieldID int64, slFieldType SLFieldType, metadata SLFieldMetadata) error {
+	if err := db.prepareMetadata(ctx, fieldID, slFieldType, metadata); err != nil {
+		return err
+	}
+
 	return db.set(ctx, fieldID, map[string]interface{}{
 		"type":     slFieldType,
 		"metadata": datatypes.NewJSONType(metadata),
@@ -179,9 +194,30 @@ func (db *slFields) SetType(ctx context.Context, fieldID int64, slFieldType SLFi
 }
 
 func (db *slFields) SetMetadata(ctx context.Context, fieldID int64, metadata SLFieldMetadata) error {
+	if err := db.prepareMetadata(ctx, fieldID, "", metadata); err != nil {
+		return err
+	}
+
 	return db.set(ctx, fieldID, map[string]interface{}{
 		"metadata": datatypes.NewJSONType(metadata),
 	})
+}
+
+func (db *slFields) prepareMetadata(ctx context.Context, fieldID int64, typ SLFieldType, metadata SLFieldMetadata) error {
+	md, ok := metadata.(map[string]interface{})
+	if !ok || md["optionsReference"] == nil {
+		return nil
+	}
+
+	field, err := db.GetByID(ctx, fieldID)
+	if err != nil {
+		return err
+	}
+	if typ == "" {
+		typ = field.Type
+	}
+
+	return PrepareSelectMetadata(ctx, db.DB, field.SLTableID, field.UID, typ, md)
 }
 
 func (db *slFields) SetShortcut(ctx context.Context, fieldID int64, shortcut *FieldShortcut) error {

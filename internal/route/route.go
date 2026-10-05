@@ -196,6 +196,7 @@ func New(opts Options) *flamego.Flame {
 						f.Post("/shortcuts/preview", canEdit, form.Bind(form.PreviewFieldShortcut{}), api.Shortcut.Preview)
 
 						f.Group("/fields", func() {
+							f.Post("/options/resolve", form.Bind(form.ResolveFieldOptions{}), api.Schemaless.ResolveOptions)
 							f.Combo("").
 								Get(api.Schemaless.ListFields).
 								Post(canEdit, form.Bind(form.CreateFields{}), api.Schemaless.CreateFields)

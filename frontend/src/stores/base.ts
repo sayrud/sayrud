@@ -646,6 +646,7 @@ export const useBaseStore = defineStore('base', () => {
     for (const name of names) {
       let opt = options.find((o) => o.name === name)
       if (!opt) {
+        if ('optionsReference' in field.metadata && field.metadata.optionsReference) continue
         opt = { uid: newOptionUID(), name, color: options.length }
         options.push(opt)
       }

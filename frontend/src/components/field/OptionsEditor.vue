@@ -25,8 +25,10 @@ const drag = ref<{
   step: number
   settling: boolean
 } | null>(null)
+
 // Keep the original layout until the drop animation finishes, while saving the new order on pointerup.
 const displayedOptions = computed(() => drag.value?.order ?? options.value)
+
 let cleanup: (() => void) | undefined
 let settle: (() => void) | undefined
 let settleTimer: ReturnType<typeof setTimeout> | undefined
@@ -35,6 +37,7 @@ function add() {
   const used = new Set(options.value.map((o) => o.color))
   const color = TAG_COLORS.findIndex((_c, i) => !used.has(i))
   options.value = [...options.value, { uid: newOptionUID(), name: '', color: color < 0 ? options.value.length : color }]
+
   nextTick(() => {
     const inputs = listEl.value?.querySelectorAll('input')
     ;(inputs?.[inputs.length - 1] as HTMLInputElement | undefined)?.focus()
@@ -62,6 +65,7 @@ function openPalette(e: MouseEvent, uid: string) {
 function rowStyle(uid: string, index: number) {
   const d = drag.value
   if (!d) return undefined
+
   let delta = 0
   if (uid === d.uid) delta = d.delta
   else if (index > d.from && index <= d.to) delta = -d.step
@@ -72,7 +76,9 @@ function rowStyle(uid: string, index: number) {
 function startDrag(e: PointerEvent, uid: string, from: number) {
   const el = listEl.value
   if (e.button !== 0 || drag.value || !el) return
+
   cleanup?.()
+
   const handle = e.currentTarget as HTMLElement
   const row = handle.closest<HTMLElement>('.option-row')!
   const step = row.offsetHeight + (parseFloat(getComputedStyle(el).rowGap) || 0)
@@ -86,6 +92,7 @@ function startDrag(e: PointerEvent, uid: string, from: number) {
   const move = () => {
     const d = drag.value
     if (!d) return
+
     d.delta = Math.max(-d.from * d.step, Math.min((d.order.length - 1 - d.from) * d.step, pointerY - startY + el.scrollTop - startScroll))
     d.to = Math.max(0, Math.min(d.order.length - 1, d.from + Math.round(d.delta / d.step)))
   }
@@ -96,6 +103,7 @@ function startDrag(e: PointerEvent, uid: string, from: number) {
     const distance = pointerY < r.top + edge ? pointerY - r.top - edge : pointerY > r.bottom - edge ? pointerY - r.bottom + edge : 0
     const elapsed = lastTime ? Math.min(time - lastTime, 32) : 16
     lastTime = time
+
     el.scrollTop += Math.max(-1, Math.min(1, distance / edge)) * 360 * elapsed / 1000
     move()
     frame = requestAnimationFrame(autoScroll)
@@ -103,6 +111,7 @@ function startDrag(e: PointerEvent, uid: string, from: number) {
 
   const onMove = (ev: PointerEvent) => {
     if (ev.pointerId !== e.pointerId) return
+
     pointerY = ev.clientY
     if (!drag.value) {
       if (Math.abs(pointerY - startY) < 4) return
@@ -110,6 +119,7 @@ function startDrag(e: PointerEvent, uid: string, from: number) {
       drag.value = { uid, order: [...options.value], from, to: from, delta: 0, step, settling: false }
       frame = requestAnimationFrame(autoScroll)
     }
+
     move()
   }
 
@@ -117,31 +127,40 @@ function startDrag(e: PointerEvent, uid: string, from: number) {
     cleanup?.()
     const d = drag.value
     if (!d) return
+
     if (commit && d.to !== d.from) {
       const list = [...d.order]
       const [item] = list.splice(d.from, 1)
       list.splice(d.to, 0, item!)
       options.value = list
     }
+
     if (!commit) d.to = d.from
     d.settling = true
     d.delta = (d.to - d.from) * d.step
+
     settle = () => {
       clearTimeout(settleTimer)
       settle = undefined
       drag.value = null
     }
+
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) settle()
     else settleTimer = setTimeout(settle, 220)
   }
-  const onUp = (ev: PointerEvent) => { if (ev.pointerId === e.pointerId) finish(true) }
+
+  const onUp = (ev: PointerEvent) => {
+    if (ev.pointerId === e.pointerId) finish(true)
+  }
   const onCancel = () => finish(false)
   const onKey = (ev: KeyboardEvent) => {
     if (ev.key !== 'Escape') return
+
     ev.stopPropagation()
     ev.preventDefault()
     finish(false)
   }
+
   cleanup = () => {
     cancelAnimationFrame(frame)
     if (handle.hasPointerCapture(e.pointerId)) handle.releasePointerCapture(e.pointerId)
@@ -152,6 +171,7 @@ function startDrag(e: PointerEvent, uid: string, from: number) {
     window.removeEventListener('keydown', onKey, true)
     cleanup = undefined
   }
+
   window.addEventListener('pointermove', onMove)
   window.addEventListener('pointerup', onUp)
   window.addEventListener('pointercancel', onCancel)

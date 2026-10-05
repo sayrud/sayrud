@@ -268,7 +268,17 @@ func (e *Engine) handleChange(ctx context.Context, project *db.Project, table *d
 		if field.Shortcut == nil {
 			continue
 		}
+
 		deps := Dependencies(field.Shortcut)
+		md, _ := field.Metadata.Data().(map[string]interface{})
+		if ref, _ := db.ReadOptionReference(md); ref != nil {
+			for _, c := range ref.Conditions {
+				if c.ValueFieldUID != "" {
+					deps = append(deps, c.ValueFieldUID)
+				}
+			}
+		}
+
 		var uids []string
 		switch {
 		case lo.Contains(change.Shortcuts, field.UID),

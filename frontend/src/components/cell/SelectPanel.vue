@@ -3,14 +3,21 @@ import { Check, Plus } from '@lucide/vue'
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
+import { syncApi } from '@/api/bitable'
 import { useBaseStore } from '@/stores/base'
-import type { CellValue, SelectOption, SLField } from '@/types/bitable'
+import type { CellValue, RecordData, SelectOption, SLField } from '@/types/bitable'
 import { optionsOf } from '@/utils/format'
+import { optionsReferenceOf } from '@/utils/optionReference'
 import SelectTag from './SelectTag.vue'
 
 const { t } = useI18n()
 
-const props = defineProps<{ field: SLField; value: CellValue; initialQuery?: string }>()
+const props = defineProps<{
+  field: SLField
+  value: CellValue
+  initialQuery?: string
+  data?: RecordData
+}>()
 const emit = defineEmits<{ change: [value: CellValue]; close: [] }>()
 
 const store = useBaseStore()
@@ -26,18 +33,47 @@ const selected = computed<string[]>(() => {
   return typeof v === 'string' && v ? [v] : []
 })
 
-const options = computed(() => optionsOf(store.fields.find((f) => f.uid === props.field.uid) ?? props.field))
+const currentField = computed(() => store.fields.find((f) => f.uid === props.field.uid) ?? props.field)
+const referenced = computed(() => !!optionsReferenceOf(currentField.value))
+const available = ref<SelectOption[]>([])
+const loading = ref(false)
+const failed = ref(false)
+
+watch(() => [currentField.value.metadata, props.data], async (_value, _old, onCleanup) => {
+  let cancelled = false
+  onCleanup(() => {
+    cancelled = true
+  })
+
+  available.value = []
+  failed.value = false
+  loading.value = referenced.value
+  if (!referenced.value || !store.project) return
+
+  try {
+    const result = await syncApi.options(store.project.uid, currentField.value, props.data ?? {})
+    if (!cancelled) available.value = result
+  } catch {
+    if (!cancelled) failed.value = true
+  } finally {
+    if (!cancelled) loading.value = false
+  }
+}, { immediate: true, deep: true })
+
+const options = computed(() => referenced.value ? available.value : optionsOf(currentField.value))
 const filtered = computed(() => {
   const q = query.value.trim().toLowerCase()
   return q ? options.value.filter((o) => o.name.toLowerCase().includes(q)) : options.value
 })
+
 const canCreate = computed(() => {
   const q = query.value.trim()
-  return q !== '' && !options.value.some((o) => o.name === q)
+  return !referenced.value && q !== '' && !options.value.some((o) => o.name === q)
 })
+
 const itemCount = computed(() => filtered.value.length + (canCreate.value ? 1 : 0))
 const selectedOptions = computed(
-  () => selected.value.map((uid) => options.value.find((o) => o.uid === uid)).filter(Boolean) as SelectOption[],
+  () => selected.value.map((uid) => optionsOf(currentField.value).find((o) => o.uid === uid)).filter(Boolean) as SelectOption[],
 )
 
 watch(query, () => (active.value = 0))
@@ -98,7 +134,7 @@ onMounted(() => input.value?.focus())
         closable
         @close="toggle(o.uid)"
       />
-      <input ref="input" v-model="query" :placeholder="t('select.searchOrCreate')" @keydown="onKey" />
+      <input ref="input" v-model="query" :placeholder="referenced ? t('options.searchOptions') : t('select.searchOrCreate')" @keydown="onKey" />
     </div>
     <div ref="listEl" class="list">
       <div
@@ -123,7 +159,7 @@ onMounted(() => input.value?.focus())
         <span>{{ t('select.create') }}</span>
         <SelectTag :name="query.trim()" :color="options.length" />
       </div>
-      <div v-if="!itemCount" class="empty">{{ t('select.empty') }}</div>
+      <div v-if="!itemCount" class="empty">{{ loading ? t('common.loading') : failed ? t('options.referenceUnavailable') : t('select.empty') }}</div>
     </div>
   </div>
 </template>
