@@ -543,7 +543,6 @@ const zhTW: typeof zhCN = {
     offline: '目前離線，重新連線後會同步變更',
     refreshing: '正在與伺服器同步…',
     saving: '儲存中…',
-    memberViewing: '{name} · 正在檢視「{table}」',
     clickToRename: '點一下以重新命名',
     viewOnlyTip: '你只有檢視權限，如需編輯，請聯絡擁有者或管理者',
     accessDenied: '無法存取這個多維表格',

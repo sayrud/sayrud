@@ -543,7 +543,6 @@ const ptBR: typeof zhCN = {
     offline: 'Offline. As alterações serão sincronizadas ao reconectar',
     refreshing: 'Sincronizando com o servidor…',
     saving: 'Salvando…',
-    memberViewing: '{name} · Visualizando “{table}”',
     clickToRename: 'Clique para renomear',
     viewOnlyTip: 'Você só tem permissão de leitura. Peça acesso de edição ao proprietário ou a um colaborador com permissão de gerenciamento',
     accessDenied: 'Não é possível acessar esta base',

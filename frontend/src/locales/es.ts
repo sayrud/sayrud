@@ -543,7 +543,6 @@ const es: typeof zhCN = {
     offline: 'Sin conexión. Los cambios se sincronizarán al reconectar',
     refreshing: 'Sincronizando con el servidor…',
     saving: 'Guardando…',
-    memberViewing: '{name} · Viendo «{table}»',
     clickToRename: 'Haz clic para cambiar el nombre',
     viewOnlyTip: 'Solo tienes permiso de lectura. Pide al propietario o a un colaborador con permiso de administración que te dé acceso de edición',
     accessDenied: 'No se puede acceder a esta base',

@@ -543,7 +543,6 @@ const ko: typeof zhCN = {
     offline: '오프라인입니다. 다시 연결되면 변경 사항이 동기화됩니다',
     refreshing: '서버와 동기화 중…',
     saving: '저장 중…',
-    memberViewing: '{name} · "{table}" 보는 중',
     clickToRename: '클릭하여 이름 변경',
     viewOnlyTip: '보기 권한만 있습니다. 편집하려면 소유자나 관리 권한이 있는 공동 작업자에게 문의하세요',
     accessDenied: '이 베이스에 접근할 수 없습니다',

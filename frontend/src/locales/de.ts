@@ -543,7 +543,6 @@ const de: typeof zhCN = {
     offline: 'Offline. Änderungen werden nach der erneuten Verbindung synchronisiert',
     refreshing: 'Synchronisierung mit dem Server…',
     saving: 'Wird gespeichert…',
-    memberViewing: '{name} · Sieht „{table}“ an',
     clickToRename: 'Zum Umbenennen klicken',
     viewOnlyTip: 'Du hast nur Leserechte. Bitte den Eigentümer oder einen Mitwirkenden mit Verwaltungsrechten um Bearbeitungsrechte',
     accessDenied: 'Kein Zugriff auf diese Base',

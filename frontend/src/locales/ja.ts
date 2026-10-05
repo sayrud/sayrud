@@ -543,7 +543,6 @@ const ja: typeof zhCN = {
     offline: 'オフラインです。再接続後に変更が同期されます',
     refreshing: 'サーバーと同期中…',
     saving: '保存中…',
-    memberViewing: '{name} · 「{table}」を閲覧中',
     clickToRename: 'クリックして名前を変更',
     viewOnlyTip: '閲覧権限のみです。編集するにはオーナーまたは管理可能な共同編集者に連絡してください',
     accessDenied: 'このベースにアクセスできません',

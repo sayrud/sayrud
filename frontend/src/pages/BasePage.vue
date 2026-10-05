@@ -178,11 +178,6 @@ const syncState = computed(() => {
 
 const otherMembers = computed(() => store.onlineMembers.filter((m) => publicPage.value ? m.clientId !== store.myClientId : m.memberId !== store.identity.memberId))
 
-function memberTitle(m: { name: string; tableUID?: string }) {
-  const table = store.tables.find((tb) => tb.uid === m.tableUID)
-  return table ? t('base.memberViewing', { name: m.name, table: table.name }) : m.name
-}
-
 watch(
   [() => store.project?.name, () => site.info.siteName],
   ([name]) => {
@@ -292,12 +287,12 @@ onBeforeUnmount(() => {
           >{{ store.project?.name ?? (publicPage ? t('share.linkSharing') : t('common.loading')) }}</span
         >
         <a-tooltip v-if="store.project && !store.canEdit" :content="t('base.viewOnlyTip')">
-          <a-tag size="small">
+          <a-tag size="small" class="viewer-tag">
             <template #icon><Eye :size="12" /></template>
             {{ t('role.viewer') }}
           </a-tag>
         </a-tooltip>
-        <span v-if="store.project" class="sync-state" :class="syncState.cls" :title="syncState.text">
+        <span v-if="store.project && (store.canEdit || syncState.cls !== 'saved')" class="sync-state" :class="syncState.cls" :title="syncState.text">
           <component :is="syncState.icon" :size="15" />
           <span class="sync-text">{{ syncState.text }}</span>
         </span>
@@ -305,7 +300,7 @@ onBeforeUnmount(() => {
       <span class="spacer" />
       <template v-if="!store.accessDenied && store.project">
         <div class="members">
-          <a-tooltip v-for="m in otherMembers.slice(0, 5)" :key="m.memberId" :content="memberTitle(m)">
+          <a-tooltip v-for="m in otherMembers.slice(0, 5)" :key="m.memberId" :content="m.name">
             <UserAvatar :name="m.name" :color="m.color" :avatar-url="m.avatarUrl" :size="28" class="member" />
           </a-tooltip>
           <a-avatar v-if="otherMembers.length > 5" :size="28" class="member more">+{{ otherMembers.length - 5 }}</a-avatar>
@@ -397,6 +392,10 @@ onBeforeUnmount(() => {
 }
 .appearance-trigger {
   padding: 3px;
+}
+.viewer-tag :deep(.arco-tag-icon) {
+  display: inline-flex;
+  align-items: center;
 }
 .topbar > .base-name {
   flex: 0 1 auto;

@@ -543,7 +543,6 @@ const fr: typeof zhCN = {
     offline: 'Hors ligne. Les modifications seront synchronisées à la reconnexion',
     refreshing: 'Synchronisation avec le serveur…',
     saving: 'Enregistrement…',
-    memberViewing: '{name} · Consulte « {table} »',
     clickToRename: 'Cliquer pour renommer',
     viewOnlyTip: 'Vous avez uniquement accès en lecture. Demandez des droits de modification au propriétaire ou à un collaborateur qui peut gérer la base',
     accessDenied: 'Impossible d’accéder à cette base',

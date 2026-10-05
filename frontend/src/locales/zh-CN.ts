@@ -541,7 +541,6 @@ export default {
     offline: '已离线，修改将在重连后同步',
     refreshing: '同步服务端数据…',
     saving: '保存中…',
-    memberViewing: '{name} · 正在查看「{table}」',
     clickToRename: '点击重命名',
     viewOnlyTip: '你只有查看权限，如需编辑请联系所有者或管理者',
     accessDenied: '无法访问该多维表格',

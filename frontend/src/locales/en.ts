@@ -543,7 +543,6 @@ const en: typeof zhCN = {
     offline: 'Offline, changes will be synced after reconnecting',
     refreshing: 'Syncing with the server…',
     saving: 'Saving…',
-    memberViewing: '{name} · Viewing "{table}"',
     clickToRename: 'Click to rename',
     viewOnlyTip: 'You only have view permission, ask the owner or a manager if you need to edit',
     accessDenied: 'Cannot access this base',
