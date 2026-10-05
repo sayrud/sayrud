@@ -31,7 +31,7 @@ var upgrader = websocket.Upgrader{
 	WriteBufferSize: 4096,
 }
 
-// Identity is the signed-in collaborator of a connection.
+// Identity is a signed-in collaborator or a read-only public visitor.
 type Identity struct {
 	UserID    int64
 	MemberID  string
@@ -40,6 +40,7 @@ type Identity struct {
 	AvatarURL string
 	UpdatedAt time.Time
 	CanEdit   bool
+	Share     *ShareSession
 }
 
 // Client is a WebSocket connection of a project.
@@ -52,6 +53,7 @@ type Client struct {
 	locale     i18n.Locale
 	out        chan []byte
 	closeOnce  sync.Once
+	share      *ShareSession
 
 	mu              sync.Mutex
 	member          Member
@@ -75,6 +77,7 @@ func (h *Hub) Serve(w http.ResponseWriter, r *http.Request, project *db.Project,
 		userID:     identity.UserID,
 		locale:     locale,
 		out:        make(chan []byte, sendBufferSize),
+		share:      identity.Share,
 		member: Member{
 			ClientID:  "cli" + randstr.String(12),
 			MemberID:  identity.MemberID,
@@ -82,7 +85,7 @@ func (h *Hub) Serve(w http.ResponseWriter, r *http.Request, project *db.Project,
 			Color:     identity.Color,
 			AvatarURL: identity.AvatarURL,
 		},
-		canEdit:         identity.CanEdit,
+		canEdit:         identity.CanEdit && identity.Share == nil,
 		avatarUpdatedAt: identity.UpdatedAt,
 		tables:          make(map[string]*db.SLTable),
 	}
@@ -91,15 +94,17 @@ func (h *Hub) Serve(w http.ResponseWriter, r *http.Request, project *db.Project,
 	go c.writePump()
 
 	// Authentication may have read the profile before an avatar update that finished before registration.
-	if user, err := db.Users.GetByID(r.Context(), identity.UserID); err != nil {
-		logrus.WithContext(r.Context()).WithError(err).Warn("Failed to refresh collaborator avatar")
-	} else {
-		var avatarURL string
-		if user.AvatarFileUID != "" {
-			avatarURL = "/_/avatars/" + user.AvatarFileUID
-		}
+	if identity.Share == nil {
+		if user, err := db.Users.GetByID(r.Context(), identity.UserID); err != nil {
+			logrus.WithContext(r.Context()).WithError(err).Warn("Failed to refresh collaborator avatar")
+		} else {
+			var avatarURL string
+			if user.AvatarFileUID != "" {
+				avatarURL = "/_/avatars/" + user.AvatarFileUID
+			}
 
-		h.UpdateUserAvatar(user.ID, avatarURL, user.UpdatedAt)
+			h.UpdateUserAvatar(user.ID, avatarURL, user.UpdatedAt)
+		}
 	}
 
 	c.readPump(r.Context())
@@ -168,10 +173,35 @@ func (c *Client) writePump() {
 				_ = c.conn.WriteMessage(websocket.CloseMessage, []byte{})
 				return
 			}
+			if c.share != nil {
+				ctx, cancel := context.WithTimeout(context.Background(), writeWait)
+				var allowed bool
+				message, allowed = c.sharedMessage(ctx, message)
+				cancel()
+				if !allowed {
+					_ = c.conn.SetWriteDeadline(time.Now().Add(writeWait))
+					_ = c.conn.WriteMessage(websocket.TextMessage, newMessage(MessageShareChanged, 0, nil))
+					return
+				}
+				if message == nil {
+					continue
+				}
+			}
+			_ = c.conn.SetWriteDeadline(time.Now().Add(writeWait))
 			if err := c.conn.WriteMessage(websocket.TextMessage, message); err != nil {
 				return
 			}
 		case <-ticker.C:
+			if c.share != nil {
+				ctx, cancel := context.WithTimeout(context.Background(), writeWait)
+				_, err := c.share.root(ctx, c.project.ID)
+				cancel()
+				if err != nil {
+					_ = c.conn.SetWriteDeadline(time.Now().Add(writeWait))
+					_ = c.conn.WriteMessage(websocket.TextMessage, newMessage(MessageShareChanged, 0, nil))
+					return
+				}
+			}
 			_ = c.conn.SetWriteDeadline(time.Now().Add(writeWait))
 			if err := c.conn.WriteMessage(websocket.PingMessage, nil); err != nil {
 				return
@@ -213,6 +243,17 @@ func (c *Client) handle(ctx context.Context, message Message) {
 		c.send(newMessage(MessageError, message.ReqID, errorData{Message: c.tr(key)}))
 	}
 
+	var shareRoot *db.SLTable
+	if c.share != nil {
+		var err error
+		shareRoot, err = c.share.root(ctx, c.project.ID)
+		if err != nil {
+			c.send(newMessage(MessageShareChanged, 0, nil))
+			c.close()
+			return
+		}
+	}
+
 	switch message.Type {
 	case MessagePing:
 		c.send(newMessage(MessagePong, message.ReqID, nil))
@@ -224,7 +265,7 @@ func (c *Client) handle(ctx context.Context, message Message) {
 			return
 		}
 		table, err := db.SLTables.GetByUID(ctx, data.TableUID)
-		if err != nil || table.ProjectID != c.project.ID {
+		if err != nil || table.ProjectID != c.project.ID || (shareRoot != nil && !sharedTableAllowed(ctx, shareRoot, data.TableUID)) {
 			replyError("collab::table_not_found")
 			return
 		}
@@ -263,6 +304,10 @@ func (c *Client) handle(ctx context.Context, message Message) {
 			replyError("collab::invalid_message")
 			return
 		}
+		if shareRoot != nil && !sharedTableAllowed(ctx, shareRoot, data.TableUID) {
+			replyError("collab::table_not_found")
+			return
+		}
 		c.mu.Lock()
 		c.member.TableUID = data.TableUID
 		c.member.ViewUID = data.ViewUID
@@ -284,7 +329,7 @@ func (c *Client) commit(ctx context.Context, reqID int64, data userChangesData) 
 	c.mu.Lock()
 	canEdit := c.canEdit
 	c.mu.Unlock()
-	if !canEdit {
+	if !canEdit || c.share != nil {
 		reject("collab::no_edit_permission")
 		return
 	}

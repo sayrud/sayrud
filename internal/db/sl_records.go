@@ -36,6 +36,8 @@ type SLRecordsStore interface {
 	ListByUIDs(ctx context.Context, slTableID int64, uids []string) ([]*SLRecord, error)
 	// ListAll returns all the records of the table in creation order.
 	ListAll(ctx context.Context, slTableID int64) ([]*SLRecord, error)
+	// HasAttachment checks live attachment fields and records for a file reference.
+	HasAttachment(ctx context.Context, slTableID int64, fileUID string) (bool, error)
 	// ListUIDs returns the UIDs of the records in creation order, only the ones without the value of the field if emptyFieldUID is not empty.
 	ListUIDs(ctx context.Context, slTableID int64, emptyFieldUID string) ([]string, error)
 	// Query returns the paginated records matching the filter, group and order options, along with the filtered total count.
@@ -63,6 +65,18 @@ type SLRecordsStore interface {
 
 func NewSLRecordsStore(db *gorm.DB) SLRecordsStore {
 	return &slRecords{db}
+}
+
+func (db *slRecords) HasAttachment(ctx context.Context, slTableID int64, fileUID string) (bool, error) {
+	var found bool
+	err := db.WithContext(ctx).Raw(`SELECT EXISTS (
+		SELECT 1 FROM sl_records r JOIN sl_fields f ON f.sl_table_id = r.sl_table_id
+		WHERE r.sl_table_id = ? AND r.deleted_at IS NULL AND f.deleted_at IS NULL
+		AND f.type = 'attachment'
+		AND r.data @> jsonb_build_object(f.uid, jsonb_build_array(jsonb_build_object('uid', CAST(? AS text))))
+	)`, slTableID, fileUID).Scan(&found).Error
+
+	return found, err
 }
 
 // SLRecord represents the table records in schemaless tables.

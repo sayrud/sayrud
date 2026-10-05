@@ -1,6 +1,6 @@
 import { ref, shallowRef } from 'vue'
 
-import { syncApi } from '@/api/bitable'
+import { syncApi, type SyncReadApi } from '@/api/bitable'
 import { t } from '@/i18n'
 import type { SLField, SLRecord, SLView } from '@/types/bitable'
 import { applyOperations, type TableData } from './model'
@@ -38,6 +38,9 @@ export interface TableSyncHooks {
   onReject?: (message: string) => void
   /** Changes are received from the other collaborators or the server. */
   onRemoteChange?: () => void
+  /** Prevents public viewers from submitting optimistic changes. */
+  readOnly?: boolean
+  onReadError?: (error: unknown) => void
 }
 
 /**
@@ -61,6 +64,7 @@ export class TableSync {
   private rev = 0
   private loaded = false
   private subscribed = false
+  private subscribedRev = 0
   private disposed = false
   private inflight: Inflight | null = null
   private queue: Operation[] = []
@@ -77,6 +81,7 @@ export class TableSync {
     private readonly projectUID: string,
     readonly tableUID: string,
     private readonly hooks: TableSyncHooks = {},
+    private readonly api: SyncReadApi = syncApi,
   ) {}
 
   async start() {
@@ -93,6 +98,7 @@ export class TableSync {
     )
     await Promise.all([this.subscribe(), this.loadSnapshot()])
     this.loading.value = false
+    if (this.subscribedRev > this.rev) await this.fetchGap()
     this.flush()
   }
 
@@ -127,6 +133,7 @@ export class TableSync {
 
   /** Applies the local operations and queues them for submitting. */
   submit(operations: Operation[]) {
+    if (this.hooks.readOnly || this.disposed) return
     const ops = operations.filter((op) => op.actions.length)
     if (!ops.length) return
     this.setData(applyOperations(this.data, ops, this.tableUID))
@@ -148,8 +155,9 @@ export class TableSync {
     } catch {
       return
     }
-    if (reply.type !== 'SUBSCRIBED') return
+    if (this.disposed || reply.type !== 'SUBSCRIBED') return
     this.subscribed = true
+    this.subscribedRev = reply.data!.rev
     if (this.loaded && reply.data!.rev > this.rev) await this.fetchGap()
     // Resend the in-flight changeset with the original signature after reconnecting, the server deduplicates by signature.
     if (this.inflight) this.sendInflight()
@@ -159,7 +167,8 @@ export class TableSync {
   private async loadSnapshot() {
     this.blocked++
     try {
-      const s = await syncApi.snapshot(this.projectUID, this.tableUID)
+      const s = await this.api.snapshot(this.projectUID, this.tableUID)
+      if (this.disposed) return
       this.rev = s.rev
       for (const rev of this.buffer.keys()) if (rev <= s.rev) this.buffer.delete(rev)
       this.setData(applyOperations({ fields: s.fields, records: s.records, views: s.views }, this.pendingOperations(), this.tableUID))
@@ -244,10 +253,13 @@ export class TableSync {
     if (this.fetchingGap || this.disposed) return
     this.fetchingGap = true
     try {
-      for (const cs of await syncApi.changesets(this.projectUID, this.tableUID, this.rev)) {
+      const changesets = await this.api.changesets(this.projectUID, this.tableUID, this.rev)
+      if (this.disposed) return
+      for (const cs of changesets) {
         if (cs.rev > this.rev && !this.buffer.has(cs.rev)) this.buffer.set(cs.rev, { kind: 'remote', changeset: cs })
       }
-    } catch {
+    } catch (error) {
+      if (!this.disposed) this.hooks.onReadError?.(error)
       // Fetch again on the next change or reconnection.
     } finally {
       this.fetchingGap = false
@@ -264,7 +276,9 @@ export class TableSync {
       try {
         await this.fetchDirty(scope)
         break
-      } catch {
+      } catch (error) {
+        if (!this.disposed) this.hooks.onReadError?.(error)
+        if (this.disposed) break
         if (attempt >= 4) break
         await new Promise((resolve) => setTimeout(resolve, 1000 * (attempt + 1)))
       }
@@ -277,14 +291,15 @@ export class TableSync {
 
   private async fetchDirty(scope: DirtyScope) {
     const [fields, views, records] = await Promise.all([
-      scope.fields ? syncApi.fields(this.projectUID, this.tableUID) : null,
-      scope.views ? syncApi.views(this.projectUID, this.tableUID) : null,
+      scope.fields ? this.api.fields(this.projectUID, this.tableUID) : null,
+      scope.views ? this.api.views(this.projectUID, this.tableUID) : null,
       scope.allRecords
-        ? syncApi.snapshot(this.projectUID, this.tableUID).then((s) => s.records)
+        ? this.api.snapshot(this.projectUID, this.tableUID).then((s) => s.records)
         : scope.records?.length
-          ? syncApi.fetchRecords(this.projectUID, this.tableUID, scope.records)
+          ? this.api.fetchRecords(this.projectUID, this.tableUID, scope.records)
           : null,
     ])
+    if (this.disposed) return
 
     let nextRecords = this.records.value
     if (records && scope.allRecords) {

@@ -2,8 +2,9 @@ import { Message, Modal } from '@arco-design/web-vue'
 import { defineStore } from 'pinia'
 import { computed, reactive, ref, shallowRef, watch } from 'vue'
 
-import { projectsApi, syncApi, tablesApi, type TableListItem } from '@/api/bitable'
+import { createSyncApi, projectsApi, syncApi, tablesApi, type TableListItem } from '@/api/bitable'
 import { ApiError } from '@/api/client'
+import { sharesApi } from '@/api/share'
 import {
   shortcutsApi,
   type FieldShortcutManifest,
@@ -114,6 +115,11 @@ export const useBaseStore = defineStore('base', () => {
   const auth = useAuthStore()
   const identity = computed(() => auth.identity)
   const project = ref<Project | null>(null)
+  const shareToken = ref('')
+  const sharedRootTableUID = ref('')
+  const sharedAccessError = shallowRef<ApiError | null>(null)
+  const sharedAccessChanged = ref(0)
+  const isPublic = computed(() => !!shareToken.value)
   /** Reason the current user can not access the project, e.g. it is removed from the collaborators. */
   const accessDenied = ref<string | null>(null)
   const tableList = ref<TableListItem[]>([])
@@ -153,8 +159,8 @@ export const useBaseStore = defineStore('base', () => {
   // ---- Permissions ----
 
   const role = computed<ProjectRole | null>(() => project.value?.role ?? null)
-  const canEdit = computed(() => roleAtLeast(role.value, 'editor'))
-  const canManage = computed(() => roleAtLeast(role.value, 'manager'))
+  const canEdit = computed(() => !isPublic.value && roleAtLeast(role.value, 'editor'))
+  const canManage = computed(() => !isPublic.value && roleAtLeast(role.value, 'manager'))
   /** View settings changed by a viewer, they are only applied locally and never submitted. */
   const localViewConfigs = ref<Record<string, ViewConfig>>({})
   let deniedToastAt = 0
@@ -173,7 +179,11 @@ export const useBaseStore = defineStore('base', () => {
   const fields = computed<SLField[]>(() => activeSync.value?.fields.value ?? [])
   const records = computed<SLRecord[]>(() => activeSync.value?.records.value ?? [])
   const views = computed<SLView[]>(() => {
-    const list = activeSync.value?.views.value ?? []
+    let list = activeSync.value?.views.value ?? []
+    // Tables without saved views still have a local read-only grid.
+    if (isPublic.value && activeTableUID.value && !list.length) {
+      list = [{ uid: 'public-grid', tableUID: activeTableUID.value, name: viewTypeInfo('grid').defaultName, type: 'grid', config: defaultViewConfig(), position: 0 }]
+    }
     if (canEdit.value) return list
     return list.map((v) => (localViewConfigs.value[v.uid] ? { ...v, config: localViewConfigs.value[v.uid]! } : v))
   })
@@ -274,6 +284,12 @@ export const useBaseStore = defineStore('base', () => {
     localViewConfigs.value = {}
     localConfigTipShown = false
     accessDenied.value = null
+    project.value = null
+    tableList.value = []
+    shareToken.value = ''
+    sharedRootTableUID.value = ''
+    sharedAccessError.value = null
+    switchingTable.value = false
   }
 
   /** Applies the role changed by a manager: reloads the project, or stops collaborating if removed. */
@@ -295,7 +311,7 @@ export const useBaseStore = defineStore('base', () => {
   }
 
   async function openProject(projectUID: string) {
-    if (project.value?.uid === projectUID && socket.value) return
+    if (!isPublic.value && project.value?.uid === projectUID && socket.value) return
     closeProject()
     loadingProject.value = true
     try {
@@ -338,6 +354,57 @@ export const useBaseStore = defineStore('base', () => {
     void loadShortcutCatalog()
   }
 
+  function onSharedReadError(error: unknown) {
+    if (!(error instanceof ApiError) || ![401, 404].includes(error.status)) return
+    closeProject()
+    sharedAccessError.value = error
+  }
+
+  /** Public viewers use the same collaboration connection and table state as project viewers. */
+  async function openSharedProject(token: string, reload = false) {
+    if (shareToken.value === token && project.value && !reload) return
+    closeProject()
+    shareToken.value = token
+    loadingProject.value = true
+    try {
+      const shared = await sharesApi.open(token)
+      if (shareToken.value !== token) return
+      project.value = shared.project
+      tableList.value = shared.tables
+      sharedRootTableUID.value = shared.tableUID
+    } finally {
+      if (shareToken.value === token) loadingProject.value = false
+    }
+
+    const s = new ProjectSocket(pid(), token)
+    const refreshShared = async () => {
+      try {
+        const shared = await sharesApi.open(token)
+        if (socket.value !== s) return
+        project.value = shared.project
+        tableList.value = shared.tables
+        sharedRootTableUID.value = shared.tableUID
+      } catch (error) {
+        if (socket.value === s) onSharedReadError(error)
+      }
+    }
+    projectOffs = [
+      s.on<{ members: Member[] }>('MEMBERS', (data) => { members.value = data.members }),
+      s.on('open', sendPresence),
+      s.on('open', () => void refreshShared()),
+      s.on('close', () => void refreshShared()),
+      s.on('TABLES_CHANGED', () => void refreshShared()),
+      s.on('PROJECT_CHANGED', () => void refreshShared()),
+      s.on('SHARE_CHANGED', () => {
+        if (socket.value !== s) return
+        closeProject()
+        sharedAccessChanged.value++
+      }),
+    ]
+    socket.value = s
+    s.connect()
+  }
+
   async function renameProject(name: string) {
     if (!project.value || !name.trim() || name === project.value.name || !ensureEditable()) return
     try {
@@ -361,9 +428,14 @@ export const useBaseStore = defineStore('base', () => {
   async function ensureSync(tableUID: string): Promise<TableSync> {
     let sync = syncs.get(tableUID)
     if (!sync) {
+      const token = shareToken.value
       sync = new TableSync(socket.value!, pid(), tableUID, {
         onReject: (msg) => Message.error(t('base.syncFailed', { msg })),
-      })
+        ...(token ? {
+          readOnly: true,
+          onReadError: onSharedReadError,
+        } : {}),
+      }, token ? createSyncApi(token) : undefined)
       syncs.set(tableUID, sync)
       await sync.start()
     } else if (sync.loading.value) {
@@ -406,6 +478,8 @@ export const useBaseStore = defineStore('base', () => {
   }
 
   async function openTable(tableUID: string, viewUID?: string) {
+    if (isPublic.value && !tables.value.some((table) => table.uid === tableUID)) throw new ApiError(404, t('base.tableDeleted'))
+
     if (activeTableUID.value !== tableUID) {
       const prev = activeTableUID.value
       activeTableUID.value = tableUID
@@ -424,7 +498,7 @@ export const useBaseStore = defineStore('base', () => {
         switchingTable.value = false
       }
       if (prev) releaseSync(prev)
-      void loadShortcutJobs()
+      if (!isPublic.value) void loadShortcutJobs()
     }
     activeViewUID.value = views.value.find((v) => v.uid === viewUID)?.uid ?? views.value[0]?.uid ?? ''
   }
@@ -912,6 +986,10 @@ export const useBaseStore = defineStore('base', () => {
   return {
     identity,
     project,
+    isPublic,
+    sharedRootTableUID,
+    sharedAccessError,
+    sharedAccessChanged,
     accessDenied,
     role,
     canEdit,
@@ -946,6 +1024,7 @@ export const useBaseStore = defineStore('base', () => {
     peerCells,
     setCellPresence,
     openProject,
+    openSharedProject,
     closeProject,
     renameProject,
     setProjectAppearance,

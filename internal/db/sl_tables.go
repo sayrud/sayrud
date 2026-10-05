@@ -25,6 +25,8 @@ type SLTablesStore interface {
 	// GetByUID returns the table with the given UID.
 	// It returns ErrSLTableNotFound if the table does not exist.
 	GetByUID(ctx context.Context, tableUID string) (*SLTable, error)
+	// GetByShareToken returns an enabled public share, excluding deleted tables.
+	GetByShareToken(ctx context.Context, token string) (*SLTable, error)
 	// Create creates a new table in the project.
 	// It returns ErrSLTableExists if the generated UID collides.
 	Create(ctx context.Context, projectID int64, options CreateSLTableOptions) (*SLTable, error)
@@ -66,6 +68,14 @@ type SLTable struct {
 
 	// Rev is the revision of the table data, it increases by one for each changeset.
 	Rev int64 `gorm:"not null;default:0"`
+
+	// Sharing settings are managed separately and never included in table responses.
+	ShareToken           string `json:"-" gorm:"not null;default:'';uniqueIndex:idx_sl_table_share_token,where:share_token <> '' AND deleted_at IS NULL"`
+	ShareEnabled         bool   `json:"-" gorm:"not null;default:false"`
+	ShareIncludeChildren bool   `json:"-" gorm:"not null;default:false"`
+	SharePasswordHash    string `json:"-" gorm:"not null;default:''"`
+	// SharePasswordSealed lets managers retrieve the password without storing plaintext.
+	SharePasswordSealed string `json:"-" gorm:"not null;default:''"`
 }
 
 func (slTable *SLTable) BeforeCreate(_ *gorm.DB) error {
@@ -112,6 +122,14 @@ func (db *slTables) GetByUID(ctx context.Context, tableUID string) (*SLTable, er
 	return db.getBy(ctx, "uid = ?", tableUID)
 }
 
+func (db *slTables) GetByShareToken(ctx context.Context, token string) (*SLTable, error) {
+	if token == "" {
+		return nil, ErrSLTableNotFound
+	}
+
+	return db.getBy(ctx, "share_token = ? AND share_enabled = true", token)
+}
+
 var ErrSLTableNotFound = errors.New("sl_table does not exist")
 
 func (db *slTables) getBy(ctx context.Context, where string, args ...interface{}) (*SLTable, error) {
@@ -155,6 +173,12 @@ type UpdateSLTableOptions struct {
 	// Icon and Color replace the appearance when provided, empty strings clear it.
 	Icon  *string
 	Color *string
+
+	ShareToken           *string
+	ShareEnabled         *bool
+	ShareIncludeChildren *bool
+	SharePasswordHash    *string
+	SharePasswordSealed  *string
 }
 
 func (db *slTables) Update(ctx context.Context, tableID int64, options UpdateSLTableOptions) error {
@@ -168,6 +192,22 @@ func (db *slTables) Update(ctx context.Context, tableID int64, options UpdateSLT
 	}
 	if options.Color != nil {
 		updates["color"] = *options.Color
+	}
+
+	if options.ShareToken != nil {
+		updates["share_token"] = *options.ShareToken
+	}
+	if options.ShareEnabled != nil {
+		updates["share_enabled"] = *options.ShareEnabled
+	}
+	if options.ShareIncludeChildren != nil {
+		updates["share_include_children"] = *options.ShareIncludeChildren
+	}
+	if options.SharePasswordHash != nil {
+		updates["share_password_hash"] = *options.SharePasswordHash
+	}
+	if options.SharePasswordSealed != nil {
+		updates["share_password_sealed"] = *options.SharePasswordSealed
 	}
 
 	if err := db.WithContext(ctx).Model(&SLTable{}).Where("id = ?", tableID).Updates(updates).Error; err != nil {

@@ -61,7 +61,9 @@ func (schemalessRoute) ListFields(ctx context.Context, table *db.SLTable) error 
 		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to list sl fields")
 		return ctx.ApiServerError()
 	}
-	return ctx.ApiSuccess(dto.ToFields(table, slFields))
+	fields := dto.ToFields(table, slFields)
+	prepareSharedFields(fields, sharedToken(ctx))
+	return ctx.ApiSuccess(fields)
 }
 
 const ReserveUIDFieldName = "_uid"

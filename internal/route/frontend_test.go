@@ -26,12 +26,15 @@ func TestBundledFrontend(t *testing.T) {
 	}
 
 	for _, path := range []string{
-		"/base/project/table/view", "/login", "/register",
+		"/base/project/table/view", "/share/token/table/view", "/login", "/register",
 		"/settings", "/settings/devices", "/admin", "/admin/users",
 	} {
 		page := request(http.MethodGet, path)
 		if page.Code != http.StatusOK || page.Body.String() != index.Body.String() {
 			t.Fatalf("direct Vue Router navigation to %s did not serve the index", path)
+		}
+		if (strings.HasPrefix(path, "/base/") || strings.HasPrefix(path, "/share/")) && page.Header().Get("Referrer-Policy") != "no-referrer" {
+			t.Fatal("public links must not be sent to external sites in the Referer header")
 		}
 	}
 

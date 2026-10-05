@@ -58,6 +58,23 @@ func New(opts Options) *flamego.Flame {
 		f.Get("/site", api.Site.Get)
 		f.Get("/avatars/{fileUID}", api.Auth.Avatar)
 
+		f.Get("/shares/resolve", api.Share.Resolve)
+		f.Group("/shares/{shareToken}", func() {
+			f.Post("/unlock", api.Share.LimitBody, form.Bind(form.UnlockLinkShare{}), api.Share.Unlock)
+			f.Group("", func() {
+				f.Get("", api.Share.Open)
+				f.Get("/ws", api.Share.Serve)
+				f.Group("/tables/{tableUID}", func() {
+					f.Get("/snapshot", api.Share.Snapshot)
+					f.Get("/changesets", api.Share.Changesets)
+					f.Get("/fields", api.Share.Fields)
+					f.Get("/views", api.Share.Views)
+					f.Post("/records/fetch", api.Collab.LimitFetchBody, form.Bind(form.FetchRecords{}), api.Share.FetchRecords)
+					f.Get("/attachments/{fileUID}", api.Share.Attachment)
+				}, api.Share.Tabler)
+			}, api.Share.RequirePassword)
+		}, api.Share.Loader)
+
 		f.Group("/auth", func() {
 			f.Post("/sign-up", form.Bind(form.SignUp{}), api.Auth.SignUp)
 			f.Post("/sign-in", form.Bind(form.SignIn{}), api.Auth.SignIn)
@@ -185,6 +202,9 @@ func New(opts Options) *flamego.Flame {
 					f.Get("/types", api.Schemaless.FieldTypes)
 
 					f.Group("/{tableUID}", func() {
+						f.Combo("/share", canManage).
+							Get(api.Share.Get).
+							Put(api.Share.LimitBody, form.Bind(form.UpdateLinkShare{}), api.Share.Update)
 						f.Combo("").
 							Get(api.Schemaless.GetTable).
 							Put(canEdit, form.Bind(form.UpdateTable{}), api.Schemaless.UpdateTable).
@@ -218,7 +238,7 @@ func New(opts Options) *flamego.Flame {
 								Post(canEdit, form.Bind(form.CreateRecord{}), api.Schemaless.CreateRecord)
 							f.Post("/batch", canEdit, form.Bind(form.BatchCreateRecords{}), api.Schemaless.BatchCreateRecords)
 							f.Post("/query", form.Bind(form.QueryRecords{}), api.Schemaless.QueryRecords)
-							f.Post("/fetch", form.Bind(form.FetchRecords{}), api.Collab.FetchRecords)
+							f.Post("/fetch", api.Collab.LimitFetchBody, form.Bind(form.FetchRecords{}), api.Collab.FetchRecords)
 							f.Group("/{recordUID}", func() {
 								f.Combo("").
 									Get(api.Schemaless.GetRecord).
