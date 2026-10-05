@@ -137,9 +137,9 @@ function compatible(field: SLField | undefined, target: SLField): boolean {
       </div>
       <div v-if="reference.tableUID && !loading && !selectable.length" class="hint">{{ t('options.noSourceFields') }}</div>
 
-      <div v-if="source" class="conditions-head">
+      <div v-if="source && reference.conditions.length > 0" class="conditions-head">
         <span class="reference-label">{{ t('options.referenceConditions') }}</span>
-        <div class="conditions-match">
+        <div v-if="reference.conditions.length > 1" class="conditions-match">
           <span>{{ t('toolbar.matchPrefix') }}</span>
           <a-select
             :model-value="reference.match ?? 'all'"
@@ -260,6 +260,7 @@ function compatible(field: SLField | undefined, target: SLField): boolean {
 }
 
 .conditions-head {
+  min-height: 28px;
   display: flex;
   align-items: center;
   justify-content: space-between;
