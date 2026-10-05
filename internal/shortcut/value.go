@@ -32,6 +32,17 @@ func fieldOptions(field *db.SLField) []selectOption {
 	return options
 }
 
+// optionNames reads the current host options, so scripts never use a stale copy in shortcut inputs.
+func optionNames(field *db.SLField) []string {
+	names := make([]string, 0)
+	for _, option := range fieldOptions(field) {
+		if name := strings.TrimSpace(option.Name); name != "" {
+			names = append(names, name)
+		}
+	}
+	return names
+}
+
 // InputValue converts the cell value to the shortcut input: strings for text and dates, numbers, booleans,
 // the option name for single select and the option names for multiple select. It returns nil for empty cells.
 func InputValue(field *db.SLField, value interface{}) interface{} {

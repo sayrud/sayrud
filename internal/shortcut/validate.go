@@ -28,6 +28,19 @@ func Validate(custom *db.CustomFieldShortcut, fields []*db.SLField, field *db.SL
 	byUID := lo.KeyBy(fields, func(f *db.SLField) string { return f.UID })
 	normalized := &db.FieldShortcut{ID: custom.UID, Inputs: map[string]interface{}{}, AutoUpdate: shortcut.AutoUpdate}
 	for _, item := range custom.FormItems.Data() {
+		if item.Component == db.ShortcutFormFieldOptions {
+			if field.Type != db.SingleSelectFieldType && field.Type != db.MultiSelectFieldType {
+				return nil, newError("shortcut::unsupported_type")
+			}
+			names := optionNames(field)
+			if item.Required && len(names) == 0 {
+				return nil, newError("shortcut::input_required", item.Label)
+			}
+			if len(lo.Uniq(names)) != len(names) {
+				return nil, newError("shortcut::invalid_option", item.Label)
+			}
+			continue
+		}
 		raw, _ := shortcut.Inputs[item.Key].(string)
 		value := strings.TrimSpace(raw)
 		if value == "" {

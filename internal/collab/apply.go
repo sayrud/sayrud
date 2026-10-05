@@ -387,6 +387,10 @@ func (a *applier) setField(action Action) (*Action, error) {
 			return nil, err
 		}
 		a.change.Fields = append(a.change.Fields, field.UID)
+		// Category changes affect this shortcut too; color and ordering edits do not need another execution.
+		if field.Shortcut != nil && field.Shortcut.AutoUpdate && !reflect.DeepEqual(optionNames(field), optionNames(a.field(field.UID))) {
+			a.change.Shortcuts = append(a.change.Shortcuts, field.UID)
+		}
 	}
 	return &action, nil
 }

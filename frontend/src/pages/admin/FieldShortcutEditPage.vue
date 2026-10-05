@@ -174,6 +174,11 @@ function body(): SaveFieldShortcut | null {
     tab.value = 'formItems'
     return null
   }
+  if (loaded.items.some((item) => item.component === 'field_options') && draft.resultType !== 'single_select' && draft.resultType !== 'multi_select') {
+    Message.warning(t('shortcutAdmin.fieldOptionsTypeRequired'))
+    tab.value = 'basic'
+    return null
+  }
   return {
     name: draft.name,
     description: draft.description,

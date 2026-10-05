@@ -164,6 +164,10 @@ func buildCustomShortcut(f form.SaveFieldShortcut) (*db.CustomFieldShortcut, map
 	if err != nil {
 		return nil, nil, err
 	}
+	if resultType != db.SingleSelectFieldType && resultType != db.MultiSelectFieldType &&
+		lo.ContainsBy(formItems, func(item db.ShortcutFormItem) bool { return item.Component == db.ShortcutFormFieldOptions }) {
+		return nil, nil, i18n.Errorf("field_shortcut::invalid_result_type")
+	}
 
 	if len(f.Domains) > maxShortcutDomains {
 		return nil, nil, i18n.Errorf("field_shortcut::too_many_domains", maxShortcutDomains)
@@ -273,6 +277,9 @@ func normalizeFormItems(items []db.ShortcutFormItem) ([]db.ShortcutFormItem, err
 			}
 		} else {
 			item.Options = nil
+		}
+		if item.Component == db.ShortcutFormFieldOptions {
+			item.Default = ""
 		}
 		result = append(result, item)
 	}

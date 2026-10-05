@@ -6872,6 +6872,7 @@ const docTemplate = `{
                         "input",
                         "textarea",
                         "select",
+                        "field_options",
                         "prompt"
                     ]
                 },

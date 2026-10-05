@@ -46,6 +46,8 @@ const (
 	ShortcutFormInput       ShortcutFormComponent = "input"
 	ShortcutFormTextarea    ShortcutFormComponent = "textarea"
 	ShortcutFormSelect      ShortcutFormComponent = "select"
+	// ShortcutFormFieldOptions edits the host select field's options and passes their names as a string array.
+	ShortcutFormFieldOptions ShortcutFormComponent = "field_options"
 	// ShortcutFormPrompt is a text referencing the fields by `{fieldUID}`, which are replaced by the cell texts when executing.
 	ShortcutFormPrompt ShortcutFormComponent = "prompt"
 )
@@ -53,7 +55,7 @@ const (
 // Valid reports whether the component is supported.
 func (c ShortcutFormComponent) Valid() bool {
 	switch c {
-	case ShortcutFormFieldSelect, ShortcutFormInput, ShortcutFormTextarea, ShortcutFormSelect, ShortcutFormPrompt:
+	case ShortcutFormFieldSelect, ShortcutFormInput, ShortcutFormTextarea, ShortcutFormSelect, ShortcutFormFieldOptions, ShortcutFormPrompt:
 		return true
 	}
 	return false
@@ -74,7 +76,7 @@ type ShortcutFormItem struct {
 	// Label is the name of the item shown in the form.
 	Label string `json:"label"`
 	// Component is the control to render the item.
-	Component ShortcutFormComponent `json:"component" swaggertype:"string" enums:"field_select,input,textarea,select,prompt"`
+	Component ShortcutFormComponent `json:"component" swaggertype:"string" enums:"field_select,input,textarea,select,field_options,prompt"`
 	// Required reports whether the item must be filled in before saving or executing.
 	Required bool `json:"required,omitempty"`
 	// Placeholder is the hint of the empty input.

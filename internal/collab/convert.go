@@ -162,6 +162,19 @@ func optionName(field *db.SLField, uid string) string {
 	return ""
 }
 
+func optionNames(field *db.SLField) map[string]string {
+	metadata, _ := field.Metadata.Data().(map[string]interface{})
+	options, _ := metadata["options"].([]interface{})
+	names := make(map[string]string, len(options))
+	for _, raw := range options {
+		option, _ := raw.(map[string]interface{})
+		uid, _ := option["uid"].(string)
+		name, _ := option["name"].(string)
+		names[uid] = name
+	}
+	return names
+}
+
 func optionUID(field *db.SLField, name string) string {
 	metadata, _ := field.Metadata.Data().(map[string]interface{})
 	options, _ := metadata["options"].([]interface{})

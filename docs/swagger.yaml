@@ -1506,6 +1506,7 @@ definitions:
         - input
         - textarea
         - select
+        - field_options
         - prompt
         type: string
       default:

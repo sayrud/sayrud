@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { Message } from '@arco-design/web-vue'
 import { Check, ChevronRight, Pencil, Search, Sparkles, TriangleAlert, Zap } from '@lucide/vue'
-import { computed, nextTick, onMounted, ref } from 'vue'
+import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import type { FieldShortcutManifest } from '@/api/shortcut'
@@ -11,7 +11,8 @@ import type { FieldMetadata, FieldShortcut, FieldType, SelectOption } from '@/ty
 import { DATE_FORMATS, defaultMetadata, FIELD_TYPES, fieldTypeInfo, NUMBER_FORMATS, type FieldTypeInfo } from '@/utils/fieldTypes'
 import { formatNumber } from '@/utils/format'
 import { expToDisplay } from '@/utils/formula'
-import { missingInput, newShortcut } from '@/utils/shortcut'
+import { newOptionUID } from '@/utils/id'
+import { legacyOptionNames, missingInput, newShortcut } from '@/utils/shortcut'
 import FieldTypeIcon from './FieldTypeIcon.vue'
 import FormulaModal from './FormulaModal.vue'
 import OptionsEditor from './OptionsEditor.vue'
@@ -125,7 +126,16 @@ function selectShortcut(m: FieldShortcutManifest) {
   }
   const next = m.resultTypes.includes(type.value) ? type.value : m.resultTypes[0]
   if (next && next !== type.value) changeType(next)
+  if (m.formItems.some((item) => item.component === 'field_options')) {
+    if (!options.value.length) {
+      options.value = legacyOptionNames(m, shortcut.value!.inputs).map((name, color) => ({ uid: newOptionUID(), name, color }))
+    }
+    for (const item of m.formItems) if (item.component === 'field_options') delete shortcut.value!.inputs[item.key]
+  }
 }
+
+// An admin may upgrade a text shortcut to single select; prepare a converted draft when it is edited.
+watch(manifest, (m) => { if (m && shortcut.value) selectShortcut(m) })
 
 function selectEntry(entry: MenuEntry) {
   if (entry.type) selectType(entry.type.type)
@@ -166,6 +176,7 @@ const options = computed<SelectOption[]>({
 })
 
 const namedOptions = computed(() => options.value.filter((o) => o.name.trim()))
+const hasOptionsItem = computed(() => manifest.value?.formItems.some((item) => item.component === 'field_options'))
 
 const missingShortcutInput = computed(() => (shortcut.value && manifest.value ? missingInput(manifest.value, shortcut.value.inputs) : null))
 const formulaDisplay = computed(() => expToDisplay(String(md.value.exp ?? ''), store.fields))
@@ -261,7 +272,7 @@ const numberExample = computed(() => formatNumber(1234.5678, String(md.value.for
         <template v-else>
           <div v-if="!manifest.available" class="warn shortcut-warn"><TriangleAlert :size="14" /> {{ t('shortcut.unavailable') }}</div>
           <div v-if="manifest.description" class="hint shortcut-description">{{ manifest.description }}</div>
-          <ShortcutForm v-model="shortcut.inputs" :items="manifest.formItems" :fields="store.fields" :field-u-i-d="editing?.uid" />
+          <ShortcutForm v-model="shortcut.inputs" v-model:options="options" :items="manifest.formItems" :fields="store.fields" :field-u-i-d="editing?.uid" />
         </template>
         <div class="row inline">
           <span>{{ t('shortcut.autoUpdate') }}</span>
@@ -301,7 +312,7 @@ const numberExample = computed(() => formatNumber(1234.5678, String(md.value.for
       </template>
 
       <template v-else-if="type === 'single_select' || type === 'multi_select'">
-        <div class="row">
+        <div v-if="!hasOptionsItem" class="row">
           <div class="row-label">{{ t('fieldEditor.options') }}</div>
           <OptionsEditor v-model="options" />
         </div>

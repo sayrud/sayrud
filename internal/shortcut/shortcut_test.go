@@ -167,6 +167,35 @@ func TestValidateCycle(t *testing.T) {
 	require.ElementsMatch(t, []string{"fldBBBBBBB"}, Dependencies(c.Shortcut))
 }
 
+func TestExecuteFieldOptions(t *testing.T) {
+	target := selectField("fldSSSSSSS", db.SingleSelectFieldType, "A", "B: detail")
+	def := &db.CustomFieldShortcut{
+		UID: "fscAAAAAAA", ResultType: db.SingleSelectFieldType, Enabled: true, TimeoutSeconds: 5,
+		Code:      `function execute(params) { return params.categories[params.categories.length - 1] }`,
+		FormItems: datatypes.NewJSONType([]db.ShortcutFormItem{{Key: "categories", Label: "Categories", Component: db.ShortcutFormFieldOptions, Required: true}}),
+	}
+	target.Shortcut = &db.FieldShortcut{ID: def.UID, Inputs: map[string]interface{}{"categories": "stale text"}, AutoUpdate: true}
+	normalized, err := Validate(def, nil, target, target.Shortcut)
+	require.NoError(t, err)
+	require.Empty(t, normalized.Inputs)
+	target.Shortcut = normalized
+	value, err := Execute(context.Background(), def, nil, target, nil, Env{})
+	require.NoError(t, err)
+	require.Equal(t, "optB", value)
+
+	// Adding a category immediately supplies it to the script, without changing shortcut inputs.
+	target.Metadata = selectField(target.UID, target.Type, "A", "B: detail", "C").Metadata
+	value, err = Execute(context.Background(), def, nil, target, nil, Env{})
+	require.NoError(t, err)
+	require.Equal(t, "optC", value)
+
+	for _, names := range [][]string{nil, {"A", "A"}, {" "}} {
+		target.Metadata = selectField(target.UID, target.Type, names...).Metadata
+		_, err = Validate(def, nil, target, target.Shortcut)
+		require.Error(t, err)
+	}
+}
+
 func TestExecutePrompt(t *testing.T) {
 	name := field("fldNNNNNNN", db.TextFieldType, nil)
 	count := field("fldCCCCCCC", db.NumberFieldType, nil)

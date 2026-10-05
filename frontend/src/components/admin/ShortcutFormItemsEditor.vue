@@ -84,7 +84,7 @@ function setComponent(item: EditorItem, component: string) {
   item.component = component
   if (component !== 'field_select') item.fieldTypes = []
   if (component !== 'select') item.options = []
-  if (component === 'field_select') item.defaultValue = ''
+  if (component === 'field_select' || component === 'field_options') item.defaultValue = ''
 }
 
 function setFieldTypes(item: EditorItem, value: unknown) {
@@ -117,6 +117,8 @@ function componentLabel(component: string): string {
       return t('shortcutAdmin.componentTextarea')
     case 'select':
       return t('shortcutAdmin.componentSelect')
+    case 'field_options':
+      return t('shortcutAdmin.componentFieldOptions')
     case 'prompt':
       return t('shortcutAdmin.componentPrompt')
     default:
@@ -286,6 +288,7 @@ function setMode(value: string | number | boolean) {
                 </a-select>
               </a-form-item>
             </div>
+            <p v-if="item.component === 'field_options'" class="text-desc">{{ t('shortcutAdmin.fieldOptionsHint') }}</p>
             <div v-if="item.component === 'select'" class="options">
                 <div class="options-label">{{ t('shortcutAdmin.options') }}</div>
                 <p v-if="help(index, 'options')" class="field-error">{{ help(index, 'options') }}</p>

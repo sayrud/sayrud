@@ -2,7 +2,7 @@
 
 export const MAX_FORM_ITEMS = 20
 
-export const FORM_COMPONENTS = ['field_select', 'input', 'textarea', 'select', 'prompt'] as const
+export const FORM_COMPONENTS = ['field_select', 'input', 'textarea', 'select', 'field_options', 'prompt'] as const
 export type FormComponent = (typeof FORM_COMPONENTS)[number]
 
 export const FORM_FIELD_TYPES = ['text', 'single_select', 'multi_select', 'datetime', 'number', 'checkbox'] as const
@@ -35,7 +35,7 @@ export interface ShortcutFormItemDraft {
   placeholder: string
   fieldTypes: string[]
   options: ShortcutFormOptionDraft[]
-  /** JSON field `default`. A field_select item has no default. */
+  /** JSON field `default`. Field references and host options have no default. */
   defaultValue: string
 }
 
@@ -93,7 +93,7 @@ function coerce(raw: Record<string, unknown>): ShortcutFormItemDraft {
     placeholder: typeof raw.placeholder === 'string' ? raw.placeholder.trim() : '',
     fieldTypes: component === 'field_select' ? stringList(raw.fieldTypes) : [],
     options: component === 'select' ? optionsOf(raw.options) : [],
-    defaultValue: component === 'field_select' || typeof raw.default !== 'string' ? '' : raw.default,
+    defaultValue: component === 'field_select' || component === 'field_options' || typeof raw.default !== 'string' ? '' : raw.default,
   }
 }
 
@@ -118,7 +118,7 @@ function serializeItem(item: ShortcutFormItemDraft): Record<string, unknown> {
       label: option.label === '' ? option.value : option.label,
     }))
   }
-  if (item.component !== 'field_select' && item.defaultValue !== '') out.default = item.defaultValue
+  if (item.component !== 'field_select' && item.component !== 'field_options' && item.defaultValue !== '') out.default = item.defaultValue
   return out
 }
 

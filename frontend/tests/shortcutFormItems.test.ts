@@ -28,6 +28,14 @@ function item(patch: Partial<ShortcutFormItemDraft> = {}): ShortcutFormItemDraft
 
 const codes = (issues: FormItemIssue[]) => issues.map((issue) => issue.code)
 
+test('host options need no static choices or default in the manifest', () => {
+  const loaded = loadFormItems('[{"key":"categories","label":"Categories","component":"field_options","required":true,"default":"stale","options":[{"value":"stale"}]}]')
+  assert.equal(loaded.ok, true)
+  if (!loaded.ok) return
+  assert.deepEqual(validateFormItems(loaded.items), [])
+  assert.deepEqual(JSON.parse(serializeFormItems(loaded.items)), [{ key: 'categories', label: 'Categories', component: 'field_options', required: true }])
+})
+
 test('serialize keeps field order and drops values a field select cannot use', () => {
   const text = serializeFormItems([
     item({ required: true, placeholder: '', fieldTypes: ['text'], options: [{ value: 'a', label: 'A' }], defaultValue: 'gone' }),

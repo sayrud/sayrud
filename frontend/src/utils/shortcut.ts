@@ -27,18 +27,25 @@ async function execute(params, context) {
 
 /** Sample parameters use the defaults so a starter draft can be tested immediately. */
 export function sampleShortcutParams(items: ShortcutFormItem[]): string {
-  return JSON.stringify(Object.fromEntries(items.map((item) => [item.key, item.default ?? (item.component === 'select' ? (item.options?.[0]?.value ?? '') : 'Hello')])), null, 2)
+  return JSON.stringify(Object.fromEntries(items.map((item) => [item.key, item.component === 'field_options' ? ['A', 'B'] : item.default ?? (item.component === 'select' ? (item.options?.[0]?.value ?? '') : 'Hello')])), null, 2)
 }
 
 /** Returns the initial inputs of a new shortcut by the defaults of the form items. */
 export function defaultInputs(manifest: Pick<FieldShortcutManifest, 'formItems'>): Record<string, string> {
   const inputs: Record<string, string> = {}
-  for (const item of manifest.formItems) if (item.default) inputs[item.key] = item.default
+  for (const item of manifest.formItems) if (item.component !== 'field_options' && item.default) inputs[item.key] = item.default
   return inputs
 }
 
 export function newShortcut(manifest: Pick<FieldShortcutManifest, 'id' | 'formItems'>): FieldShortcut {
   return { id: manifest.id, inputs: defaultInputs(manifest), autoUpdate: true }
+}
+
+/** Imports the previous line-based category input when upgrading to host options. */
+export function legacyOptionNames(manifest: Pick<FieldShortcutManifest, 'formItems'>, inputs: Record<string, string>): string[] {
+  return [...new Set(manifest.formItems.filter((item) => item.component === 'field_options')
+    .flatMap((item) => (inputs[item.key] ?? '').split(/\r?\n/).map((line) => line.split(/[:：]/, 1)[0]!.trim()))
+    .filter(Boolean))]
 }
 
 /** Returns the fields which the field_select item of the field can pick. */
@@ -50,7 +57,7 @@ export function selectableFields(item: Pick<ShortcutFormItem, 'fieldTypes'>, fie
 
 /** Returns the label of the first required item without a value, or null if complete. */
 export function missingInput(manifest: Pick<FieldShortcutManifest, 'formItems'>, inputs: Record<string, string>): string | null {
-  const item = manifest.formItems.find((i) => i.required && !inputs[i.key]?.trim())
+  const item = manifest.formItems.find((i) => i.component !== 'field_options' && i.required && !inputs[i.key]?.trim())
   return item ? item.label : null
 }
 

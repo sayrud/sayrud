@@ -1,8 +1,9 @@
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 import test from 'node:test'
 
 import type { SLField } from '../src/types/bitable.ts'
-import { defaultInputs, missingInput, newShortcut, promptFromDisplay, promptToDisplay, sampleShortcutParams, selectableFields, shortcutStarter } from '../src/utils/shortcut.ts'
+import { defaultInputs, legacyOptionNames, missingInput, newShortcut, promptFromDisplay, promptToDisplay, sampleShortcutParams, selectableFields, shortcutStarter } from '../src/utils/shortcut.ts'
 
 const field = (uid: string, label: string, type: SLField['type']) => ({ uid, label, type }) as SLField
 const fields = [field('fldAAAAAAA', 'Feedback', 'text'), field('fldBBBBBBB', 'Score', 'number'), field('fldCCCCCCC', 'Total', 'formula')]
@@ -59,4 +60,31 @@ test('new shortcuts start with a runnable JavaScript example', async () => {
   assert.equal(await execute(params, {}), 5)
 
   assert.equal(sampleShortcutParams([{ key: 'choice', label: 'Choice', component: 'select', default: 'second', options: [{ value: 'first', label: 'First' }, { value: 'second', label: 'Second' }] }]), '{\n  "choice": "second"\n}')
+})
+
+test('host options are supplied by field metadata instead of shortcut inputs', () => {
+  const manifest = { id: 'fscAAAAAAA', formItems: [{ key: 'categories', label: 'Categories', component: 'field_options' as const, required: true, default: 'stale' }] }
+  assert.deepEqual(defaultInputs(manifest), {})
+  assert.equal(missingInput(manifest, {}), null)
+  assert.deepEqual(JSON.parse(sampleShortcutParams(manifest.formItems)), { categories: ['A', 'B'] })
+  assert.deepEqual(legacyOptionNames(manifest, { categories: 'A: description\r\n B：说明\nA\n\n' }), ['A', 'B'])
+})
+
+test('the classification example accepts current option names and legacy category text', async () => {
+  const code = readFileSync(new URL('../../examples/field-shortcuts/jev-classify.js', import.meta.url), 'utf8')
+  const execute = new Function(`${code}; return execute`)()
+  assert.equal(await execute({ text: 'Sample', categories: ['Only category'] }, {}), 'Only category')
+  await assert.rejects(() => execute({ text: 'Sample', categories: [] }, {}))
+  for (const categories of [['A: literal name', 'B'], 'A: description\nB：说明']) {
+    let criteria: Record<string, { name: string; description: string }> = {}
+    const context = {
+      log: () => {},
+      fetch: async (_url: string, options: { body: { questions: { classification: { criteria: typeof criteria } } } }) => {
+        criteria = options.body.questions.classification.criteria
+        return { ok: true, json: async () => ({ answers: { classification: { type: 'choice', choice: 'category_0' } } }) }
+      },
+    }
+    assert.equal(await execute({ text: 'Sample', categories }, context), Array.isArray(categories) ? 'A: literal name' : 'A')
+    assert.equal(Object.keys(criteria).length, 2)
+  }
 })

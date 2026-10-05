@@ -171,6 +171,21 @@ func TestEngine(t *testing.T) {
 	require.NoError(t, err)
 	require.Empty(t, list)
 
+	// Category edits regenerate the column, while palette and ordering edits keep the values.
+	metadata := map[string]interface{}{"options": []interface{}{
+		map[string]interface{}{"uid": "optService", "name": "Service", "color": 4},
+		map[string]interface{}{"uid": "optProduct", "name": "Product", "color": 3},
+	}}
+	commit("colors", collab.Action{Action: collab.ActionSetField, FieldUID: category, Field: &collab.FieldAttrs{Metadata: metadata}})
+	list, err = jobs.ListByTableID(ctx, table.ID)
+	require.NoError(t, err)
+	require.Empty(t, list)
+	metadata["options"] = append(metadata["options"].([]interface{}), map[string]interface{}{"uid": "optOther", "name": "Other", "color": 2})
+	commit("categories", collab.Action{Action: collab.ActionSetField, FieldUID: category, Field: &collab.FieldAttrs{Metadata: metadata}})
+	waitJobs(func(list []*db.SLShortcutJob) bool { return len(list) == 2 })
+	processNext()
+	processNext()
+
 	// Only toggling the auto update keeps the values.
 	commit("toggle", collab.Action{Action: collab.ActionSetFieldShortcut, FieldUID: category, Shortcut: &db.FieldShortcut{ID: custom.UID, Inputs: map[string]interface{}{"source": source}}})
 	time.Sleep(100 * time.Millisecond)
@@ -180,6 +195,11 @@ func TestEngine(t *testing.T) {
 	field, err := db.NewSLFieldsStore(gormDB).GetByUID(ctx, category)
 	require.NoError(t, err)
 	require.False(t, field.Shortcut.AutoUpdate)
+	metadata["options"] = append(metadata["options"].([]interface{}), map[string]interface{}{"uid": "optExtra", "name": "Extra", "color": 5})
+	commit("manualCategories", collab.Action{Action: collab.ActionSetField, FieldUID: category, Field: &collab.FieldAttrs{Metadata: metadata}})
+	list, err = jobs.ListByTableID(ctx, table.ID)
+	require.NoError(t, err)
+	require.Empty(t, list)
 
 	// Invalid outputs fail without retrying.
 	require.NoError(t, gormDB.Model(custom).Update("code", `function execute() { return "Unknown" }`).Error)

@@ -99,6 +99,8 @@ func resolveInputs(custom *db.CustomFieldShortcut, fields []*db.SLField, field *
 				return nil, false, newError("shortcut::invalid_input_field", item.Label)
 			}
 			params[item.Key] = text
+		case db.ShortcutFormFieldOptions:
+			params[item.Key] = optionNames(field)
 		default:
 			params[item.Key] = raw
 		}

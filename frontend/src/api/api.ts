@@ -689,7 +689,13 @@ export interface SetAuthProviderPositions {
 
 export interface ShortcutFormItem {
   /** Component is the control to render the item. */
-  component: "field_select" | "input" | "textarea" | "select" | "prompt";
+  component:
+    | "field_select"
+    | "input"
+    | "textarea"
+    | "select"
+    | "field_options"
+    | "prompt";
   /** Default is the initial value when configuring a new field. */
   default?: string;
   /** FieldTypes limits the fields of field_select, empty allows all the fields except formulas. */
