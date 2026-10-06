@@ -1,0 +1,53 @@
+# Copy to config/sayrud.yaml. See README for Docker setup.
+app:
+  port: 2830
+  # Use only behind a proxy that overwrites this header.
+  ip_header: "" # e.g. X-Real-IP; empty uses the peer IP.
+
+# Replace the example password before deployment.
+postgres:
+  dsn: "postgres://postgres:change-me@127.0.0.1:5432/sayrud?sslmode=disable"
+
+redis:
+  address: "127.0.0.1:6379"
+  username: ""
+  password: ""
+
+auth:
+  disable_sign_up: false # Initial default; saved admin settings take precedence.
+  # Required for sign-in providers and AI API keys. Generate: openssl rand -base64 32.
+  # Back up this key; changing it makes saved secrets unreadable.
+  secret_key: ""
+
+shortcut:
+  workers: 4 # Concurrent field shortcut jobs per server instance.
+
+storage:
+  type: local # local or s3
+  url_expiry: 1h # S3 presigned URL lifetime.
+  local:
+    path: ./data/storage
+  s3:
+    endpoint: "" # Empty for AWS; e.g. http://127.0.0.1:9000 for MinIO.
+    region: us-east-1
+    bucket: sayrud # Required for s3.
+    # Set both credentials; leave empty to use the AWS default credential chain.
+    access_key_id: ""
+    secret_access_key: ""
+    use_path_style: false # Set true for MinIO.
+    base_path: ""
+    public_url: "" # Public bucket/CDN URL; skips presigning.
+
+observability:
+  tracing:
+    enabled: false
+    endpoint: "127.0.0.1:4317" # Plaintext OTLP/gRPC; required when enabled.
+    token: "" # Trace resource attribute.
+  metrics:
+    enabled: true # Prometheus endpoint: /-/metrics
+    # TCP peer IPs/CIDRs; empty denies all. Proxy headers are ignored.
+    whitelist:
+      - "127.0.0.1"
+      - "::1"
+
+# Site settings, sign-in providers and the AI model are managed in the admin console.

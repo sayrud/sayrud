@@ -8,10 +8,15 @@ import (
 	"github.com/flamego/flamego"
 	"github.com/stretchr/testify/require"
 
+	"github.com/wuhan005/sayrud/internal/conf"
 	"github.com/wuhan005/sayrud/internal/i18n"
 )
 
 func TestContextIP(t *testing.T) {
+	previousApp := conf.App
+	t.Cleanup(func() { conf.App = previousApp })
+	t.Setenv("IP_HEADER", "X-Environment-IP")
+
 	for _, tc := range []struct {
 		name       string
 		ipHeader   string
@@ -25,7 +30,7 @@ func TestContextIP(t *testing.T) {
 		{name: "IP header with port", ipHeader: "X-Real-IP", remoteAddr: "127.0.0.1:54321", header: "198.51.100.7:8080", want: "198.51.100.7"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			t.Setenv("IP_HEADER", tc.ipHeader)
+			conf.App.IPHeader = tc.ipHeader
 
 			var got string
 			f := flamego.New()
@@ -34,6 +39,7 @@ func TestContextIP(t *testing.T) {
 
 			request := httptest.NewRequest(http.MethodGet, "/", nil)
 			request.RemoteAddr = tc.remoteAddr
+			request.Header.Set("X-Environment-IP", "203.0.113.9")
 			if tc.ipHeader != "" {
 				request.Header.Set(tc.ipHeader, tc.header)
 			}

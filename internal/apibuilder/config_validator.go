@@ -41,7 +41,7 @@ var (
 	ErrDuplicateParamKey  = errors.New("duplicate param key")
 	ErrParamValueRequired = errors.New("param value required")
 
-	ErrEmptyValidatorExpression = errors.New("empty validator expression")
+	ErrUnsupportedCustomValidators = errors.New("custom validators are no longer supported")
 
 	ErrDatasetTableNotFound = errors.New("dataset table not found")
 	ErrEmptyDatasets        = errors.New("empty datasets")

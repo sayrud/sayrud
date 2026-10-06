@@ -4,13 +4,8 @@ services:
     restart: unless-stopped
     ports:
       - "2830:2830"
-    environment:
-      PGPASSWORD: ${POSTGRES_PASSWORD:-change-me}
-      REDIS_ADDRESS: redis:6379
-    configs:
-      - source: sayrud
-        target: /home/app/config/sayrud.yaml
     volumes:
+      - ./config/sayrud.yaml:/home/app/config/sayrud.yaml:ro
       - sayrud_data:/home/app/data
     depends_on:
       postgres:
@@ -22,8 +17,7 @@ services:
     image: postgres:17-alpine
     restart: unless-stopped
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me}
+      POSTGRES_PASSWORD: change-me
       POSTGRES_DB: sayrud
     ports:
       - "127.0.0.1:5432:5432"
@@ -45,14 +39,6 @@ services:
       interval: 2s
       timeout: 3s
       retries: 15
-
-configs:
-  sayrud:
-    content: |
-      app:
-        port: 2830
-      postgres:
-        dsn: host=postgres port=5432 user=postgres dbname=sayrud sslmode=disable
 
 volumes:
   postgres_data:

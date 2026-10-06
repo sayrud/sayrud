@@ -40,15 +40,20 @@ Sayrud is a self-hosted collaborative spreadsheet database for organizing projec
 
 ## 🚀 Deployment
 
-You need Docker and Docker Compose 2.23.1 or later. The image includes both the frontend and backend. Compose starts
+You need Docker and Docker Compose v2. The image includes both the frontend and backend. Compose starts
 Sayrud, PostgreSQL, and Redis together.
-
-For production, set `POSTGRES_PASSWORD` in a local `.env` file before the first startup. The default password,
-`change-me`, is for local use.
 
 ```sh
 git clone https://github.com/sayrud/sayrud.git
 cd sayrud
+cp config/sayrud.example.yaml config/sayrud.yaml
+```
+
+Edit `config/sayrud.yaml`: use `postgres` as the PostgreSQL host and `redis:6379` as the Redis address.
+For production, change the password in `postgres.dsn` and `POSTGRES_PASSWORD` in `docker-compose.yaml` to the same value.
+The default password, `change-me`, is for local use. Compose mounts `config/sayrud.yaml` read-only.
+
+```sh
 docker compose up -d
 ```
 
@@ -77,11 +82,11 @@ docker compose up -d --wait postgres redis
 cp config/sayrud.example.yaml config/sayrud.yaml
 pnpm --dir frontend install --frozen-lockfile
 pnpm --dir frontend build
-REDIS_ADDRESS=127.0.0.1:6379 go run ./cmd/sayrud-server
+go run ./cmd/sayrud-server
 ```
 
-If you change `POSTGRES_PASSWORD`, use the same password in the PostgreSQL connection in `config/sayrud.yaml`. Run
-`docker compose stop sayrud` if the Compose application is already using port `2830`.
+If you change the database initialization password in `docker-compose.yaml`, use the same password in the PostgreSQL
+connection in `config/sayrud.yaml`. Run `docker compose stop sayrud` if the Compose application is already using port `2830`.
 
 In another terminal, run `pnpm --dir frontend dev` and open <http://localhost:5173>. Vite proxies API and WebSocket
 requests to the backend. Production builds embed `frontend/dist` with `go:embed`.

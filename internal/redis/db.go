@@ -6,19 +6,21 @@ package redis
 
 import (
 	"context"
-	"os"
 
 	"github.com/cockroachdb/errors"
 	"github.com/redis/go-redis/extra/redisotel/v9"
 	"github.com/redis/go-redis/v9"
+
+	"github.com/wuhan005/sayrud/internal/conf"
 )
 
 var rdb *redis.Client
 
 func Init() (*redis.Client, error) {
 	rdb = redis.NewClient(&redis.Options{
-		Addr:     os.Getenv("REDIS_ADDRESS"),
-		Password: os.Getenv("REDIS_PASSWORD"),
+		Addr:     conf.Redis.Address,
+		Username: conf.Redis.Username,
+		Password: conf.Redis.Password,
 	})
 
 	ctx := context.Background()

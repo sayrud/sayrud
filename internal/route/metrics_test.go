@@ -49,7 +49,9 @@ func TestMetricsEndpoint(t *testing.T) {
 }
 
 func TestMetricsEndpointRejectsUnlistedPeer(t *testing.T) {
-	t.Setenv("IP_HEADER", "X-Real-IP")
+	previousApp := conf.App
+	t.Cleanup(func() { conf.App = previousApp })
+	conf.App.IPHeader = "X-Real-IP"
 	provider, handler, err := metrics.New(conf.MetricsConfig{
 		Enabled:   true,
 		Whitelist: []string{"192.0.2.0/24"},

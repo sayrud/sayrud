@@ -8,7 +8,8 @@ import (
 )
 
 var App struct {
-	Port int `mapstructure:"port"`
+	Port     int    `mapstructure:"port"`
+	IPHeader string `mapstructure:"ip_header"`
 }
 
 var Postgres struct {

@@ -10,31 +10,6 @@
  * ---------------------------------------------------------------
  */
 
-export interface AIAdvice {
-  action: "tables";
-  messages: AIMessage[];
-}
-
-export interface AIAdviceResp {
-  action: string;
-  /** ActionJSON is the structured payload of the action, which can be passed to the apply API as is. */
-  actionJson: object;
-  description: string;
-  /** Raw is the raw output of the model. */
-  raw: string;
-}
-
-export interface AIApply {
-  action: "tables";
-  /** ActionJson is the actionJson returned by the advice API. */
-  actionJson: object;
-}
-
-export interface AIMessage {
-  content: string;
-  role: string;
-}
-
 export interface Action {
   /** Action is the type of the action. */
   action:
@@ -1176,10 +1151,6 @@ export type GetProjectData = Project;
 export type UpdateProjectData = any;
 
 export type DeleteProjectData = any;
-
-export type AiAdviceData = AIAdviceResp;
-
-export type AiApplyData = any;
 
 /** @format binary */
 export type GetAttachmentData = File;
@@ -2469,43 +2440,6 @@ export class Api<
       this.request<DeleteProjectData, string>({
         path: `/projects/${projectUid}`,
         method: "DELETE",
-        ...params,
-      }),
-
-    /**
-     * @description Generate the advice of the action by AI from the conversation messages.
-     *
-     * @name AiAdvice
-     * @summary Get table design advice from AI
-     * @request POST:/projects/{projectUID}/ai/advice
-     */
-    aiAdvice: (
-      projectUid: string,
-      data: AIAdvice,
-      params: RequestParams = {},
-    ) =>
-      this.request<AiAdviceData, string>({
-        path: `/projects/${projectUid}/ai/advice`,
-        method: "POST",
-        body: data,
-        type: ContentType.Json,
-        format: "json",
-        ...params,
-      }),
-
-    /**
-     * @description Apply the actionJson returned by the advice API, e.g. create the advised tables.
-     *
-     * @name AiApply
-     * @summary Apply the AI advice
-     * @request POST:/projects/{projectUID}/ai/apply
-     */
-    aiApply: (projectUid: string, data: AIApply, params: RequestParams = {}) =>
-      this.request<AiApplyData, string>({
-        path: `/projects/${projectUid}/ai/apply`,
-        method: "POST",
-        body: data,
-        type: ContentType.Json,
         ...params,
       }),
 

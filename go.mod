@@ -31,9 +31,6 @@ require (
 	github.com/spf13/viper v1.3.2
 	github.com/stretchr/testify v1.11.1
 	github.com/swaggo/swag v1.16.6
-	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common v1.1.48
-	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/hunyuan v1.0.975
-	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/tms v1.1.48
 	github.com/thanhpk/randstr v1.0.6
 	github.com/tj/go-pg-escape v1.1.0
 	github.com/uptrace/opentelemetry-go-extra/otellogrus v0.3.1

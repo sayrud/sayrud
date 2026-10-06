@@ -158,6 +158,44 @@ func TestInitInvalidObservabilityConfig(t *testing.T) {
 	}
 }
 
+func TestInitApp(t *testing.T) {
+	restoreConfigAfterTest(t)
+	t.Setenv("IP_HEADER", "X-Environment-IP")
+	App.IPHeader = ""
+
+	if err := Init(writeTestConfig(t, "app:\n  port: 2830\n")); err != nil {
+		t.Fatalf("Init() failed: %v", err)
+	}
+	if App.Port != 2830 || App.IPHeader != "" {
+		t.Errorf("App = %#v, want port 2830 and no IP header", App)
+	}
+
+	if err := Init(writeTestConfig(t, "app:\n  port: 2831\n  ip_header: X-Real-IP\n")); err != nil {
+		t.Fatalf("Init() failed: %v", err)
+	}
+	if App.Port != 2831 || App.IPHeader != "X-Real-IP" {
+		t.Errorf("App = %#v, want the YAML values regardless of environment variables", App)
+	}
+}
+
+func TestInitRedis(t *testing.T) {
+	restoreConfigAfterTest(t)
+	t.Setenv("REDIS_ADDRESS", "env-redis:6380")
+	t.Setenv("REDIS_PASSWORD", "env-password")
+
+	config := `redis:
+  address: yaml-redis:6379
+  username: yaml-user
+  password: yaml-password
+`
+	if err := Init(writeTestConfig(t, config)); err != nil {
+		t.Fatalf("Init() failed: %v", err)
+	}
+	if Redis.Address != "yaml-redis:6379" || Redis.Username != "yaml-user" || Redis.Password != "yaml-password" {
+		t.Errorf("Redis = %#v, want the YAML values regardless of environment variables", Redis)
+	}
+}
+
 func TestInitShortcut(t *testing.T) {
 	restoreConfigAfterTest(t)
 

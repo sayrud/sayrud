@@ -248,11 +248,6 @@ func New(opts Options) *flamego.Flame {
 						})
 					}, api.Schemaless.Tabler)
 				})
-
-				f.Group("/ai", func() {
-					f.Post("/advice", canEdit, form.Bind(form.AIAdvice{}), api.AI.Advice)
-					f.Post("/apply", canEdit, form.Bind(form.AIApply{}), api.AI.Apply)
-				})
 			}, api.Project.Projecter)
 		}, api.Auth.Authenticator)
 	})

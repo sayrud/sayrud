@@ -10,7 +10,6 @@ import (
 
 	"github.com/cockroachdb/errors"
 	"github.com/spf13/cast"
-	"github.com/wuhan005/sayrud/internal/security"
 )
 
 type ParamType string
@@ -42,9 +41,12 @@ type Param struct {
 	CustomValidators Validators `json:"customValidators"`
 }
 
-func (p Param) ValidateValue(ctx context.Context, inputValue string) (interface{}, error) {
+func (p Param) ValidateValue(_ context.Context, inputValue string) (interface{}, error) {
 	if inputValue == "" && p.Required {
 		return nil, ErrParamValueRequired
+	}
+	if err := p.CustomValidators.ValidateConfig(); err != nil {
+		return nil, err
 	}
 
 	var v interface{}
@@ -58,24 +60,6 @@ func (p Param) ValidateValue(ctx context.Context, inputValue string) (interface{
 		v = cast.ToBool(inputValue)
 	default:
 		v = inputValue
-	}
-
-	// Custom validator
-	for _, validator := range p.CustomValidators {
-		validator := validator
-		switch validator.Type {
-		case ValidatorTypeTextModeration:
-			pass, err := security.TencentTextModeration(ctx, inputValue)
-			if err != nil {
-				return nil, errors.Wrap(err, "text moderation")
-			}
-			if !pass {
-				return nil, &ValidatorError{Message: validator.Message}
-			}
-
-		default:
-			continue
-		}
 	}
 
 	return v, nil

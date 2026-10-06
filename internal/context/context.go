@@ -4,13 +4,13 @@ import (
 	"encoding/json"
 	"net"
 	"net/http"
-	"os"
 
 	"github.com/flamego/flamego"
 	"github.com/sirupsen/logrus"
 	"go.opentelemetry.io/otel/trace"
 	"gorm.io/gorm"
 
+	"github.com/wuhan005/sayrud/internal/conf"
 	"github.com/wuhan005/sayrud/internal/dbutil"
 	"github.com/wuhan005/sayrud/internal/i18n"
 )
@@ -100,10 +100,10 @@ func (c *Context) ServerError() {
 	c.ResponseWriter().WriteHeader(http.StatusBadGateway)
 }
 
-// IP returns the client IP from the IP_HEADER header if configured, or the remote address without the port.
+// IP returns the client IP from app.ip_header if configured, or the remote address without the port.
 func (c *Context) IP() string {
 	ip := c.Request().RemoteAddr
-	if ipHeader := os.Getenv("IP_HEADER"); ipHeader != "" {
+	if ipHeader := conf.App.IPHeader; ipHeader != "" {
 		ip = c.Request().Header.Get(ipHeader)
 	}
 	if host, _, err := net.SplitHostPort(ip); err == nil {

@@ -39,13 +39,19 @@ Sayrud 是一款可以自己部署的协作式多维表格，用来整理项目�
 
 ## 🚀 部署方式
 
-需要 Docker 和 Docker Compose 2.23.1 或更新版本。镜像包含前后端，Compose 会一起启动 Sayrud、PostgreSQL 和 Redis。
-
-用于生产环境时，首次启动前请在本地 `.env` 文件中设置 `POSTGRES_PASSWORD`。默认密码 `change-me` 仅供本地运行使用。
+需要 Docker 和 Docker Compose v2。镜像包含前后端，Compose 会一起启动 Sayrud、PostgreSQL 和 Redis。
 
 ```sh
 git clone https://github.com/sayrud/sayrud.git
 cd sayrud
+cp config/sayrud.example.yaml config/sayrud.yaml
+```
+
+编辑 `config/sayrud.yaml`，将 PostgreSQL 主机改为 `postgres`，Redis 地址改为 `redis:6379`。
+生产环境中，将 `postgres.dsn` 的密码和 `docker-compose.yaml` 中的 `POSTGRES_PASSWORD` 改为相同值。
+默认密码 `change-me` 仅供本地运行使用。Compose 会以只读方式挂载 `config/sayrud.yaml`。
+
+```sh
 docker compose up -d
 ```
 
@@ -72,11 +78,11 @@ docker compose up -d --wait postgres redis
 cp config/sayrud.example.yaml config/sayrud.yaml
 pnpm --dir frontend install --frozen-lockfile
 pnpm --dir frontend build
-REDIS_ADDRESS=127.0.0.1:6379 go run ./cmd/sayrud-server
+go run ./cmd/sayrud-server
 ```
 
-自定义 `POSTGRES_PASSWORD` 后，需要将 `config/sayrud.yaml` 中的 PostgreSQL 连接密码改为相同值。Compose 应用若占用了 `2830`
-端口，先运行 `docker compose stop sayrud`。
+自定义 `docker-compose.yaml` 中的数据库初始化密码后，需要将 `config/sayrud.yaml` 中的 PostgreSQL 连接密码改为相同值。
+Compose 应用若占用了 `2830` 端口，先运行 `docker compose stop sayrud`。
 
 另开一个终端运行 `pnpm --dir frontend dev`，打开 <http://localhost:5173>。Vite 会将 API 和 WebSocket 请求代理到后端。生产构建通过
 `go:embed` 打包 `frontend/dist`。
