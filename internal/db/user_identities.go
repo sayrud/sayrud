@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/pkg/errors"
+	"github.com/cockroachdb/errors"
 	"gorm.io/gorm"
 
 	"github.com/wuhan005/sayrud/internal/dbutil"

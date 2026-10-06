@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/pkg/errors"
+	"github.com/cockroachdb/errors"
 )
 
 // decodeJSON decodes the numbers as json.Number, so the large integer IDs keep their precision.

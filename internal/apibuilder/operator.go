@@ -9,8 +9,8 @@ import (
 	"encoding/json"
 	"strings"
 
+	"github.com/cockroachdb/errors"
 	"github.com/dop251/goja"
-	"github.com/pkg/errors"
 	"github.com/spf13/cast"
 	"gorm.io/gorm/clause"
 )

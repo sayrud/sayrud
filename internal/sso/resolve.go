@@ -3,7 +3,7 @@ package sso
 import (
 	"context"
 
-	"github.com/pkg/errors"
+	"github.com/cockroachdb/errors"
 
 	"github.com/wuhan005/sayrud/internal/db"
 )

@@ -8,7 +8,7 @@ import (
 	"context"
 	"encoding/json"
 
-	"github.com/pkg/errors"
+	"github.com/cockroachdb/errors"
 )
 
 type AIAdvice struct {

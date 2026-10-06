@@ -8,9 +8,9 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/cockroachdb/errors"
 	"github.com/crewjam/saml"
 	xrv "github.com/mattermost/xml-roundtrip-validator"
-	"github.com/pkg/errors"
 )
 
 // parseIdPMetadata parses the IdP metadata, the root element can also be EntitiesDescriptor.

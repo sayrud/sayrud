@@ -7,8 +7,8 @@ package db
 import (
 	"context"
 
+	"github.com/cockroachdb/errors"
 	"github.com/lib/pq"
-	"github.com/pkg/errors"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
 

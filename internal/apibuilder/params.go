@@ -8,7 +8,7 @@ import (
 	"context"
 	"encoding/json"
 
-	"github.com/pkg/errors"
+	"github.com/cockroachdb/errors"
 	"github.com/spf13/cast"
 	"github.com/wuhan005/sayrud/internal/security"
 )

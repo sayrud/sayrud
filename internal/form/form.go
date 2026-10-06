@@ -2,11 +2,11 @@ package form
 
 import (
 	"encoding/json"
-	"errors"
 	"net/http"
 	"reflect"
 	"strings"
 
+	"github.com/cockroachdb/errors"
 	"github.com/flamego/flamego"
 	"github.com/sirupsen/logrus"
 	"github.com/wuhan005/govalid"

@@ -5,7 +5,7 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/pkg/errors"
+	"github.com/cockroachdb/errors"
 	"github.com/sirupsen/logrus"
 
 	"github.com/wuhan005/sayrud/internal/appconst"

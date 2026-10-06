@@ -8,7 +8,7 @@ import (
 	"context"
 	"os"
 
-	"github.com/pkg/errors"
+	"github.com/cockroachdb/errors"
 	"github.com/redis/go-redis/extra/redisotel/v9"
 	"github.com/redis/go-redis/v9"
 )

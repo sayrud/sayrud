@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/pkg/errors"
+	"github.com/cockroachdb/errors"
 
 	"github.com/wuhan005/sayrud/internal/db"
 )

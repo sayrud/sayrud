@@ -8,9 +8,9 @@ import (
 	"strings"
 	"unicode"
 
+	"github.com/cockroachdb/errors"
 	"github.com/flamego/flamego"
 	flamei18n "github.com/flamego/i18n"
-	"github.com/pkg/errors"
 	"golang.org/x/text/language"
 )
 

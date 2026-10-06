@@ -5,7 +5,7 @@ import (
 	"net"
 	"strings"
 
-	"github.com/pkg/errors"
+	"github.com/cockroachdb/errors"
 
 	"github.com/wuhan005/sayrud/internal/ai"
 	"github.com/wuhan005/sayrud/internal/ai/openai"

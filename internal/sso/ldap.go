@@ -10,8 +10,8 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/cockroachdb/errors"
 	"github.com/go-ldap/ldap/v3"
-	"github.com/pkg/errors"
 
 	"github.com/wuhan005/sayrud/internal/db"
 )

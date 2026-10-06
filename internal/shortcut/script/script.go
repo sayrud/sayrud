@@ -14,8 +14,8 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/cockroachdb/errors"
 	"github.com/dop251/goja"
-	"github.com/pkg/errors"
 
 	"github.com/wuhan005/sayrud/internal/db"
 )

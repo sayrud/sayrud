@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/pkg/errors"
+	"github.com/cockroachdb/errors"
 	"github.com/samber/lo"
 	"github.com/thanhpk/randstr"
 	"gorm.io/datatypes"

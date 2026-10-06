@@ -6,7 +6,7 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/pkg/errors"
+	"github.com/cockroachdb/errors"
 	"github.com/samber/lo"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"

@@ -7,8 +7,8 @@ package jsvm
 import (
 	"net/http"
 
+	"github.com/cockroachdb/errors"
 	"github.com/dop251/goja"
-	"github.com/pkg/errors"
 
 	"github.com/wuhan005/sayrud/internal/jsvm/module"
 )

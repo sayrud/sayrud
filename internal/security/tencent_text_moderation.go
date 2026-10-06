@@ -4,7 +4,7 @@ import (
 	"context"
 	"os"
 
-	"github.com/pkg/errors"
+	"github.com/cockroachdb/errors"
 	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common"
 	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common/profile"
 	tms "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/tms/v20201229"

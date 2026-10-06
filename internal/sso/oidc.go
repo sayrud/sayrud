@@ -6,8 +6,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cockroachdb/errors"
 	"github.com/coreos/go-oidc/v3/oidc"
-	"github.com/pkg/errors"
 	"golang.org/x/oauth2"
 
 	"github.com/wuhan005/sayrud/internal/db"

@@ -5,8 +5,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/cockroachdb/errors"
 	"github.com/flamego/flamego"
-	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/text/language"
 )

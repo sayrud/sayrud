@@ -4,7 +4,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"github.com/pkg/errors"
+	"github.com/cockroachdb/errors"
 )
 
 // Identity is the third-party account converted from any protocol.

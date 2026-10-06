@@ -7,8 +7,8 @@ package api
 import (
 	"net/http"
 
+	"github.com/cockroachdb/errors"
 	"github.com/flamego/flamego"
-	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"gorm.io/gorm"
 

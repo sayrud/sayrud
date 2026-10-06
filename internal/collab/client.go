@@ -7,8 +7,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cockroachdb/errors"
 	"github.com/gorilla/websocket"
-	"github.com/pkg/errors"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
 	"github.com/thanhpk/randstr"

@@ -4,7 +4,7 @@ import (
 	"context"
 	"reflect"
 
-	"github.com/pkg/errors"
+	"github.com/cockroachdb/errors"
 	"gorm.io/gorm"
 
 	"github.com/wuhan005/sayrud/internal/db"

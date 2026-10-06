@@ -11,7 +11,7 @@ import (
 	"github.com/auxten/postgresql-parser/pkg/sql/parser"
 	"github.com/auxten/postgresql-parser/pkg/sql/sem/tree"
 	"github.com/auxten/postgresql-parser/pkg/walk"
-	"github.com/pkg/errors"
+	"github.com/cockroachdb/errors"
 	"github.com/samber/lo"
 )
 

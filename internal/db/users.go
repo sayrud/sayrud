@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/pkg/errors"
+	"github.com/cockroachdb/errors"
 	"github.com/wuhan005/gadget"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"

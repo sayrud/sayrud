@@ -21,7 +21,6 @@ require (
 	github.com/gorilla/websocket v1.5.3
 	github.com/lib/pq v1.9.0
 	github.com/mattermost/xml-roundtrip-validator v0.1.0
-	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.23.2
 	github.com/prometheus/common v0.67.5
 	github.com/redis/go-redis/extra/redisotel/v9 v9.7.0
@@ -138,6 +137,7 @@ require (
 	github.com/muesli/termenv v0.15.2 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/pelletier/go-toml v1.2.0 // indirect
+	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/prometheus/client_model v0.6.2 // indirect
 	github.com/prometheus/otlptranslator v1.0.0 // indirect

@@ -10,7 +10,7 @@ import (
 	"math"
 	"time"
 
-	"github.com/pkg/errors"
+	"github.com/cockroachdb/errors"
 	"github.com/samber/lo"
 	"gorm.io/gorm"
 

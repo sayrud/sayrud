@@ -3,7 +3,7 @@ package db
 import (
 	"context"
 
-	"github.com/pkg/errors"
+	"github.com/cockroachdb/errors"
 	"github.com/thanhpk/randstr"
 	"gorm.io/gorm"
 

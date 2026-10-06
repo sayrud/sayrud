@@ -17,8 +17,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cockroachdb/errors"
 	"github.com/crewjam/saml"
-	"github.com/pkg/errors"
 
 	"github.com/wuhan005/sayrud/internal/db"
 )

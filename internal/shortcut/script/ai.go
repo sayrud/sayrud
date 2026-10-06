@@ -3,8 +3,8 @@ package script
 import (
 	"strings"
 
+	"github.com/cockroachdb/errors"
 	"github.com/dop251/goja"
-	"github.com/pkg/errors"
 )
 
 // aiComplete blocks like fetch and can be awaited by the script.

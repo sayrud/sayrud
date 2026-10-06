@@ -5,7 +5,7 @@
 package middleware
 
 import (
-	"github.com/pkg/errors"
+	"github.com/cockroachdb/errors"
 
 	"github.com/wuhan005/sayrud/internal/context"
 	"github.com/wuhan005/sayrud/internal/redis"

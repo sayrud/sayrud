@@ -3,7 +3,6 @@ package api
 import (
 	stdcontext "context"
 	"encoding/json"
-	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -11,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cockroachdb/errors"
 	"github.com/flamego/flamego"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/bcrypt"

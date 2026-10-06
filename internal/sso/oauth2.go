@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/pkg/errors"
+	"github.com/cockroachdb/errors"
 	"golang.org/x/oauth2"
 
 	"github.com/wuhan005/sayrud/internal/db"

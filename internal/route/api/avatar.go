@@ -12,8 +12,8 @@ import (
 	"io/fs"
 	"net/http"
 
+	"github.com/cockroachdb/errors"
 	"github.com/flamego/binding"
-	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 
 	"github.com/wuhan005/sayrud/internal/collab"
