@@ -696,6 +696,9 @@ const en: typeof zhCN = {
       sessionTTL: 'Session lifetime',
       sessionTTLDescription: 'Users need to sign in again after it expires, only applies to new sessions',
       daysUnit: 'days',
+      networkRequests: 'Network requests',
+      networkAllowlist: 'IP allowlist',
+      networkAllowlistDescription: 'Enter an IPv4 / IPv6 address or CIDR and press Enter to add it. Only listed private, local or other blocked addresses are allowed',
     },
     site: {
       description: 'Set the basic information of the site',
@@ -1261,7 +1264,7 @@ const en: typeof zhCN = {
     code: 'Code',
     network: 'Network and credentials',
     domains: 'Allowed domains',
-    domainsDescription: 'Including the subdomains, the private and local addresses are always blocked',
+    domainsDescription: 'Includes subdomains; private and local addresses require the IP allowlist in Security settings',
     domainsPlaceholder: 'Type a domain and press Enter, e.g. api.example.com',
     credentials: 'Credentials',
     credentialKey: 'Key',

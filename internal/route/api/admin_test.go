@@ -13,8 +13,61 @@ import (
 	"github.com/wuhan005/sayrud/internal/context"
 	"github.com/wuhan005/sayrud/internal/db"
 	"github.com/wuhan005/sayrud/internal/dto"
+	"github.com/wuhan005/sayrud/internal/form"
 	"github.com/wuhan005/sayrud/internal/i18n"
 )
+
+type adminSystemSettingsStore struct {
+	db.SettingsStore
+	settings db.SystemSettings
+}
+
+func (s *adminSystemSettingsStore) GetSystem(stdcontext.Context) (*db.SystemSettings, error) {
+	return &s.settings, nil
+}
+
+func (s *adminSystemSettingsStore) SaveSystem(_ stdcontext.Context, settings db.SystemSettings) error {
+	s.settings = settings
+	return nil
+}
+
+func TestAdminNetworkAllowlistSettings(t *testing.T) {
+	previous := db.Settings
+	t.Cleanup(func() { db.Settings = previous })
+	store := &adminSystemSettingsStore{settings: db.DefaultSystemSettings()}
+	db.Settings = store
+	settingsForm := form.UpdateSystemSettings{
+		SiteName: "Sayrud", PasswordMinLength: 8, SessionTTLDays: 30, AllowPasswordSignIn: true,
+		NetworkAllowlist: []string{"10.0.0.10", "192.168.1.0/24", "fd00::/64"},
+	}
+	f := flamego.New()
+	f.Use(i18n.Middleware(), context.Contexter(nil))
+	f.Put("/", func(ctx context.Context) error { return Admin.UpdateSettings(ctx, settingsForm) })
+	f.Get("/", Admin.GetSettings)
+	for _, method := range []string{http.MethodPut, http.MethodGet} {
+		response := httptest.NewRecorder()
+		f.ServeHTTP(response, httptest.NewRequest(method, "/", nil))
+		require.Equal(t, http.StatusOK, response.Code)
+		var body struct {
+			Data db.SystemSettings `json:"data"`
+		}
+		require.NoError(t, json.Unmarshal(response.Body.Bytes(), &body))
+		require.Equal(t, settingsForm.NetworkAllowlist, body.Data.NetworkAllowlist)
+	}
+
+	settingsForm.NetworkAllowlist = []string{"10.0.0.10", "invalid"}
+	response := httptest.NewRecorder()
+	f.ServeHTTP(response, httptest.NewRequest(http.MethodPut, "/", nil))
+	require.Equal(t, http.StatusBadRequest, response.Code)
+	require.Equal(t, []string{"10.0.0.10", "192.168.1.0/24", "fd00::/64"}, store.settings.NetworkAllowlist)
+
+	settingsForm.NetworkAllowlist = nil
+	response = httptest.NewRecorder()
+	f.ServeHTTP(response, httptest.NewRequest(http.MethodPut, "/", nil))
+	require.Equal(t, http.StatusOK, response.Code)
+	require.Empty(t, store.settings.NetworkAllowlist)
+	require.NotNil(t, store.settings.NetworkAllowlist)
+}
 
 func TestSelfOperationError(t *testing.T) {
 	require.NoError(t, selfOperationError(1, 2, "admin::cannot_disable_self"))

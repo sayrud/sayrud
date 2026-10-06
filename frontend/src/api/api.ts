@@ -806,6 +806,8 @@ export interface SystemSettings {
   externalURL: string;
   /** LoginNotice is the plain text shown above the sign-in form, empty if hidden. */
   loginNotice: string;
+  /** NetworkAllowlist permits shortcut fetches to these otherwise blocked IP addresses or CIDRs. */
+  networkAllowlist: string[];
   /** PasswordMinLength applies to signing up, changing, creating and resetting passwords. */
   passwordMinLength: number;
   /** SessionTTLDays is the lifetime in days of the new sessions. */
@@ -974,6 +976,8 @@ export interface UpdateSystemSettings {
   externalURL: string;
   /** LoginNotice is the plain text shown above the sign-in form, empty if hidden. */
   loginNotice: string;
+  /** NetworkAllowlist permits shortcut fetches to these otherwise blocked IP addresses or CIDRs. */
+  networkAllowlist: string[];
   passwordMinLength: number;
   sessionTTLDays: number;
   siteName: string;

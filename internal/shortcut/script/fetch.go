@@ -24,9 +24,6 @@ const (
 	maxResponseBody = 5 << 20
 )
 
-// allowPrivateNetwork lets the tests fetch the local test servers.
-var allowPrivateNetwork = false
-
 type fetchRequest struct {
 	URL           string
 	Method        string
@@ -47,14 +44,16 @@ type fetchResponse struct {
 type fetcher struct {
 	ctx         context.Context
 	domains     []string
+	networks    []netip.Prefix
 	credentials map[string]Credential
 	client      *http.Client
 	requests    int
 }
 
-func newFetcher(ctx context.Context, domains []string, credentials []Credential) *fetcher {
+func newFetcher(ctx context.Context, domains []string, credentials []Credential, networks []netip.Prefix) *fetcher {
 	f := &fetcher{
 		ctx:         ctx,
+		networks:    networks,
 		credentials: make(map[string]Credential, len(credentials)),
 	}
 	for _, d := range domains {
@@ -66,7 +65,7 @@ func newFetcher(ctx context.Context, domains []string, credentials []Credential)
 		f.credentials[c.Key] = c
 	}
 
-	dialer := &net.Dialer{Timeout: 10 * time.Second, Control: dialControl}
+	dialer := &net.Dialer{Timeout: 10 * time.Second, Control: f.dialControl}
 	f.client = &http.Client{
 		Transport: &http.Transport{
 			// A proxy would make the address check meaningless.
@@ -239,11 +238,8 @@ func redactQuery(u *url.URL, name string) *url.URL {
 	return &copied
 }
 
-// dialControl rejects connecting to the non-public addresses, it runs after resolving so DNS rebinding is also blocked.
-func dialControl(_, address string, _ syscall.RawConn) error {
-	if allowPrivateNetwork {
-		return nil
-	}
+// dialControl checks the resolved address on every connection, including redirects, to block DNS rebinding.
+func (f *fetcher) dialControl(_, address string, _ syscall.RawConn) error {
 	host, _, err := net.SplitHostPort(address)
 	if err != nil {
 		return errors.Wrap(err, "split address")
@@ -252,10 +248,16 @@ func dialControl(_, address string, _ syscall.RawConn) error {
 	if err != nil {
 		return errors.Wrap(err, "parse address")
 	}
-	if !IsPublicAddr(addr) {
-		return errors.Errorf("the address %s is not public", addr)
+	addr = addr.Unmap()
+	if IsPublicAddr(addr) {
+		return nil
 	}
-	return nil
+	for _, prefix := range f.networks {
+		if prefix.Contains(addr) {
+			return nil
+		}
+	}
+	return errors.Errorf("the address %s is not public and is not in the network allowlist", addr)
 }
 
 var nonPublicPrefixes = []netip.Prefix{

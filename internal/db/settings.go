@@ -3,6 +3,7 @@ package db
 import (
 	"context"
 	"encoding/json"
+	"net/netip"
 	"net/url"
 	"strings"
 	"time"
@@ -125,6 +126,8 @@ type SystemSettings struct {
 	AllowPasswordSignIn bool `json:"allowPasswordSignIn"`
 	// LoginNotice is the plain text shown above the sign-in form, empty if hidden.
 	LoginNotice string `json:"loginNotice"`
+	// NetworkAllowlist permits shortcut fetches to these otherwise blocked IP addresses or CIDRs.
+	NetworkAllowlist []string `json:"networkAllowlist"`
 } // @name SystemSettings
 
 const (
@@ -144,7 +147,30 @@ func DefaultSystemSettings() SystemSettings {
 		PasswordMinLength:   8,
 		SessionTTLDays:      30,
 		AllowPasswordSignIn: true,
+		NetworkAllowlist:    []string{},
 	}
+}
+
+// ParseNetworkAllowlist accepts IPv4/IPv6 addresses and CIDRs, and normalizes mapped IPv4 and host bits.
+func ParseNetworkAllowlist(entries []string) ([]netip.Prefix, error) {
+	prefixes := make([]netip.Prefix, 0, len(entries))
+	for _, entry := range entries {
+		value := strings.TrimSpace(entry)
+		if addr, err := netip.ParseAddr(value); err == nil && addr.Zone() == "" {
+			addr = addr.Unmap()
+			prefixes = append(prefixes, netip.PrefixFrom(addr, addr.BitLen()))
+			continue
+		}
+		prefix, err := netip.ParsePrefix(value)
+		if err != nil {
+			return nil, i18n.Errorf("settings::invalid_network_allowlist", entry)
+		}
+		if prefix.Addr().Is4In6() && prefix.Bits() >= 96 {
+			prefix = netip.PrefixFrom(prefix.Addr().Unmap(), prefix.Bits()-96)
+		}
+		prefixes = append(prefixes, prefix.Masked())
+	}
+	return prefixes, nil
 }
 
 // NormalizeExternalURL returns the URL without the trailing /, empty is valid, it only accepts http(s) URLs without path, query and user info.
@@ -186,6 +212,9 @@ func ParseSystemSettings(raw []byte, defaults SystemSettings) SystemSettings {
 	if utf8.RuneCountInString(s.LoginNotice) > LoginNoticeMaxLength {
 		s.LoginNotice = defaults.LoginNotice
 	}
+	if _, err := ParseNetworkAllowlist(s.NetworkAllowlist); err != nil || s.NetworkAllowlist == nil {
+		s.NetworkAllowlist = defaults.NetworkAllowlist
+	}
 	return s
 }
 
@@ -206,7 +235,8 @@ func (s SystemSettings) Validate() error {
 	if utf8.RuneCountInString(strings.TrimSpace(s.LoginNotice)) > LoginNoticeMaxLength {
 		return i18n.Errorf("settings::login_notice_length", LoginNoticeMaxLength)
 	}
-	return nil
+	_, err := ParseNetworkAllowlist(s.NetworkAllowlist)
+	return err
 }
 
 // SessionTTL returns the lifetime of the new sessions.

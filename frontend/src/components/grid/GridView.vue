@@ -1473,7 +1473,6 @@ defineExpose({ addRecord })
   display: flex;
   padding: 2px;
   border-radius: 4px;
-  background: var(--bg-body);
   transform: translateY(-50%);
   color: var(--color-primary);
 }

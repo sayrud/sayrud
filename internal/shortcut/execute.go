@@ -3,6 +3,7 @@ package shortcut
 import (
 	"context"
 	"encoding/json"
+	"net/netip"
 	"time"
 
 	"github.com/pkg/errors"
@@ -122,6 +123,18 @@ func resolveInputs(custom *db.CustomFieldShortcut, fields []*db.SLField, field *
 
 // RunCustom runs the script of the custom shortcut with the parameters, the logs are returned along with the error if available.
 func RunCustom(ctx context.Context, custom *db.CustomFieldShortcut, secrets map[string]string, params map[string]interface{}, env Env) (*script.Result, error) {
+	var networks []netip.Prefix
+	if len(custom.Domains.Data()) > 0 {
+		settings, err := db.Settings.GetSystem(ctx)
+		if err != nil {
+			return nil, newError("shortcut::internal_error").transient()
+		}
+		networks, err = db.ParseNetworkAllowlist(settings.NetworkAllowlist)
+		if err != nil {
+			return nil, newError("shortcut::internal_error")
+		}
+	}
+
 	credentials := make([]script.Credential, 0, len(custom.Credentials.Data()))
 	for _, c := range custom.Credentials.Data() {
 		credentials = append(credentials, script.Credential{Key: c.Key, Type: c.Type, Name: c.Name, Value: secrets[c.Key]})
@@ -142,6 +155,7 @@ func RunCustom(ctx context.Context, custom *db.CustomFieldShortcut, secrets map[
 			"recordUID":  env.RecordUID,
 		},
 		Domains:     custom.Domains.Data(),
+		Networks:    networks,
 		Credentials: credentials,
 		Timeout:     time.Duration(custom.TimeoutSeconds) * time.Second,
 		AIComplete:  complete,

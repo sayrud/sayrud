@@ -1,7 +1,7 @@
 // Package script runs the custom field shortcuts written in JavaScript.
 //
 // Every run uses a new goja runtime which has no module loader, file system or process access, and is interrupted on timeout.
-// context.fetch is limited to allowed domains and public addresses; context.ai uses the injected server-side model client.
+// context.fetch is limited to allowed domains and public or explicitly allowed addresses; context.ai uses the injected server-side model client.
 // goja is an interpreter in the server process rather than an isolation boundary, so the scripts must be published by trusted admins.
 package script
 
@@ -9,6 +9,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/netip"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -37,6 +38,8 @@ type Options struct {
 	Context map[string]interface{}
 	// Domains are the hosts allowed to fetch, including their subdomains.
 	Domains []string
+	// Networks permit fetches to otherwise blocked addresses, configured by the admin.
+	Networks []netip.Prefix
 	// Credentials are the secrets the script can use by key when fetching.
 	Credentials []Credential
 	// Timeout is the time limit of the run, it defaults to 30 seconds.
@@ -109,7 +112,8 @@ func Run(ctx context.Context, opts Options) (*Result, error) {
 	vm := goja.New()
 	vm.SetMaxCallStackSize(maxCallStackSize)
 	s := &sandbox{ctx: runCtx, vm: vm, opts: opts}
-	s.fetcher = newFetcher(runCtx, opts.Domains, opts.Credentials)
+	s.fetcher = newFetcher(runCtx, opts.Domains, opts.Credentials, opts.Networks)
+	defer s.fetcher.client.CloseIdleConnections()
 	stop := context.AfterFunc(runCtx, func() { vm.Interrupt(runCtx.Err()) })
 	defer stop()
 

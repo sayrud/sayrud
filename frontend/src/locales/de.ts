@@ -696,6 +696,9 @@ const de: typeof zhCN = {
       sessionTTL: 'Sitzungsdauer',
       sessionTTLDescription: 'Nach Ablauf ist eine erneute Anmeldung erforderlich. Gilt nur für neue Sitzungen',
       daysUnit: 'Tage',
+      networkRequests: 'Netzwerkanfragen',
+      networkAllowlist: 'IP-Freigabeliste',
+      networkAllowlistDescription: 'IPv4 / IPv6-Adresse oder CIDR eingeben und mit Enter hinzufügen. Nur aufgeführte private, lokale oder sonst gesperrte Adressen werden erlaubt',
     },
     site: {
       description: 'Grundlegende Informationen der Website festlegen',
@@ -1261,7 +1264,7 @@ const de: typeof zhCN = {
     code: 'Code',
     network: 'Netzwerk und Zugangsdaten',
     domains: 'Erlaubte Domains',
-    domainsDescription: 'Einschließlich Subdomains, private und lokale Adressen sind immer gesperrt',
+    domainsDescription: 'Einschließlich Subdomains; private und lokale Adressen benötigen die IP-Freigabeliste in den Sicherheitseinstellungen',
     domainsPlaceholder: 'Domain eingeben und Enter drücken, z. B. api.example.com',
     credentials: 'Zugangsdaten',
     credentialKey: 'Schlüssel',

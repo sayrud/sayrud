@@ -696,6 +696,9 @@ const ru: typeof zhCN = {
       sessionTTL: 'Срок действия сеанса',
       sessionTTLDescription: 'После истечения срока потребуется войти снова. Действует только для новых сеансов',
       daysUnit: 'дней',
+      networkRequests: 'Сетевые запросы',
+      networkAllowlist: 'Список разрешённых IP',
+      networkAllowlistDescription: 'Введите адрес IPv4 / IPv6 или CIDR и нажмите Enter. Разрешены только указанные частные, локальные и другие заблокированные адреса',
     },
     site: {
       description: 'Настройте основные сведения о сайте',
@@ -1261,7 +1264,7 @@ const ru: typeof zhCN = {
     code: 'Код',
     network: 'Сеть и учётные данные',
     domains: 'Разрешённые домены',
-    domainsDescription: 'Включая поддомены; частные и локальные адреса всегда заблокированы',
+    domainsDescription: 'Включает поддомены; частные и локальные адреса требуют списка IP в настройках безопасности',
     domainsPlaceholder: 'Введите домен и нажмите Enter, например api.example.com',
     credentials: 'Учётные данные',
     credentialKey: 'Ключ',

@@ -571,11 +571,15 @@ func (adminRoute) UpdateSettings(ctx context.Context, f form.UpdateSystemSetting
 		AllowPasswordSignIn: f.AllowPasswordSignIn,
 		ExternalURL:         f.ExternalURL,
 		LoginNotice:         strings.TrimSpace(f.LoginNotice),
+		NetworkAllowlist:    f.NetworkAllowlist,
 	}
 	if err := settings.Validate(); err != nil {
 		return ctx.ApiErrorFrom(http.StatusBadRequest, err)
 	}
 	settings.ExternalURL, _ = db.NormalizeExternalURL(settings.ExternalURL)
+	if settings.NetworkAllowlist == nil {
+		settings.NetworkAllowlist = []string{}
+	}
 	if !settings.AllowPasswordSignIn {
 		count, err := db.AuthProviders.CountEnabled(ctx.Request().Context())
 		if err != nil {

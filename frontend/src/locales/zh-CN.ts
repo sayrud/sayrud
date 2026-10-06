@@ -694,6 +694,9 @@ export default {
       sessionTTL: '登录有效期',
       sessionTTLDescription: '超过有效期需重新登录，仅对之后的新登录生效',
       daysUnit: '天',
+      networkRequests: '网络请求',
+      networkAllowlist: 'IP 白名单',
+      networkAllowlistDescription: '输入 IPv4 / IPv6 地址或 CIDR，按回车添加。仅对白名单中的内网、本机等地址放行',
     },
     site: {
       description: '设置站点的基础信息',
@@ -1259,7 +1262,7 @@ export default {
     code: '代码',
     network: '网络与凭据',
     domains: '允许访问的域名',
-    domainsDescription: '包含子域名；内网与本机地址始终禁止访问',
+    domainsDescription: '包含子域名；内网与本机地址需在安全设置的 IP 白名单中放行',
     domainsPlaceholder: '输入域名后回车，如 api.example.com',
     credentials: '凭据',
     credentialKey: '键名',

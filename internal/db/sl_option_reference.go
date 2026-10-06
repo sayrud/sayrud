@@ -111,7 +111,8 @@ func PrepareSelectMetadata(ctx context.Context, tx *gorm.DB, tableID int64, uid 
 			}
 
 			isSelect := func(typ SLFieldType) bool { return typ == SingleSelectFieldType || typ == MultiSelectFieldType }
-			if f.Type != t.Type && !(isSelect(f.Type) && isSelect(t.Type)) && !(f.Type == TextFieldType && isSelect(t.Type)) && !(isSelect(f.Type) && t.Type == TextFieldType) {
+			compatible := f.Type == t.Type || isSelect(f.Type) && isSelect(t.Type) || f.Type == TextFieldType && isSelect(t.Type) || isSelect(f.Type) && t.Type == TextFieldType
+			if !compatible {
 				return ErrOptionReference
 			}
 
@@ -336,9 +337,10 @@ func FilterReferencedOptions(ctx context.Context, tx *gorm.DB, field *SLField, f
 
 				var ok bool
 				if t.Type == MultiSelectFieldType {
-					if op == FilterOperationEqual {
+					switch op {
+					case FilterOperationEqual:
 						op = FilterOperationIn
-					} else if op == FilterOperationNotEqual {
+					case FilterOperationNotEqual:
 						op = FilterOperationNotIn
 					}
 				}

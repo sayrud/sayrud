@@ -17,16 +17,17 @@ export function useSystemSettings() {
     externalURL: '',
     allowPasswordSignIn: true,
     loginNotice: '',
+    networkAllowlist: [],
   })
   const loading = ref(true)
   const saving = ref(false)
 
   const dirty = computed(
-    () => !!original.value && (Object.keys(draft) as (keyof SystemSettings)[]).some((k) => draft[k] !== original.value![k]),
+    () => !!original.value && (Object.keys(draft) as (keyof SystemSettings)[]).some((k) => JSON.stringify(draft[k]) !== JSON.stringify(original.value![k])),
   )
 
   function reset() {
-    if (original.value) Object.assign(draft, original.value)
+    if (original.value) Object.assign(draft, { ...original.value, networkAllowlist: [...original.value.networkAllowlist] })
   }
 
   /** Resolves false if saving fails, the error has been shown. */
@@ -38,6 +39,7 @@ export function useSystemSettings() {
         siteName: draft.siteName.trim(),
         externalURL: draft.externalURL.trim(),
         loginNotice: draft.loginNotice.trim(),
+        networkAllowlist: draft.networkAllowlist.map((entry) => entry.trim()),
       })
       reset()
       await site.refresh()

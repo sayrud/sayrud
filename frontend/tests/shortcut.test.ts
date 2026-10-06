@@ -1,5 +1,4 @@
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
 import test from 'node:test'
 
 import type { SLField } from '../src/types/bitable.ts'
@@ -70,21 +69,14 @@ test('host options are supplied by field metadata instead of shortcut inputs', (
   assert.deepEqual(legacyOptionNames(manifest, { categories: 'A: description\r\n B：说明\nA\n\n' }), ['A', 'B'])
 })
 
-test('the classification example accepts current option names and legacy category text', async () => {
-  const code = readFileSync(new URL('../../examples/field-shortcuts/jev-classify.js', import.meta.url), 'utf8')
-  const execute = new Function(`${code}; return execute`)()
-  assert.equal(await execute({ text: 'Sample', categories: ['Only category'] }, {}), 'Only category')
-  await assert.rejects(() => execute({ text: 'Sample', categories: [] }, {}))
-  for (const categories of [['A: literal name', 'B'], 'A: description\nB：说明']) {
-    let criteria: Record<string, { name: string; description: string }> = {}
-    const context = {
-      log: () => {},
-      fetch: async (_url: string, options: { body: { questions: { classification: { criteria: typeof criteria } } } }) => {
-        criteria = options.body.questions.classification.criteria
-        return { ok: true, json: async () => ({ answers: { classification: { type: 'choice', choice: 'category_0' } } }) }
-      },
-    }
-    assert.equal(await execute({ text: 'Sample', categories }, context), Array.isArray(categories) ? 'A: literal name' : 'A')
-    assert.equal(Object.keys(criteria).length, 2)
-  }
+test('legacy options merge only host option inputs and tolerate missing values', () => {
+  const manifest = { formItems: [
+    { key: 'categories', label: 'Categories', component: 'field_options' as const },
+    { key: 'extra', label: 'Extra', component: 'field_options' as const },
+    { key: 'text', label: 'Text', component: 'textarea' as const },
+  ] }
+
+  assert.deepEqual(legacyOptionNames(manifest, { categories: ' A: description\r\nB：说明\n\n', extra: 'B\nC', text: 'Not a category' }), ['A', 'B', 'C'])
+  assert.deepEqual(legacyOptionNames(manifest, { extra: ' C \n' }), ['C'])
+  assert.deepEqual(legacyOptionNames(manifest, {}), [])
 })

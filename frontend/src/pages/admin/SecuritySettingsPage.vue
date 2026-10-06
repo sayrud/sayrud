@@ -47,6 +47,18 @@ const { draft, loading, saving, dirty, save, reset } = useSystemSettings()
         </SettingRow>
       </SettingsSection>
 
+      <SettingsSection :title="t('admin.security.networkRequests')">
+        <SettingRow :label="t('admin.security.networkAllowlist')" :description="t('admin.security.networkAllowlistDescription')">
+          <a-input-tag
+            v-model="draft.networkAllowlist"
+            :aria-label="t('admin.security.networkAllowlist')"
+            allow-clear
+            unique-value
+            class="network-input"
+          />
+        </SettingRow>
+      </SettingsSection>
+
       <SaveBar :dirty="dirty" :saving="saving" @save="save" @reset="reset" />
     </a-spin>
   </div>
@@ -58,5 +70,8 @@ const { draft, loading, saving, dirty, save, reset } = useSystemSettings()
 }
 .num {
   width: 200px;
+}
+.network-input {
+  max-width: 480px;
 }
 </style>
