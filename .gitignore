@@ -24,4 +24,5 @@
 
 config/sayrud.yaml
 /data/
+/dist/
 .gstack/

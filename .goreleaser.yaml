@@ -1,0 +1,42 @@
+version: 2
+
+project_name: sayrud
+
+before:
+  hooks:
+    - pnpm --dir frontend install --frozen-lockfile
+    - pnpm --dir frontend build
+
+builds:
+  - id: sayrud-server
+    main: ./cmd/sayrud-server
+    binary: sayrud-server
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    flags:
+      - -mod=readonly
+      - -trimpath
+    ldflags:
+      - -s -w -X github.com/wuhan005/sayrud/internal/appconst.BuildCommit={{ .FullCommit }}
+
+archives:
+  - formats: [tar.gz]
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+
+checksum:
+  name_template: checksums.txt
+
+release:
+  prerelease: auto
+
+changelog:
+  sort: asc
