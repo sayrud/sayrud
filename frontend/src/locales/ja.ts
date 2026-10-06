@@ -783,7 +783,7 @@ const ja: typeof zhCN = {
     passwordLength: "8～18文字で、数字・英字・半角記号のうち2種類以上を含めてください",
     passwordHint: "閲覧にはパスワードが必要です。変更後は認証済みの訪問者も再認証が必要です。",
     copyLinkPassword: "リンクとパスワードをコピー",
-    linkAndPassword: "リンク：{link}\nパスワード：{password}",
+    linkAndPassword: "リンク：{link}\n パスワード：{password}",
     passwordRequired: "閲覧するにはパスワードを入力してください",
     unavailable: "共有リンクは利用できません",
     refresh: "更新",

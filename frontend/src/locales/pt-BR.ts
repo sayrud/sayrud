@@ -783,7 +783,7 @@ const ptBR: typeof zhCN = {
     passwordLength: "Use de 8 a 18 caracteres de pelo menos dois tipos: números, letras inglesas ou símbolos ingleses",
     passwordHint: "Os visitantes precisam informar a senha. Alterá-la exige uma nova verificação dos visitantes já verificados.",
     copyLinkPassword: "Copiar link e senha",
-    linkAndPassword: "Link: {link}\nSenha: {password}",
+    linkAndPassword: "Link: {link}\n Senha: {password}",
     passwordRequired: "Digite a senha para acessar",
     unavailable: "Link indisponível",
     refresh: "Atualizar",

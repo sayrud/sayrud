@@ -783,7 +783,7 @@ const ko: typeof zhCN = {
     passwordLength: "8–18자로 숫자, 영문자, 영문 기호 중 두 종류 이상을 포함하세요",
     passwordHint: "방문자는 비밀번호를 입력해야 합니다. 변경하면 인증한 방문자도 다시 인증해야 합니다.",
     copyLinkPassword: "링크와 비밀번호 복사",
-    linkAndPassword: "링크: {link}\n비밀번호: {password}",
+    linkAndPassword: "링크: {link}\n 비밀번호: {password}",
     passwordRequired: "접근하려면 비밀번호를 입력하세요",
     unavailable: "공유 링크를 사용할 수 없습니다",
     refresh: "새로고침",

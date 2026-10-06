@@ -781,7 +781,7 @@ export default {
     passwordLength: "密码长度为 8–18 个字符，须包含数字、英文字母、英文符号中的至少两种",
     passwordHint: "访问者需要输入密码。修改密码后，已验证的访问者需要重新验证。",
     copyLinkPassword: "复制链接和密码",
-    linkAndPassword: "链接：{link}\n密码：{password}",
+    linkAndPassword: "链接：{link}\n 密码：{password}",
     passwordRequired: "请输入密码访问",
     unavailable: "分享链接不可用",
     refresh: "刷新",

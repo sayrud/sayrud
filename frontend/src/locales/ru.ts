@@ -783,7 +783,7 @@ const ru: typeof zhCN = {
     passwordLength: "8–18 символов минимум двух типов: цифры, английские буквы, английские знаки",
     passwordHint: "Посетители должны ввести пароль. После его изменения ранее проверенные посетители должны пройти проверку снова.",
     copyLinkPassword: "Копировать ссылку и пароль",
-    linkAndPassword: "Ссылка: {link}\nПароль: {password}",
+    linkAndPassword: "Ссылка: {link}\n Пароль: {password}",
     passwordRequired: "Введите пароль для доступа",
     unavailable: "Ссылка недоступна",
     refresh: "Обновить",

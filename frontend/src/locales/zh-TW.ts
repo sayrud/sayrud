@@ -783,7 +783,7 @@ const zhTW: typeof zhCN = {
     passwordLength: "密碼長度為 8–18 個字元，須包含數字、英文字母、英文符號中的至少兩種",
     passwordHint: "訪客需要輸入密碼。修改密碼後，已驗證的訪客需要重新驗證。",
     copyLinkPassword: "複製連結和密碼",
-    linkAndPassword: "連結：{link}\n密碼：{password}",
+    linkAndPassword: "連結：{link}\n 密碼：{password}",
     passwordRequired: "請輸入密碼存取",
     unavailable: "分享連結無法使用",
     refresh: "重新整理",

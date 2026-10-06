@@ -783,7 +783,7 @@ const de: typeof zhCN = {
     passwordLength: "8–18 Zeichen mit mindestens zwei Arten: Ziffern, englische Buchstaben, englische Sonderzeichen",
     passwordHint: "Besucher müssen ein Passwort eingeben. Nach einer Änderung müssen bereits bestätigte Besucher es erneut eingeben.",
     copyLinkPassword: "Link und Passwort kopieren",
-    linkAndPassword: "Link: {link}\nPasswort: {password}",
+    linkAndPassword: "Link: {link}\n Passwort: {password}",
     passwordRequired: "Passwort für den Zugriff eingeben",
     unavailable: "Freigabelink nicht verfügbar",
     refresh: "Aktualisieren",
