@@ -4,6 +4,7 @@ import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import RecordCard from '@/components/kanban/RecordCard.vue'
+import StateIllustration from '@/components/common/StateIllustration.vue'
 import { keepRecordInView, useViewData } from '@/composables/useViewData'
 import { useBaseStore } from '@/stores/base'
 import type { SLView } from '@/types/bitable'
@@ -41,7 +42,9 @@ async function add() {
       />
       <button v-if="store.canEdit" class="add-card" @click="add"><Plus :size="20" /> {{ t('grid.addRecord') }}</button>
     </div>
-    <div v-if="!searchedRows.length && store.search.term" class="empty">{{ t('gallery.noMatch', { term: store.search.term }) }}</div>
+    <a-empty v-if="!searchedRows.length && store.search.term" class="empty" :description="t('gallery.noMatch', { term: store.search.term })">
+      <template #image><StateIllustration name="no-results" /></template>
+    </a-empty>
   </div>
 </template>
 

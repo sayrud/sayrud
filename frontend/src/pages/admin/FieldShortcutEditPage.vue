@@ -15,6 +15,7 @@ import {
   type TestFieldShortcutResp,
 } from '@/api/shortcut'
 import CodeEditor from '@/components/common/CodeEditor.vue'
+import StateIllustration from '@/components/common/StateIllustration.vue'
 import ShortcutFormItemsEditor from '@/components/admin/ShortcutFormItemsEditor.vue'
 import PageHeader from '@/components/console/PageHeader.vue'
 import SaveBar from '@/components/console/SaveBar.vue'
@@ -326,7 +327,8 @@ const format = (v: unknown) => (v === undefined ? 'undefined' : JSON.stringify(v
       <a-breadcrumb-item>{{ shortcut?.name ?? (isNew ? t('shortcutAdmin.createTitle') : uid) }}</a-breadcrumb-item>
     </a-breadcrumb>
 
-    <a-result v-if="notFound" status="404" :subtitle="t('shortcutAdmin.notFound')">
+    <a-result v-if="notFound" :status="null" title="404" :subtitle="t('shortcutAdmin.notFound')">
+      <template #icon><StateIllustration name="not-found" /></template>
       <template #extra>
         <a-button type="primary" @click="router.push({ name: 'admin-field-shortcuts' })">{{ t('shortcutAdmin.backToList') }}</a-button>
       </template>

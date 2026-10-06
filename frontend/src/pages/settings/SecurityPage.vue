@@ -8,6 +8,7 @@ import { useRoute, useRouter } from 'vue-router'
 
 import { ssoApi, ssoStartURL, type UserIdentity } from '@/api/sso'
 import ProviderIcon from '@/components/common/ProviderIcon.vue'
+import StateIllustration from '@/components/common/StateIllustration.vue'
 import PageHeader from '@/components/console/PageHeader.vue'
 import SettingRow from '@/components/console/SettingRow.vue'
 import SettingsSection from '@/components/console/SettingsSection.vue'
@@ -248,7 +249,9 @@ async function deleteAccount() {
             <a-button v-else-if="row.bindSlug" size="small" type="primary" @click="bind(row.bindSlug)">{{ t('sso.security.bind') }}</a-button>
           </template>
         </SettingRow>
-        <a-empty v-if="!identitiesLoading && !identityRows.length" :description="t('sso.security.empty')" class="identities-empty" />
+        <a-empty v-if="!identitiesLoading && !identityRows.length" :description="t('sso.security.empty')" class="identities-empty">
+          <template #image><StateIllustration name="add-user" :width="120" /></template>
+        </a-empty>
       </a-spin>
     </SettingsSection>
 

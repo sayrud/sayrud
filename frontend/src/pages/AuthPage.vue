@@ -10,6 +10,7 @@ import logoDark from '@/assets/logo-dark.svg'
 import logo from '@/assets/logo.svg'
 import LocaleSwitch from '@/components/common/LocaleSwitch.vue'
 import ProviderIcon from '@/components/common/ProviderIcon.vue'
+import StateIllustration from '@/components/common/StateIllustration.vue'
 import { safeRedirect } from '@/router'
 import { useAuthStore } from '@/stores/auth'
 import { useSiteStore } from '@/stores/site'
@@ -162,7 +163,8 @@ onMounted(() => {
       <a-alert v-if="loginNotice" type="info" class="notice">{{ loginNotice }}</a-alert>
 
       <template v-if="isRegister && !site.info.allowSignUp">
-        <a-result status="403" :title="t('auth.signUpClosed')" :subtitle="t('auth.signUpClosedHint')">
+        <a-result :status="null" :title="t('auth.signUpClosed')" :subtitle="t('auth.signUpClosedHint')">
+          <template #icon><StateIllustration name="no-permission" :width="140" /></template>
           <template #extra>
             <a-button type="primary" @click="switchMode">{{ t('auth.goSignIn') }}</a-button>
           </template>
@@ -229,7 +231,9 @@ onMounted(() => {
               </a-button>
             </div>
           </template>
-          <a-empty v-else-if="!showPasswordForm" :description="t('sso.login.noMethods')" />
+          <a-empty v-else-if="!showPasswordForm" :description="t('sso.login.noMethods')">
+            <template #image><StateIllustration name="no-permission" :width="120" /></template>
+          </a-empty>
         </template>
       </template>
 

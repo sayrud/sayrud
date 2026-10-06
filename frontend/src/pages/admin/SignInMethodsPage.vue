@@ -7,6 +7,7 @@ import { useI18n } from 'vue-i18n'
 import { ssoApi, type AdminAuthProvider } from '@/api/sso'
 import AuthProviderDrawer from '@/components/admin/AuthProviderDrawer.vue'
 import ProviderIcon from '@/components/common/ProviderIcon.vue'
+import StateIllustration from '@/components/common/StateIllustration.vue'
 import PageHeader from '@/components/console/PageHeader.vue'
 import SettingRow from '@/components/console/SettingRow.vue'
 import SettingsSection from '@/components/console/SettingsSection.vue'
@@ -212,7 +213,9 @@ onMounted(load)
             </a-space>
           </div>
         </div>
-        <a-empty v-else-if="!loading" :description="t('sso.admin.empty')" class="empty" />
+        <a-empty v-else-if="!loading" :description="t('sso.admin.empty')" class="empty">
+          <template #image><StateIllustration name="add-user" :width="140" /></template>
+        </a-empty>
       </SettingsSection>
     </a-spin>
 

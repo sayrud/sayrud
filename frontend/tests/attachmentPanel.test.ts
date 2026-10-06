@@ -36,6 +36,7 @@ test('attachment uploads, previews and reordering preserve readonly and busy gua
   const overrides: Record<string, unknown> = {
     '@arco-design/web-vue': { Message: { warning: (message: string) => warnings.push(message), error: assert.fail } },
     '@lucide/vue': { Download: icon, Eye: icon, File: icon, Move: icon, Plus: icon, X: icon },
+    '@/components/common/StateIllustration.vue': { default: icon },
     'vue-i18n': { useI18n: () => ({ t: (key: string) => key }) },
     '@/api/bitable': {
       attachmentsApi: {

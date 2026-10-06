@@ -6,6 +6,7 @@ import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 
 import { adminShortcutsApi, type AdminFieldShortcut } from '@/api/shortcut'
+import StateIllustration from '@/components/common/StateIllustration.vue'
 import PageHeader from '@/components/console/PageHeader.vue'
 import SettingsSection from '@/components/console/SettingsSection.vue'
 import FieldTypeIcon from '@/components/field/FieldTypeIcon.vue'
@@ -195,12 +196,14 @@ onMounted(load)
           </div>
         </template>
         <template #empty>
-          <a-empty :description="t('shortcutAdmin.noMatch')" />
+          <a-empty :description="t('shortcutAdmin.noMatch')">
+            <template #image><StateIllustration name="no-results" :width="140" /></template>
+          </a-empty>
         </template>
       </a-table>
 
       <div v-else class="empty">
-        <a-avatar shape="square" :size="48" class="empty-icon"><Zap :size="24" /></a-avatar>
+        <StateIllustration name="feature-upgrade" :width="160" />
         <div class="empty-title">{{ t('shortcutAdmin.empty') }}</div>
         <div class="text-desc empty-desc">{{ t('shortcutAdmin.emptyDescription') }}</div>
         <a-button type="primary" @click="create">
@@ -297,11 +300,6 @@ onMounted(load)
   gap: 8px;
   padding: 56px 24px;
   text-align: center;
-}
-.empty-icon {
-  margin-bottom: 8px;
-  background: var(--bg-primary-soft);
-  color: var(--color-primary);
 }
 .empty-title {
   font-size: 15px;

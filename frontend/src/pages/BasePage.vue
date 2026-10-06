@@ -8,12 +8,12 @@ import { useRoute, useRouter } from 'vue-router'
 
 import { ApiError } from '@/api/client'
 import { sharesApi } from '@/api/share'
-import shareNoPermission from '@/assets/share-no-permission.svg'
 
 import ShareDialog from '@/components/base/ShareDialog.vue'
 import TableSidebar from '@/components/base/TableSidebar.vue'
 import AppearanceIcon from '@/components/common/AppearanceIcon.vue'
 import AppearancePicker from '@/components/common/AppearancePicker.vue'
+import StateIllustration from '@/components/common/StateIllustration.vue'
 import UserAvatar from '@/components/common/UserAvatar.vue'
 import UserMenu from '@/components/common/UserMenu.vue'
 import ViewTabs from '@/components/base/ViewTabs.vue'
@@ -347,7 +347,7 @@ onBeforeUnmount(() => {
 
     <main v-if="passwordRequired" class="password-gate" aria-labelledby="password-title">
       <a-result :status="null" class="password-panel">
-        <template #icon><a-image :src="shareNoPermission" :width="140" :height="140" :preview="false" alt="" /></template>
+        <template #icon><StateIllustration name="no-permission" :width="140" /></template>
         <template #title><a-typography-title id="password-title" class="password-title">{{ t('share.passwordRequired') }}</a-typography-title></template>
         <template #extra>
           <a-form :model="{ password }" layout="vertical" @submit-success="unlock">
@@ -360,12 +360,14 @@ onBeforeUnmount(() => {
       </a-result>
     </main>
     <div v-else-if="publicError" class="denied">
-      <a-result status="404" :title="t('share.unavailable')" :subtitle="publicError">
+      <a-result :status="null" :title="t('share.unavailable')" :subtitle="publicError">
+        <template #icon><StateIllustration name="not-found" /></template>
         <template #extra><a-button @click="sync(true)">{{ t('share.refresh') }}</a-button></template>
       </a-result>
     </div>
     <div v-else-if="store.accessDenied" class="denied">
-      <a-result status="403" :title="t('base.accessDenied')" :subtitle="store.accessDenied">
+      <a-result :status="null" :title="t('base.accessDenied')" :subtitle="store.accessDenied">
+        <template #icon><StateIllustration name="no-permission" /></template>
         <template #extra>
           <a-button type="primary" @click="router.replace('/')">{{ t('console.backHome') }}</a-button>
         </template>
@@ -394,7 +396,9 @@ onBeforeUnmount(() => {
             v-else-if="!store.tables.length"
             class="empty-state"
             :description="store.canEdit ? t('base.noTablesHint') : t('base.noTables')"
-          />
+          >
+            <template #image><StateIllustration name="empty-folder" /></template>
+          </a-empty>
         </div>
       </main>
     </div>

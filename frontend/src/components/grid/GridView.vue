@@ -27,6 +27,7 @@ import { useI18n } from 'vue-i18n'
 
 import CellDisplay from '@/components/cell/CellDisplay.vue'
 import SelectTag from '@/components/cell/SelectTag.vue'
+import StateIllustration from '@/components/common/StateIllustration.vue'
 import FieldTypeIcon from '@/components/field/FieldTypeIcon.vue'
 import { openMenu, type MenuItem } from '@/composables/useContextMenu'
 import { keepRecordInView, useViewData } from '@/composables/useViewData'
@@ -1323,7 +1324,10 @@ defineExpose({ addRecord })
       </div>
 
       <div v-if="!layout.nav.length && !groups.length && view.config.filter.length" class="grid-empty">
-        {{ t('grid.noMatch') }}
+        <StateIllustration name="no-results" :width="140" />
+        <div>
+          {{ t('grid.noMatch') }}
+        </div>
       </div>
     </div>
 

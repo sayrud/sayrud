@@ -11,6 +11,7 @@ import { membersApi, projectsApi, type ProjectListItem } from '@/api/bitable'
 import logoDark from '@/assets/logo-dark.svg'
 import logo from '@/assets/logo.svg'
 import AppearanceIcon from '@/components/common/AppearanceIcon.vue'
+import StateIllustration from '@/components/common/StateIllustration.vue'
 import UserMenu from '@/components/common/UserMenu.vue'
 import { openMenu, type MenuItem } from '@/composables/useContextMenu'
 import { useAuthStore } from '@/stores/auth'
@@ -220,12 +221,16 @@ onMounted(() => {
             <button class="icon-btn card-more" @click="openActions($event, p)"><Ellipsis :size="16" /></button>
           </div>
         </div>
-        <a-empty v-if="!loading && !filtered.length && keyword" class="home-empty" :description="t('home.noMatch')" />
+        <a-empty v-if="!loading && !filtered.length && keyword" class="home-empty" :description="t('home.noMatch')">
+          <template #image><StateIllustration name="no-results" /></template>
+        </a-empty>
         <a-empty
           v-else-if="!loading && !filtered.length && scope === 'shared'"
           class="home-empty"
           :description="t('home.noShared')"
-        />
+        >
+          <template #image><StateIllustration name="no-members" /></template>
+        </a-empty>
       </a-spin>
     </main>
 

@@ -5,6 +5,7 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import { attachmentsApi } from '@/api/bitable'
+import StateIllustration from '@/components/common/StateIllustration.vue'
 import { useBaseStore } from '@/stores/base'
 import type { Attachment, CellValue, SLField } from '@/types/bitable'
 import { ATTACHMENT_MAX_COUNT, ATTACHMENT_MAX_SIZE, attachmentDownloadURL as downloadURL, attachmentsOf, attachmentSize, isAttachmentImage } from '@/utils/attachments'
@@ -203,11 +204,11 @@ async function uploadFiles(selected: File[]) {
         <a-button v-if="editable" type="text" size="mini" class="remove-attachment" :disabled="uploading" :title="t('cell.removeAttachment')" :aria-label="t('cell.removeAttachment')" @click.stop="remove(file.uid)"><template #icon><X :size="14" /></template></a-button>
       </a-card>
     </div>
-    <a-empty v-else-if="!editable" class="empty" :description="t('cell.noAttachments')"><template #image><FileIcon :size="24" /></template></a-empty>
+    <a-empty v-else-if="!editable" class="empty" :description="t('cell.noAttachments')"><template #image><StateIllustration name="no-files" :width="88" /></template></a-empty>
 
     <a-upload v-if="editable" class="attachment-upload" multiple draggable :auto-upload="false" :show-file-list="false" :disabled="uploading || files.length >= ATTACHMENT_MAX_COUNT" :on-before-upload="beforeUpload" @drop.stop="dragging = false">
       <template #upload-button>
-        <a-empty v-if="!files.length" class="drop-zone" :class="{ dragging }" tabindex="0" :description="t('cell.attachmentDropHint')"><template #image /></a-empty>
+        <a-empty v-if="!files.length" class="drop-zone" :class="{ dragging }" tabindex="0" :description="t('cell.attachmentDropHint')"><template #image><StateIllustration name="no-files" :width="72" /></template></a-empty>
         <a-button type="text" long class="add-files" :loading="uploading" :disabled="files.length >= ATTACHMENT_MAX_COUNT">
           <template #icon><Plus :size="16" /></template>
           {{ uploading ? `${t('cell.attachmentUploading')} ${progress}%` : t('cell.addLocalFiles') }}
@@ -222,8 +223,8 @@ async function uploadFiles(selected: File[]) {
 .attachment-panel { padding: 12px; min-width: 0; }
 .attachment-panel:focus { outline: none; }
 .attachment-upload { display: block; }
-.drop-zone { display: flex; align-items: center; justify-content: center; height: 108px; padding: 12px; border: 1px dashed var(--line-border); border-radius: 5px; background: var(--bg-base); cursor: pointer; }
-.drop-zone :deep(.arco-empty-image) { display: none; }
+.drop-zone { display: flex; align-items: center; justify-content: center; gap: 12px; min-height: 108px; padding: 12px; border: 1px dashed var(--line-border); border-radius: 5px; background: var(--bg-base); cursor: pointer; }
+.drop-zone :deep(.arco-empty-image) { flex: none; margin: 0; }
 .drop-zone :deep(.arco-empty-description) { color: var(--text-caption); }
 .drop-zone.dragging, .drop-zone:focus-visible { border-color: var(--color-primary); background: var(--bg-primary-soft); outline: none; }
 .attachments { display: grid; grid-template-columns: repeat(auto-fill, minmax(126px, 1fr)); align-items: start; gap: 10px; max-height: 330px; overflow: auto; }
@@ -253,5 +254,4 @@ async function uploadFiles(selected: File[]) {
 .add-files:hover:enabled { background: var(--fill-hover); }
 .add-files:disabled { color: var(--text-disabled); cursor: default; }
 .empty { padding: 8px; font-size: 12px; }
-.empty :deep(.arco-empty-image) { height: 24px; font-size: 24px; }
 </style>

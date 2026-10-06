@@ -117,7 +117,6 @@ test('normal table URLs preserve member permissions and open public shares with 
       'vue-i18n': { useI18n: () => ({ t: (key: string) => key }) },
       'vue-router': { useRoute: () => route, useRouter: () => ({ replace: (target: unknown) => redirects.push(target) }) },
       '@/api/client': { ApiError },
-      '@/assets/share-no-permission.svg': { default: '/share-no-permission.svg' },
       '@/stores/base': { useBaseStore: () => store },
       '@/stores/auth': { useAuthStore: () => auth },
       '@/stores/site': { useSiteStore: () => ({ ensureLoaded: () => {} }) },
