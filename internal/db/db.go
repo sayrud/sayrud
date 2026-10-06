@@ -52,7 +52,16 @@ func Init() (*gorm.DB, error) {
 
 		&Api{},
 	}
-	if err := db.AutoMigrate(tables...); err != nil {
+
+	// Serialize startup DDL across replicas. A transaction releases the advisory
+	// lock even when migration fails or the process loses its connection.
+	if err := db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Exec("SELECT pg_advisory_xact_lock(?)", int64(0x736179727564)).Error; err != nil {
+			return err
+		}
+
+		return tx.AutoMigrate(tables...)
+	}); err != nil {
 		return nil, errors.Wrap(err, "auto migrate")
 	}
 

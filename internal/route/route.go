@@ -23,6 +23,8 @@ import (
 
 // Options contains the dependencies used by the application router.
 type Options struct {
+	// Runtime owns shared collaboration and worker lifecycle in production.
+	Runtime *Runtime
 	// DB is the database connection.
 	DB *gorm.DB
 	// MetricsHandler serves /-/metrics, the route is not registered if it is nil.
@@ -45,7 +47,9 @@ func New(opts Options) *flamego.Flame {
 	)
 	hub := collab.NewHub(opts.DB)
 	engine := shortcut.NewEngine(opts.DB, hub, conf.Shortcut.Workers)
-	if opts.Context != nil {
+	if opts.Runtime != nil {
+		hub, engine = opts.Runtime.Hub, opts.Runtime.Engine
+	} else if opts.Context != nil {
 		engine.Start(opts.Context)
 	}
 	f.Map(hub, engine)
@@ -254,6 +258,16 @@ func New(opts Options) *flamego.Flame {
 
 	f.Group("/-", func() {
 		f.Get("/healthz", healthz.Handler().ServeHTTP)
+		f.Get("/readyz", func(w http.ResponseWriter, r *http.Request) {
+			if opts.Runtime != nil {
+				if err := opts.Runtime.Ready(r.Context()); err != nil {
+					http.Error(w, "Not ready", http.StatusServiceUnavailable)
+					return
+				}
+			}
+
+			w.WriteHeader(http.StatusOK)
+		})
 		if opts.MetricsHandler != nil {
 			f.Get("/metrics", opts.MetricsHandler.ServeHTTP)
 		}

@@ -136,6 +136,7 @@ export class ProjectSocket {
       this.pending.delete(message.reqId)
       clearTimeout(p.timer)
       p.resolve(message)
+      if (message.type === 'PONG') this.emit(message.type, message.data)
       return
     }
     this.emit(message.type, message.data)

@@ -18,9 +18,10 @@ var rdb *redis.Client
 
 func Init() (*redis.Client, error) {
 	rdb = redis.NewClient(&redis.Options{
-		Addr:     conf.Redis.Address,
-		Username: conf.Redis.Username,
-		Password: conf.Redis.Password,
+		Addr:                  conf.Redis.Address,
+		Username:              conf.Redis.Username,
+		Password:              conf.Redis.Password,
+		ContextTimeoutEnabled: true,
 	})
 
 	ctx := context.Background()

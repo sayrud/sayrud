@@ -179,9 +179,9 @@ func (schemalessRoute) ResolveOptions(ctx context.Context, table *db.SLTable, tx
 // @Failure 500 {string} string "Internal server error"
 // @ID createFields
 // @Router /projects/{projectUID}/tables/{tableUID}/fields [post]
-func (schemalessRoute) CreateFields(ctx context.Context, hub *collab.Hub, project *db.Project, table *db.SLTable, tx dbutil.Transactor, f form.CreateFields) error {
+func (schemalessRoute) CreateFields(ctx context.Context, hub *collab.Hub, project *db.Project, table *db.SLTable, f form.CreateFields) error {
 	var createdFields []*db.SLField
-	if err := tx.Transaction(func(tx *gorm.DB) error {
+	if err := hub.Mutate(ctx.Request().Context(), project, table, func(tx *gorm.DB) error {
 		slFieldsStore := db.NewSLFieldsStore(tx)
 
 		currentFields, err := slFieldsStore.ListByTableID(ctx.Request().Context(), table.ID)
@@ -222,14 +222,14 @@ func (schemalessRoute) CreateFields(ctx context.Context, hub *collab.Hub, projec
 			position++
 		}
 		return nil
-	}); err != nil {
+	}, func() collab.DirtyScope { return collab.DirtyScope{Fields: true} }); err != nil {
 		if statusCode, msg, ok := fieldErrorResponse(err); ok {
 			return ctx.ApiError(statusCode, msg)
 		}
 		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to create sl fields")
 		return ctx.ApiServerError()
 	}
-	notifyDirty(ctx, hub, project, table, collab.DirtyScope{Fields: true})
+
 	return ctx.ApiSuccess(dto.ToFields(table, createdFields))
 }
 
@@ -250,10 +250,15 @@ func (schemalessRoute) CreateFields(ctx context.Context, hub *collab.Hub, projec
 // @Failure 500 {string} string "Internal server error"
 // @ID updateField
 // @Router /projects/{projectUID}/tables/{tableUID}/fields/{fieldUID} [put]
-func (schemalessRoute) UpdateField(ctx context.Context, hub *collab.Hub, project *db.Project, table *db.SLTable, field *db.SLField, tx dbutil.Transactor, f form.UpdateField) error {
+func (schemalessRoute) UpdateField(ctx context.Context, hub *collab.Hub, project *db.Project, table *db.SLTable, field *db.SLField, f form.UpdateField) error {
 	var updatedField *db.SLField
-	if err := tx.Transaction(func(tx *gorm.DB) error {
+	if err := hub.Mutate(ctx.Request().Context(), project, table, func(tx *gorm.DB) error {
 		slFieldsStore := db.NewSLFieldsStore(tx)
+		var err error
+		field, err = slFieldsStore.GetByID(ctx.Request().Context(), field.ID)
+		if err != nil {
+			return err
+		}
 
 		if f.Label != nil {
 			currentFields, err := slFieldsStore.ListByTableID(ctx.Request().Context(), table.ID)
@@ -291,12 +296,13 @@ func (schemalessRoute) UpdateField(ctx context.Context, hub *collab.Hub, project
 			}
 		}
 
-		var err error
 		updatedField, err = slFieldsStore.GetByID(ctx.Request().Context(), field.ID)
 		if err != nil {
 			return errors.Wrap(err, "get field")
 		}
 		return nil
+	}, func() collab.DirtyScope {
+		return collab.DirtyScope{Fields: true, AllRecords: f.Type != nil || f.Metadata != nil}
 	}); err != nil {
 		if statusCode, msg, ok := fieldErrorResponse(err); ok {
 			return ctx.ApiError(statusCode, msg)
@@ -304,7 +310,7 @@ func (schemalessRoute) UpdateField(ctx context.Context, hub *collab.Hub, project
 		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to update sl field")
 		return ctx.ApiServerError()
 	}
-	notifyDirty(ctx, hub, project, table, collab.DirtyScope{Fields: true, AllRecords: f.Type != nil || f.Metadata != nil})
+
 	if f.Type != nil || f.Metadata != nil {
 		hub.NotifyChange(ctx.Request().Context(), project, table, &collab.Change{Fields: []string{field.UID}})
 	}
@@ -328,11 +334,13 @@ func (schemalessRoute) UpdateField(ctx context.Context, hub *collab.Hub, project
 // @ID updateFieldPosition
 // @Router /projects/{projectUID}/tables/{tableUID}/fields/{fieldUID}/position [put]
 func (schemalessRoute) UpdateFieldPosition(ctx context.Context, hub *collab.Hub, project *db.Project, table *db.SLTable, field *db.SLField, f form.UpdateFieldPosition) error {
-	if err := db.SLFields.Move(ctx.Request().Context(), table.ID, field.ID, int(f.Position)); err != nil {
+	if err := hub.Mutate(ctx.Request().Context(), project, table, func(tx *gorm.DB) error {
+		return db.NewSLFieldsStore(tx).Move(ctx.Request().Context(), table.ID, field.ID, int(f.Position))
+	}, func() collab.DirtyScope { return collab.DirtyScope{Fields: true} }); err != nil {
 		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to move sl field")
 		return ctx.ApiServerError()
 	}
-	notifyDirty(ctx, hub, project, table, collab.DirtyScope{Fields: true})
+
 	return ctx.Status(http.StatusNoContent)
 }
 
@@ -348,8 +356,8 @@ func (schemalessRoute) UpdateFieldPosition(ctx context.Context, hub *collab.Hub,
 // @Failure 500 {string} string "Internal server error"
 // @ID deleteField
 // @Router /projects/{projectUID}/tables/{tableUID}/fields/{fieldUID} [delete]
-func (schemalessRoute) DeleteField(ctx context.Context, hub *collab.Hub, project *db.Project, table *db.SLTable, field *db.SLField, tx dbutil.Transactor) error {
-	if err := tx.Transaction(func(tx *gorm.DB) error {
+func (schemalessRoute) DeleteField(ctx context.Context, hub *collab.Hub, project *db.Project, table *db.SLTable, field *db.SLField) error {
+	if err := hub.Mutate(ctx.Request().Context(), project, table, func(tx *gorm.DB) error {
 		if err := db.NewSLFieldsStore(tx).DeleteByID(ctx.Request().Context(), field.ID); err != nil {
 			return errors.Wrap(err, "delete field")
 		}
@@ -357,11 +365,11 @@ func (schemalessRoute) DeleteField(ctx context.Context, hub *collab.Hub, project
 			return errors.Wrap(err, "delete shortcut jobs")
 		}
 		return db.NewSLRecordsStore(tx).RemoveFieldData(ctx.Request().Context(), table.ID, field.UID)
-	}); err != nil {
+	}, func() collab.DirtyScope { return collab.DirtyScope{Fields: true, AllRecords: true} }); err != nil {
 		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to delete sl field")
 		return ctx.ApiServerError()
 	}
-	notifyDirty(ctx, hub, project, table, collab.DirtyScope{Fields: true, AllRecords: true})
+
 	return ctx.Status(http.StatusNoContent)
 }
 

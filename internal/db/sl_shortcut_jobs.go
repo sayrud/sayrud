@@ -29,6 +29,10 @@ type SLShortcutJobsStore interface {
 	// Claim marks the next due pending job as running and returns it, it returns nil if there is none.
 	// It is safe to claim concurrently from multiple server instances.
 	Claim(ctx context.Context) (*SLShortcutJob, error)
+	// Renew extends a running execution's lease only while it still owns the job.
+	Renew(ctx context.Context, job *SLShortcutJob) (bool, error)
+	// Release returns an interrupted execution without consuming a retry attempt.
+	Release(ctx context.Context, job *SLShortcutJob) (bool, error)
 	// Retry puts the job back to pending to run after the given time, unless it has been re-enqueued.
 	Retry(ctx context.Context, job *SLShortcutJob, runAfter time.Time, jobErr ShortcutJobError) (bool, error)
 	// Fail marks the job as failed, unless it has been re-enqueued.
@@ -41,8 +45,8 @@ type SLShortcutJobsStore interface {
 	DeleteByField(ctx context.Context, tableID int64, fieldUID string) error
 	// DeleteByRecords deletes the jobs of the records.
 	DeleteByRecords(ctx context.Context, tableID int64, recordUIDs []string) error
-	// ResetStale puts the jobs running since before the given time back to pending, e.g. the server crashed when running them.
-	ResetStale(ctx context.Context, before time.Time) (int64, error)
+	// ResetStale recovers leases older than maxAge using the database clock.
+	ResetStale(ctx context.Context, maxAge time.Duration) (int64, error)
 }
 
 func NewSLShortcutJobsStore(db *gorm.DB) SLShortcutJobsStore {
@@ -80,13 +84,13 @@ type SLShortcutJob struct {
 	RecordUID string `gorm:"type:varchar(16);not null;uniqueIndex:idx_sl_shortcut_jobs_cell"`
 	// Status is the state of the job.
 	Status ShortcutJobStatus `gorm:"type:varchar(16);not null;index:idx_sl_shortcut_jobs_due,priority:1"`
-	// Token increases every time the job is enqueued, the result of an execution is written back only if the token is unchanged.
+	// Token increases on enqueue, claim and recovery; only the current execution may write back.
 	Token int64 `gorm:"not null;default:1"`
 	// Attempts is the number of the executions since the job was last enqueued.
 	Attempts int `gorm:"not null;default:0"`
 	// RunAfter is the earliest time the pending job can be claimed.
 	RunAfter time.Time `gorm:"not null;index:idx_sl_shortcut_jobs_due,priority:2"`
-	// LockedAt is the time the running job was claimed, nil if not running.
+	// LockedAt is the database time of the last lease renewal, nil if not running.
 	LockedAt *time.Time
 	// Error is the reason of the failure, or of the last attempt of a pending retry.
 	Error datatypes.JSONType[ShortcutJobError] `gorm:"type:jsonb;not null"`
@@ -149,15 +153,14 @@ func (db *slShortcutJobs) Enqueue(ctx context.Context, tableID int64, fieldUID s
 }
 
 func (db *slShortcutJobs) Claim(ctx context.Context) (*SLShortcutJob, error) {
-	now := dbutil.Now()
 	var jobs []*SLShortcutJob
 	if err := db.WithContext(ctx).Raw(`
-UPDATE sl_shortcut_jobs SET status = ?, locked_at = ?, attempts = attempts + 1, updated_at = ?
+UPDATE sl_shortcut_jobs SET status = ?, locked_at = CURRENT_TIMESTAMP, token = token + 1, attempts = attempts + 1, updated_at = CURRENT_TIMESTAMP
 WHERE id = (
-	SELECT id FROM sl_shortcut_jobs WHERE status = ? AND run_after <= ?
+	SELECT id FROM sl_shortcut_jobs WHERE status = ? AND run_after <= CURRENT_TIMESTAMP
 	ORDER BY run_after ASC, id ASC LIMIT 1 FOR UPDATE SKIP LOCKED
 )
-RETURNING *`, ShortcutJobRunning, now, now, ShortcutJobPending, now).Scan(&jobs).Error; err != nil {
+RETURNING *`, ShortcutJobRunning, ShortcutJobPending).Scan(&jobs).Error; err != nil {
 		return nil, errors.Wrap(err, "claim")
 	}
 	if len(jobs) == 0 {
@@ -166,14 +169,29 @@ RETURNING *`, ShortcutJobRunning, now, now, ShortcutJobPending, now).Scan(&jobs)
 	return jobs[0], nil
 }
 
-// updateIfCurrent updates the job only if it has not been re-enqueued since claimed.
+// updateIfCurrent updates the running job only while this execution owns its token.
 func (db *slShortcutJobs) updateIfCurrent(ctx context.Context, job *SLShortcutJob, values map[string]interface{}) (bool, error) {
 	values["updated_at"] = dbutil.Now()
-	result := db.WithContext(ctx).Model(&SLShortcutJob{}).Where("id = ? AND token = ?", job.ID, job.Token).Updates(values)
+
+	result := db.WithContext(ctx).Model(&SLShortcutJob{}).Where("id = ? AND token = ? AND status = ?", job.ID, job.Token, ShortcutJobRunning).Updates(values)
 	if result.Error != nil {
 		return false, errors.Wrap(result.Error, "update")
 	}
 	return result.RowsAffected > 0, nil
+}
+
+func (db *slShortcutJobs) Renew(ctx context.Context, job *SLShortcutJob) (bool, error) {
+	return db.updateIfCurrent(ctx, job, map[string]interface{}{"locked_at": gorm.Expr("CURRENT_TIMESTAMP")})
+}
+
+func (db *slShortcutJobs) Release(ctx context.Context, job *SLShortcutJob) (bool, error) {
+	return db.updateIfCurrent(ctx, job, map[string]interface{}{
+		"status":    ShortcutJobPending,
+		"locked_at": nil,
+		"run_after": gorm.Expr("CURRENT_TIMESTAMP"),
+		"token":     gorm.Expr("token + 1"),
+		"attempts":  gorm.Expr("GREATEST(attempts - 1, 0)"),
+	})
 }
 
 func (db *slShortcutJobs) Retry(ctx context.Context, job *SLShortcutJob, runAfter time.Time, jobErr ShortcutJobError) (bool, error) {
@@ -194,7 +212,7 @@ func (db *slShortcutJobs) Fail(ctx context.Context, job *SLShortcutJob, jobErr S
 }
 
 func (db *slShortcutJobs) Finish(ctx context.Context, job *SLShortcutJob) (bool, error) {
-	result := db.WithContext(ctx).Where("id = ? AND token = ?", job.ID, job.Token).Delete(&SLShortcutJob{})
+	result := db.WithContext(ctx).Where("id = ? AND token = ? AND status = ?", job.ID, job.Token, ShortcutJobRunning).Delete(&SLShortcutJob{})
 	if result.Error != nil {
 		return false, errors.Wrap(result.Error, "delete")
 	}
@@ -226,12 +244,13 @@ func (db *slShortcutJobs) DeleteByRecords(ctx context.Context, tableID int64, re
 	return nil
 }
 
-func (db *slShortcutJobs) ResetStale(ctx context.Context, before time.Time) (int64, error) {
-	result := db.WithContext(ctx).Model(&SLShortcutJob{}).Where("status = ? AND locked_at < ?", ShortcutJobRunning, before).Updates(map[string]interface{}{
+func (db *slShortcutJobs) ResetStale(ctx context.Context, maxAge time.Duration) (int64, error) {
+	result := db.WithContext(ctx).Model(&SLShortcutJob{}).Where("status = ? AND locked_at < CURRENT_TIMESTAMP - (? * INTERVAL '1 microsecond')", ShortcutJobRunning, maxAge.Microseconds()).Updates(map[string]interface{}{
 		"status":     ShortcutJobPending,
 		"locked_at":  nil,
-		"run_after":  dbutil.Now(),
+		"run_after":  gorm.Expr("CURRENT_TIMESTAMP"),
 		"updated_at": dbutil.Now(),
+		"token":      gorm.Expr("token + 1"),
 	})
 	if result.Error != nil {
 		return 0, errors.Wrap(result.Error, "update")

@@ -91,6 +91,11 @@ export class TableSync {
         this.buffer.set(cs.rev, { kind: 'remote', changeset: cs })
         this.forward()
       }),
+      // Pub/Sub is a notification channel. A heartbeat also detects a missing
+      // final notification, even when no later changes arrive to expose a gap.
+      this.socket.on<{ revisions?: Record<string, number> }>('PONG', (data) => {
+        if ((data?.revisions?.[this.tableUID] ?? 0) > this.rev) void this.fetchGap()
+      }),
       this.socket.on('open', () => void this.subscribe()),
       this.socket.on('close', () => {
         this.subscribed = false

@@ -1,6 +1,8 @@
 # Copy to config/sayrud.yaml. See README for Docker setup.
 app:
   port: 2830
+  drain_delay: 5s # Allow readiness removal to propagate before closing the listener.
+  shutdown_timeout: 30s # Total budget, including interrupted job cleanup.
   # Use only behind a proxy that overwrites this header.
   ip_header: "" # e.g. X-Real-IP; empty uses the peer IP.
 

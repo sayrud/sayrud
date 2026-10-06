@@ -33,51 +33,68 @@ var upgrader = websocket.Upgrader{
 
 // Identity is a signed-in collaborator or a read-only public visitor.
 type Identity struct {
-	UserID    int64
-	MemberID  string
-	Name      string
-	Color     string
-	AvatarURL string
-	UpdatedAt time.Time
-	CanEdit   bool
-	Share     *ShareSession
+	UserID       int64
+	MemberID     string
+	Name         string
+	Color        string
+	AvatarURL    string
+	UpdatedAt    time.Time
+	CanEdit      bool
+	Role         db.ProjectRole
+	Share        *ShareSession
+	SessionToken string
 }
 
 // Client is a WebSocket connection of a project.
 type Client struct {
-	hub        *Hub
-	conn       *websocket.Conn
-	project    *db.Project
-	projectUID string
-	userID     int64
-	locale     i18n.Locale
-	out        chan []byte
-	closeOnce  sync.Once
-	share      *ShareSession
+	hub          *Hub
+	conn         *websocket.Conn
+	project      *db.Project
+	projectUID   string
+	userID       int64
+	locale       i18n.Locale
+	out          chan []byte
+	closeOnce    sync.Once
+	outMu        sync.RWMutex
+	outClosed    bool
+	share        *ShareSession
+	sessionToken string
 
 	mu              sync.Mutex
 	member          Member
 	canEdit         bool
+	role            db.ProjectRole
 	avatarUpdatedAt time.Time
+	closeStatus     int
 	tables          map[string]*db.SLTable
 }
 
 // Serve upgrades the request to WebSocket and serves the connection until it is closed.
 func (h *Hub) Serve(w http.ResponseWriter, r *http.Request, project *db.Project, identity Identity, locale i18n.Locale) error {
+	h.mu.Lock()
+	draining := h.draining
+	h.mu.Unlock()
+
+	if draining || !h.ClusterReady() {
+		http.Error(w, "Service restarting", http.StatusServiceUnavailable)
+		return nil
+	}
+
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		return errors.Wrap(err, "upgrade")
 	}
 
 	c := &Client{
-		hub:        h,
-		conn:       conn,
-		project:    project,
-		projectUID: project.UID,
-		userID:     identity.UserID,
-		locale:     locale,
-		out:        make(chan []byte, sendBufferSize),
-		share:      identity.Share,
+		hub:          h,
+		conn:         conn,
+		project:      project,
+		projectUID:   project.UID,
+		userID:       identity.UserID,
+		locale:       locale,
+		out:          make(chan []byte, sendBufferSize),
+		share:        identity.Share,
+		sessionToken: identity.SessionToken,
 		member: Member{
 			ClientID:  "cli" + randstr.String(12),
 			MemberID:  identity.MemberID,
@@ -86,16 +103,25 @@ func (h *Hub) Serve(w http.ResponseWriter, r *http.Request, project *db.Project,
 			AvatarURL: identity.AvatarURL,
 		},
 		canEdit:         identity.CanEdit && identity.Share == nil,
+		role:            identity.Role,
 		avatarUpdatedAt: identity.UpdatedAt,
 		tables:          make(map[string]*db.SLTable),
 	}
 
-	h.register(c)
+	if !h.register(c) {
+		_ = conn.Close()
+		return nil
+	}
+
 	go c.writePump()
 
 	// Authentication may have read the profile before an avatar update that finished before registration.
 	if identity.Share == nil {
-		if user, err := db.Users.GetByID(r.Context(), identity.UserID); err != nil {
+		users := db.Users
+		if h.db != nil {
+			users = db.NewUsersStore(h.db)
+		}
+		if user, err := users.GetByID(r.Context(), identity.UserID); err != nil {
 			logrus.WithContext(r.Context()).WithError(err).Warn("Failed to refresh collaborator avatar")
 		} else {
 			var avatarURL string
@@ -114,19 +140,31 @@ func (h *Hub) Serve(w http.ResponseWriter, r *http.Request, project *db.Project,
 
 func (c *Client) close() {
 	c.closeOnce.Do(func() {
+		c.outMu.Lock()
+		defer c.outMu.Unlock()
+
+		c.outClosed = true
 		close(c.out)
 	})
 }
 
 // send queues the message, the slow client whose buffer is full is disconnected, and it will catch up after reconnecting.
 func (c *Client) send(message []byte) {
-	defer func() {
-		// The channel is closed by a concurrent disconnection.
-		_ = recover()
-	}()
+	c.outMu.RLock()
+	if c.outClosed {
+		c.outMu.RUnlock()
+		return
+	}
+
+	sent := false
 	select {
 	case c.out <- message:
+		sent = true
 	default:
+	}
+	c.outMu.RUnlock()
+
+	if !sent {
 		c.close()
 	}
 }
@@ -170,7 +208,13 @@ func (c *Client) writePump() {
 		case message, ok := <-c.out:
 			_ = c.conn.SetWriteDeadline(time.Now().Add(writeWait))
 			if !ok {
-				_ = c.conn.WriteMessage(websocket.CloseMessage, []byte{})
+				c.mu.Lock()
+				code := c.closeStatus
+				c.mu.Unlock()
+				if code == 0 {
+					code = websocket.CloseNormalClosure
+				}
+				_ = c.conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(code, ""))
 				return
 			}
 			if c.share != nil {
@@ -192,6 +236,14 @@ func (c *Client) writePump() {
 				return
 			}
 		case <-ticker.C:
+			if c.share == nil && c.hub.db != nil {
+				ctx, cancel := context.WithTimeout(context.Background(), writeWait)
+				allowed := c.refreshAccess(ctx)
+				cancel()
+				if !allowed {
+					return
+				}
+			}
 			if c.share != nil {
 				ctx, cancel := context.WithTimeout(context.Background(), writeWait)
 				_, err := c.share.root(ctx, c.project.ID)
@@ -239,6 +291,10 @@ func (c *Client) readPump(ctx context.Context) {
 }
 
 func (c *Client) handle(ctx context.Context, message Message) {
+	if c.share == nil && c.hub.db != nil && !c.refreshAccess(ctx) {
+		return
+	}
+
 	replyError := func(key string) {
 		c.send(newMessage(MessageError, message.ReqID, errorData{Message: c.tr(key)}))
 	}
@@ -256,7 +312,12 @@ func (c *Client) handle(ctx context.Context, message Message) {
 
 	switch message.Type {
 	case MessagePing:
-		c.send(newMessage(MessagePong, message.ReqID, nil))
+		revisions, err := c.revisions(ctx)
+		if err != nil {
+			replyError("common::internal_error")
+			return
+		}
+		c.send(newMessage(MessagePong, message.ReqID, map[string]interface{}{"revisions": revisions}))
 
 	case MessageSubscribe:
 		var data subscribeData
@@ -264,20 +325,28 @@ func (c *Client) handle(ctx context.Context, message Message) {
 			replyError("collab::invalid_message")
 			return
 		}
-		table, err := db.SLTables.GetByUID(ctx, data.TableUID)
+
+		tables := db.SLTables
+		if c.hub.db != nil {
+			tables = db.NewSLTablesStore(c.hub.db)
+		}
+		table, err := tables.GetByUID(ctx, data.TableUID)
 		if err != nil || table.ProjectID != c.project.ID || (shareRoot != nil && !sharedTableAllowed(ctx, shareRoot, data.TableUID)) {
 			replyError("collab::table_not_found")
 			return
 		}
+
 		rev, err := c.hub.subscribe(ctx, c, table)
 		if err != nil {
 			logrus.WithContext(ctx).WithError(err).Error("Failed to subscribe table")
 			replyError("common::internal_error")
 			return
 		}
+
 		c.mu.Lock()
 		c.tables[table.UID] = table
 		c.mu.Unlock()
+
 		c.send(newMessage(MessageSubscribed, message.ReqID, subscribedData{TableUID: table.UID, Rev: rev}))
 
 	case MessageUnsubscribe:

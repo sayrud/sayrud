@@ -334,6 +334,8 @@ export const useBaseStore = defineStore('base', () => {
       s.on('open', sendPresence),
       // The job changes are not replayed after reconnecting.
       s.on('open', () => void loadShortcutJobs()),
+      // Recover job notifications lost while an otherwise healthy socket stayed open.
+      s.on('PONG', () => void loadShortcutJobs()),
       s.on<ShortcutJobsMessage>('SHORTCUT_JOBS', onShortcutJobs),
       s.on('TABLES_CHANGED', () => void refreshTables()),
       s.on('PROJECT_CHANGED', async () => {

@@ -21,7 +21,9 @@ import (
 const (
 	maxAttempts      = 3
 	pollInterval     = 2 * time.Second
-	staleAfter       = 20 * time.Minute
+	staleAfter       = 30 * time.Second
+	leaseInterval    = 10 * time.Second
+	cleanupTimeout   = 5 * time.Second
 	maxBroadcastJobs = 200
 	// jobTimeoutMargin is added to the timeout of the executor, so the executor reports its own timeout first.
 	jobTimeoutMargin = 10 * time.Second
@@ -38,6 +40,14 @@ type Engine struct {
 	hub     *collab.Hub
 	workers int
 	wake    chan struct{}
+
+	startOnce       sync.Once
+	stopMu          sync.Mutex
+	stopClaims      context.CancelFunc
+	cancelExecution context.CancelFunc
+	wg              sync.WaitGroup
+	done            chan struct{}
+	releaseErr      error
 }
 
 // NewEngine returns the engine connected to the hub, the jobs are executed after Start.
@@ -47,17 +57,86 @@ func NewEngine(gormDB *gorm.DB, hub *collab.Hub, workers int) *Engine {
 		hub:     hub,
 		workers: max(workers, 1),
 		wake:    make(chan struct{}, max(workers, 1)),
+		done:    make(chan struct{}),
 	}
 	hub.SetShortcutHooks(e)
 	return e
 }
 
-// Start runs the workers until the context is canceled.
+// Start runs workers until claims stop; Shutdown drains or cancels executions.
 func (e *Engine) Start(ctx context.Context) {
-	for range e.workers {
-		go e.work(ctx)
+	e.startOnce.Do(func() {
+		claims, stopClaims := context.WithCancel(ctx)
+		execution, cancelExecution := context.WithCancel(context.WithoutCancel(ctx))
+
+		e.stopMu.Lock()
+		e.stopClaims, e.cancelExecution = stopClaims, cancelExecution
+		e.stopMu.Unlock()
+
+		for range e.workers {
+			e.wg.Add(1)
+			go func() {
+				defer e.wg.Done()
+				e.work(claims, execution)
+			}()
+		}
+
+		e.wg.Add(1)
+		go func() {
+			defer e.wg.Done()
+			e.maintain(claims)
+		}()
+
+		go func() {
+			e.wg.Wait()
+			cancelExecution()
+			close(e.done)
+		}()
+	})
+}
+
+// Stop stops claiming new work without canceling current executions.
+func (e *Engine) Stop() {
+	e.stopMu.Lock()
+	defer e.stopMu.Unlock()
+
+	if e.stopClaims != nil {
+		e.stopClaims()
 	}
-	go e.maintain(ctx)
+}
+
+// Shutdown drains current executions until the deadline, then cancels and
+// releases them with a separate, bounded cleanup context.
+func (e *Engine) Shutdown(grace, cleanup context.Context) error {
+	e.Stop()
+
+	e.stopMu.Lock()
+	started := e.stopClaims != nil
+	e.stopMu.Unlock()
+	if !started {
+		return nil
+	}
+
+	select {
+	case <-e.done:
+		return e.releaseErr
+	case <-grace.Done():
+	}
+
+	e.stopMu.Lock()
+	if e.cancelExecution != nil {
+		e.cancelExecution()
+	}
+	e.stopMu.Unlock()
+
+	select {
+	case <-e.done:
+		e.stopMu.Lock()
+		defer e.stopMu.Unlock()
+		return e.releaseErr
+	case <-cleanup.Done():
+		return cleanup.Err()
+	}
 }
 
 func (e *Engine) jobs() db.SLShortcutJobsStore {
@@ -74,7 +153,7 @@ func (e *Engine) notifyWorkers() {
 	}
 }
 
-func (e *Engine) work(ctx context.Context) {
+func (e *Engine) work(ctx, execution context.Context) {
 	for ctx.Err() == nil {
 		job, err := e.jobs().Claim(ctx)
 		if err != nil {
@@ -82,8 +161,24 @@ func (e *Engine) work(ctx context.Context) {
 				logrus.WithContext(ctx).WithError(err).Error("Failed to claim shortcut job")
 			}
 		}
+
 		if job != nil {
-			e.process(ctx, job)
+			if ctx.Err() != nil {
+				cleanup, cancel := context.WithTimeout(context.Background(), cleanupTimeout)
+				_, err := e.jobs().Release(cleanup, job)
+				cancel()
+				if err != nil {
+					e.stopMu.Lock()
+					e.releaseErr = err
+					e.stopMu.Unlock()
+
+					logrus.WithError(err).Error("Failed to release job claimed during shutdown")
+				}
+
+				return
+			}
+
+			e.runJob(execution, job)
 			continue
 		}
 
@@ -97,10 +192,11 @@ func (e *Engine) work(ctx context.Context) {
 
 // maintain resets the jobs left running by a crashed server.
 func (e *Engine) maintain(ctx context.Context) {
-	ticker := time.NewTicker(time.Minute)
+	ticker := time.NewTicker(leaseInterval)
 	defer ticker.Stop()
+
 	for {
-		if n, err := e.jobs().ResetStale(ctx, dbutil.Now().Add(-staleAfter)); err != nil {
+		if n, err := e.jobs().ResetStale(ctx, staleAfter); err != nil {
 			if ctx.Err() == nil {
 				logrus.WithContext(ctx).WithError(err).Error("Failed to reset stale shortcut jobs")
 			}
@@ -428,7 +524,7 @@ func (e *Engine) fail(ctx context.Context, target *jobTarget, job *db.SLShortcut
 	var shortcutErr *Error
 	if !errors.As(err, &shortcutErr) {
 		if ctx.Err() != nil {
-			// The server is shutting down, the job is reset after restarting.
+			// runJob releases canceled executions for another worker to claim.
 			return
 		}
 		logrus.WithContext(ctx).WithError(err).WithField("recordUID", job.RecordUID).Error("Failed to execute shortcut job")

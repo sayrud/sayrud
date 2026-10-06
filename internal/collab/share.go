@@ -142,10 +142,5 @@ func (c *Client) sharedMessage(ctx context.Context, raw []byte) ([]byte, bool) {
 
 // NotifyShareChanged makes existing visitors reload the scope or verify the new password.
 func (h *Hub) NotifyShareChanged(projectUID string, tableID int64) {
-	for _, c := range h.clients(projectUID) {
-		if c.share != nil && c.share.TableID == tableID {
-			c.send(newMessage(MessageShareChanged, 0, nil))
-			c.close()
-		}
-	}
+	h.broadcastEvent(clusterEvent{Kind: clusterEventShare, ProjectUID: projectUID, TableID: tableID})
 }
