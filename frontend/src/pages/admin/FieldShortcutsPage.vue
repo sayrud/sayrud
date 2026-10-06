@@ -142,7 +142,7 @@ onMounted(load)
     </PageHeader>
 
     <SettingsSection flush>
-      <div class="toolbar">
+      <div v-if="pagination.total > 0 || keyword.trim()" class="toolbar">
         <a-input-search v-model="keyword" :placeholder="t('shortcutAdmin.search')" allow-clear class="search" />
       </div>
 
@@ -212,7 +212,7 @@ onMounted(load)
         </a-button>
       </div>
 
-      <div class="pagination-footer">
+      <div v-if="pagination.total > 0" class="pagination-footer">
         <a-pagination
           :current="pagination.current"
           :page-size="pagination.pageSize"

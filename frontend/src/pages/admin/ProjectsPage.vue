@@ -119,7 +119,7 @@ onMounted(load)
     <PageHeader :title="t('admin.projects.title')" :description="t('admin.projects.description')" />
 
     <SettingsSection flush>
-      <div class="toolbar">
+      <div v-if="pagination.total > 0 || keyword.trim()" class="toolbar">
         <a-input-search v-model="keyword" :placeholder="t('admin.projects.search')" allow-clear class="search" />
       </div>
 
@@ -165,7 +165,7 @@ onMounted(load)
         </template>
       </a-table>
 
-      <div class="pagination-footer">
+      <div v-if="pagination.total > 0" class="pagination-footer">
         <a-pagination
           :current="pagination.current"
           :page-size="pagination.pageSize"

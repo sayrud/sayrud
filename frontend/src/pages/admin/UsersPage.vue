@@ -202,7 +202,7 @@ onMounted(load)
     </PageHeader>
 
     <SettingsSection flush>
-      <div class="toolbar">
+      <div v-if="pagination.total > 0 || query.keyword.trim() || query.status" class="toolbar">
         <a-radio-group v-model="query.status" type="button">
           <a-radio v-for="o in statusOptions" :key="o.value" :value="o.value">{{ o.label }}</a-radio>
         </a-radio-group>
@@ -276,7 +276,7 @@ onMounted(load)
         </template>
       </a-table>
 
-      <div class="pagination-footer">
+      <div v-if="pagination.total > 0" class="pagination-footer">
         <a-pagination
           :current="pagination.current"
           :page-size="pagination.pageSize"
