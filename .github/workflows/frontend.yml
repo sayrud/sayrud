@@ -5,12 +5,10 @@ on:
     branches: [ master ]
     paths:
       - 'frontend/**'
-      - 'examples/field-shortcuts/**'
       - '.github/workflows/frontend.yml'
   pull_request:
     paths:
       - 'frontend/**'
-      - 'examples/field-shortcuts/**'
       - '.github/workflows/frontend.yml'
 
 permissions:
