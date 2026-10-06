@@ -1029,7 +1029,6 @@ const fr: typeof zhCN = {
       username: 'Nom d\'utilisateur',
       usernameRequired: 'Saisissez votre nom d\'utilisateur',
       back: 'Autres méthodes de connexion',
-      adminPassword: 'Connexion administrateur par mot de passe',
     },
     errors: {
       provider_not_found: 'La méthode de connexion n\'existe pas ou est désactivée',

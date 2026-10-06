@@ -1029,7 +1029,6 @@ const zhTW: typeof zhCN = {
       username: '使用者名稱',
       usernameRequired: '請輸入使用者名稱',
       back: '其他登入方式',
-      adminPassword: '管理員使用密碼登入',
     },
     errors: {
       provider_not_found: '登入方式不存在或未啟用',

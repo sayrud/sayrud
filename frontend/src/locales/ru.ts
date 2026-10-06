@@ -1029,7 +1029,6 @@ const ru: typeof zhCN = {
       username: 'Имя пользователя',
       usernameRequired: 'Введите имя пользователя',
       back: 'Другие способы входа',
-      adminPassword: 'Вход администратора по паролю',
     },
     errors: {
       provider_not_found: 'Способ входа не существует или отключён',

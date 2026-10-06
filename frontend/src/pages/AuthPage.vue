@@ -127,10 +127,6 @@ function switchMode() {
   router.replace({ name: isRegister.value ? 'login' : 'register', query: route.query })
 }
 
-function usePassword() {
-  router.replace({ query: { ...route.query, password: '1' } })
-}
-
 watch(
   [isRegister, () => site.info.siteName, locale],
   () => (document.title = site.title(isRegister.value ? t('auth.signUp') : t('auth.signIn'))),
@@ -241,9 +237,6 @@ onMounted(() => {
         <a-typography-text type="secondary">{{ isRegister ? t('auth.haveAccount') : t('auth.noAccount') }}</a-typography-text>
         <a-link @click="switchMode">{{ isRegister ? t('auth.goSignIn') : t('auth.signUpNow') }}</a-link>
       </div>
-      <div v-else-if="!isRegister && !ldapProvider && !showPasswordForm" class="switch">
-        <a-link class="admin-link" @click="usePassword">{{ t('sso.login.adminPassword') }}</a-link>
-      </div>
     </a-card>
   </div>
 </template>
@@ -310,9 +303,5 @@ onMounted(() => {
 .switch {
   margin-top: 20px;
   text-align: center;
-}
-.admin-link {
-  font-size: 12px;
-  color: var(--text-caption);
 }
 </style>

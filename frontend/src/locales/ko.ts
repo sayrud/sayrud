@@ -1029,7 +1029,6 @@ const ko: typeof zhCN = {
       username: '사용자 이름',
       usernameRequired: '사용자 이름을 입력하세요',
       back: '다른 로그인 방식',
-      adminPassword: '관리자 비밀번호로 로그인',
     },
     errors: {
       provider_not_found: '로그인 방식이 존재하지 않거나 비활성화되었습니다',

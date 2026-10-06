@@ -1029,7 +1029,6 @@ const en: typeof zhCN = {
       username: 'User name',
       usernameRequired: 'Enter your user name',
       back: 'Other sign-in methods',
-      adminPassword: 'Admin sign-in with password',
     },
     errors: {
       provider_not_found: 'The sign-in method does not exist or is disabled',

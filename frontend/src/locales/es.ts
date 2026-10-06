@@ -1029,7 +1029,6 @@ const es: typeof zhCN = {
       username: 'Nombre de usuario',
       usernameRequired: 'Introduce tu nombre de usuario',
       back: 'Otros métodos de inicio de sesión',
-      adminPassword: 'Acceso de administrador con contraseña',
     },
     errors: {
       provider_not_found: 'El método de inicio de sesión no existe o está desactivado',

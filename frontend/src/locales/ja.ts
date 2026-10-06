@@ -1029,7 +1029,6 @@ const ja: typeof zhCN = {
       username: 'ユーザー名',
       usernameRequired: 'ユーザー名を入力してください',
       back: '他のログイン方法',
-      adminPassword: '管理者パスワードでログイン',
     },
     errors: {
       provider_not_found: 'ログイン方法が存在しないか、無効になっています',

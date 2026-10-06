@@ -1027,7 +1027,6 @@ export default {
       username: '用户名',
       usernameRequired: '请输入用户名',
       back: '其他登录方式',
-      adminPassword: '管理员使用密码登录',
     },
     errors: {
       provider_not_found: '登录方式不存在或未启用',

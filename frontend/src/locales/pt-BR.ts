@@ -1029,7 +1029,6 @@ const ptBR: typeof zhCN = {
       username: 'Nome de usuário',
       usernameRequired: 'Digite seu nome de usuário',
       back: 'Outros métodos de login',
-      adminPassword: 'Login de administrador com senha',
     },
     errors: {
       provider_not_found: 'O método de login não existe ou está desativado',

@@ -1029,7 +1029,6 @@ const de: typeof zhCN = {
       username: 'Benutzername',
       usernameRequired: 'Benutzernamen eingeben',
       back: 'Andere Anmeldemethoden',
-      adminPassword: 'Administrator-Anmeldung mit Passwort',
     },
     errors: {
       provider_not_found: 'Die Anmeldemethode existiert nicht oder ist deaktiviert',
