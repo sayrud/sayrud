@@ -28,6 +28,7 @@ const isRegister = computed(() => route.name === 'register')
 const minLength = computed(() => site.info.passwordMinLength)
 const formRef = ref<FormInstance>()
 const form = reactive({ email: '', userName: '', password: '', confirm: '' })
+const loading = ref(true)
 const submitting = ref(false)
 const error = ref('')
 
@@ -133,7 +134,7 @@ watch(
   { immediate: true },
 )
 onMounted(() => {
-  site.ensureLoaded()
+  site.ensureLoaded().finally(() => (loading.value = false))
   const code = route.query.sso_error
   if (code) {
     error.value = t(ssoErrorKey(code))
@@ -147,7 +148,8 @@ onMounted(() => {
 <template>
   <div class="auth">
     <div class="auth-locale"><LocaleSwitch /></div>
-    <a-card class="auth-card" :bordered="false">
+    <a-spin v-if="loading" :size="32" :tip="t('common.loading')" role="status" />
+    <a-card v-else class="auth-card" :bordered="false">
       <img class="brand" :src="themeStore.theme === 'dark' ? logoDark : logo" :alt="site.info.siteName" />
       <a-typography-title :heading="4" class="title">
         {{ isRegister ? t('auth.signUpTitle') : ldapProvider ? t('sso.login.ldapTitle', { name: ldapProvider.name }) : t('auth.signIn') }}
