@@ -1,9 +1,17 @@
 name: Docker
 on:
+  release:
+    types: [published]
   workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag to build (for example, v0.1.0); leave empty to build the selected ref'
+        required: false
+        type: string
 
 env:
   IMAGE: ghcr.io/sayrud/sayrud
+  VERSION: ${{ github.event.release.tag_name || inputs.tag || '' }}
 
 jobs:
   build:
@@ -13,8 +21,19 @@ jobs:
       packages: write
 
     steps:
+      - name: Validate release tag
+        if: env.VERSION != ''
+        run: |
+          if [[ ! "$VERSION" =~ ^[a-zA-Z0-9_][a-zA-Z0-9_.-]{0,127}$ ]]; then
+            echo "::error::Release tag must be a valid Docker image tag."
+            exit 1
+          fi
+
       - name: Checkout code
+        id: checkout
         uses: actions/checkout@v7
+        with:
+          ref: ${{ env.VERSION && format('refs/tags/{0}', env.VERSION) || github.ref }}
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -39,8 +58,9 @@ jobs:
           cache-to: type=gha,scope=sayrud,mode=max
           tags: |
             ${{ env.IMAGE }}:latest
-            ${{ env.IMAGE }}:sha-${{ github.sha }}
+            ${{ env.IMAGE }}:sha-${{ steps.checkout.outputs.commit }}
+            ${{ env.VERSION && format('{0}:{1}', env.IMAGE, env.VERSION) || '' }}
           labels: |
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
-            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.revision=${{ steps.checkout.outputs.commit }}
             org.opencontainers.image.licenses=AGPL-3.0
