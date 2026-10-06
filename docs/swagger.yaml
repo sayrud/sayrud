@@ -5870,6 +5870,11 @@ paths:
         in: query
         name: tableUID
         type: string
+      - description: Preferred share token; used only while its scope still covers
+          the requested table
+        in: query
+        name: shareToken
+        type: string
       produces:
       - application/json
       responses:

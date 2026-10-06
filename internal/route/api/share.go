@@ -160,6 +160,7 @@ func validSharePassword(password string) bool {
 // @Produce json
 // @Param projectUID query string true "Project UID"
 // @Param tableUID query string false "Table UID; omitted to open the first shared table"
+// @Param shareToken query string false "Preferred share token; used only while its scope still covers the requested table"
 // @Success 200 {object} dto.ResolvedLinkShare
 // @Failure 404 {string} string "Share unavailable"
 // @ID resolveLinkShare
@@ -176,8 +177,9 @@ func (shareRoute) Resolve(ctx context.Context) error {
 	}
 
 	tableUID := ctx.Query("tableUID")
+	preferredToken := ctx.Query("shareToken")
 	exists := tableUID == ""
-	var inherited *db.SLTable
+	var direct, inherited, preferred *db.SLTable
 	seen := 0
 	for page := 1; ; page++ {
 		batch, total, err := db.SLTables.Query(ctx.Request().Context(), db.QuerySLTableOptions{
@@ -196,7 +198,10 @@ func (shareRoute) Resolve(ctx context.Context) error {
 				continue
 			}
 			if table.UID == tableUID {
-				return ctx.ApiSuccess(dto.ResolvedLinkShare{Token: table.ShareToken})
+				direct = table
+			}
+			if table.ShareToken == preferredToken && (tableUID == "" || table.UID == tableUID || table.ShareIncludeChildren) {
+				preferred = table
 			}
 			if inherited == nil && (tableUID == "" || table.ShareIncludeChildren) {
 				inherited = table
@@ -209,8 +214,13 @@ func (shareRoute) Resolve(ctx context.Context) error {
 		}
 	}
 
-	if exists && inherited != nil {
-		return ctx.ApiSuccess(dto.ResolvedLinkShare{Token: inherited.ShareToken})
+	if exists {
+		// Keep the active sharing scope without granting access to an unrelated or private table.
+		for _, table := range []*db.SLTable{preferred, direct, inherited} {
+			if table != nil {
+				return ctx.ApiSuccess(dto.ResolvedLinkShare{Token: table.ShareToken})
+			}
+		}
 	}
 	return ctx.ApiError(http.StatusNotFound, "share::unavailable")
 }

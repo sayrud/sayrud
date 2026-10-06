@@ -3300,6 +3300,8 @@ export class Api<
         projectUID: string;
         /** Table UID; omitted to open the first shared table */
         tableUID?: string;
+        /** Preferred share token; used only while its scope still covers the requested table */
+        shareToken?: string;
       },
       params: RequestParams = {},
     ) =>

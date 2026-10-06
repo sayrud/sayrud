@@ -235,6 +235,13 @@ func TestLinkShareLifecycleAndScope(t *testing.T) {
 	require.Equal(t, 200, request("GET", path+"/tables/tblSibling", "", grant).Code)
 	require.Equal(t, 404, request("GET", path+"/tables/tblOther", "", grant).Code)
 
+	// A child share has its own password, but it does not narrow another share's explicit scope.
+	sibling := tables.tables[1]
+	sibling.ShareEnabled, sibling.ShareToken, sibling.SharePasswordHash = true, "sibling-token", "other-password-hash"
+	require.Equal(t, 200, request("GET", path+"/tables/tblSibling", "", grant).Code)
+	require.Equal(t, 401, request("GET", "/shares/sibling-token", "", nil).Code)
+	require.Equal(t, 401, request("GET", "/shares/sibling-token", "", grant).Code)
+
 	// Visitors never receive the saved password or its encrypted representation.
 	public := request("GET", path, "", grant)
 	require.Equal(t, 200, public.Code)
@@ -333,6 +340,22 @@ func TestResolveNormalTableLinks(t *testing.T) {
 
 	sibling.ShareEnabled, sibling.ShareToken = true, "sibling-token"
 	resolve("projectUID=prjShared&tableUID=tblSibling", 200, "sibling-token")
+
+	// Reopening a normal child URL keeps a preferred share only while that share covers the table.
+	db.SLTables = &shareTablesStore{tables: []*db.SLTable{sibling, root, other}}
+	resolve("projectUID=prjShared&tableUID=tblSibling&shareToken=root-token", 200, "root-token")
+	resolve("projectUID=prjShared&shareToken=root-token", 200, "root-token")
+	resolve("projectUID=prjShared&tableUID=tblSibling&shareToken=other-token", 200, "sibling-token")
+	resolve("projectUID=prjShared&tableUID=tblSibling&shareToken=missing-token", 200, "sibling-token")
+	resolve("projectUID=prjShared&tableUID=missing&shareToken=root-token", 404, "")
+	resolve("projectUID=prjShared&tableUID=tblOther&shareToken=root-token", 404, "")
+	root.ShareIncludeChildren = false
+	resolve("projectUID=prjShared&tableUID=tblSibling&shareToken=root-token", 200, "sibling-token")
+	resolve("projectUID=prjShared&tableUID=tblRoot&shareToken=sibling-token", 200, "root-token")
+	root.ShareIncludeChildren = true
+	root.ShareEnabled = false
+	resolve("projectUID=prjShared&tableUID=tblSibling&shareToken=root-token", 200, "sibling-token")
+	root.ShareEnabled = true
 	sibling.ShareEnabled = false
 	root.ShareEnabled = false
 	resolve("projectUID=prjShared&tableUID=tblRoot", 404, "")

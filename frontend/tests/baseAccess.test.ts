@@ -47,11 +47,29 @@ test('normal table URLs preserve member permissions and open public shares with 
   const compiled = ts.transpileModule(script.content, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText
   const require = createRequire(import.meta.url)
 
-  function fixture(user: 'member' | 'guest' | 'stranger', options: { closed?: boolean; protected?: boolean; privateError?: number; legacy?: boolean } = {}) {
+  function fixture(user: 'member' | 'guest' | 'stranger', options: {
+    closed?: boolean; protected?: boolean; privateError?: number; legacy?: boolean
+    includeChildren?: boolean; verified?: boolean; storage?: Map<string, string>; blockedStorage?: boolean
+  } = {}) {
     const calls: string[] = []
     const redirects: unknown[] = []
     const errors: string[] = []
-    let unlocked = !options.protected
+    let unlocked = options.verified || !options.protected
+    const storage = options.storage ?? new Map<string, string>()
+    Object.assign(window, { sessionStorage: {
+      getItem: (key: string) => {
+        if (options.blockedStorage) throw new Error('Storage blocked')
+        return storage.get(key) ?? null
+      },
+      setItem: (key: string, value: string) => {
+        if (options.blockedStorage) throw new Error('Storage blocked')
+        storage.set(key, value)
+      },
+      removeItem: (key: string) => {
+        if (options.blockedStorage) throw new Error('Storage blocked')
+        storage.delete(key)
+      },
+    } })
     const route = vue.reactive({
       params: { projectUID: options.legacy ? undefined : 'project', tableUID: 'table', viewUID: 'view', shareToken: options.legacy ? 'token' : undefined },
       fullPath: '/base/project/table/view',
@@ -80,9 +98,9 @@ test('normal table URLs preserve member permissions and open public shares with 
       openSharedProject: async (token: string) => {
         calls.push(`public:${token}`)
         store.isPublic = true
-        if (!unlocked) throw new ApiError(401, 'Password required')
+        if (!unlocked || token === 'child-token') throw new ApiError(401, 'Password required')
         store.project = { uid: 'project', role: 'viewer' }
-        store.tables = [{ uid: 'table' }]
+        store.tables = [{ uid: 'table' }, ...(options.includeChildren ? [{ uid: 'child' }] : [])]
         store.accessDenied = null
         store.sharedRootTableUID = 'table'
       },
@@ -105,10 +123,10 @@ test('normal table URLs preserve member permissions and open public shares with 
       '@/stores/site': { useSiteStore: () => ({ ensureLoaded: () => {} }) },
       '@/composables/useViewData': {},
       '@/api/share': { sharesApi: {
-        resolve: async (project: string, table?: string) => {
-          calls.push(`resolve:${project}:${table}`)
+        resolve: async (project: string, table?: string, preferred?: string) => {
+          calls.push(`resolve:${project}:${table}${preferred ? `:${preferred}` : ''}`)
           if (options.closed) throw new ApiError(404)
-          return { token: 'token' }
+          return { token: table === 'child' && !(options.includeChildren && preferred === 'token') ? 'child-token' : 'token' }
         },
         unlock: async (token: string, password: string) => {
           calls.push(`unlock:${token}:${password}`)
@@ -126,7 +144,7 @@ test('normal table URLs preserve member permissions and open public shares with 
     const scope = vue.effectScope()
     t.after(() => scope.stop())
     const bindings = scope.run(() => module.exports.default.setup({}, { expose: () => {} }))!
-    return { bindings, calls, redirects, store, errors, route }
+    return { bindings, calls, redirects, store, errors, route, storage }
   }
 
   const member = fixture('member', { protected: true })
@@ -157,6 +175,63 @@ test('normal table URLs preserve member permissions and open public shares with 
   assert.equal(protectedPage.store.project?.role, 'viewer')
   assert.ok(protectedPage.calls.includes('unlock:token:ABC1234@'))
   assert.equal(protectedPage.calls.at(-1), 'table:table:view')
+
+  const scoped = fixture('guest', { protected: true, includeChildren: true })
+  await scoped.bindings.sync()
+  assert.equal(scoped.storage.size, 0, 'Unverified shares are not remembered')
+  scoped.bindings.password.value = 'ABC1234@'
+  await scoped.bindings.unlock()
+  assert.equal(scoped.storage.get('sayrud:share:project'), 'token')
+  scoped.route.params.tableUID = 'child'
+  scoped.route.params.viewUID = 'child-view'
+  const beforeSwitch = scoped.calls.length
+  await scoped.bindings.sync()
+  assert.deepEqual(scoped.calls.slice(beforeSwitch), ['public:token', 'table:child:child-view'])
+  assert.equal(scoped.bindings.passwordRequired.value, false, 'A child share does not replace the verified parent scope')
+  assert.equal(scoped.store.project?.role, 'viewer')
+  scoped.route.params.viewUID = 'another-view'
+  const beforeView = scoped.calls.length
+  await scoped.bindings.sync()
+  assert.deepEqual(scoped.calls.slice(beforeView), ['public:token', 'table:child:another-view'])
+
+  const refreshed = fixture('guest', { protected: true, includeChildren: true, verified: true, storage: scoped.storage })
+  refreshed.route.params.tableUID = 'child'
+  await refreshed.bindings.sync()
+  assert.deepEqual(refreshed.calls, ['resolve:project:child:token', 'public:token', 'table:child:view'])
+  assert.equal(refreshed.bindings.passwordRequired.value, false)
+  await refreshed.bindings.sync(true)
+  assert.equal(refreshed.bindings.passwordRequired.value, false)
+  assert.equal(refreshed.calls.at(-1), 'table:child:view')
+
+  const narrowed = fixture('guest', { protected: true, verified: true, storage: scoped.storage })
+  narrowed.route.params.tableUID = 'child'
+  await narrowed.bindings.sync()
+  assert.deepEqual(narrowed.calls, ['resolve:project:child:token', 'public:child-token'])
+  assert.equal(narrowed.bindings.passwordRequired.value, true, 'Narrowed scopes fall back to the child share')
+
+  const direct = fixture('guest', { protected: true, includeChildren: true, verified: true })
+  direct.route.params.tableUID = 'child'
+  await direct.bindings.sync()
+  assert.deepEqual(direct.calls, ['resolve:project:child', 'public:child-token'])
+  assert.equal(direct.bindings.passwordRequired.value, true, 'A fresh session still uses the child share password')
+
+  const expired = fixture('guest', { protected: true, includeChildren: true, storage: scoped.storage })
+  expired.route.params.tableUID = 'child'
+  await expired.bindings.sync()
+  assert.deepEqual(expired.calls, ['resolve:project:child:token', 'public:token'])
+  assert.equal(expired.bindings.passwordRequired.value, true, 'A remembered token never replaces the password grant')
+
+  const signedIn = fixture('member', { protected: true, storage: scoped.storage })
+  await signedIn.bindings.sync()
+  assert.deepEqual(signedIn.calls, ['member:project', 'table:table:view'])
+  assert.equal(signedIn.store.project?.role, 'editor')
+  assert.equal(signedIn.storage.size, 0)
+
+  const blocked = fixture('guest', { protected: true, includeChildren: true, verified: true, blockedStorage: true })
+  await blocked.bindings.sync()
+  blocked.route.params.tableUID = 'child'
+  await blocked.bindings.sync()
+  assert.equal(blocked.bindings.passwordRequired.value, false)
 
   const closed = fixture('guest', { closed: true })
   await closed.bindings.sync()

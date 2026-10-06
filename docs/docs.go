@@ -4975,6 +4975,12 @@ const docTemplate = `{
                         "description": "Table UID; omitted to open the first shared table",
                         "name": "tableUID",
                         "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Preferred share token; used only while its scope still covers the requested table",
+                        "name": "shareToken",
+                        "in": "query"
                     }
                 ],
                 "responses": {

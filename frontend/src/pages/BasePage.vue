@@ -57,6 +57,23 @@ const shareToken = ref('')
 const publicPage = computed(() => store.isPublic || !!shareToken.value)
 const view = computed(() => store.activeView)
 
+function rememberedShareToken(pid: string) {
+  try {
+    return window.sessionStorage.getItem(`sayrud:share:${pid}`) || undefined
+  } catch {
+    return undefined
+  }
+}
+
+function rememberShareToken(pid: string, token: string) {
+  try {
+    if (token) window.sessionStorage.setItem(`sayrud:share:${pid}`, token)
+    else window.sessionStorage.removeItem(`sayrud:share:${pid}`)
+  } catch {
+    // A blocked browser store only prevents restoring the share context after a refresh.
+  }
+}
+
 function pageLocation(tableUID?: string, viewUID?: string) {
   return { name: 'base', params: { projectUID: projectUID.value || store.project?.uid, tableUID, viewUID } }
 }
@@ -78,6 +95,7 @@ async function changeAppearance(appearance: Appearance) {
 async function sync(reload = false) {
   const pid = projectUID.value
   const requestedTable = String(route.params.tableUID ?? '')
+  const activeToken = store.isPublic && store.project?.uid === pid ? shareToken.value : undefined
   passwordRequired.value = false
   publicError.value = ''
   try {
@@ -92,18 +110,25 @@ async function sync(reload = false) {
         shareToken.value = ''
         try {
           await store.openProject(pid)
+          rememberShareToken(pid, '')
         } catch (error) {
           if (!(error instanceof ApiError) || ![401, 403, 404].includes(error.status)) throw error
           shared = true
         }
       }
       if (shared) {
-        shareToken.value = ''
-        const resolved = await sharesApi.resolve(pid, requestedTable || undefined)
-        shareToken.value = resolved.token
+        const withinScope = activeToken && (!requestedTable || store.tables.some((table) => table.uid === requestedTable))
+        if (withinScope && !reload) {
+          shareToken.value = activeToken
+        } else {
+          shareToken.value = ''
+          const resolved = await sharesApi.resolve(pid, requestedTable || undefined, activeToken || rememberedShareToken(pid))
+          shareToken.value = resolved.token
+        }
         await store.openSharedProject(shareToken.value, reload)
       }
     }
+    if (store.isPublic && store.project) rememberShareToken(store.project.uid, shareToken.value)
     const tableUID = requestedTable || store.sharedRootTableUID || store.tables[0]?.uid
     if (!tableUID) return
     if (!store.tables.some((t) => t.uid === tableUID)) {
