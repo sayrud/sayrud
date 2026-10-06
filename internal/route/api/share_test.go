@@ -3,6 +3,7 @@ package api
 import (
 	stdcontext "context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -100,10 +101,170 @@ func (s *shareProjectsStore) GetByUID(_ stdcontext.Context, uid string) (*db.Pro
 
 type shareAttemptsStore struct {
 	redis.AuthAttemptsStore
-	err error
+	err        error
+	resetErr   error
+	ipAttempts map[string]int
+	attempts   map[string]int
 }
 
-func (s *shareAttemptsStore) CheckSignIn(_ stdcontext.Context, _, _ string) error { return s.err }
+func (s *shareAttemptsStore) CheckSignIn(_ stdcontext.Context, ip, key string) error {
+	if s.err != nil {
+		return s.err
+	}
+	if s.attempts == nil {
+		s.ipAttempts, s.attempts = make(map[string]int), make(map[string]int)
+	}
+	s.ipAttempts[ip]++
+	if s.ipAttempts[ip] > 30 {
+		return redis.ErrTooManyAttempts
+	}
+	s.attempts[key]++
+	if s.attempts[key] > 10 {
+		return redis.ErrTooManyAttempts
+	}
+	return nil
+}
+
+func (s *shareAttemptsStore) ResetSignIn(_ stdcontext.Context, key string) error {
+	if s.resetErr != nil {
+		return s.resetErr
+	}
+	delete(s.attempts, key)
+	return nil
+}
+
+func TestShareUnlockResetsAttempts(t *testing.T) {
+	previous := redis.AuthAttempts
+	t.Cleanup(func() { redis.AuthAttempts = previous })
+	attempts := &shareAttemptsStore{}
+	redis.AuthAttempts = attempts
+	hash, err := bcrypt.GenerateFromPassword([]byte("secret123"), bcrypt.MinCost)
+	require.NoError(t, err)
+	router := flamego.New()
+	router.Use(i18n.Middleware(), context.Contexter(nil))
+	router.Map(publicShare{Table: &db.SLTable{ShareToken: "token", SharePasswordHash: string(hash)}})
+	router.Post("/unlock", form.Bind(form.UnlockLinkShare{}), Share.Unlock)
+	request := func(password string) *httptest.ResponseRecorder {
+		body, err := json.Marshal(form.UnlockLinkShare{Password: password})
+		require.NoError(t, err)
+		r := httptest.NewRequest("POST", "/unlock", strings.NewReader(string(body)))
+		r.RemoteAddr = "192.0.2.1:1234"
+		response := httptest.NewRecorder()
+		router.ServeHTTP(response, r)
+		return response
+	}
+	key := "token:192.0.2.1"
+	require.Equal(t, 403, request("wrong").Code)
+	require.Equal(t, 1, attempts.attempts[key], "wrong passwords must keep their attempt count")
+	for range 11 {
+		response := request("secret123")
+		require.Equal(t, 200, response.Code, response.Body.String())
+		require.Zero(t, attempts.attempts[key])
+	}
+	require.Equal(t, 12, attempts.ipAttempts["share:192.0.2.1"], "successful unlocks must keep the aggregate IP limit")
+
+	// Failure to reset must not prevent a valid password from receiving its grant.
+	attempts.resetErr = errors.New("reset unavailable")
+	response := request("secret123")
+	require.Equal(t, 200, response.Code)
+	var grant *http.Cookie
+	for _, cookie := range response.Result().Cookies() {
+		if cookie.Name == shareCookieName {
+			grant = cookie
+		}
+	}
+	require.NotNil(t, grant)
+	require.Equal(t, 1, attempts.attempts[key])
+	attempts.resetErr = nil
+	require.Equal(t, 200, request("secret123").Code)
+	require.Zero(t, attempts.attempts[key])
+
+	for range 10 {
+		require.Equal(t, 403, request("wrong").Code)
+	}
+	require.Equal(t, 429, request("secret123").Code, "exhausted attempts must be rejected before comparing the password")
+
+	attempts.ipAttempts["share:192.0.2.1"] = 29
+	delete(attempts.attempts, key)
+	require.Equal(t, 200, request("secret123").Code)
+	require.Equal(t, 429, request("secret123").Code, "resetting the share counter must not reset the aggregate IP counter")
+}
+
+type tableRecordCountsStore struct {
+	db.SLRecordsStore
+	counts  map[int64]int64
+	queried [][]int64
+	err     error
+}
+
+func (s *tableRecordCountsStore) CountByTableIDs(_ stdcontext.Context, ids []int64) (map[int64]int64, error) {
+	s.queried = append(s.queried, append([]int64{}, ids...))
+	return s.counts, s.err
+}
+
+func TestTableListsBatchRecordCounts(t *testing.T) {
+	previousTables, previousRecords := db.SLTables, db.SLRecords
+	t.Cleanup(func() { db.SLTables, db.SLRecords = previousTables, previousRecords })
+	project := &db.Project{Model: dbutil.Model{ID: 1}, UID: "prjShared"}
+	root := &db.SLTable{Model: dbutil.Model{ID: 1}, ProjectID: 1, UID: "tblRoot"}
+	empty := &db.SLTable{Model: dbutil.Model{ID: 2}, ProjectID: 1, UID: "tblEmpty"}
+	other := &db.SLTable{Model: dbutil.Model{ID: 3}, ProjectID: 2, UID: "tblOther"}
+	deleted := &db.SLTable{Model: dbutil.Model{ID: 4}, ProjectID: 1, UID: "tblDeleted"}
+	deleted.DeletedAt.Valid = true
+	small := []*db.SLTable{root, empty, other, deleted}
+	large := append([]*db.SLTable{}, small...)
+	allIDs := []int64{1, 2}
+	for id := int64(5); id <= 1003; id++ {
+		large = append(large, &db.SLTable{Model: dbutil.Model{ID: id}, ProjectID: 1, UID: "tbl" + strconv.FormatInt(id, 10)})
+		allIDs = append(allIDs, id)
+	}
+	for _, tc := range []struct {
+		name     string
+		tables   []*db.SLTable
+		children bool
+		path     string
+		ids      []int64
+		err      error
+	}{
+		{name: "single shared table", tables: small, path: "/share", ids: []int64{1}},
+		{name: "shared project", tables: small, children: true, path: "/share", ids: []int64{1, 2}},
+		{name: "shared project across pages", tables: large, children: true, path: "/share", ids: allIDs},
+		{name: "normal table list page", tables: small, path: "/tables?pageSize=1&page=2", ids: []int64{2}},
+		{name: "empty table list", path: "/tables", ids: []int64{}},
+		{name: "shared count error", tables: small, path: "/share", ids: []int64{1}, err: errors.New("count unavailable")},
+		{name: "normal count error", tables: small, path: "/tables", ids: []int64{1, 2}, err: errors.New("count unavailable")},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			root.ShareIncludeChildren = tc.children
+			db.SLTables = &shareTablesStore{tables: tc.tables}
+			records := &tableRecordCountsStore{counts: map[int64]int64{1: 7, 3: 99, 1003: 4}, err: tc.err}
+			db.SLRecords = records
+			router := flamego.New()
+			router.Use(i18n.Middleware(), context.Contexter(nil))
+			router.Map(project, publicShare{Table: root})
+			router.Get("/share", Share.Open)
+			router.Get("/tables", Schemaless.ListTables)
+			response := httptest.NewRecorder()
+			router.ServeHTTP(response, httptest.NewRequest("GET", tc.path, nil))
+			require.Equal(t, [][]int64{tc.ids}, records.queried, "count the scoped tables in one batch")
+			if tc.err != nil {
+				require.Equal(t, 500, response.Code)
+				return
+			}
+			require.Equal(t, 200, response.Code, response.Body.String())
+			var envelope struct {
+				Data dto.ListTablesResp `json:"data"`
+			}
+			require.NoError(t, json.Unmarshal(response.Body.Bytes(), &envelope))
+			require.Len(t, envelope.Data.Tables, len(tc.ids))
+			for i, id := range tc.ids {
+				require.Equal(t, records.counts[id], envelope.Data.Tables[i].Count)
+			}
+			require.NotContains(t, response.Body.String(), "tblOther")
+			require.NotContains(t, response.Body.String(), "tblDeleted")
+		})
+	}
+}
 
 func TestLinkShareLifecycleAndScope(t *testing.T) {
 	sso.SetKey(make([]byte, 32))
@@ -418,7 +579,9 @@ func (sharedReadFields) ListByTableID(_ stdcontext.Context, _ int64) (db.SLField
 
 type sharedReadRecords struct{ db.SLRecordsStore }
 
-func (sharedReadRecords) CountByTableID(_ stdcontext.Context, _ int64) (int64, error) { return 0, nil }
+func (sharedReadRecords) CountByTableIDs(_ stdcontext.Context, _ []int64) (map[int64]int64, error) {
+	return map[int64]int64{}, nil
+}
 
 func (sharedReadRecords) ListByUIDs(_ stdcontext.Context, _ int64, _ []string) ([]*db.SLRecord, error) {
 	return []*db.SLRecord{{UID: "recOne", Data: datatypes.JSON(`{"fldOne":"visible","files":[{"uid":"filOne","url":"/_/projects/private/attachments/filOne"}]}`)}}, nil

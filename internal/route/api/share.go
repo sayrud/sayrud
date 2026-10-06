@@ -352,6 +352,9 @@ func (shareRoute) Unlock(ctx context.Context, share publicShare, f form.UnlockLi
 	if len(f.Password) > 72 || bcrypt.CompareHashAndPassword([]byte(table.SharePasswordHash), []byte(f.Password)) != nil {
 		return ctx.ApiError(http.StatusForbidden, "share::incorrect_password")
 	}
+	if err := redis.AuthAttempts.ResetSignIn(ctx.Request().Context(), table.ShareToken+":"+ctx.IP()); err != nil {
+		logrus.WithContext(ctx.Request().Context()).WithError(err).Warn("Failed to reset link password attempts")
+	}
 
 	expires := time.Now().Add(shareGrantTTL)
 	http.SetCookie(ctx.ResponseWriter(), &http.Cookie{
@@ -390,15 +393,19 @@ func (shareRoute) Open(ctx context.Context, share publicShare, project *db.Proje
 		}
 	}
 
+	tableIDs := make([]int64, 0, len(tables))
+	for _, table := range tables {
+		tableIDs = append(tableIDs, table.ID)
+	}
+	counts, err := db.SLRecords.CountByTableIDs(ctx.Request().Context(), tableIDs)
+	if err != nil {
+		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to count shared records")
+		return ctx.ApiServerError()
+	}
+
 	items := make([]*dto.TableListItem, 0, len(tables))
 	for _, table := range tables {
-		count, err := db.SLRecords.CountByTableID(ctx.Request().Context(), table.ID)
-		if err != nil {
-			logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to count shared records")
-			return ctx.ApiServerError()
-		}
-
-		items = append(items, &dto.TableListItem{Table: *dto.ToTable(project, table), Count: count})
+		items = append(items, &dto.TableListItem{Table: *dto.ToTable(project, table), Count: counts[table.ID]})
 	}
 
 	return ctx.ApiSuccess(dto.SharedProject{
