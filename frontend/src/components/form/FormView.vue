@@ -120,7 +120,7 @@ function share() {
   <div class="form-view">
     <div class="form-scroll">
       <div class="form-actions">
-        <a-button size="small" @click="share"><template #icon><Share2 :size="14" /></template>{{ t('formView.share') }}</a-button>
+        <a-button v-if="!store.isPublic" size="small" @click="share"><template #icon><Share2 :size="14" /></template>{{ t('formView.share') }}</a-button>
         <button v-if="store.canEdit" class="icon-btn" :title="settingsOpen ? t('formView.collapseSettings') : t('formView.expandSettings')" @click="settingsOpen = !settingsOpen">
           <component :is="settingsOpen ? PanelRightClose : PanelRightOpen" :size="16" />
         </button>

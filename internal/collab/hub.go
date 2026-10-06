@@ -345,7 +345,7 @@ func (h *Hub) NotifyProject(projectUID, messageType string) {
 func (h *Hub) SetUserRole(projectUID string, userID int64, role db.ProjectRole) {
 	message := newMessage(MessagePermissionChanged, 0, permissionChangedData{ProjectUID: projectUID, Role: string(role)})
 	for _, c := range h.clients(projectUID) {
-		if c.userID != userID {
+		if c.userID != userID || c.share != nil {
 			continue
 		}
 		c.mu.Lock()

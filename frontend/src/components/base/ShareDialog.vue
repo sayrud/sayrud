@@ -8,6 +8,7 @@ import { useRouter } from 'vue-router'
 import { membersApi, projectsApi } from '@/api/bitable'
 import { ApiError } from '@/api/client'
 import UserAvatar from '@/components/common/UserAvatar.vue'
+import LinkSharePanel from '@/components/base/LinkSharePanel.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useBaseStore } from '@/stores/base'
 import type { MemberRole, ProjectMember, UserBrief } from '@/types/bitable'
@@ -23,6 +24,8 @@ const router = useRouter()
 
 const members = ref<ProjectMember[]>([])
 const loading = ref(false)
+const publicLink = ref('')
+const linkSharePanel = ref<InstanceType<typeof LinkSharePanel> | null>(null)
 
 const email = ref('')
 const inviteRole = ref<MemberRole>('editor')
@@ -166,7 +169,15 @@ function editable(m: ProjectMember) {
 }
 
 function copyLink() {
-  const url = `${location.origin}/base/${projectUID.value}`
+  if (publicLink.value && linkSharePanel.value) {
+    void linkSharePanel.value.copyLink()
+    return
+  }
+
+  const path = router.resolve({ name: 'base', params: {
+    projectUID: projectUID.value, tableUID: store.activeTableUID || undefined, viewUID: store.activeViewUID || undefined,
+  } }).href
+  const url = new URL(path, location.origin).href
   navigator.clipboard?.writeText(url).then(
     () => Message.success(t('home.linkCopied')),
     () => Message.error(t('share.copyFailed')),
@@ -263,11 +274,12 @@ function copyLink() {
       </div>
     </a-spin>
 
+    <LinkSharePanel ref="linkSharePanel" :visible="visible" @change="(url) => (publicLink = url)" />
+
     <div class="footer">
-      <span class="footer-tip">{{ t('share.footerTip') }}</span>
       <a-button @click="copyLink">
         <template #icon><Link :size="14" /></template>
-        {{ t('home.copyLink') }}
+        {{ linkSharePanel?.hasPassword ? t('share.copyLinkPassword') : t('home.copyLink') }}
       </a-button>
     </div>
   </a-modal>
@@ -396,13 +408,9 @@ function copyLink() {
 .footer {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   margin-top: 16px;
   padding-top: 16px;
   border-top: 1px solid var(--line-border);
-}
-.footer-tip {
-  font-size: 12px;
-  color: var(--text-placeholder);
 }
 </style>

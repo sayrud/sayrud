@@ -1,9 +1,14 @@
 <script setup lang="ts">
 import { Message } from '@arco-design/web-vue'
+import { IconLock } from '@arco-design/web-vue/es/icon'
 import { CloudCheck, CloudOff, Eye, House, LoaderCircle, PanelLeftOpen, Share2 } from '@lucide/vue'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
+
+import { ApiError } from '@/api/client'
+import { sharesApi } from '@/api/share'
+import shareNoPermission from '@/assets/share-no-permission.svg'
 
 import ShareDialog from '@/components/base/ShareDialog.vue'
 import TableSidebar from '@/components/base/TableSidebar.vue'
@@ -20,6 +25,7 @@ import KanbanView from '@/components/kanban/KanbanView.vue'
 import RecordModal from '@/components/record/RecordModal.vue'
 import ViewToolbar from '@/components/toolbar/ViewToolbar.vue'
 import { keepRecordInView } from '@/composables/useViewData'
+import { useAuthStore } from '@/stores/auth'
 import { useBaseStore } from '@/stores/base'
 import { useSiteStore } from '@/stores/site'
 import type { Appearance } from '@/utils/appearance'
@@ -29,6 +35,7 @@ const { t } = useI18n()
 const route = useRoute()
 const router = useRouter()
 const store = useBaseStore()
+const auth = useAuthStore()
 const site = useSiteStore()
 
 const sidebarCollapsed = ref(window.innerWidth < 768)
@@ -39,9 +46,37 @@ const editingName = ref(false)
 const nameText = ref('')
 const nameInput = ref<HTMLInputElement>()
 const savingAppearance = ref(false)
+const passwordRequired = ref(false)
+const password = ref('')
+const passwordError = ref('')
+const unlocking = ref(false)
+const publicError = ref('')
 
 const projectUID = computed(() => String(route.params.projectUID ?? ''))
+const shareToken = ref('')
+const publicPage = computed(() => store.isPublic || !!shareToken.value)
 const view = computed(() => store.activeView)
+
+function rememberedShareToken(pid: string) {
+  try {
+    return window.sessionStorage.getItem(`sayrud:share:${pid}`) || undefined
+  } catch {
+    return undefined
+  }
+}
+
+function rememberShareToken(pid: string, token: string) {
+  try {
+    if (token) window.sessionStorage.setItem(`sayrud:share:${pid}`, token)
+    else window.sessionStorage.removeItem(`sayrud:share:${pid}`)
+  } catch {
+    // A blocked browser store only prevents restoring the share context after a refresh.
+  }
+}
+
+function pageLocation(tableUID?: string, viewUID?: string) {
+  return { name: 'base', params: { projectUID: projectUID.value || store.project?.uid, tableUID, viewUID } }
+}
 
 async function changeAppearance(appearance: Appearance) {
   if (savingAppearance.value) return
@@ -57,38 +92,107 @@ async function changeAppearance(appearance: Appearance) {
   }
 }
 
-async function sync() {
+async function sync(reload = false) {
   const pid = projectUID.value
+  const requestedTable = String(route.params.tableUID ?? '')
+  const activeToken = store.isPublic && store.project?.uid === pid ? shareToken.value : undefined
+  passwordRequired.value = false
+  publicError.value = ''
   try {
-    await store.openProject(pid)
+    const legacyToken = String(route.params.shareToken ?? '')
+    if (legacyToken) {
+      shareToken.value = legacyToken
+      await store.openSharedProject(legacyToken, reload)
+    } else {
+      const user = await auth.ensureLoaded()
+      let shared = !user || (store.isPublic && store.project?.uid === pid && !reload)
+      if (!shared) {
+        shareToken.value = ''
+        try {
+          await store.openProject(pid)
+          rememberShareToken(pid, '')
+        } catch (error) {
+          if (!(error instanceof ApiError) || ![401, 403, 404].includes(error.status)) throw error
+          shared = true
+        }
+      }
+      if (shared) {
+        const withinScope = activeToken && (!requestedTable || store.tables.some((table) => table.uid === requestedTable))
+        if (withinScope && !reload) {
+          shareToken.value = activeToken
+        } else {
+          shareToken.value = ''
+          const resolved = await sharesApi.resolve(pid, requestedTable || undefined, activeToken || rememberedShareToken(pid))
+          shareToken.value = resolved.token
+        }
+        await store.openSharedProject(shareToken.value, reload)
+      }
+    }
+    if (store.isPublic && store.project) rememberShareToken(store.project.uid, shareToken.value)
+    const tableUID = requestedTable || store.sharedRootTableUID || store.tables[0]?.uid
+    if (!tableUID) return
+    if (!store.tables.some((t) => t.uid === tableUID)) {
+      router.replace(pageLocation())
+      return
+    }
+    await store.openTable(tableUID, String(route.params.viewUID || '') || undefined)
+    if (legacyToken || route.params.tableUID !== tableUID || route.params.viewUID !== store.activeViewUID) {
+      router.replace(pageLocation(tableUID, store.activeViewUID))
+    }
   } catch (e) {
+    if (!auth.user && !shareToken.value && e instanceof ApiError && e.status === 404) {
+      store.closeProject()
+      router.replace({ name: 'login', query: { redirect: route.fullPath } })
+      return
+    }
+    if (publicPage.value) {
+      store.closeProject()
+      if (e instanceof ApiError && e.status === 401) passwordRequired.value = true
+      else publicError.value = e instanceof Error ? e.message : t('share.unavailable')
+      return
+    }
     if (store.accessDenied) return
     Message.error(e instanceof Error ? e.message : t('base.notFound'))
     router.replace('/')
-    return
-  }
-  const tableUID = String(route.params.tableUID || '') || store.tables[0]?.uid
-  if (!tableUID) return
-  if (!store.tables.some((t) => t.uid === tableUID)) {
-    router.replace({ name: 'base', params: { projectUID: pid } })
-    return
-  }
-  await store.openTable(tableUID, String(route.params.viewUID || '') || undefined)
-  if (route.params.tableUID !== tableUID || route.params.viewUID !== store.activeViewUID) {
-    router.replace({ name: 'base', params: { projectUID: pid, tableUID, viewUID: store.activeViewUID } })
   }
 }
 
-watch(() => [route.params.projectUID, route.params.tableUID, route.params.viewUID], sync, { immediate: true })
+watch(() => [route.params.projectUID, route.params.shareToken, route.params.tableUID, route.params.viewUID], () => sync(), { immediate: true })
+watch(() => store.sharedAccessChanged, () => { if (publicPage.value) void sync(true) })
+watch(() => store.sharedAccessError, (error) => {
+  if (!publicPage.value || !error) return
+  passwordRequired.value = error.status === 401
+  publicError.value = error.status === 401 ? '' : error.message
+})
+
+async function unlock() {
+  if (unlocking.value) return
+  if (!password.value) {
+    passwordError.value = t('auth.passwordRequired')
+    return
+  }
+  unlocking.value = true
+  passwordError.value = ''
+  try {
+    await sharesApi.unlock(shareToken.value, password.value)
+    password.value = ''
+    await sync(true)
+  } catch (e) {
+    passwordError.value = e instanceof Error ? e.message : String(e)
+  } finally {
+    unlocking.value = false
+  }
+}
 
 // Switch to the first table when the current one is deleted by another collaborator.
 watch(
   () => store.tables.map((t) => t.uid).join(),
   () => {
+    if (!store.project) return
     const tableUID = String(route.params.tableUID || '')
     if (tableUID && !store.loadingProject && !store.tables.some((t) => t.uid === tableUID)) {
-      Message.warning(t('base.tableDeleted'))
-      router.replace({ name: 'base', params: { projectUID: projectUID.value, tableUID: store.tables[0]?.uid ?? '' } })
+      if (!publicPage.value) Message.warning(t('base.tableDeleted'))
+      router.replace(pageLocation(store.tables[0]?.uid))
     }
   },
 )
@@ -99,12 +203,7 @@ const syncState = computed(() => {
   return { icon: CloudCheck, text: t('common.saved'), cls: 'saved' }
 })
 
-const otherMembers = computed(() => store.onlineMembers.filter((m) => m.memberId !== store.identity.memberId))
-
-function memberTitle(m: { name: string; tableUID?: string }) {
-  const table = store.tables.find((tb) => tb.uid === m.tableUID)
-  return table ? t('base.memberViewing', { name: m.name, table: table.name }) : m.name
-}
+const otherMembers = computed(() => store.onlineMembers.filter((m) => publicPage.value ? m.clientId !== store.myClientId : m.memberId !== store.identity.memberId))
 
 watch(
   [() => store.project?.name, () => site.info.siteName],
@@ -116,12 +215,12 @@ watch(
 site.ensureLoaded()
 
 function selectTable(uid: string) {
-  router.push({ name: 'base', params: { projectUID: projectUID.value, tableUID: uid } })
+  router.push(pageLocation(uid))
 }
 
 function selectView(uid: string) {
   if (!uid) return
-  router.replace({ name: 'base', params: { projectUID: projectUID.value, tableUID: store.activeTableUID, viewUID: uid } })
+  router.replace(pageLocation(store.activeTableUID, uid))
 }
 
 async function addRecord() {
@@ -171,8 +270,14 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="base">
-    <header class="topbar">
-      <button class="icon-btn" :title="t('console.backHome')" @click="router.push('/')"><House :size="17" /></button>
+    <header v-if="passwordRequired" class="topbar password-topbar">
+      <a-space :size="10">
+        <IconLock :size="16" aria-hidden="true" />
+        <a-typography-text type="secondary">{{ t('base.accessDenied') }}</a-typography-text>
+      </a-space>
+    </header>
+    <header v-else class="topbar">
+      <button v-if="!publicPage" class="icon-btn" :title="t('console.backHome')" @click="router.push('/')"><House :size="17" /></button>
       <AppearancePicker
         v-if="store.project && store.canEdit && !store.accessDenied"
         :key="store.project.uid"
@@ -212,35 +317,54 @@ onBeforeUnmount(() => {
           :class="{ readonly: !store.canEdit }"
           :title="store.canEdit ? t('base.clickToRename') : undefined"
           @click="startEditName"
-          >{{ store.project?.name ?? t('common.loading') }}</span
+          >{{ store.project?.name ?? (publicPage ? t('share.linkSharing') : t('common.loading')) }}</span
         >
         <a-tooltip v-if="store.project && !store.canEdit" :content="t('base.viewOnlyTip')">
-          <a-tag size="small">
+          <a-tag size="small" class="viewer-tag">
             <template #icon><Eye :size="12" /></template>
             {{ t('role.viewer') }}
           </a-tag>
         </a-tooltip>
-        <span class="sync-state" :class="syncState.cls" :title="syncState.text">
+        <span v-if="store.project && (store.canEdit || syncState.cls !== 'saved')" class="sync-state" :class="syncState.cls" :title="syncState.text">
           <component :is="syncState.icon" :size="15" />
           <span class="sync-text">{{ syncState.text }}</span>
         </span>
       </template>
       <span class="spacer" />
-      <template v-if="!store.accessDenied">
+      <template v-if="!store.accessDenied && store.project">
         <div class="members">
-          <a-tooltip v-for="m in otherMembers.slice(0, 5)" :key="m.memberId" :content="memberTitle(m)">
+          <a-tooltip v-for="m in otherMembers.slice(0, 5)" :key="m.memberId" :content="m.name">
             <UserAvatar :name="m.name" :color="m.color" :avatar-url="m.avatarUrl" :size="28" class="member" />
           </a-tooltip>
           <a-avatar v-if="otherMembers.length > 5" :size="28" class="member more">+{{ otherMembers.length - 5 }}</a-avatar>
         </div>
-        <a-button size="small" type="primary" :disabled="!store.project" @click="shareVisible = true">
+        <a-button v-if="!publicPage" size="small" type="primary" :disabled="!store.project" @click="shareVisible = true">
           <template #icon><Share2 :size="14" /></template>{{ t('share.share') }}
         </a-button>
       </template>
-      <UserMenu />
+      <UserMenu v-if="!publicPage" />
     </header>
 
-    <div v-if="store.accessDenied" class="denied">
+    <main v-if="passwordRequired" class="password-gate" aria-labelledby="password-title">
+      <a-result :status="null" class="password-panel">
+        <template #icon><a-image :src="shareNoPermission" :width="140" :height="140" :preview="false" alt="" /></template>
+        <template #title><a-typography-title id="password-title" class="password-title">{{ t('share.passwordRequired') }}</a-typography-title></template>
+        <template #extra>
+          <a-form :model="{ password }" layout="vertical" @submit-success="unlock">
+            <a-form-item field="password" hide-label :help="passwordError" :validate-status="passwordError ? 'error' : undefined" class="password-field">
+              <a-input-password v-model="password" size="large" :invisible-button="false" :disabled="unlocking" :placeholder="t('auth.passwordRequired')" :input-attrs="{ autofocus: true, autocomplete: 'current-password', 'aria-label': t('auth.password') }" @input="passwordError = ''" />
+            </a-form-item>
+            <a-button type="primary" html-type="submit" size="large" long :disabled="!password" :loading="unlocking">{{ t('common.confirm') }}</a-button>
+          </a-form>
+        </template>
+      </a-result>
+    </main>
+    <div v-else-if="publicError" class="denied">
+      <a-result status="404" :title="t('share.unavailable')" :subtitle="publicError">
+        <template #extra><a-button @click="sync(true)">{{ t('share.refresh') }}</a-button></template>
+      </a-result>
+    </div>
+    <div v-else-if="store.accessDenied" class="denied">
       <a-result status="403" :title="t('base.accessDenied')" :subtitle="store.accessDenied">
         <template #extra>
           <a-button type="primary" @click="router.replace('/')">{{ t('console.backHome') }}</a-button>
@@ -277,7 +401,7 @@ onBeforeUnmount(() => {
 
     <FieldEditorPopover v-if="store.fieldEditor" :key="JSON.stringify(store.fieldEditor.anchor)" />
     <RecordModal />
-    <ShareDialog v-model:visible="shareVisible" />
+    <ShareDialog v-if="!publicPage" v-model:visible="shareVisible" />
   </div>
 </template>
 
@@ -303,6 +427,10 @@ onBeforeUnmount(() => {
 }
 .appearance-trigger {
   padding: 3px;
+}
+.viewer-tag :deep(.arco-tag-icon) {
+  display: inline-flex;
+  align-items: center;
 }
 .topbar > .base-name {
   flex: 0 1 auto;
@@ -343,6 +471,56 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   justify-content: center;
+}
+.password-topbar {
+  color: var(--text-caption);
+}
+.password-gate {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: clamp(48px, 20vh, 200px) 24px 48px;
+  overflow: auto;
+  background: var(--bg-body);
+}
+.password-panel {
+  width: min(280px, 100%);
+  padding: 0;
+}
+.password-panel :deep(.arco-result-icon) {
+  margin-bottom: 28px;
+}
+.password-title {
+  margin: 0;
+  color: var(--text-caption);
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 24px;
+}
+.password-panel :deep(.arco-result-extra) {
+  margin-top: 24px;
+}
+.password-panel :deep(.arco-btn-primary:disabled) {
+  background: var(--text-disabled);
+  border-color: var(--text-disabled);
+}
+.password-field {
+  margin-bottom: 12px;
+}
+.password-field :deep(.arco-input-wrapper) {
+  background: var(--bg-body);
+  border-color: var(--line-border);
+}
+.password-field :deep(.arco-input-wrapper:focus-within) {
+  border-color: var(--color-primary);
+}
+.password-field :deep(.arco-input-wrapper.arco-input-error) {
+  border-color: var(--color-danger);
+}
+.password-field :deep(input) {
+  text-align: center;
 }
 .name-input {
   width: 240px;

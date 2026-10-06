@@ -72,27 +72,47 @@ export const tablesApi = {
 export const syncApi = {
   options: async (projectUID: string, field: SLField, data: RecordData) =>
     (await client.projects.resolveFieldOptions(projectUID, field.tableUID, { fieldUID: field.uid, type: field.type, metadata: field.metadata, data })).data as unknown as SelectOption[],
-  snapshot: async (projectUID: string, tableUID: string): Promise<TableSnapshot> => {
-    const s = (await client.projects.getTableSnapshot(projectUID, tableUID)).data
-    return { rev: s.rev, fields: asFields(s.fields), views: asViews(s.views), records: asRecords(s.records) }
-  },
-  /** Fetches all the changesets after since, following the pages automatically. */
-  changesets: async (projectUID: string, tableUID: string, since: number): Promise<Changeset[]> => {
-    const all: Changeset[] = []
-    for (;;) {
-      const resp = (await client.projects.listChangesets(projectUID, tableUID, { since })).data
-      all.push(...(resp.changesets as Changeset[]))
-      if (!resp.hasMore || !resp.changesets.length) return all
-      since = resp.changesets[resp.changesets.length - 1]!.rev
-    }
-  },
-  fields: async (projectUID: string, tableUID: string) => asFields((await client.projects.listFields(projectUID, tableUID)).data),
-  views: async (projectUID: string, tableUID: string) => asViews((await client.projects.listViews(projectUID, tableUID)).data),
-  fetchRecords: async (projectUID: string, tableUID: string, uids: string[]) => {
-    const out: SLRecord[] = []
-    for (let i = 0; i < uids.length; i += 1000) {
-      out.push(...asRecords((await client.projects.fetchRecords(projectUID, tableUID, { uids: uids.slice(i, i + 1000) })).data))
-    }
-    return out
-  },
+  ...createSyncApi(),
 }
+
+/** Selects the authorized read endpoints; revision paging and response conversion are shared. */
+export function createSyncApi(shareToken?: string) {
+  return {
+    snapshot: async (projectUID: string, tableUID: string): Promise<TableSnapshot> => {
+      const s = (await (shareToken
+        ? client.shares.getSharedSnapshot(shareToken, tableUID)
+        : client.projects.getTableSnapshot(projectUID, tableUID))).data
+      return { rev: s.rev, fields: asFields(s.fields), views: asViews(s.views), records: asRecords(s.records) }
+    },
+    /** Fetches all the changesets after since, following the pages automatically. */
+    changesets: async (projectUID: string, tableUID: string, since: number): Promise<Changeset[]> => {
+      const all: Changeset[] = []
+      for (;;) {
+        const resp = (await (shareToken
+          ? client.shares.listSharedChangesets(shareToken, tableUID, { since })
+          : client.projects.listChangesets(projectUID, tableUID, { since }))).data
+        all.push(...(resp.changesets as Changeset[]))
+        if (!resp.hasMore || !resp.changesets.length) return all
+        since = resp.changesets[resp.changesets.length - 1]!.rev
+      }
+    },
+    fields: async (projectUID: string, tableUID: string) => asFields((await (shareToken
+      ? client.shares.listSharedFields(shareToken, tableUID)
+      : client.projects.listFields(projectUID, tableUID))).data),
+    views: async (projectUID: string, tableUID: string) => asViews((await (shareToken
+      ? client.shares.listSharedViews(shareToken, tableUID)
+      : client.projects.listViews(projectUID, tableUID))).data),
+    fetchRecords: async (projectUID: string, tableUID: string, uids: string[]) => {
+      const out: SLRecord[] = []
+      for (let i = 0; i < uids.length; i += 1000) {
+        const data = { uids: uids.slice(i, i + 1000) }
+        out.push(...asRecords((await (shareToken
+          ? client.shares.fetchSharedRecords(shareToken, tableUID, data)
+          : client.projects.fetchRecords(projectUID, tableUID, data))).data))
+      }
+      return out
+    },
+  }
+}
+
+export type SyncReadApi = ReturnType<typeof createSyncApi>

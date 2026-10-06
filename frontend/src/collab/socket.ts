@@ -31,7 +31,10 @@ export class ProjectSocket {
   private readonly pending = new Map<number, PendingRequest>()
   private readonly handlers = new Map<string, Set<Handler>>()
 
-  constructor(private readonly projectUID: string) {}
+  constructor(
+    private readonly projectUID: string,
+    private readonly shareToken?: string,
+  ) {}
 
   connect() {
     this.closedByUser = false
@@ -44,6 +47,7 @@ export class ProjectSocket {
     clearInterval(this.heartbeatTimer)
     this.ws?.close()
     this.ws = null
+    this.status.value = 'closed'
   }
 
   /** Closes the connection to reconnect immediately, used when the connection seems half-open, e.g. a request times out. */
@@ -87,7 +91,8 @@ export class ProjectSocket {
 
   private open() {
     const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:'
-    const ws = new WebSocket(`${protocol}//${location.host}${API_BASE}/projects/${this.projectUID}/ws`)
+    const path = this.shareToken ? `/shares/${encodeURIComponent(this.shareToken)}/ws` : `/projects/${this.projectUID}/ws`
+    const ws = new WebSocket(`${protocol}//${location.host}${API_BASE}${path}`)
     this.ws = ws
     this.status.value = 'connecting'
 

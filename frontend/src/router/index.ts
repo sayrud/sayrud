@@ -9,6 +9,7 @@ declare module 'vue-router' {
   interface RouteMeta {
     admin?: boolean
     guest?: boolean
+    public?: boolean
     /** Route name of the highlighted menu item; child pages point to their parent list page. */
     nav?: string
     /** Use a wider content area for pages with code editors. */
@@ -21,9 +22,16 @@ const router = createRouter({
   routes: [
     { path: '/', name: 'home', component: () => import('@/pages/HomePage.vue') },
     {
+      path: '/share/:shareToken/:tableUID?/:viewUID?',
+      name: 'shared-base',
+      component: () => import('@/pages/BasePage.vue'),
+      meta: { public: true },
+    },
+    {
       path: '/base/:projectUID/:tableUID?/:viewUID?',
       name: 'base',
       component: () => import('@/pages/BasePage.vue'),
+      meta: { public: true },
     },
     {
       path: '/settings',
@@ -95,6 +103,7 @@ export function safeRedirect(redirect: unknown): string {
 }
 
 router.beforeEach(async (to) => {
+  if (to.meta.public) return true
   const auth = useAuthStore()
   const user = await auth.ensureLoaded().catch(() => null)
   if (to.meta.guest) return user ? safeRedirect(to.query.redirect) : true
@@ -109,7 +118,7 @@ onUnauthorized(() => {
   if (!auth.user) return
   const route = router.currentRoute.value
   auth.clear()
-  if (!route.meta.guest) router.replace({ name: 'login', query: route.fullPath === '/' ? {} : { redirect: route.fullPath } })
+  if (!route.meta.guest && !route.meta.public) router.replace({ name: 'login', query: route.fullPath === '/' ? {} : { redirect: route.fullPath } })
 })
 
 export default router

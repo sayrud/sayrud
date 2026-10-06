@@ -39,7 +39,7 @@ client.instance.interceptors.response.use(
     if (axios.isAxiosError<Partial<HttpResponse>>(error) && error.response) {
       const { status, data } = error.response
       const url = error.config?.url ?? ''
-      if (status === 401 && !url.startsWith('/auth/sign-') && !url.startsWith('/auth/ldap/')) unauthorizedHandler?.()
+      if (status === 401 && !url.startsWith('/auth/sign-') && !url.startsWith('/auth/ldap/') && !url.startsWith('/shares/')) unauthorizedHandler?.()
       return Promise.reject(new ApiError(status, data?.msg || t('common.requestFailed', { status })))
     }
     return Promise.reject(new ApiError(0, t('common.networkError')))

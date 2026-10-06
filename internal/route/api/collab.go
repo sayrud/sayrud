@@ -1,6 +1,7 @@
 package api
 
 import (
+	stdcontext "context"
 	"database/sql"
 	"encoding/json"
 	"net/http"
@@ -62,21 +63,38 @@ func (collabRoute) Serve(ctx context.Context, hub *collab.Hub, project *db.Proje
 // @ID getTableSnapshot
 // @Router /projects/{projectUID}/tables/{tableUID}/snapshot [get]
 func (collabRoute) GetSnapshot(ctx context.Context, tx dbutil.Transactor, project *db.Project, table *db.SLTable) error {
+	snapshot, err := tableSnapshot(ctx.Request().Context(), tx, project, table)
+	if err != nil {
+		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to get table snapshot")
+		return ctx.ApiServerError()
+	}
+
+	token := sharedToken(ctx)
+	prepareSharedFields(snapshot.Fields, token)
+	prepareSharedRecords(snapshot.Records, token)
+
+	return ctx.ApiSuccess(snapshot)
+}
+
+func tableSnapshot(c stdcontext.Context, tx dbutil.Transactor, project *db.Project, table *db.SLTable) (*dto.TableSnapshot, error) {
 	var snapshot dto.TableSnapshot
 	if err := tx.Transaction(func(tx *gorm.DB) error {
-		latest, err := db.NewSLTablesStore(tx).GetByID(ctx.Request().Context(), table.ID)
+		latest, err := db.NewSLTablesStore(tx).GetByID(c, table.ID)
 		if err != nil {
 			return errors.Wrap(err, "get table")
 		}
-		fields, err := db.NewSLFieldsStore(tx).ListByTableID(ctx.Request().Context(), table.ID)
+
+		fields, err := db.NewSLFieldsStore(tx).ListByTableID(c, table.ID)
 		if err != nil {
 			return errors.Wrap(err, "list fields")
 		}
-		views, err := db.NewSLViewsStore(tx).ListByTableID(ctx.Request().Context(), table.ID)
+
+		views, err := db.NewSLViewsStore(tx).ListByTableID(c, table.ID)
 		if err != nil {
 			return errors.Wrap(err, "list views")
 		}
-		records, err := db.NewSLRecordsStore(tx).ListAll(ctx.Request().Context(), table.ID)
+
+		records, err := db.NewSLRecordsStore(tx).ListAll(c, table.ID)
 		if err != nil {
 			return errors.Wrap(err, "list records")
 		}
@@ -90,10 +108,10 @@ func (collabRoute) GetSnapshot(ctx context.Context, tx dbutil.Transactor, projec
 		}
 		return nil
 	}, &sql.TxOptions{Isolation: sql.LevelRepeatableRead, ReadOnly: true}); err != nil {
-		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to get table snapshot")
-		return ctx.ApiServerError()
+		return nil, err
 	}
-	return ctx.ApiSuccess(snapshot)
+
+	return &snapshot, nil
 }
 
 const maxChangesetsPerPage = 200
@@ -128,13 +146,17 @@ func (collabRoute) ListChangesets(ctx context.Context, table *db.SLTable) error 
 			logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to decode changeset operations")
 			return ctx.ApiServerError()
 		}
-		resp.Changesets = append(resp.Changesets, &collab.Changeset{
+		item := &collab.Changeset{
 			TableUID:   table.UID,
 			Rev:        changeset.Rev,
 			Signature:  changeset.Signature,
 			ClientID:   changeset.ClientID,
 			Operations: operations,
-		})
+		}
+		if token := sharedToken(ctx); token != "" {
+			collab.PrepareSharedChangeset(item, token)
+		}
+		resp.Changesets = append(resp.Changesets, item)
 	}
 	return ctx.ApiSuccess(resp)
 }
@@ -183,7 +205,15 @@ func (collabRoute) FetchRecords(ctx context.Context, table *db.SLTable, f form.F
 		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to fetch records")
 		return ctx.ApiServerError()
 	}
-	return ctx.ApiSuccess(dto.ToRecords(table, records))
+	items := dto.ToRecords(table, records)
+	prepareSharedRecords(items, sharedToken(ctx))
+	return ctx.ApiSuccess(items)
+}
+
+// LimitFetchBody bounds record UID requests before decoding, including anonymous public reads.
+func (collabRoute) LimitFetchBody(ctx context.Context) {
+	r := ctx.Request().Request
+	r.Body = http.MaxBytesReader(ctx.ResponseWriter(), r.Body, 64<<10)
 }
 
 // notifyDirty tells the collaborators to reload the data changed by the REST API, the failure is only logged.

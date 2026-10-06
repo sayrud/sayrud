@@ -24,6 +24,8 @@ func TestAPIRequiresSignIn(t *testing.T) {
 		{http.MethodGet, "/_/projects/prjabc/tables"},
 		{http.MethodGet, "/_/projects/prjabc/members"},
 		{http.MethodGet, "/_/projects/prjabc/ws"},
+		{http.MethodGet, "/_/projects/prjabc/tables/tblabc/share"},
+		{http.MethodPut, "/_/projects/prjabc/tables/tblabc/share"},
 		{http.MethodGet, "/_/projects/prjabc/attachments/filabc"},
 		{http.MethodPost, "/_/projects/prjabc/tables/tblabc/fields/fldabc/attachments"},
 		{http.MethodGet, "/_/auth/identities"},

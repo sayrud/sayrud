@@ -27,7 +27,14 @@ func Handler() http.Handler {
 			return
 		}
 
+		// Vue Router keeps this document's policy when navigating to a public link.
+		w.Header().Set("Referrer-Policy", "no-referrer")
+
 		if isAppRoute(r.URL.Path) {
+			if strings.HasPrefix(r.URL.Path, "/base/") || strings.HasPrefix(r.URL.Path, "/share/") {
+				w.Header().Set("X-Robots-Tag", "noindex, nofollow")
+			}
+
 			r = r.Clone(r.Context())
 			r.URL.Path = "/"
 		}
@@ -42,7 +49,7 @@ func isAppRoute(path string) bool {
 	case "/login", "/register", "/settings", "/admin":
 		return true
 	}
-	for _, prefix := range []string{"/base/", "/settings/", "/admin/"} {
+	for _, prefix := range []string{"/base/", "/share/", "/settings/", "/admin/"} {
 		if strings.HasPrefix(path, prefix) {
 			return true
 		}

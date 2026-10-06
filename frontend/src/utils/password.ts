@@ -12,10 +12,17 @@ function randomIndex(n: number): number {
 
 const pick = (chars: string) => chars[randomIndex(chars.length)]!
 
-/** Generates a random password with at least one uppercase letter, one lowercase letter and one digit. */
-export function generatePassword(length = 16): string {
+/** Requires 8–18 printable ASCII characters from at least two character groups. */
+export function isValidSharePassword(password: string): boolean {
+  if (password.length < 8 || password.length > 18 || /[^!-~]/.test(password)) return false
+  return [/[0-9]/, /[A-Za-z]/, /[^A-Za-z0-9]/].filter((group) => group.test(password)).length >= 2
+}
+
+/** Includes both letter cases, a digit, and a symbol when a symbol alphabet is supplied. */
+export function generatePassword(length = 16, symbols = ''): string {
   const chars = [pick(UPPER), pick(LOWER), pick(DIGITS)]
-  while (chars.length < length) chars.push(pick(ALL))
+  if (symbols) chars.push(pick(symbols))
+  while (chars.length < length) chars.push(pick(ALL + symbols))
   for (let i = chars.length - 1; i > 0; i--) {
     const j = randomIndex(i + 1)
     ;[chars[i], chars[j]] = [chars[j]!, chars[i]!]

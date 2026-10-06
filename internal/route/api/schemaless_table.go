@@ -68,16 +68,21 @@ func (schemalessRoute) ListTables(ctx context.Context, project *db.Project) erro
 		return ctx.ApiServerError()
 	}
 
+	tableIDs := make([]int64, 0, len(slTables))
+	for _, table := range slTables {
+		tableIDs = append(tableIDs, table.ID)
+	}
+	counts, err := db.SLRecords.CountByTableIDs(ctx.Request().Context(), tableIDs)
+	if err != nil {
+		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to count sl records")
+		return ctx.ApiServerError()
+	}
+
 	tables := make([]*dto.TableListItem, 0, len(slTables))
 	for _, table := range slTables {
-		count, err := db.SLRecords.CountByTableID(ctx.Request().Context(), table.ID)
-		if err != nil {
-			logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to count sl records")
-			return ctx.ApiServerError()
-		}
 		tables = append(tables, &dto.TableListItem{
 			Table: *dto.ToTable(project, table),
-			Count: count,
+			Count: counts[table.ID],
 		})
 	}
 

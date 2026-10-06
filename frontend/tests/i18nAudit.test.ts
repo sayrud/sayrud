@@ -23,7 +23,7 @@ test('i18n audit finds unused/missing keys and raw UI text in Vue and TypeScript
       <i18n-t keypath="common.rich" />
     </template>` },
     { filename: filename('auditFixture.ts'), code: `
-      // t('common.unused') and 中文注释 do not count.
+      // t('common.unused') and comment text do not count.
       type State = '成功' | '失败'
       type Keys = 'common.typeOnly'
       const wireOperation = 'record.add'
