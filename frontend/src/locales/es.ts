@@ -697,6 +697,9 @@ const es: typeof zhCN = {
       sessionTTL: 'Duración de la sesión',
       sessionTTLDescription: 'Al caducar, habrá que volver a iniciar sesión. Solo se aplica a las nuevas sesiones',
       daysUnit: 'días',
+      networkRequests: 'Solicitudes de red',
+      networkAllowlist: 'Lista de IP permitidas',
+      networkAllowlistDescription: 'Introduce una dirección IPv4 / IPv6 o un CIDR y pulsa Intro. Solo se permiten las direcciones privadas, locales u otras bloqueadas incluidas en la lista',
     },
     site: {
       description: 'Configura la información básica del sitio',
@@ -1244,7 +1247,7 @@ const es: typeof zhCN = {
     code: 'Código',
     network: 'Red y credenciales',
     domains: 'Dominios permitidos',
-    domainsDescription: 'Incluye los subdominios, las direcciones privadas y locales siempre se bloquean',
+    domainsDescription: 'Incluye subdominios; las direcciones privadas y locales requieren la lista IP de los ajustes de seguridad',
     domainsPlaceholder: 'Escribe un dominio y pulsa Intro, p. ej. api.example.com',
     credentials: 'Credenciales',
     credentialKey: 'Clave',

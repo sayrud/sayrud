@@ -37,4 +37,6 @@ type UpdateSystemSettings struct {
 	AllowPasswordSignIn bool   `json:"allowPasswordSignIn"`
 	// LoginNotice is the plain text shown above the sign-in form, empty if hidden.
 	LoginNotice string `json:"loginNotice"`
+	// NetworkAllowlist permits shortcut fetches to these otherwise blocked IP addresses or CIDRs.
+	NetworkAllowlist []string `json:"networkAllowlist"`
 } // @name UpdateSystemSettings

@@ -697,6 +697,9 @@ const zhTW: typeof zhCN = {
       sessionTTL: '登入有效期',
       sessionTTLDescription: '到期後需重新登入，僅適用於之後的新登入',
       daysUnit: '天',
+      networkRequests: '網路請求',
+      networkAllowlist: 'IP 白名單',
+      networkAllowlistDescription: '輸入 IPv4 / IPv6 位址或 CIDR，按 Enter 新增。僅放行白名單中的內網、本機等位址',
     },
     site: {
       description: '設定網站的基本資訊',
@@ -1244,7 +1247,7 @@ const zhTW: typeof zhCN = {
     code: '程式碼',
     network: '網路與憑證',
     domains: '允許存取的網域',
-    domainsDescription: '包含子網域；內網與本機位址一律禁止存取',
+    domainsDescription: '包含子網域；內網與本機位址需在安全設定的 IP 白名單中放行',
     domainsPlaceholder: '輸入網域後按 Enter，如 api.example.com',
     credentials: '憑證',
     credentialKey: '鍵名',

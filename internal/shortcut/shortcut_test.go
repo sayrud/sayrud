@@ -2,14 +2,66 @@ package shortcut
 
 import (
 	"context"
+	"net/http"
+	"net/http/httptest"
+	"net/url"
 	"testing"
 
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 	"gorm.io/datatypes"
 
 	"github.com/wuhan005/sayrud/internal/conf"
 	"github.com/wuhan005/sayrud/internal/db"
 )
+
+type testNetworkSettingsStore struct {
+	db.SettingsStore
+	settings db.SystemSettings
+	err      error
+}
+
+func (s *testNetworkSettingsStore) GetSystem(context.Context) (*db.SystemSettings, error) {
+	return &s.settings, s.err
+}
+
+func TestRunCustomNetworkAllowlist(t *testing.T) {
+	previous := db.Settings
+	t.Cleanup(func() { db.Settings = previous })
+	store := &testNetworkSettingsStore{settings: db.DefaultSystemSettings()}
+	db.Settings = store
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	t.Cleanup(server.Close)
+	u, err := url.Parse(server.URL)
+	require.NoError(t, err)
+	custom := &db.CustomFieldShortcut{
+		Code:           `function execute(p, context) { return context.fetch(p.url).status }`,
+		Domains:        datatypes.NewJSONType([]string{u.Hostname()}),
+		TimeoutSeconds: 5,
+	}
+	params := map[string]interface{}{"url": server.URL}
+	_, err = RunCustom(context.Background(), custom, nil, params, Env{})
+	require.ErrorContains(t, err, "is not public")
+
+	store.settings.NetworkAllowlist = []string{u.Hostname()}
+	result, err := RunCustom(context.Background(), custom, nil, params, Env{})
+	require.NoError(t, err)
+	require.Equal(t, float64(http.StatusNoContent), result.Value)
+
+	store.settings.NetworkAllowlist = nil
+	_, err = RunCustom(context.Background(), custom, nil, params, Env{})
+	require.ErrorContains(t, err, "is not public", "clearing the allowlist applies to the next run")
+
+	store.err = errors.New("settings unavailable")
+	_, err = RunCustom(context.Background(), custom, nil, params, Env{})
+	var shortcutErr *Error
+	require.ErrorAs(t, err, &shortcutErr)
+	require.Equal(t, "shortcut::internal_error", shortcutErr.Key)
+	require.True(t, shortcutErr.Transient)
+}
 
 func field(uid string, t db.SLFieldType, metadata map[string]interface{}) *db.SLField {
 	if metadata == nil {

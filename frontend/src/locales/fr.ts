@@ -697,6 +697,9 @@ const fr: typeof zhCN = {
       sessionTTL: 'Durée des sessions',
       sessionTTLDescription: 'À l’expiration, une nouvelle connexion sera nécessaire. S’applique uniquement aux nouvelles sessions',
       daysUnit: 'jours',
+      networkRequests: 'Requêtes réseau',
+      networkAllowlist: 'Liste des adresses IP autorisées',
+      networkAllowlistDescription: 'Saisissez une adresse IPv4 / IPv6 ou un CIDR et appuyez sur Entrée. Seules les adresses privées, locales ou bloquées figurant dans la liste sont autorisées',
     },
     site: {
       description: 'Définissez les informations générales du site',
@@ -1244,7 +1247,7 @@ const fr: typeof zhCN = {
     code: 'Code',
     network: 'Réseau et identifiants',
     domains: 'Domaines autorisés',
-    domainsDescription: 'Sous-domaines inclus, les adresses privées et locales sont toujours bloquées',
+    domainsDescription: 'Sous-domaines inclus ; les adresses privées et locales doivent figurer dans la liste IP des paramètres de sécurité',
     domainsPlaceholder: 'Saisissez un domaine puis Entrée, p. ex. api.example.com',
     credentials: 'Identifiants',
     credentialKey: 'Clé',

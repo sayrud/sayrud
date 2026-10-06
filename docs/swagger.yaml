@@ -1705,6 +1705,12 @@ definitions:
         description: LoginNotice is the plain text shown above the sign-in form, empty
           if hidden.
         type: string
+      networkAllowlist:
+        description: NetworkAllowlist permits shortcut fetches to these otherwise
+          blocked IP addresses or CIDRs.
+        items:
+          type: string
+        type: array
       passwordMinLength:
         description: PasswordMinLength applies to signing up, changing, creating and
           resetting passwords.
@@ -1720,6 +1726,7 @@ definitions:
     - allowSignUp
     - externalURL
     - loginNotice
+    - networkAllowlist
     - passwordMinLength
     - sessionTTLDays
     - siteName
@@ -2029,6 +2036,12 @@ definitions:
         description: LoginNotice is the plain text shown above the sign-in form, empty
           if hidden.
         type: string
+      networkAllowlist:
+        description: NetworkAllowlist permits shortcut fetches to these otherwise
+          blocked IP addresses or CIDRs.
+        items:
+          type: string
+        type: array
       passwordMinLength:
         type: integer
       sessionTTLDays:
@@ -2040,6 +2053,7 @@ definitions:
     - allowSignUp
     - externalURL
     - loginNotice
+    - networkAllowlist
     - passwordMinLength
     - sessionTTLDays
     - siteName

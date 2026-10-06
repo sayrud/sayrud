@@ -3,6 +3,7 @@ package db
 import (
 	"context"
 	"encoding/json"
+	"net/netip"
 	"strings"
 	"testing"
 
@@ -41,6 +42,65 @@ func TestSystemSettingsValidate(t *testing.T) {
 	} {
 		require.Error(t, s.Validate(), "%+v", s)
 	}
+}
+
+func TestSystemSettingsNetworkAllowlist(t *testing.T) {
+	defaults := DefaultSystemSettings()
+	require.Empty(t, defaults.NetworkAllowlist)
+	require.NotNil(t, defaults.NetworkAllowlist)
+
+	for _, tc := range []struct {
+		entry, prefix string
+	}{
+		{" 10.0.0.10 ", "10.0.0.10/32"},
+		{"192.168.1.100/24", "192.168.1.0/24"},
+		{"::1", "::1/128"},
+		{"fd00::1234/64", "fd00::/64"},
+		{"::ffff:10.0.0.10", "10.0.0.10/32"},
+		{"::ffff:192.168.1.100/120", "192.168.1.0/24"},
+		{"0.0.0.0/0", "0.0.0.0/0"},
+		{"::/0", "::/0"},
+	} {
+		settings := defaults
+		settings.NetworkAllowlist = []string{tc.entry}
+		require.NoError(t, settings.Validate())
+		prefixes, err := ParseNetworkAllowlist(settings.NetworkAllowlist)
+		require.NoError(t, err)
+		require.Equal(t, []netip.Prefix{netip.MustParsePrefix(tc.prefix)}, prefixes)
+	}
+
+	for _, entry := range []string{"", " ", "localhost", "https://10.0.0.1", "10.0.0.1:80", "10.0.0.0/33", "::/129", "fe80::1%en0", "fe80::1%en0/64"} {
+		settings := defaults
+		settings.NetworkAllowlist = []string{"10.0.0.10", entry}
+		var e *i18n.Error
+		require.ErrorAs(t, settings.Validate(), &e, entry)
+		require.Equal(t, "settings::invalid_network_allowlist", e.Key)
+		prefixes, err := ParseNetworkAllowlist(settings.NetworkAllowlist)
+		require.Error(t, err)
+		require.Nil(t, prefixes, "invalid entries must not partially allow a network")
+	}
+
+	raw := []byte(`{"networkAllowlist":["10.0.0.10","fd00::/64"]}`)
+	require.Equal(t, []string{"10.0.0.10", "fd00::/64"}, ParseSystemSettings(raw, defaults).NetworkAllowlist)
+	for _, raw := range []string{`{}`, `{"networkAllowlist":null}`, `{"networkAllowlist":["10.0.0.10","bad"]}`} {
+		require.Equal(t, defaults.NetworkAllowlist, ParseSystemSettings([]byte(raw), defaults).NetworkAllowlist)
+	}
+}
+
+func TestSystemSettingsNetworkAllowlistStore(t *testing.T) {
+	store := NewSettingsStore(newTestDB(t, &Setting{}))
+	want := DefaultSystemSettings()
+	want.NetworkAllowlist = []string{"10.0.0.10", "192.168.1.0/24", "fd00::/64"}
+	require.NoError(t, store.SaveSystem(context.Background(), want))
+	got, err := store.GetSystem(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, want, *got)
+
+	want.NetworkAllowlist = []string{}
+	require.NoError(t, store.SaveSystem(context.Background(), want))
+	got, err = store.GetSystem(context.Background())
+	require.NoError(t, err)
+	require.Empty(t, got.NetworkAllowlist)
 }
 
 func TestNormalizeExternalURL(t *testing.T) {

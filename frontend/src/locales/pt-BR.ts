@@ -697,6 +697,9 @@ const ptBR: typeof zhCN = {
       sessionTTL: 'Duração da sessão',
       sessionTTLDescription: 'Após a expiração, será necessário entrar novamente. Aplica-se apenas a novas sessões',
       daysUnit: 'dias',
+      networkRequests: 'Requisições de rede',
+      networkAllowlist: 'Lista de IP permitidos',
+      networkAllowlistDescription: 'Digite um endereço IPv4 / IPv6 ou CIDR e pressione Enter. Apenas endereços privados, locais ou outros bloqueados presentes na lista são permitidos',
     },
     site: {
       description: 'Configure as informações básicas do site',
@@ -1244,7 +1247,7 @@ const ptBR: typeof zhCN = {
     code: 'Código',
     network: 'Rede e credenciais',
     domains: 'Domínios permitidos',
-    domainsDescription: 'Inclui os subdomínios, endereços privados e locais são sempre bloqueados',
+    domainsDescription: 'Inclui subdomínios; endereços privados e locais exigem a lista IP nas configurações de segurança',
     domainsPlaceholder: 'Digite um domínio e pressione Enter, ex.: api.example.com',
     credentials: 'Credenciais',
     credentialKey: 'Chave',

@@ -697,6 +697,9 @@ const ko: typeof zhCN = {
       sessionTTL: '로그인 유지 기간',
       sessionTTLDescription: '기간이 지나면 다시 로그인해야 합니다. 새 로그인 세션에만 적용됩니다',
       daysUnit: '일',
+      networkRequests: '네트워크 요청',
+      networkAllowlist: 'IP 허용 목록',
+      networkAllowlistDescription: 'IPv4 / IPv6 주소 또는 CIDR을 입력하고 Enter로 추가하세요. 목록의 사설, 로컬 등 차단된 주소만 허용합니다',
     },
     site: {
       description: '사이트 기본 정보를 설정하세요',
@@ -1244,7 +1247,7 @@ const ko: typeof zhCN = {
     code: '코드',
     network: '네트워크 및 자격 증명',
     domains: '허용된 도메인',
-    domainsDescription: '하위 도메인을 포함하며 사설 및 로컬 주소는 항상 차단됩니다',
+    domainsDescription: '하위 도메인을 포함합니다. 사설 및 로컬 주소는 보안 설정의 IP 허용 목록에 등록해야 합니다',
     domainsPlaceholder: '도메인을 입력하고 Enter (예: api.example.com)',
     credentials: '자격 증명',
     credentialKey: '키',

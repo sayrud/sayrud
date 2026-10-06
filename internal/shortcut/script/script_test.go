@@ -84,9 +84,6 @@ func TestRunLogs(t *testing.T) {
 }
 
 func TestFetch(t *testing.T) {
-	allowPrivateNetwork = true
-	t.Cleanup(func() { allowPrivateNetwork = false })
-
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/echo":
@@ -107,6 +104,7 @@ func TestFetch(t *testing.T) {
 			Code:        code,
 			Params:      map[string]interface{}{"base": server.URL},
 			Domains:     []string{u.Hostname()},
+			Networks:    []netip.Prefix{netip.MustParsePrefix(u.Hostname() + "/32")},
 			Credentials: credentials,
 			Timeout:     5 * time.Second,
 		})
@@ -165,6 +163,108 @@ func TestFetchBlocksPrivateNetwork(t *testing.T) {
 		Timeout: 5 * time.Second,
 	})
 	require.ErrorContains(t, err, "is not public")
+}
+
+func TestFetchNetworkAllowlist(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/redirect":
+			http.Redirect(w, r, "http://127.0.0.2/", http.StatusFound)
+		case "/allowed-redirect":
+			http.Redirect(w, r, "/", http.StatusFound)
+		default:
+			w.WriteHeader(http.StatusNoContent)
+		}
+	}))
+	t.Cleanup(server.Close)
+	u, err := url.Parse(server.URL)
+	require.NoError(t, err)
+
+	for _, tc := range []struct {
+		name, path, host string
+		allowlist        []string
+		domains          []string
+		error            string
+	}{
+		{name: "empty", error: "is not public"},
+		{name: "exact IP", allowlist: []string{u.Hostname()}},
+		{name: "CIDR", allowlist: []string{"127.0.0.0/24"}},
+		{name: "mapped IP", allowlist: []string{"::ffff:127.0.0.1"}},
+		{name: "outside CIDR", allowlist: []string{"127.0.0.2/32"}, error: "is not public"},
+		{name: "DNS resolves to allowed IP", host: "localhost", allowlist: []string{u.Hostname()}, domains: []string{"localhost"}},
+		{name: "DNS resolves to blocked IP", host: "localhost", allowlist: []string{"10.0.0.0/8"}, domains: []string{"localhost"}, error: "is not public"},
+		{name: "domain still required", allowlist: []string{u.Hostname()}, domains: []string{"example.org"}, error: "not in the allowed domains"},
+		{name: "allowed redirect", path: "/allowed-redirect", allowlist: []string{u.Hostname()}},
+		{name: "redirect to blocked IP", path: "/redirect", allowlist: []string{u.Hostname()}, domains: []string{u.Hostname(), "127.0.0.2"}, error: "is not public"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			networks, err := db.ParseNetworkAllowlist(tc.allowlist)
+			require.NoError(t, err)
+			domains := tc.domains
+			if domains == nil {
+				domains = []string{u.Hostname()}
+			}
+			target := *u
+			if tc.host != "" {
+				target.Host = tc.host + ":" + u.Port()
+			}
+			target.Path = tc.path
+			result, err := Run(context.Background(), Options{
+				Code:     `function execute(p, context) { return context.fetch(p.url).status }`,
+				Params:   map[string]interface{}{"url": target.String()},
+				Domains:  domains,
+				Networks: networks,
+				Timeout:  5 * time.Second,
+			})
+			if tc.error != "" {
+				require.ErrorContains(t, err, tc.error)
+			} else {
+				require.NoError(t, err)
+				require.Equal(t, float64(http.StatusNoContent), result.Value)
+			}
+		})
+	}
+}
+
+func TestDialControlNetworkAllowlist(t *testing.T) {
+	for _, tc := range []struct {
+		address, entry string
+		allowed        bool
+	}{
+		{"8.8.8.8:80", "", true},
+		{"[2606:4700:4700::1111]:443", "", true},
+		{"10.0.0.10:80", "", false},
+		{"10.0.0.10:80", "10.0.0.10", true},
+		{"10.0.0.11:80", "10.0.0.10", false},
+		{"192.168.1.0:80", "192.168.1.100/24", true},
+		{"192.168.1.255:80", "192.168.1.100/24", true},
+		{"192.168.2.0:80", "192.168.1.0/24", false},
+		{"[fd00::ffff]:80", "fd00::/64", true},
+		{"[fd00:0:0:1::1]:80", "fd00::/64", false},
+		{"[::1]:80", "::1", true},
+		{"[::1]:80", "", false},
+		{"[::ffff:10.0.0.10]:80", "10.0.0.0/24", true},
+		{"[::ffff:10.0.1.10]:80", "10.0.0.0/24", false},
+		{"10.0.0.10:80", "::ffff:10.0.0.0/120", true},
+		{"169.254.169.254:80", "", false},
+		{"169.254.169.254:80", "169.254.169.254", true},
+		{"localhost:80", "127.0.0.1", false},
+		{"invalid address", "127.0.0.1", false},
+	} {
+		var entries []string
+		if tc.entry != "" {
+			entries = []string{tc.entry}
+		}
+		networks, err := db.ParseNetworkAllowlist(entries)
+		require.NoError(t, err)
+		f := &fetcher{networks: networks}
+		err = f.dialControl("tcp", tc.address, nil)
+		if tc.allowed {
+			require.NoError(t, err, "%s with %s", tc.address, tc.entry)
+		} else {
+			require.Error(t, err, "%s with %s", tc.address, tc.entry)
+		}
+	}
 }
 
 func TestHostAllowed(t *testing.T) {

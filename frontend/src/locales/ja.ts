@@ -697,6 +697,9 @@ const ja: typeof zhCN = {
       sessionTTL: 'セッションの有効期間',
       sessionTTLDescription: '期限が切れると再ログインが必要です。新しいセッションにのみ適用されます',
       daysUnit: '日',
+      networkRequests: 'ネットワークリクエスト',
+      networkAllowlist: 'IP 許可リスト',
+      networkAllowlistDescription: 'IPv4 / IPv6 アドレスまたは CIDR を入力し、Enter で追加します。登録されたプライベート・ローカルなどのアドレスのみ許可します',
     },
     site: {
       description: 'サイトの基本情報を設定します',
@@ -1244,7 +1247,7 @@ const ja: typeof zhCN = {
     code: 'コード',
     network: 'ネットワークと認証情報',
     domains: '許可するドメイン',
-    domainsDescription: 'サブドメインを含みます。プライベートアドレスとローカルアドレスは常に禁止されます',
+    domainsDescription: 'サブドメインを含みます。プライベート・ローカルアドレスはセキュリティ設定の IP 許可リストへの登録が必要です',
     domainsPlaceholder: 'ドメインを入力して Enter（例：api.example.com）',
     credentials: '認証情報',
     credentialKey: 'キー',

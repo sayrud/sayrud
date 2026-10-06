@@ -7175,6 +7175,7 @@ const docTemplate = `{
                 "allowSignUp",
                 "externalURL",
                 "loginNotice",
+                "networkAllowlist",
                 "passwordMinLength",
                 "sessionTTLDays",
                 "siteName"
@@ -7195,6 +7196,13 @@ const docTemplate = `{
                 "loginNotice": {
                     "description": "LoginNotice is the plain text shown above the sign-in form, empty if hidden.",
                     "type": "string"
+                },
+                "networkAllowlist": {
+                    "description": "NetworkAllowlist permits shortcut fetches to these otherwise blocked IP addresses or CIDRs.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 },
                 "passwordMinLength": {
                     "description": "PasswordMinLength applies to signing up, changing, creating and resetting passwords.",
@@ -7609,6 +7617,7 @@ const docTemplate = `{
                 "allowSignUp",
                 "externalURL",
                 "loginNotice",
+                "networkAllowlist",
                 "passwordMinLength",
                 "sessionTTLDays",
                 "siteName"
@@ -7627,6 +7636,13 @@ const docTemplate = `{
                 "loginNotice": {
                     "description": "LoginNotice is the plain text shown above the sign-in form, empty if hidden.",
                     "type": "string"
+                },
+                "networkAllowlist": {
+                    "description": "NetworkAllowlist permits shortcut fetches to these otherwise blocked IP addresses or CIDRs.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 },
                 "passwordMinLength": {
                     "type": "integer"
