@@ -27,9 +27,11 @@ func Handler() http.Handler {
 			return
 		}
 
+		// Vue Router keeps this document's policy when navigating to a public link.
+		w.Header().Set("Referrer-Policy", "no-referrer")
+
 		if isAppRoute(r.URL.Path) {
 			if strings.HasPrefix(r.URL.Path, "/base/") || strings.HasPrefix(r.URL.Path, "/share/") {
-				w.Header().Set("Referrer-Policy", "no-referrer")
 				w.Header().Set("X-Robots-Tag", "noindex, nofollow")
 			}
 
