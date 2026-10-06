@@ -52,6 +52,8 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
+          build-args: |
+            BUILD_COMMIT=${{ steps.checkout.outputs.commit }}
           platforms: linux/amd64,linux/arm64
           push: true
           cache-from: type=gha,scope=sayrud
