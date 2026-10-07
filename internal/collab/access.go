@@ -2,12 +2,24 @@ package collab
 
 import (
 	"context"
-	"fmt"
+	"errors"
 
+	"github.com/gorilla/websocket"
+	"github.com/sirupsen/logrus"
 	"gorm.io/gorm"
 
 	"github.com/wuhan005/sayrud/internal/db"
 )
+
+var errAccessDenied = errors.New("access denied")
+
+func isAccessDenied(err error) bool {
+	return errors.Is(err, errAccessDenied) ||
+		errors.Is(err, db.ErrUserSessionNotFound) ||
+		errors.Is(err, db.ErrUserNotFound) ||
+		errors.Is(err, db.ErrProjectNotFound) ||
+		errors.Is(err, db.ErrProjectMemberNotFound)
+}
 
 // refreshAccess rechecks persistent access on inbound messages and heartbeats. Pub/Sub
 // notifications accelerate revocation, but delivery is never an auth boundary.
@@ -18,7 +30,14 @@ func (c *Client) refreshAccess(ctx context.Context) bool {
 
 	role, err := c.currentRole(ctx, c.hub.db)
 	if err != nil {
-		c.send(newMessage(MessagePermissionChanged, 0, permissionChangedData{ProjectUID: c.projectUID}))
+		if isAccessDenied(err) {
+			c.send(newMessage(MessagePermissionChanged, 0, permissionChangedData{ProjectUID: c.projectUID}))
+		} else {
+			logrus.WithContext(ctx).WithError(err).WithField("projectUID", c.projectUID).Warn("Failed to refresh collaborator access")
+			c.mu.Lock()
+			c.closeStatus = websocket.CloseTryAgainLater
+			c.mu.Unlock()
+		}
 		c.close()
 		return false
 	}
@@ -44,7 +63,7 @@ func (c *Client) currentRole(ctx context.Context, gormDB *gorm.DB) (db.ProjectRo
 			return "", err
 		}
 		if session.UserID != c.userID {
-			return "", fmt.Errorf("session belongs to another user")
+			return "", errAccessDenied
 		}
 	}
 
@@ -53,7 +72,7 @@ func (c *Client) currentRole(ctx context.Context, gormDB *gorm.DB) (db.ProjectRo
 		return "", err
 	}
 	if user.Disabled() {
-		return "", fmt.Errorf("user disabled")
+		return "", errAccessDenied
 	}
 
 	project, err := db.NewProjectsStore(gormDB).GetByID(ctx, c.project.ID)

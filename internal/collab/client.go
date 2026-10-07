@@ -238,7 +238,8 @@ func (c *Client) writePump() {
 				allowed := c.refreshAccess(ctx)
 				cancel()
 				if !allowed {
-					return
+					// Drain the closed queue to deliver the notification and close frame.
+					continue
 				}
 			}
 			if c.share != nil {

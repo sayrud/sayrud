@@ -219,7 +219,13 @@ func (h *Hub) commit(ctx context.Context, project *db.Project, table *db.SLTable
 
 		if sender != nil {
 			role, err := sender.currentRole(ctx, tx)
-			if err != nil || !role.AtLeast(db.ProjectRoleEditor) {
+			if err != nil {
+				if isAccessDenied(err) {
+					return rejectf("collab::no_edit_permission")
+				}
+				return err
+			}
+			if !role.AtLeast(db.ProjectRoleEditor) {
 				return rejectf("collab::no_edit_permission")
 			}
 		}
