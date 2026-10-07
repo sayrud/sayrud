@@ -6,21 +6,15 @@ import (
 	"strings"
 
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 // LockTable serializes table mutations across server instances. Call it before
 // reading fields or records, inside the transaction which writes the changeset.
 func LockTable(ctx context.Context, tx *gorm.DB, tableID int64) error {
-	var id int64
-	result := tx.WithContext(ctx).Raw("SELECT id FROM sl_tables WHERE id = ? AND deleted_at IS NULL FOR UPDATE", tableID).Scan(&id)
-	if result.Error != nil {
-		return result.Error
-	}
-	if id == 0 {
-		return gorm.ErrRecordNotFound
-	}
-
-	return nil
+	var table Model
+	return tx.WithContext(ctx).Table("sl_tables").Select("id").
+		Clauses(clause.Locking{Strength: "UPDATE"}).Take(&table, tableID).Error
 }
 
 type Transactor interface {

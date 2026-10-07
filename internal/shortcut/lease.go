@@ -39,7 +39,10 @@ func (e *Engine) runJob(ctx context.Context, job *db.SLShortcutJob) {
 	e.process(execution, job)
 	cancel()
 	<-done
+	e.releaseJob(job)
+}
 
+func (e *Engine) releaseJob(job *db.SLShortcutJob) {
 	cleanup, stop := context.WithTimeout(context.Background(), cleanupTimeout)
 	defer stop()
 

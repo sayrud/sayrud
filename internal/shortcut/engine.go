@@ -119,16 +119,10 @@ func (e *Engine) Shutdown(grace, cleanup context.Context) error {
 	case <-grace.Done():
 	}
 
-	e.stopMu.Lock()
-	if e.cancelExecution != nil {
-		e.cancelExecution()
-	}
-	e.stopMu.Unlock()
+	e.cancelExecution()
 
 	select {
 	case <-e.done:
-		e.stopMu.Lock()
-		defer e.stopMu.Unlock()
 		return e.releaseErr
 	case <-cleanup.Done():
 		return cleanup.Err()
@@ -160,17 +154,7 @@ func (e *Engine) work(ctx, execution context.Context) {
 
 		if job != nil {
 			if ctx.Err() != nil {
-				cleanup, cancel := context.WithTimeout(context.Background(), cleanupTimeout)
-				_, err := e.jobs().Release(cleanup, job)
-				cancel()
-				if err != nil {
-					e.stopMu.Lock()
-					e.releaseErr = err
-					e.stopMu.Unlock()
-
-					logrus.WithError(err).Error("Failed to release job claimed during shutdown")
-				}
-
+				e.releaseJob(job)
 				return
 			}
 
