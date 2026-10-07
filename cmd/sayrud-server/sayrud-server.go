@@ -116,8 +116,7 @@ func serve(signals context.Context, listener net.Listener, server *http.Server, 
 	total, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	reserve := min(5*time.Second, timeout/2)
-	grace, cancelGrace := context.WithTimeout(total, timeout-reserve)
+	grace, cancelGrace := context.WithTimeout(total, conf.ShutdownGracePeriod(timeout))
 	defer cancelGrace()
 
 	timer := time.NewTimer(drainDelay)

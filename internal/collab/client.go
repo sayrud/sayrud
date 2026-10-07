@@ -429,7 +429,11 @@ func (c *Client) commit(ctx context.Context, reqID int64, data userChangesData) 
 			return
 		}
 		logrus.WithContext(ctx).WithError(err).WithField("tableUID", table.UID).Error("Failed to commit changeset")
-		reject("common::internal_error")
+		// Preserve pending edits for resubmission with the same signature after reconnecting.
+		c.mu.Lock()
+		c.closeStatus = websocket.CloseTryAgainLater
+		c.mu.Unlock()
+		c.close()
 	}
 }
 

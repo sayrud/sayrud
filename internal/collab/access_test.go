@@ -191,7 +191,11 @@ func TestCommitAccessErrors(t *testing.T) {
 					tx.AddError(tc.err)
 				}
 			}))
-			sender := &Client{userID: user.ID, sessionToken: "token", project: project}
+			sender := &Client{
+				hub: hub, userID: user.ID, sessionToken: "token", project: project,
+				role: db.ProjectRoleEditor, out: make(chan []byte, 2),
+				tables: map[string]*db.SLTable{table.UID: table},
+			}
 			err = hub.Commit(context.Background(), project, table, sender, "", nil, func(CommitResult) {
 				t.Error("failed access check accepted the commit")
 			})
@@ -202,9 +206,42 @@ func TestCommitAccessErrors(t *testing.T) {
 			} else {
 				require.ErrorIs(t, err, tc.err)
 			}
+			sender.commit(context.Background(), 1, userChangesData{TableUID: table.UID, Signature: "retry"})
+			if tc.err == gorm.ErrRecordNotFound {
+				require.False(t, sender.outClosed, "permission rejections must remain final replies")
+				var message Message
+				require.NoError(t, json.Unmarshal(<-sender.out, &message))
+				require.Equal(t, MessageRejectCommit, message.Type)
+				require.Equal(t, int64(1), message.ReqID)
+				var data rejectCommitData
+				require.NoError(t, json.Unmarshal(message.Data, &data))
+				require.Equal(t, "collab::no_edit_permission", data.Message)
+			} else {
+				require.True(t, sender.outClosed, "infrastructure errors must trigger reconnection")
+				require.Equal(t, websocket.CloseTryAgainLater, sender.closeStatus)
+				_, ok := <-sender.out
+				require.False(t, ok, "infrastructure errors must not send a final commit rejection")
+			}
 			after, err := db.NewSLTablesStore(gormDB).GetByID(context.Background(), table.ID)
 			require.NoError(t, err)
 			require.Equal(t, before.Rev, after.Rev, "failed access checks must not commit a revision")
 		})
 	}
+}
+
+func TestCommitDatabaseFailureClosesForRetry(t *testing.T) {
+	gormDB := accessTestDB(t, func(*gorm.DB) {})
+	table := &db.SLTable{Model: dbutil.Model{ID: 1}, UID: "table"}
+	c := &Client{
+		hub: NewHub(gormDB), project: &db.Project{Model: dbutil.Model{ID: 1}},
+		role: db.ProjectRoleEditor, out: make(chan []byte, 2),
+		tables: map[string]*db.SLTable{table.UID: table},
+	}
+
+	// The database is unreachable, so starting the commit transaction fails.
+	c.commit(context.Background(), 1, userChangesData{TableUID: table.UID, Signature: "retry"})
+	require.True(t, c.outClosed, "database errors must disconnect so the client resends pending edits")
+	require.Equal(t, websocket.CloseTryAgainLater, c.closeStatus)
+	_, ok := <-c.out
+	require.False(t, ok, "database errors must not send a final commit rejection")
 }
