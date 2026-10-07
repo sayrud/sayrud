@@ -80,7 +80,7 @@ func readClusterMessage(t *testing.T, conn *websocket.Conn, kind string) Message
 func connectCluster(t *testing.T, hub *Hub, project *db.Project, table *db.SLTable, user *db.User) *websocket.Conn {
 	t.Helper()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		_ = hub.Serve(w, r, project, Identity{UserID: user.ID, MemberID: fmt.Sprint(user.ID), CanEdit: true}, nil)
+		_ = hub.Serve(w, r, project, Identity{UserID: user.ID, MemberID: fmt.Sprint(user.ID), Role: db.ProjectRoleEditor}, nil)
 	}))
 	t.Cleanup(server.Close)
 	conn, _, err := websocket.DefaultDialer.Dial("ws"+strings.TrimPrefix(server.URL, "http"), nil)
@@ -93,50 +93,56 @@ func connectCluster(t *testing.T, hub *Hub, project *db.Project, table *db.SLTab
 }
 
 func TestConcurrentHubsPreserveCellsAndDeduplicate(t *testing.T) {
-	gormDB := clusterTestDB(t)
-	first, second := NewHub(gormDB), NewHub(gormDB)
-	project, table, _ := testProject(t, gormDB, first)
-	ctx := context.Background()
-	for iteration := range 20 {
-		start := make(chan struct{})
-		errs := make(chan error, 2)
-		for i, hub := range []*Hub{first, second} {
-			go func() {
-				<-start
-				field := []string{"fldAAAAAAA", "fldBBBBBBB"}[i]
-				errs <- hub.Commit(ctx, project, table, nil, fmt.Sprintf("%d-%d", iteration, i), []Operation{{Actions: []Action{{
-					Action: ActionSetRecord, RecordUID: "recAAAAAAAAAAA", Values: map[string]interface{}{field: fmt.Sprint(iteration)},
-				}}}}, func(CommitResult) {})
-			}()
-		}
-		close(start)
-		require.NoError(t, <-errs)
-		require.NoError(t, <-errs)
-		record, err := db.NewSLRecordsStore(gormDB).GetByUID(ctx, "recAAAAAAAAAAA")
-		require.NoError(t, err)
-		values := map[string]interface{}{}
-		require.NoError(t, json.Unmarshal(record.Data, &values))
-		require.Equal(t, fmt.Sprint(iteration), values["fldAAAAAAA"])
-		require.Equal(t, fmt.Sprint(iteration), values["fldBBBBBBB"])
-	}
-	var wg sync.WaitGroup
-	results, errs := make(chan CommitResult, 2), make(chan error, 2)
-	for _, hub := range []*Hub{first, second} {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			errs <- hub.Commit(ctx, project, table, nil, "same-signature", []Operation{}, func(result CommitResult) { results <- result })
-		}()
-	}
-	wg.Wait()
-	require.NoError(t, <-errs)
-	require.NoError(t, <-errs)
-	a, b := <-results, <-results
-	require.Equal(t, a.Rev, b.Rev)
-	require.NotEqual(t, a.Duplicate, b.Duplicate)
-	for _, hub := range []*Hub{first, second} {
-		require.NoError(t, hub.WaitBackground(ctx))
-		hub.CancelBackground()
+	for _, mode := range []string{"same_hub", "different_hubs"} {
+		t.Run(mode, func(t *testing.T) {
+			gormDB := clusterTestDB(t)
+			first := NewHub(gormDB)
+			second := first
+			if mode == "different_hubs" {
+				second = NewHub(gormDB)
+			}
+			project, table, _ := testProject(t, gormDB, first)
+			ctx := context.Background()
+			for iteration := range 20 {
+				start := make(chan struct{})
+				errs := make(chan error, 2)
+				for i, hub := range []*Hub{first, second} {
+					go func() {
+						<-start
+						field := []string{"fldAAAAAAA", "fldBBBBBBB"}[i]
+						errs <- hub.Commit(ctx, project, table, nil, fmt.Sprintf("%d-%d", iteration, i), []Operation{{Actions: []Action{{
+							Action: ActionSetRecord, RecordUID: "recAAAAAAAAAAA", Values: map[string]interface{}{field: fmt.Sprint(iteration)},
+						}}}}, func(CommitResult) {})
+					}()
+				}
+				close(start)
+				require.NoError(t, <-errs)
+				require.NoError(t, <-errs)
+				record, err := db.NewSLRecordsStore(gormDB).GetByUID(ctx, "recAAAAAAAAAAA")
+				require.NoError(t, err)
+				values := map[string]interface{}{}
+				require.NoError(t, json.Unmarshal(record.Data, &values))
+				require.Equal(t, fmt.Sprint(iteration), values["fldAAAAAAA"])
+				require.Equal(t, fmt.Sprint(iteration), values["fldBBBBBBB"])
+			}
+			var wg sync.WaitGroup
+			results, errs := make(chan CommitResult, 2), make(chan error, 2)
+			for _, hub := range []*Hub{first, second} {
+				wg.Go(func() {
+					errs <- hub.Commit(ctx, project, table, nil, "same-signature", []Operation{}, func(result CommitResult) { results <- result })
+				})
+			}
+			wg.Wait()
+			require.NoError(t, <-errs)
+			require.NoError(t, <-errs)
+			a, b := <-results, <-results
+			require.Equal(t, a.Rev, b.Rev)
+			require.NotEqual(t, a.Duplicate, b.Duplicate)
+			for _, hub := range []*Hub{first, second} {
+				require.NoError(t, hub.WaitBackground(ctx))
+				hub.CancelBackground()
+			}
+		})
 	}
 }
 

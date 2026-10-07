@@ -39,7 +39,6 @@ type Identity struct {
 	Color        string
 	AvatarURL    string
 	UpdatedAt    time.Time
-	CanEdit      bool
 	Role         db.ProjectRole
 	Share        *ShareSession
 	SessionToken string
@@ -62,7 +61,6 @@ type Client struct {
 
 	mu              sync.Mutex
 	member          Member
-	canEdit         bool
 	role            db.ProjectRole
 	avatarUpdatedAt time.Time
 	closeStatus     int
@@ -102,7 +100,6 @@ func (h *Hub) Serve(w http.ResponseWriter, r *http.Request, project *db.Project,
 			Color:     identity.Color,
 			AvatarURL: identity.AvatarURL,
 		},
-		canEdit:         identity.CanEdit && identity.Share == nil,
 		role:            identity.Role,
 		avatarUpdatedAt: identity.UpdatedAt,
 		tables:          make(map[string]*db.SLTable),
@@ -396,9 +393,9 @@ func (c *Client) commit(ctx context.Context, reqID int64, data userChangesData) 
 	}
 
 	c.mu.Lock()
-	canEdit := c.canEdit
+	role := c.role
 	c.mu.Unlock()
-	if !canEdit || c.share != nil {
+	if !role.AtLeast(db.ProjectRoleEditor) || c.share != nil {
 		reject("collab::no_edit_permission")
 		return
 	}

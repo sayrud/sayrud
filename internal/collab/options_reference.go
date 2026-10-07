@@ -11,7 +11,7 @@ import (
 	"github.com/wuhan005/sayrud/internal/db"
 )
 
-// Refresh dependent metadata through normal server commits, outside the source table lock.
+// Refresh dependent metadata through normal server commits, after the source transaction commits.
 func (h *Hub) notifyOptionReferences(ctx context.Context, project *db.Project, table *db.SLTable, operations []Operation) {
 	h.runBackground(ctx, func(ctx context.Context) {
 		if err := h.refreshOptionReferences(ctx, project, table, operations); err != nil {

@@ -74,18 +74,14 @@ func (e *Engine) Start(ctx context.Context) {
 		e.stopMu.Unlock()
 
 		for range e.workers {
-			e.wg.Add(1)
-			go func() {
-				defer e.wg.Done()
+			e.wg.Go(func() {
 				e.work(claims, execution)
-			}()
+			})
 		}
 
-		e.wg.Add(1)
-		go func() {
-			defer e.wg.Done()
+		e.wg.Go(func() {
 			e.maintain(claims)
-		}()
+		})
 
 		go func() {
 			e.wg.Wait()

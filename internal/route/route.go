@@ -1,7 +1,6 @@
 package route
 
 import (
-	"context"
 	"net/http"
 
 	"github.com/MEDIGO/go-healthz"
@@ -29,8 +28,6 @@ type Options struct {
 	DB *gorm.DB
 	// MetricsHandler serves /-/metrics, the route is not registered if it is nil.
 	MetricsHandler http.Handler
-	// Context runs the background workers of the field shortcuts until it is canceled, they are not started if it is nil.
-	Context context.Context
 }
 
 // New creates the router of the application.
@@ -49,8 +46,6 @@ func New(opts Options) *flamego.Flame {
 	engine := shortcut.NewEngine(opts.DB, hub, conf.Shortcut.Workers)
 	if opts.Runtime != nil {
 		hub, engine = opts.Runtime.Hub, opts.Runtime.Engine
-	} else if opts.Context != nil {
-		engine.Start(opts.Context)
 	}
 	f.Map(hub, engine)
 

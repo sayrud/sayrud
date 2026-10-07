@@ -67,17 +67,14 @@ func (h *Hub) Shutdown(ctx context.Context) error {
 }
 
 func (h *Hub) runBackground(parent context.Context, fn func(context.Context)) {
-	h.background.Add(1)
-	go func() {
-		defer h.background.Done()
-
+	h.background.Go(func() {
 		ctx, cancel := context.WithCancel(context.WithoutCancel(parent))
 		stop := context.AfterFunc(h.backgroundContext, cancel)
 		defer stop()
 		defer cancel()
 
 		fn(ctx)
-	}()
+	})
 }
 
 // WaitBackground is called once HTTP handlers, WebSocket handlers and workers

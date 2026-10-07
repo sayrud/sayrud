@@ -90,9 +90,8 @@ func (h *Hub) StartCluster(ctx context.Context, client *redis.Client) error {
 	}
 
 	h.cluster = c
-	c.wg.Add(2)
-	go c.receive()
-	go c.maintain()
+	c.wg.Go(c.receive)
+	c.wg.Go(c.maintain)
 
 	return nil
 }
@@ -154,8 +153,6 @@ func (c *cluster) failed() {
 }
 
 func (c *cluster) receive() {
-	defer c.wg.Done()
-
 	for c.ctx.Err() == nil {
 		c.mu.Lock()
 		sub := c.sub
@@ -193,8 +190,6 @@ func (c *cluster) receive() {
 }
 
 func (c *cluster) maintain() {
-	defer c.wg.Done()
-
 	ticker := time.NewTicker(presenceInterval)
 	defer ticker.Stop()
 

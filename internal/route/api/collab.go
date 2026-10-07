@@ -47,7 +47,6 @@ func (collabRoute) Serve(ctx context.Context, hub *collab.Hub, project *db.Proje
 		Color:        dto.UserColor(user.ID),
 		AvatarURL:    dto.UserAvatarURL(user),
 		UpdatedAt:    user.UpdatedAt,
-		CanEdit:      role.AtLeast(db.ProjectRoleEditor),
 		Role:         role,
 		SessionToken: sessionToken,
 	}, ctx.Locale()); err != nil {

@@ -26,7 +26,6 @@ func (c *Client) refreshAccess(ctx context.Context) bool {
 	c.mu.Lock()
 	changed := c.role != role
 	c.role = role
-	c.canEdit = role.AtLeast(db.ProjectRoleEditor)
 	c.mu.Unlock()
 
 	if changed {
@@ -37,7 +36,7 @@ func (c *Client) refreshAccess(ctx context.Context) bool {
 }
 
 // currentRole also runs inside the mutation transaction after waiting for the
-// shared table lock, so a queued write cannot use an earlier permission snapshot.
+// PostgreSQL row lock, so a queued write cannot use an earlier permission snapshot.
 func (c *Client) currentRole(ctx context.Context, gormDB *gorm.DB) (db.ProjectRole, error) {
 	if c.sessionToken != "" {
 		session, err := db.NewUserSessionsStore(gormDB).GetByToken(ctx, c.sessionToken)

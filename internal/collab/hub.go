@@ -16,8 +16,9 @@ import (
 
 // Hub routes the messages between the clients connected to the same server instance.
 //
-// PostgreSQL serializes mutations; Redis distributes notifications. Clients
-// recover missing or reordered notifications from the persistent changesets.
+// PostgreSQL serializes mutations; Redis distributes notifications. Notifications
+// may be missing or reordered even on this instance; clients recover them from
+// the persistent changesets.
 type Hub struct {
 	backgroundContext context.Context
 	cancelBackground  context.CancelFunc
@@ -25,7 +26,6 @@ type Hub struct {
 
 	mu       sync.Mutex
 	projects map[string]map[*Client]struct{}
-	locks    map[int64]*sync.Mutex
 
 	shortcuts   ShortcutHooks
 	cluster     *cluster
@@ -46,21 +46,7 @@ func NewHub(gormDB *gorm.DB) *Hub {
 		backgroundContext: ctx,
 		cancelBackground:  cancel,
 		projects:          make(map[string]map[*Client]struct{}),
-		locks:             make(map[int64]*sync.Mutex),
 	}
-}
-
-func (h *Hub) tableLock(tableID int64) *sync.Mutex {
-	h.mu.Lock()
-	defer h.mu.Unlock()
-
-	lock, ok := h.locks[tableID]
-	if !ok {
-		lock = &sync.Mutex{}
-		h.locks[tableID] = lock
-	}
-
-	return lock
 }
 
 func (h *Hub) register(c *Client) bool {
@@ -162,12 +148,7 @@ func (h *Hub) UpdateUserAvatar(userID int64, avatarURL string, updatedAt time.Ti
 
 // subscribe subscribes the client to the table changes, and returns the latest revision of the table.
 func (h *Hub) subscribe(ctx context.Context, c *Client, table *db.SLTable) (int64, error) {
-	// Serialize subscription setup with commits on this instance.
-	lock := h.tableLock(table.ID)
-	lock.Lock()
-	defer lock.Unlock()
-
-	// Subscribe first: a remote commit racing the revision read is either queued
+	// Subscribe first: a commit racing the revision read is either queued
 	// live or included in the revision returned for HTTP catch-up.
 	c.subscribe(table.UID)
 	store := db.SLTables
@@ -191,9 +172,10 @@ type CommitResult struct {
 
 // Commit applies the operations to the table and broadcasts the accepted changeset to the subscribers except the sender.
 // If the server changes other data when applying, e.g. converting the values of a field, a server changeset with the dirty
-// scope is committed right after it and broadcast to all the subscribers.
+// scope is appended in the same transaction and broadcast to all the subscribers.
 //
-// onAccept is called before broadcasting, so the sender receives the acceptance before the following changesets.
+// onAccept runs before this commit's broadcasts. Concurrent commits may notify
+// subscribers in any revision order.
 // It returns *OperationError if the changeset is rejected.
 func (h *Hub) Commit(ctx context.Context, project *db.Project, table *db.SLTable, sender *Client, signature string, operations []Operation, onAccept func(CommitResult)) error {
 	_, err := h.commit(ctx, project, table, sender, signature, operations, nil, onAccept)
@@ -208,10 +190,6 @@ func (h *Hub) CommitServer(ctx context.Context, project *db.Project, table *db.S
 }
 
 func (h *Hub) commit(ctx context.Context, project *db.Project, table *db.SLTable, sender *Client, signature string, operations []Operation, guard func(tx *gorm.DB) (bool, error), onAccept func(CommitResult)) (bool, error) {
-	lock := h.tableLock(table.ID)
-	lock.Lock()
-	defer lock.Unlock()
-
 	var clientID string
 	if sender != nil {
 		clientID = sender.member.ClientID
@@ -389,7 +367,6 @@ func (h *Hub) SetUserRole(projectUID string, userID int64, role db.ProjectRole) 
 		}
 
 		c.mu.Lock()
-		c.canEdit = role.AtLeast(db.ProjectRoleEditor)
 		c.role = role
 		c.mu.Unlock()
 
@@ -408,12 +385,8 @@ func (h *Hub) DisconnectUser(userID int64) {
 }
 
 // Mutate commits a REST mutation and its invalidation in the same transaction.
-// It shares the table lock with WebSocket and worker writes.
+// It shares the PostgreSQL row lock with WebSocket and worker writes.
 func (h *Hub) Mutate(ctx context.Context, project *db.Project, table *db.SLTable, mutate func(*gorm.DB) error, scope func() DirtyScope) error {
-	lock := h.tableLock(table.ID)
-	lock.Lock()
-	defer lock.Unlock()
-
 	var changeset *Changeset
 	if err := h.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := dbutil.LockTable(ctx, tx, table.ID); err != nil {

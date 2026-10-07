@@ -45,7 +45,7 @@ type ShortcutHooks interface {
 	// ValidateShortcut checks field.Shortcut against the table fields and returns the normalized shortcut,
 	// it returns *OperationError if the shortcut is invalid. fields may not contain the field when it is being added.
 	ValidateShortcut(ctx context.Context, fields []*db.SLField, field *db.SLField) (*db.FieldShortcut, error)
-	// ShortcutsChanged is called after the change is committed, outside the table lock.
+	// ShortcutsChanged is called after the transaction commits and releases its row lock.
 	ShortcutsChanged(ctx context.Context, project *db.Project, table *db.SLTable, change *Change)
 }
 

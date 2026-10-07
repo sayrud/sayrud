@@ -75,7 +75,7 @@ func dialShared(t *testing.T, hub *Hub, project *db.Project, session *ShareSessi
 	t.Helper()
 	done := make(chan error, 1)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		done <- hub.Serve(w, r, project, Identity{MemberID: "guest", Name: "Visitor", CanEdit: true, Share: session}, nil)
+		done <- hub.Serve(w, r, project, Identity{MemberID: "guest", Name: "Visitor", Role: db.ProjectRoleEditor, Share: session}, nil)
 	}))
 	t.Cleanup(server.Close)
 	conn, _, err := websocket.DefaultDialer.Dial("ws"+strings.TrimPrefix(server.URL, "http"), nil)
