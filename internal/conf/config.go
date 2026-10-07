@@ -8,8 +8,10 @@ import (
 )
 
 var App struct {
-	Port     int    `mapstructure:"port"`
-	IPHeader string `mapstructure:"ip_header"`
+	Port            int           `mapstructure:"port"`
+	IPHeader        string        `mapstructure:"ip_header"`
+	DrainDelay      time.Duration `mapstructure:"drain_delay"`
+	ShutdownTimeout time.Duration `mapstructure:"shutdown_timeout"`
 }
 
 var Postgres struct {
@@ -84,8 +86,16 @@ var Observability struct {
 	Metrics MetricsConfig `mapstructure:"metrics"`
 }
 
+// ShutdownGracePeriod is the budget for drain delay and graceful shutdown,
+// excluding the reserve for interrupted job cleanup.
+func ShutdownGracePeriod(timeout time.Duration) time.Duration {
+	return timeout - min(5*time.Second, timeout/2)
+}
+
 func Init(configFilePath string) error {
 	v := viper.New()
+	v.SetDefault("app.drain_delay", "5s")
+	v.SetDefault("app.shutdown_timeout", "30s")
 	v.SetConfigFile(configFilePath)
 	if err := v.ReadInConfig(); err != nil {
 		return errors.Wrap(err, "read config file")
@@ -94,6 +104,13 @@ func Init(configFilePath string) error {
 	if err := v.UnmarshalKey("app", &App); err != nil {
 		return errors.Wrap(err, "parse app")
 	}
+
+	App.DrainDelay = v.GetDuration("app.drain_delay")
+	App.ShutdownTimeout = v.GetDuration("app.shutdown_timeout")
+	if App.DrainDelay < 0 || App.ShutdownTimeout <= 0 || App.DrainDelay >= ShutdownGracePeriod(App.ShutdownTimeout) {
+		return errors.New("app requires shutdown_timeout > 0 and 0 <= drain_delay < shutdown_timeout - min(5s, shutdown_timeout/2)")
+	}
+
 	if err := v.UnmarshalKey("postgres", &Postgres); err != nil {
 		return errors.Wrap(err, "parse postgres")
 	}

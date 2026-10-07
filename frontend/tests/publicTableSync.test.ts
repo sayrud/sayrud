@@ -113,6 +113,64 @@ test('reconnection catches up through changesets including filtered empty revisi
   sync.dispose()
 })
 
+test('a failed commit preserves inflight and queued edits and resends the original signature after reconnecting', async () => {
+  const socket = socketFixture()
+  const source = sourceFixture()
+  const rejected: string[] = []
+  const submissions: { signature: string; operations: Changeset['operations'] }[] = []
+  let fail = true
+  let rev = 1
+  socket.socket.request = async <T>(type: string, data?: unknown) => {
+    if (type === 'SUBSCRIBE') return { type: 'SUBSCRIBED', data: { rev } as T }
+    assert.equal(type, 'USER_CHANGES')
+    const submission = data as (typeof submissions)[number]
+    submissions.push(submission)
+    if (fail) throw new Error('Database unavailable; connection closed')
+    return { type: 'ACCEPT_COMMIT', data: { rev: ++rev, signature: submission.signature } as T }
+  }
+  const sync = new Sync(socket.socket, 'project', 'table', { onReject: (message) => rejected.push(message) }, source.api)
+  await sync.start()
+  sync.submit(setValue(2).operations)
+  await settle()
+  socket.emit('close')
+  sync.submit(setValue(3).operations)
+  assert.equal(sync.pendingCount.value, 2)
+  assert.equal(sync.records.value[0]!.data.field, 3)
+
+  fail = false
+  socket.emit('open')
+  await settle()
+  assert.equal(submissions.length, 3)
+  assert.equal(submissions[1]!.signature, submissions[0]!.signature)
+  assert.deepEqual(submissions[1]!.operations, submissions[0]!.operations)
+  assert.notEqual(submissions[2]!.signature, submissions[0]!.signature)
+  assert.deepEqual(submissions[2]!.operations, setValue(3).operations)
+  assert.equal(sync.pendingCount.value, 0)
+  assert.equal(sync.records.value[0]!.data.field, 3)
+  assert.deepEqual(rejected, [])
+  assert.deepEqual(source.calls, ['snapshot'])
+  sync.dispose()
+})
+
+test('an explicit permission rejection clears pending edits and reloads the server snapshot', async () => {
+  const socket = socketFixture()
+  const source = sourceFixture()
+  const rejected: string[] = []
+  socket.socket.request = async <T>(type: string) => type === 'SUBSCRIBE'
+    ? { type: 'SUBSCRIBED', data: { rev: 1 } as T }
+    : { type: 'REJECT_COMMIT', data: { msg: 'No edit permission' } as T }
+  const sync = new Sync(socket.socket, 'project', 'table', { onReject: (message) => rejected.push(message) }, source.api)
+  await sync.start()
+  sync.submit(setValue(2).operations)
+  sync.submit(setValue(3).operations)
+  await settle()
+  assert.equal(sync.pendingCount.value, 0)
+  assert.equal(sync.records.value[0]!.data.field, 1)
+  assert.deepEqual(rejected, ['No edit permission'])
+  assert.deepEqual(source.calls, ['snapshot', 'snapshot'])
+  sync.dispose()
+})
+
 test('a change between the initial read and subscription is caught up incrementally', async () => {
   const socket = socketFixture()
   const source = sourceFixture()
@@ -207,4 +265,20 @@ test('the shared transport uses the generated public endpoints while retaining r
   assert.deepEqual((await api.changesets('project', 'table', 1)).map((cs) => cs.rev), [2, 3])
   assert.equal((await api.fetchRecords('project', 'table', Array.from({ length: 1001 }, (_, i) => `rec${i}`))).length, 1001)
   assert.deepEqual(calls, ['snapshot', 'fields', 'views', 'changesets:1', 'changesets:2', 'records:1000', 'records:1'])
+})
+
+test('heartbeat detects a missing final notification without a later change or reconnect', async () => {
+  const socket = socketFixture()
+  const source = sourceFixture()
+  const sync = new Sync(socket.socket, 'project', 'table', { readOnly: true }, source.api)
+  await sync.start()
+  source.missing([setValue(2)])
+  socket.emit('PONG', { revisions: { table: 2 } })
+  await settle()
+  assert.equal(sync.records.value[0]!.data.field, 2)
+  assert.deepEqual(source.calls, ['snapshot', 'changesets:1'])
+  socket.emit('PONG', { revisions: { table: 2 } })
+  await settle()
+  assert.deepEqual(source.calls, ['snapshot', 'changesets:1'])
+  sync.dispose()
 })

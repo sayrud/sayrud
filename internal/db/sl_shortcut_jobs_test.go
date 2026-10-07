@@ -56,7 +56,7 @@ func TestSLShortcutJobs(t *testing.T) {
 	require.NotNil(t, claimed)
 	require.Equal(t, ShortcutJobRunning, claimed.Status)
 	require.Equal(t, 1, claimed.Attempts)
-	require.Equal(t, int64(1), claimed.Token)
+	require.Equal(t, int64(2), claimed.Token)
 
 	// Re-enqueueing the running cell invalidates the running execution.
 	_, err = store.Enqueue(ctx, 1, "fldAAAAAAA", []string{claimed.RecordUID})
@@ -83,7 +83,7 @@ func TestSLShortcutJobs(t *testing.T) {
 	if reclaimed.RecordUID != claimed.RecordUID {
 		reclaimed = third
 	}
-	require.Equal(t, int64(2), reclaimed.Token)
+	require.Equal(t, int64(4), reclaimed.Token)
 	finished, err = store.Finish(ctx, reclaimed)
 	require.NoError(t, err)
 	require.True(t, finished)
@@ -118,10 +118,10 @@ func TestSLShortcutJobsResetStale(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, claimed)
 
-	n, err := store.ResetStale(ctx, time.Now().Add(-time.Minute))
+	n, err := store.ResetStale(ctx, time.Minute)
 	require.NoError(t, err)
 	require.Zero(t, n)
-	n, err = store.ResetStale(ctx, time.Now().Add(time.Minute))
+	n, err = store.ResetStale(ctx, -time.Minute)
 	require.NoError(t, err)
 	require.Equal(t, int64(1), n)
 
@@ -190,4 +190,38 @@ func otherJob(a, b, c *SLShortcutJob) *SLShortcutJob {
 		return b
 	}
 	return a
+}
+
+func TestShortcutLeaseFencesOldExecutions(t *testing.T) {
+	ctx := context.Background()
+	store := NewSLShortcutJobsStore(newTestDB(t, &SLShortcutJob{}))
+	_, err := store.Enqueue(ctx, 1, "fldAAAAAAA", []string{"record"})
+	require.NoError(t, err)
+	old, err := store.Claim(ctx)
+	require.NoError(t, err)
+	renewed, err := store.Renew(ctx, old)
+	require.NoError(t, err)
+	require.True(t, renewed)
+	released, err := store.Release(ctx, old)
+	require.NoError(t, err)
+	require.True(t, released)
+	next, err := store.Claim(ctx)
+	require.NoError(t, err)
+	require.Greater(t, next.Token, old.Token)
+	require.Equal(t, 1, next.Attempts, "shutdown must not consume a retry")
+	finished, err := store.Finish(ctx, old)
+	require.NoError(t, err)
+	require.False(t, finished, "an interrupted execution must not delete its successor")
+	released, err = store.Release(ctx, old)
+	require.NoError(t, err)
+	require.False(t, released)
+	n, err := store.ResetStale(ctx, -time.Minute)
+	require.NoError(t, err)
+	require.Equal(t, int64(1), n)
+	reclaimed, err := store.Claim(ctx)
+	require.NoError(t, err)
+	require.Greater(t, reclaimed.Token, next.Token)
+	finished, err = store.Finish(ctx, next)
+	require.NoError(t, err)
+	require.False(t, finished, "a timed-out execution must not write back after recovery")
 }

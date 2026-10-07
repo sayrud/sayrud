@@ -35,14 +35,20 @@ type collabRoute struct{}
 // @ID collaborate
 // @Router /projects/{projectUID}/ws [get]
 func (collabRoute) Serve(ctx context.Context, hub *collab.Hub, project *db.Project, user *db.User, role db.ProjectRole) error {
+	var sessionToken string
+	if cookie, err := ctx.Request().Cookie(sessionCookieName); err == nil {
+		sessionToken = cookie.Value
+	}
+
 	if err := hub.Serve(ctx.ResponseWriter(), ctx.Request().Request, project, collab.Identity{
-		UserID:    user.ID,
-		MemberID:  dto.MemberID(user.ID),
-		Name:      user.UserName,
-		Color:     dto.UserColor(user.ID),
-		AvatarURL: dto.UserAvatarURL(user),
-		UpdatedAt: user.UpdatedAt,
-		CanEdit:   role.AtLeast(db.ProjectRoleEditor),
+		UserID:       user.ID,
+		MemberID:     dto.MemberID(user.ID),
+		Name:         user.UserName,
+		Color:        dto.UserColor(user.ID),
+		AvatarURL:    dto.UserAvatarURL(user),
+		UpdatedAt:    user.UpdatedAt,
+		Role:         role,
+		SessionToken: sessionToken,
 	}, ctx.Locale()); err != nil {
 		// The upgrader has written the error response.
 		logrus.WithContext(ctx.Request().Context()).WithError(err).Warn("Failed to serve WebSocket")
@@ -214,11 +220,4 @@ func (collabRoute) FetchRecords(ctx context.Context, table *db.SLTable, f form.F
 func (collabRoute) LimitFetchBody(ctx context.Context) {
 	r := ctx.Request().Request
 	r.Body = http.MaxBytesReader(ctx.ResponseWriter(), r.Body, 64<<10)
-}
-
-// notifyDirty tells the collaborators to reload the data changed by the REST API, the failure is only logged.
-func notifyDirty(ctx context.Context, hub *collab.Hub, project *db.Project, table *db.SLTable, scope collab.DirtyScope) {
-	if err := hub.NotifyDirty(ctx.Request().Context(), project, table, scope); err != nil {
-		logrus.WithContext(ctx.Request().Context()).WithError(err).WithField("tableUID", table.UID).Error("Failed to notify dirty data")
-	}
 }

@@ -275,3 +275,41 @@ func writeTestConfig(t *testing.T, config string) string {
 	}
 	return path
 }
+
+func TestShutdownConfiguration(t *testing.T) {
+	restoreConfigAfterTest(t)
+	for _, tc := range []struct {
+		name, config   string
+		delay, timeout time.Duration
+		invalid        bool
+	}{
+		{"defaults", "app:\n  port: 2830\n", 5 * time.Second, 30 * time.Second, false},
+		{"no delay", "app:\n  drain_delay: 0s\n  shutdown_timeout: 10s\n", 0, 10 * time.Second, false},
+		{"delay below grace", "app:\n  drain_delay: 24s\n  shutdown_timeout: 30s\n", 24 * time.Second, 30 * time.Second, false},
+		{"delay equals grace", "app:\n  drain_delay: 25s\n  shutdown_timeout: 30s\n", 0, 0, true},
+		{"delay consumes cleanup reserve", "app:\n  drain_delay: 28s\n  shutdown_timeout: 30s\n", 0, 0, true},
+		{"short timeout delay below grace", "app:\n  drain_delay: 1999ms\n  shutdown_timeout: 4s\n", 1999 * time.Millisecond, 4 * time.Second, false},
+		{"short timeout delay equals grace", "app:\n  drain_delay: 2s\n  shutdown_timeout: 4s\n", 0, 0, true},
+		{"short timeout delay exceeds grace", "app:\n  drain_delay: 3s\n  shutdown_timeout: 4s\n", 0, 0, true},
+		{"negative delay", "app:\n  drain_delay: -1s\n", 0, 0, true},
+		{"zero timeout", "app:\n  shutdown_timeout: 0s\n", 0, 0, true},
+		{"negative timeout", "app:\n  shutdown_timeout: -1s\n", 0, 0, true},
+		{"delay exceeds budget", "app:\n  drain_delay: 30s\n  shutdown_timeout: 10s\n", 0, 0, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			err := Init(writeTestConfig(t, tc.config))
+			if tc.invalid {
+				if err == nil {
+					t.Fatal("invalid shutdown configuration accepted")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			if App.DrainDelay != tc.delay || App.ShutdownTimeout != tc.timeout {
+				t.Fatalf("shutdown settings: %v / %v, want %v / %v", App.DrainDelay, App.ShutdownTimeout, tc.delay, tc.timeout)
+			}
+		})
+	}
+}

@@ -26,6 +26,8 @@ import (
 func main() {
 	configFilePath := flag.String("config", "./config/sayrud.yaml", "path to the configuration file")
 	flag.Parse()
+	signals, stopSignals := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stopSignals()
 
 	if err := conf.Init(*configFilePath); err != nil {
 		logrus.WithError(err).Fatal("Failed to initialize configuration")
@@ -49,13 +51,30 @@ func main() {
 		logrus.WithError(err).Fatal("Failed to initialize database")
 	}
 
-	if _, err := redis.Init(); err != nil {
+	rdb, err := redis.Init()
+	if err != nil {
 		logrus.WithError(err).Fatal("Failed to initialize redis")
 	}
 
 	if err := storage.Init(ctx); err != nil {
 		logrus.WithError(err).Fatal("Failed to initialize storage")
 	}
+
+	if signals.Err() != nil {
+		return
+	}
+
+	runtime, err := route.NewRuntime(ctx, db, rdb)
+	if err != nil {
+		logrus.WithError(err).Fatal("Failed to start collaboration")
+	}
+	defer func() { _ = rdb.Close() }()
+
+	sqlDB, err := db.DB()
+	if err != nil {
+		logrus.WithError(err).Fatal("Failed to get database connection")
+	}
+	defer func() { _ = sqlDB.Close() }()
 
 	address := fmt.Sprintf("0.0.0.0:%d", conf.App.Port)
 	listener, err := net.Listen("tcp", address)
@@ -64,31 +83,63 @@ func main() {
 	}
 	logrus.Infof("Listening on %s", address)
 
-	c := make(chan os.Signal, 1)
-	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
-
-	ctx, cancel = context.WithCancel(ctx)
-	server := http.Server{
+	requests, cancelRequests := context.WithCancel(ctx)
+	defer cancelRequests()
+	server := &http.Server{
 		Handler: route.New(route.Options{
-			DB:             db,
-			MetricsHandler: metricsHandler,
-			Context:        ctx,
+			DB: db, MetricsHandler: metricsHandler, Runtime: runtime,
 		}),
+		BaseContext:       func(net.Listener) context.Context { return requests },
 		ReadHeaderTimeout: 10 * time.Second,
 	}
-	go func() {
-		<-c
-		_ = server.Shutdown(ctx)
-		cancel()
-	}()
 
-	if err := server.Serve(listener); err != nil {
-		if !errors.Is(err, http.ErrServerClosed) {
-			logrus.WithError(err).Errorf("Failed to start server")
-			cancel()
-		}
+	if err := serve(signals, listener, server, runtime, cancelRequests, conf.App.DrainDelay, conf.App.ShutdownTimeout); err != nil {
+		logrus.WithError(err).Error("Server stopped with incomplete graceful shutdown")
+	}
+	logrus.Info("Shutting down")
+}
+
+// serve reserves part of the total budget for canceled workers to release their
+// jobs. Ordinary requests keep their context until grace expires.
+func serve(signals context.Context, listener net.Listener, server *http.Server, runtime *route.Runtime, cancelRequests context.CancelFunc, drainDelay, timeout time.Duration) error {
+	served := make(chan error, 1)
+	go func() { served <- server.Serve(listener) }()
+
+	var serveErr error
+	select {
+	case <-signals.Done():
+	case serveErr = <-served:
 	}
 
-	<-ctx.Done()
-	logrus.Info("Shutting down")
+	runtime.BeginDrain()
+
+	total, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	grace, cancelGrace := context.WithTimeout(total, conf.ShutdownGracePeriod(timeout))
+	defer cancelGrace()
+
+	timer := time.NewTimer(drainDelay)
+	select {
+	case <-timer.C:
+	case <-grace.Done():
+	}
+	timer.Stop()
+
+	httpErr := server.Shutdown(grace)
+	if httpErr != nil {
+		cancelRequests()
+		_ = server.Close()
+	}
+
+	runtimeErr := runtime.Shutdown(grace, total)
+	cancelRequests()
+
+	if serveErr != nil && !errors.Is(serveErr, http.ErrServerClosed) {
+		return serveErr
+	}
+	if httpErr != nil {
+		return httpErr
+	}
+	return runtimeErr
 }

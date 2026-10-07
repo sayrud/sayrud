@@ -157,7 +157,7 @@ func TestEngine(t *testing.T) {
 
 	// The input changes again while running, so the stale result is discarded.
 	commit("edit2", collab.Action{Action: collab.ActionSetRecord, RecordUID: "recBBBBBBBBBBB", Values: map[string]interface{}{source: "Rude support"}})
-	waitJobs(func(list []*db.SLShortcutJob) bool { return len(list) == 1 && list[0].Token == 2 })
+	waitJobs(func(list []*db.SLShortcutJob) bool { return len(list) == 1 && list[0].Token == claimed.Token+1 })
 	engine.process(ctx, claimed)
 	require.Nil(t, cell("recBBBBBBBBBBB"))
 

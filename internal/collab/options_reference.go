@@ -11,13 +11,13 @@ import (
 	"github.com/wuhan005/sayrud/internal/db"
 )
 
-// Refresh dependent metadata through normal server commits, outside the source table lock.
+// Refresh dependent metadata through normal server commits, after the source transaction commits.
 func (h *Hub) notifyOptionReferences(ctx context.Context, project *db.Project, table *db.SLTable, operations []Operation) {
-	go func() {
-		if err := h.refreshOptionReferences(context.WithoutCancel(ctx), project, table, operations); err != nil {
+	h.runBackground(ctx, func(ctx context.Context) {
+		if err := h.refreshOptionReferences(ctx, project, table, operations); err != nil {
 			logrus.WithError(err).Error("Failed to refresh referenced options")
 		}
-	}()
+	})
 }
 
 func (h *Hub) refreshOptionReferences(ctx context.Context, project *db.Project, sourceTable *db.SLTable, operations []Operation) error {
