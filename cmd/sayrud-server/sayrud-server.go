@@ -68,13 +68,13 @@ func main() {
 	if err != nil {
 		logrus.WithError(err).Fatal("Failed to start collaboration")
 	}
-	defer rdb.Close()
+	defer func() { _ = rdb.Close() }()
 
 	sqlDB, err := db.DB()
 	if err != nil {
 		logrus.WithError(err).Fatal("Failed to get database connection")
 	}
-	defer sqlDB.Close()
+	defer func() { _ = sqlDB.Close() }()
 
 	address := fmt.Sprintf("0.0.0.0:%d", conf.App.Port)
 	listener, err := net.Listen("tcp", address)

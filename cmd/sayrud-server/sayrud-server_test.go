@@ -79,7 +79,7 @@ func TestServeDrainsReadinessAndFinishesHTTP(t *testing.T) {
 			finished <- err.Error()
 			return
 		}
-		defer response.Body.Close()
+		defer func() { _ = response.Body.Close() }()
 		body, _ := io.ReadAll(response.Body)
 		finished <- string(body)
 	}()
