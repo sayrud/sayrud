@@ -70,7 +70,7 @@ func TestRefreshAccessErrors(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			gormDB := accessTestDB(t, func(tx *gorm.DB) {
 				if tx.Statement.Table == tc.table {
-					tx.AddError(tc.err)
+					_ = tx.AddError(tc.err)
 				}
 				if user, ok := tx.Statement.Dest.(*db.User); ok && tc.disabled {
 					now := time.Now()
@@ -119,7 +119,7 @@ func TestAccessFailureClosesWebSocket(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			gormDB := accessTestDB(t, func(tx *gorm.DB) { tx.AddError(tc.err) })
+			gormDB := accessTestDB(t, func(tx *gorm.DB) { _ = tx.AddError(tc.err) })
 			hub := NewHub(gormDB)
 			done := make(chan error, 1)
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -188,7 +188,7 @@ func TestCommitAccessErrors(t *testing.T) {
 			require.NoError(t, err)
 			require.NoError(t, gormDB.Callback().Query().Before("gorm:query").Register("test:access_error", func(tx *gorm.DB) {
 				if tx.Statement.Table == "user_sessions" {
-					tx.AddError(tc.err)
+					_ = tx.AddError(tc.err)
 				}
 			}))
 			sender := &Client{
