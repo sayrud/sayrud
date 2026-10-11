@@ -28,6 +28,12 @@ const router = createRouter({
       meta: { public: true },
     },
     {
+      path: '/base/:projectUID/workflow/:workflowUID',
+      name: 'base-workflow',
+      component: () => import('@/pages/BasePage.vue'),
+      meta: { public: true },
+    },
+    {
       path: '/base/:projectUID/:tableUID?/:viewUID?',
       name: 'base',
       component: () => import('@/pages/BasePage.vue'),
@@ -72,6 +78,7 @@ const router = createRouter({
         },
         { path: 'site', name: 'admin-site', component: () => import('@/pages/admin/SitePage.vue') },
         { path: 'ai', name: 'admin-ai', component: () => import('@/pages/admin/AIModelPage.vue') },
+        { path: 'mail', name: 'admin-mail', component: () => import('@/pages/admin/MailPage.vue') },
         {
           path: 'field-shortcuts',
           name: 'admin-field-shortcuts',

@@ -127,8 +127,10 @@ func Contexter(gormDB *gorm.DB) flamego.Handler {
 
 		c.ResponseWriter().Header().Set("Server", "Sayrud")
 		c.ResponseWriter().Header().Set("Access-Control-Allow-Origin", "*")
-		c.ResponseWriter().Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-		c.ResponseWriter().Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+		c.ResponseWriter().Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
+		// X-API-Key lets browsers call the API-triggered workflows.
+		c.ResponseWriter().Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-API-Key")
+		c.ResponseWriter().Header().Set("Access-Control-Expose-Headers", "X-Request-Id, Retry-After")
 
 		if ctx.Request().Method == http.MethodOptions {
 			ctx.ResponseWriter().WriteHeader(http.StatusOK)

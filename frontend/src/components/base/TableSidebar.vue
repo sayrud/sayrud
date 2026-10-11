@@ -1,11 +1,16 @@
 <script setup lang="ts">
 import { Message, Modal } from '@arco-design/web-vue'
-import { ChevronsLeft, Copy, Ellipsis, Pencil, Plus, Search, Trash, X } from '@lucide/vue'
+import { ChevronsLeft, Copy, Ellipsis, Link, Pencil, Plus, Search, Table2, Trash, Workflow as WorkflowIcon, X } from '@lucide/vue'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 
+import { apiEndpoint, workflowsApi } from '@/api/workflow'
 import { openMenu } from '@/composables/useContextMenu'
 import { useBaseStore } from '@/stores/base'
+import { useProjectWorkflowsStore } from '@/stores/projectWorkflows'
+import { browserTimezone } from '@/stores/workflowEditor'
+import type { Workflow, WorkflowListItem } from '@/types/workflow'
+import { METHOD_COLORS, triggerMetaOf } from '@/utils/workflow'
 import AppearanceIcon from '@/components/common/AppearanceIcon.vue'
 import AppearancePicker from '@/components/common/AppearancePicker.vue'
 import type { Appearance } from '@/utils/appearance'
@@ -13,8 +18,10 @@ import type { Appearance } from '@/utils/appearance'
 const { t } = useI18n()
 
 const width = defineModel<number>('width', { default: 240 })
-const emit = defineEmits<{ select: [tableUID: string]; collapse: [] }>()
+const props = defineProps<{ activeWorkflowUid?: string }>()
+const emit = defineEmits<{ select: [tableUID: string]; selectWorkflow: [workflowUID: string]; collapse: [] }>()
 const store = useBaseStore()
+const workflows = useProjectWorkflowsStore()
 
 const sidebar = ref<HTMLElement>()
 const maxWidth = ref(0)
@@ -87,6 +94,70 @@ const tables = computed(() => {
   const k = keyword.value.trim().toLowerCase()
   return k ? store.tables.filter((tb) => tb.name.toLowerCase().includes(k)) : store.tables
 })
+const workflowItems = computed(() => {
+  const k = keyword.value.trim().toLowerCase()
+  return k ? workflows.list.filter((w) => `${w.name} ${w.path}`.toLowerCase().includes(k)) : workflows.list
+})
+
+/** Create a blank workflow right away and open its canvas; the trigger type is chosen in the canvas. */
+async function createWorkflow() {
+  const project = store.project
+  if (!project || creating.value) return
+  creating.value = true
+  try {
+    const base = t('workflow.create.defaultName')
+    let name = base
+    for (let i = 2; workflows.list.some((w) => w.name === name); i++) name = `${base} ${i}`
+    const wf: Workflow = await workflowsApi.create(project.uid, { name, triggerType: '', timezone: browserTimezone() })
+    workflows.upsert(wf)
+    emit('selectWorkflow', wf.uid)
+  } catch (e) {
+    Message.error(e instanceof Error ? e.message : String(e))
+  } finally {
+    creating.value = false
+  }
+}
+
+function openWorkflowActions(e: MouseEvent, wf: WorkflowListItem) {
+  const r = (e.currentTarget as HTMLElement).getBoundingClientRect()
+  const project = store.project
+  if (!project) return
+  const copyEndpoint = {
+    label: t('workflow.list.copyEndpoint'),
+    icon: Link,
+    disabled: !wf.publishedPath,
+    onClick: () =>
+      navigator.clipboard?.writeText(apiEndpoint(project.uid, wf.publishedPath)).then(
+        () => Message.success(t('workflow.request.copied')),
+        () => undefined,
+      ),
+  }
+  openMenu(e.type === 'contextmenu' ? e : { x: r.left, y: r.bottom + 4 }, [
+    ...(wf.triggerType === 'api' ? [copyEndpoint, { divider: true as const }] : []),
+    {
+      label: t('workflow.sidebar.delete'),
+      icon: Trash,
+      danger: true,
+      onClick: () =>
+        Modal.warning({
+          title: t('workflow.list.deleteTitle', { name: wf.name }),
+          content: t('workflow.list.deleteContent'),
+          hideCancel: false,
+          okText: t('common.delete'),
+          okButtonProps: { status: 'danger' },
+          onOk: async () => {
+            await workflowsApi.remove(project.uid, wf.uid)
+            workflows.remove(wf.uid)
+            Message.success(t('common.deleted'))
+            if (props.activeWorkflowUid === wf.uid) {
+              const next = store.activeTableUID || store.tables[0]?.uid
+              if (next) emit('select', next)
+            }
+          },
+        }),
+    },
+  ])
+}
 
 const vFocus = { mounted: (el: HTMLInputElement) => (el.focus(), el.select()) }
 
@@ -171,7 +242,22 @@ function openActions(e: MouseEvent, uid: string, name: string) {
         <input v-model="keyword" :placeholder="t('common.search')" @keydown.esc="keyword = ''" />
         <button v-if="keyword" class="icon-btn sm clear" :title="t('common.clear')" @click="keyword = ''"><X :size="13" /></button>
       </label>
-      <a-tooltip v-if="store.canEdit" :content="t('tableSidebar.create')" mini>
+      <a-dropdown v-if="store.canEdit && !store.isPublic" trigger="click" position="bl">
+        <a-tooltip :content="t('tableSidebar.newItem')" mini>
+          <button class="icon-btn" :disabled="creating"><Plus :size="17" /></button>
+        </a-tooltip>
+        <template #content>
+          <a-doption @click="create">
+            <template #icon><Table2 :size="15" /></template>
+            {{ t('tableSidebar.create') }}
+          </a-doption>
+          <a-doption @click="createWorkflow">
+            <template #icon><WorkflowIcon :size="15" /></template>
+            {{ t('workflow.sidebar.create') }}
+          </a-doption>
+        </template>
+      </a-dropdown>
+      <a-tooltip v-else-if="store.canEdit" :content="t('tableSidebar.create')" mini>
         <button class="icon-btn" :disabled="creating" @click="create"><Plus :size="17" /></button>
       </a-tooltip>
       <a-tooltip :content="t('tableSidebar.collapse')" mini>
@@ -183,7 +269,7 @@ function openActions(e: MouseEvent, uid: string, name: string) {
         v-for="table in tables"
         :key="table.uid"
         class="table-item"
-        :class="{ active: table.uid === store.activeTableUID, editable: store.canEdit }"
+        :class="{ active: !activeWorkflowUid && table.uid === store.activeTableUID, editable: store.canEdit }"
         @click="emit('select', table.uid)"
         @dblclick="startRename(table.uid, table.name)"
         @contextmenu="openActions($event, table.uid, table.name)"
@@ -229,6 +315,30 @@ function openActions(e: MouseEvent, uid: string, name: string) {
             <Ellipsis :size="14" />
           </button>
         </template>
+      </div>
+      <div
+        v-for="wf in workflowItems"
+        :key="wf.uid"
+        class="table-item workflow-item editable"
+        :class="{ active: wf.uid === activeWorkflowUid }"
+        @click="emit('selectWorkflow', wf.uid)"
+        @contextmenu.prevent="openWorkflowActions($event, wf)"
+      >
+        <span class="workflow-icon"><WorkflowIcon :size="13" /></span>
+        <span class="table-name ellipsis">{{ wf.name }}</span>
+        <span v-if="wf.triggerType === 'api'" class="workflow-badge method" :class="[METHOD_COLORS[wf.method], { muted: !wf.publishedVersion || !wf.enabled }]">{{ wf.method }}</span>
+        <span
+          v-else-if="wf.triggerType"
+          class="workflow-badge"
+          :class="{ muted: !wf.publishedVersion || !wf.enabled }"
+          :style="{ color: triggerMetaOf(wf.triggerType).color }"
+          :title="triggerMetaOf(wf.triggerType).label"
+        >
+          <component :is="triggerMetaOf(wf.triggerType).icon" :size="13" />
+        </span>
+        <button class="icon-btn sm more" @click.stop="openWorkflowActions($event, wf)">
+          <Ellipsis :size="14" />
+        </button>
       </div>
     </div>
     <div
@@ -361,6 +471,49 @@ function openActions(e: MouseEvent, uid: string, name: string) {
 }
 .table-item:hover .more {
   display: inline-flex;
+}
+.workflow-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  color: #7f3bf5;
+  background: rgba(127, 59, 245, 0.12);
+  flex: none;
+}
+.workflow-badge {
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+}
+.workflow-badge.method {
+  font-family: 'SF Mono', Menlo, Consolas, monospace;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+.workflow-badge.green {
+  color: #14a37f;
+}
+.workflow-badge.arcoblue {
+  color: #3370ff;
+}
+.workflow-badge.orangered {
+  color: #f77234;
+}
+.workflow-badge.purple {
+  color: #7f3bf5;
+}
+.workflow-badge.red {
+  color: #f54a45;
+}
+.workflow-badge.muted {
+  opacity: 0.45;
+}
+.workflow-item:hover .workflow-badge {
+  display: none;
 }
 .rename-input {
   flex: 1;

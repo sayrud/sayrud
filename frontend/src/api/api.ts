@@ -10,6 +10,14 @@
  * ---------------------------------------------------------------
  */
 
+export enum DbWorkflowRunStatus {
+  WorkflowRunQueued = "queued",
+  WorkflowRunRunning = "running",
+  WorkflowRunSucceeded = "succeeded",
+  WorkflowRunFailed = "failed",
+  WorkflowRunRejected = "rejected",
+}
+
 export interface Action {
   /** Action is the type of the action. */
   action:
@@ -140,6 +148,19 @@ export interface AdminFieldShortcut {
   updatedAt: string;
   /** UsedBy is the number of the fields using the shortcut. */
   usedBy: number;
+}
+
+export interface AdminMailSettings {
+  enabled: boolean;
+  fromAddress: string;
+  fromName: string;
+  hasPassword: boolean;
+  host: string;
+  port: number;
+  /** SecretsReady is false if auth.secret_key is not configured, in which case the password cannot be saved. */
+  secretsReady: boolean;
+  security: "tls" | "starttls" | "none";
+  username: string;
 }
 
 export interface AdminOverview {
@@ -336,6 +357,62 @@ export interface CreateTable {
   name: string;
 }
 
+export interface CreateWorkflow {
+  description: string;
+  name: string;
+  /** TableUID is the table used by the API template, or the table watched by the record and date triggers. */
+  tableUID?: string;
+  /** Template is the template of the API trigger: blank, create or query, the latter two generate the default spec from the table of TableUID. */
+  template: "blank" | "create" | "query";
+  /** Timezone is the creator's time zone, e.g. Asia/Shanghai, used by the formulas and the schedule trigger. */
+  timezone?: string;
+  /** TriggerType is the trigger type, an empty value creates a blank workflow without a trigger type chosen yet. */
+  triggerType:
+    | ""
+    | "api"
+    | "record_created"
+    | "record_updated"
+    | "record_matched"
+    | "record_deleted"
+    | "date_reached"
+    | "schedule";
+}
+
+export interface CreateWorkflowKey {
+  name: string;
+}
+
+export interface CreateWorkflowKeyResp {
+  key: WorkflowKey;
+  secret: string;
+}
+
+export interface DebugWorkflow {
+  /** Body is the JSON request body, empty means no request body is sent. */
+  body?: object;
+  /** Draft debugs the saved draft if empty. */
+  draft?: WorkflowSpec;
+  headers?: Record<string, string>;
+  /** Mode is dry_run (rolls back the writes, without running the async flows and external actions) or live (runs for real). */
+  mode: "dry_run" | "live";
+  /** Query, Headers and Body are the request when debugging the API trigger. */
+  query?: Record<string, string>;
+  /** RecordUID is the record used as the triggering record when debugging the record and date triggers, the latest record is used if empty. */
+  recordUID?: string;
+}
+
+export interface DebugWorkflowResp {
+  durationMs: number;
+  errors: WorkflowParamError[];
+  input: object;
+  issues: WorkflowIssue[];
+  jobs: WorkflowPlannedJob[];
+  response: WorkflowResponse;
+  runUID: string;
+  status: "queued" | "succeeded" | "failed" | "rejected";
+  trace: WorkflowTraceStep[];
+}
+
 export interface DeleteAccount {
   /** ConfirmEmail is the own email entered by users without a password. */
   confirmEmail?: string;
@@ -462,6 +539,12 @@ export interface ListTablesResp {
   total: number;
 }
 
+export interface ListWorkflowRunsResp {
+  /** NextCursor is passed as cursor to get the earlier runs, 0 means there are no more. */
+  nextCursor: number;
+  runs: WorkflowRun[];
+}
+
 export interface Operation {
   actions: Action[];
   command: string;
@@ -529,6 +612,16 @@ export interface ProjectListItem {
 export interface ProjectMember {
   role: "owner" | "manager" | "editor" | "viewer";
   user: UserBrief;
+}
+
+export interface PublishWorkflow {
+  /** DraftVersion is the draft version to publish, 409 is returned if the draft has changed. */
+  draftVersion: number;
+}
+
+export interface PublishWorkflowResp {
+  issues: WorkflowIssue[];
+  workflow?: Workflow;
 }
 
 export interface QueryRecords {
@@ -678,8 +771,26 @@ export interface SaveShortcutCredential {
   value?: string;
 }
 
+export interface SaveWorkflowDraft {
+  description: string;
+  draft: WorkflowSpec;
+  /** DraftVersion is the draft version the edit is based on, 409 is returned if someone else has saved it. */
+  draftVersion: number;
+  name: string;
+}
+
+export interface SaveWorkflowDraftResp {
+  draftVersion: number;
+  issues: WorkflowIssue[];
+  updatedAt: string;
+}
+
 export interface SetAuthProviderPositions {
   ids: number[];
+}
+
+export interface SetWorkflowEnabled {
+  enabled: boolean;
 }
 
 export interface SharedProject {
@@ -850,6 +961,21 @@ export interface TestFieldShortcutResp {
   value?: object;
 }
 
+export interface TestMailSettings {
+  clearPassword?: boolean;
+  enabled: boolean;
+  fromAddress: string;
+  fromName: string;
+  host: string;
+  /** Password keeps the existing password if empty, and ClearPassword clears it if true. */
+  password?: string;
+  port: number;
+  security: "tls" | "starttls" | "none";
+  /** To is the recipient of the test email. */
+  to: string;
+  username: string;
+}
+
 export interface TransferProjectOwner {
   userID: number;
 }
@@ -913,6 +1039,19 @@ export interface UpdateLinkShare {
   includeChildren: boolean;
   /** Nil preserves the password, an empty string disables it. */
   password?: string;
+}
+
+export interface UpdateMailSettings {
+  clearPassword?: boolean;
+  enabled: boolean;
+  fromAddress: string;
+  fromName: string;
+  host: string;
+  /** Password keeps the existing password if empty, and ClearPassword clears it if true. */
+  password?: string;
+  port: number;
+  security: "tls" | "starttls" | "none";
+  username: string;
 }
 
 export interface UpdatePassword {
@@ -1037,6 +1176,404 @@ export interface ViewAttrs {
   type?: "grid" | "kanban" | "gallery" | "form";
 }
 
+export interface Workflow {
+  asyncCount: number;
+  createdAt: string;
+  description: string;
+  draft: WorkflowSpec;
+  draftVersion: number;
+  enabled: boolean;
+  /** HasUnpublishedChanges indicates the draft has been modified since the latest publishing. */
+  hasUnpublishedChanges: boolean;
+  /** Issues are the issues in the draft that must be fixed before publishing. */
+  issues: WorkflowIssue[];
+  /** Method and Path are the entry of the API trigger in the draft, empty for other triggers. */
+  method: string;
+  name: string;
+  path: string;
+  publishedAt: string;
+  /** PublishedMethod and PublishedPath are the API entry being served, empty if unpublished or for other triggers. */
+  publishedMethod: string;
+  publishedPath: string;
+  publishedTriggerType: string;
+  publishedVersion: number;
+  stepCount: number;
+  /** TriggerType is the trigger type of the draft, PublishedTriggerType is the trigger type of the published revision, empty if unpublished. */
+  triggerType:
+    | ""
+    | "api"
+    | "record_created"
+    | "record_updated"
+    | "record_matched"
+    | "record_deleted"
+    | "date_reached"
+    | "schedule";
+  uid: string;
+  updatedAt: string;
+}
+
+export interface WorkflowAPITrigger {
+  auth: WorkflowAuth;
+  /** Method is GET, POST, PUT, PATCH or DELETE. */
+  method: string;
+  params: WorkflowParam[];
+  /** Path is a static path relative to the project, e.g. /leads. */
+  path: string;
+  rateLimit: WorkflowRateLimit;
+}
+
+export interface WorkflowAsyncFlow {
+  event: "request_received" | "succeeded";
+  id: string;
+  name?: string;
+  steps: WorkflowStep[];
+}
+
+export interface WorkflowAuth {
+  /** Type is none or api_key; the key is passed via X-API-Key or Authorization: Bearer. */
+  type: "none" | "api_key";
+}
+
+export interface WorkflowBody {
+  /** Fields are the properties of an object. */
+  fields?: WorkflowBodyField[];
+  item?: WorkflowBody;
+  /** Source is the array a map node iterates over, and Item builds each element using the variable item. */
+  source?: WorkflowValue;
+  type: "object" | "value" | "map";
+  /** Value is the value of a value node. */
+  value?: WorkflowValue;
+}
+
+export interface WorkflowBodyField {
+  key: string;
+  value: WorkflowBody;
+}
+
+export interface WorkflowCondition {
+  left: WorkflowValue;
+  op:
+    | "eq"
+    | "neq"
+    | "gt"
+    | "gte"
+    | "lt"
+    | "lte"
+    | "contains"
+    | "not_contains"
+    | "empty"
+    | "not_empty";
+  right?: WorkflowValue;
+}
+
+export interface WorkflowFieldValue {
+  fieldUID: string;
+  value: WorkflowValue;
+}
+
+export interface WorkflowFilter {
+  fieldUID: string;
+  op:
+    | "eq"
+    | "neq"
+    | "gt"
+    | "gte"
+    | "lt"
+    | "lte"
+    | "like"
+    | "in"
+    | "nin"
+    | "empty"
+    | "not_empty";
+  value?: WorkflowValue;
+}
+
+export interface WorkflowHeader {
+  name: string;
+  value: WorkflowValue;
+}
+
+export interface WorkflowIssue {
+  args?: Record<string, string>;
+  code: string;
+  target: string;
+}
+
+export interface WorkflowJob {
+  attempts: number;
+  createdAt: string;
+  error: string;
+  /** Event is the triggering event of the async flow, request_received or succeeded, or the trigger type for the main flow. */
+  event: string;
+  finishedAt: string;
+  flowID: string;
+  id: number;
+  status: "pending" | "running" | "succeeded" | "failed";
+  trace: WorkflowTraceStep[];
+  uncertain: boolean;
+}
+
+export interface WorkflowKey {
+  createdAt: string;
+  id: number;
+  lastUsedAt: string;
+  name: string;
+  prefix: string;
+}
+
+export interface WorkflowListItem {
+  asyncCount: number;
+  createdAt: string;
+  description: string;
+  enabled: boolean;
+  /** HasUnpublishedChanges indicates the draft has been modified since the latest publishing. */
+  hasUnpublishedChanges: boolean;
+  /** Method and Path are the entry of the API trigger in the draft, empty for other triggers. */
+  method: string;
+  name: string;
+  path: string;
+  publishedAt: string;
+  /** PublishedMethod and PublishedPath are the API entry being served, empty if unpublished or for other triggers. */
+  publishedMethod: string;
+  publishedPath: string;
+  publishedTriggerType: string;
+  publishedVersion: number;
+  stepCount: number;
+  /** TriggerType is the trigger type of the draft, PublishedTriggerType is the trigger type of the published revision, empty if unpublished. */
+  triggerType:
+    | ""
+    | "api"
+    | "record_created"
+    | "record_updated"
+    | "record_matched"
+    | "record_deleted"
+    | "date_reached"
+    | "schedule";
+  uid: string;
+  updatedAt: string;
+}
+
+export interface WorkflowParam {
+  /** Default is filled in only when the parameter is missing and must match the type. */
+  default?: object;
+  description?: string;
+  format?: "email" | "url" | "phone";
+  /** ID is the stable identifier of the parameter; renaming the parameter does not change it. */
+  id: string;
+  /** ItemType is the array element type, string or number. */
+  itemType?: "string" | "number";
+  /** Key is the parameter's name in its source, e.g. a JSON property name or a query parameter name. */
+  key: string;
+  max?: number;
+  maxItems?: number;
+  maxLength?: number;
+  min?: number;
+  minLength?: number;
+  /** Options are the allowed enum values; when non-empty, they also constrain the elements of string arrays. */
+  options?: string[];
+  /** Pattern is the regular expression a string must match. */
+  pattern?: string;
+  required: boolean;
+  source: "query" | "header" | "body";
+  type:
+    | "string"
+    | "number"
+    | "integer"
+    | "boolean"
+    | "date"
+    | "datetime"
+    | "enum"
+    | "array";
+}
+
+export interface WorkflowParamError {
+  code: string;
+  message: string;
+  param: string;
+  path: string;
+}
+
+export interface WorkflowPlannedJob {
+  event: string;
+  flowID: string;
+  name: string;
+  /** Queued is false for a dry run, which only lists the flows that would be triggered. */
+  queued: boolean;
+}
+
+export interface WorkflowRateLimit {
+  enabled: boolean;
+  /** Limit is the maximum number of requests allowed per window. */
+  limit: number;
+  /** Window is the window length in seconds. */
+  window: number;
+}
+
+export interface WorkflowRecordTrigger {
+  /** DateFieldUID is the date field for date_reached, and Offset is the offset in minutes from the field's time; negative means earlier. */
+  dateFieldUID?: string;
+  /** Fields are the field UIDs watched by record_updated; empty means any field. */
+  fields?: string[];
+  /** Filters are the conditions a record must satisfy and may only use constant values; record_matched requires at least one condition, and Match is all or any. */
+  filters?: WorkflowFilter[];
+  match?: "all" | "any";
+  offset?: number;
+  tableUID: string;
+}
+
+export interface WorkflowResponse {
+  body: object;
+  headers: Record<string, string>;
+  status: number;
+}
+
+export interface WorkflowRevision {
+  createdAt: string;
+  createdBy: UserBrief;
+  method: string;
+  path: string;
+  triggerType: string;
+  version: number;
+}
+
+export interface WorkflowRun {
+  createdAt: string;
+  durationMs: number;
+  error?: object;
+  event?: object;
+  ip: string;
+  jobs: WorkflowJob[];
+  /** Request, Event, Response, Trace and Error are only returned in the detail, Event is the trigger data of a background trigger. */
+  request?: object;
+  response?: object;
+  status: "queued" | "running" | "succeeded" | "failed" | "rejected";
+  statusCode: number;
+  trace?: WorkflowTraceStep[];
+  /** Trigger is the source of the run: http, debug, or the trigger type of a background trigger. */
+  trigger: string;
+  uid: string;
+  version: number;
+}
+
+export interface WorkflowScheduleTrigger {
+  /** Interval is the interval for minutes and hours; a minute interval is at least 5. */
+  interval?: number;
+  repeat:
+    | "none"
+    | "minutes"
+    | "hours"
+    | "daily"
+    | "workdays"
+    | "weekly"
+    | "monthly";
+  /** Start is the local time of the first run, formatted as 2006-01-02T15:04. */
+  start: string;
+  timezone: string;
+  /** Weekdays are the days of the week for weekly runs; 0 is Sunday. */
+  weekdays?: number[];
+}
+
+export interface WorkflowSort {
+  fieldUID: string;
+  order: "asc" | "desc";
+}
+
+export interface WorkflowStep {
+  body?: WorkflowBody;
+  cc?: WorkflowValue;
+  /** Conditions decide which branch a condition takes. */
+  conditions?: WorkflowCondition[];
+  content?: WorkflowValue;
+  else?: WorkflowStep[];
+  /** Fields are the field values written by create and update. */
+  fields?: WorkflowFieldValue[];
+  /** Filters are the query's filter conditions, all or any of which must hold per Match. */
+  filters?: WorkflowFilter[];
+  headers?: WorkflowHeader[];
+  /** HTTPMethod, URL and Timeout make up the request of an http step; Timeout is in seconds, 1–30. */
+  httpMethod?: string;
+  id: string;
+  /** Limit is the maximum number of records a query returns, 1–100. */
+  limit?: number;
+  /** Match is how a condition's conditions or a query's filters are combined: all means every one must hold, any means at least one; empty is equivalent to all. */
+  match?: "all" | "any";
+  name?: string;
+  /** RecordUID specifies the record to update. */
+  recordUID?: WorkflowValue;
+  sort?: WorkflowSort[];
+  /** Status and Body build the response of a response step, whose headers cannot be set by the flow; Headers and Body are also used as the request of an http step. */
+  status?: number;
+  subject?: WorkflowValue;
+  /** TableUID is the table operated on by query, create and update. */
+  tableUID?: string;
+  then?: WorkflowStep[];
+  timeout?: number;
+  /** To, CC, Subject and Content are the recipients, CC, subject and body of an email step. */
+  to?: WorkflowValue;
+  type:
+    | "query"
+    | "create"
+    | "update"
+    | "condition"
+    | "response"
+    | "email"
+    | "http";
+  url?: WorkflowValue;
+}
+
+export interface WorkflowTraceStep {
+  /** Branch is the branch a condition node entered, then or else. */
+  branch?: string;
+  durationMs: number;
+  error?: string;
+  name?: string;
+  /** Output is the truncated step output. */
+  output?: object;
+  /** Reused means an async retry reused the output of the previous successful attempt. */
+  reused?: boolean;
+  status: "succeeded" | "failed" | "skipped" | "planned";
+  stepID: string;
+  type: string;
+}
+
+export interface WorkflowTrigger {
+  /** API is the request endpoint, authentication and parameters of an api trigger. */
+  api?: WorkflowAPITrigger;
+  /** Name is the display name of the trigger node; when empty, the trigger type's name is shown. */
+  name?: string;
+  /** Record is the table watched by record triggers and date_reached. */
+  record?: WorkflowRecordTrigger;
+  /** Schedule is the execution time of a schedule trigger. */
+  schedule?: WorkflowScheduleTrigger;
+  type:
+    | ""
+    | "api"
+    | "record_created"
+    | "record_updated"
+    | "record_matched"
+    | "record_deleted"
+    | "date_reached"
+    | "schedule";
+}
+
+export interface WorkflowValue {
+  const?: object;
+  formula?: string;
+  kind: "const" | "var" | "template" | "formula";
+  template?: string;
+  var?: string;
+}
+
+export interface WorkflowSpec {
+  /** Async holds the flows an API trigger runs in the background after request events; empty for other triggers. */
+  async: WorkflowAsyncFlow[];
+  /** Steps is the main flow: executed synchronously to build the response for API triggers, and in the background for other triggers. */
+  steps: WorkflowStep[];
+  /** Timezone is the IANA time zone in which formulas handle dates, e.g. Asia/Shanghai; UTC is used when it is empty or invalid. */
+  timezone?: string;
+  trigger: WorkflowTrigger;
+}
+
 export type GetAdminAiSettingsData = AdminAISettings;
 
 export type UpdateAdminAiSettingsData = AdminAISettings;
@@ -1066,6 +1603,12 @@ export type GetAdminFieldShortcutData = AdminFieldShortcut;
 export type UpdateAdminFieldShortcutData = AdminFieldShortcut;
 
 export type DeleteAdminFieldShortcutData = any;
+
+export type GetAdminMailSettingsData = AdminMailSettings;
+
+export type UpdateAdminMailSettingsData = AdminMailSettings;
+
+export type TestAdminMailSettingsData = any;
 
 export type GetAdminOverviewData = AdminOverview;
 
@@ -1231,6 +1774,36 @@ export type PreviewFieldShortcutData = ShortcutPreview[];
 export type GetTableSnapshotData = TableSnapshot;
 
 export type ListViewsData = SLView[];
+
+export type ListWorkflowsData = WorkflowListItem[];
+
+export type CreateWorkflowData = Workflow;
+
+export type GetWorkflowData = Workflow;
+
+export type SaveWorkflowDraftData = SaveWorkflowDraftResp;
+
+export type DeleteWorkflowData = any;
+
+export type DebugWorkflowData = DebugWorkflowResp;
+
+export type SetWorkflowEnabledData = any;
+
+export type RetryWorkflowJobData = any;
+
+export type ListWorkflowKeysData = WorkflowKey[];
+
+export type CreateWorkflowKeyData = CreateWorkflowKeyResp;
+
+export type DeleteWorkflowKeyData = any;
+
+export type PublishWorkflowData = PublishWorkflowResp;
+
+export type ListWorkflowRevisionsData = WorkflowRevision[];
+
+export type ListWorkflowRunsData = ListWorkflowRunsResp;
+
+export type GetWorkflowRunData = WorkflowRun;
 
 export type ResolveLinkShareData = ResolvedLinkShare;
 
@@ -1714,6 +2287,60 @@ export class Api<
       this.request<DeleteAdminFieldShortcutData, string>({
         path: `/admin/field-shortcuts/${shortcutUid}`,
         method: "DELETE",
+        ...params,
+      }),
+
+    /**
+     * @description Requires the admin. The password is not returned.
+     *
+     * @name GetAdminMailSettings
+     * @summary Get the SMTP settings
+     * @request GET:/admin/mail
+     */
+    getAdminMailSettings: (params: RequestParams = {}) =>
+      this.request<GetAdminMailSettingsData, string>({
+        path: `/admin/mail`,
+        method: "GET",
+        format: "json",
+        ...params,
+      }),
+
+    /**
+     * @description Requires the admin. The password is encrypted by auth.secret_key, empty keeps the saved one.
+     *
+     * @name UpdateAdminMailSettings
+     * @summary Update the SMTP settings
+     * @request PUT:/admin/mail
+     */
+    updateAdminMailSettings: (
+      data: UpdateMailSettings,
+      params: RequestParams = {},
+    ) =>
+      this.request<UpdateAdminMailSettingsData, string>({
+        path: `/admin/mail`,
+        method: "PUT",
+        body: data,
+        type: ContentType.Json,
+        format: "json",
+        ...params,
+      }),
+
+    /**
+     * @description Requires the admin. Send an email with the unsaved settings, the saved password is used if it is not given.
+     *
+     * @name TestAdminMailSettings
+     * @summary Send a test email
+     * @request POST:/admin/mail/test
+     */
+    testAdminMailSettings: (
+      data: TestMailSettings,
+      params: RequestParams = {},
+    ) =>
+      this.request<TestAdminMailSettingsData, string>({
+        path: `/admin/mail/test`,
+        method: "POST",
+        body: data,
+        type: ContentType.Json,
         ...params,
       }),
 
@@ -3205,6 +3832,310 @@ export class Api<
     ) =>
       this.request<ListViewsData, string>({
         path: `/projects/${projectUid}/tables/${tableUid}/views`,
+        method: "GET",
+        format: "json",
+        ...params,
+      }),
+
+    /**
+     * No description
+     *
+     * @name ListWorkflows
+     * @summary List workflows
+     * @request GET:/projects/{projectUID}/workflows
+     */
+    listWorkflows: (projectUid: string, params: RequestParams = {}) =>
+      this.request<ListWorkflowsData, string>({
+        path: `/projects/${projectUid}/workflows`,
+        method: "GET",
+        format: "json",
+        ...params,
+      }),
+
+    /**
+     * @description Create a workflow with the trigger, an empty trigger creates a blank workflow whose trigger is chosen later. The API trigger starts from a blank template, or the draft which creates or queries the records of a table.
+     *
+     * @name CreateWorkflow
+     * @summary Create a workflow
+     * @request POST:/projects/{projectUID}/workflows
+     */
+    createWorkflow: (
+      projectUid: string,
+      data: CreateWorkflow,
+      params: RequestParams = {},
+    ) =>
+      this.request<CreateWorkflowData, string>({
+        path: `/projects/${projectUid}/workflows`,
+        method: "POST",
+        body: data,
+        type: ContentType.Json,
+        format: "json",
+        ...params,
+      }),
+
+    /**
+     * @description Return the workflow with its draft and the issues to fix before publishing.
+     *
+     * @name GetWorkflow
+     * @summary Get a workflow
+     * @request GET:/projects/{projectUID}/workflows/{workflowUID}
+     */
+    getWorkflow: (
+      projectUid: string,
+      workflowUid: string,
+      params: RequestParams = {},
+    ) =>
+      this.request<GetWorkflowData, string>({
+        path: `/projects/${projectUid}/workflows/${workflowUid}`,
+        method: "GET",
+        format: "json",
+        ...params,
+      }),
+
+    /**
+     * @description Save the draft based on draftVersion, it responds 409 if others saved the draft since. The settings unrelated to the trigger are dropped.
+     *
+     * @name SaveWorkflowDraft
+     * @summary Save the draft of a workflow
+     * @request PUT:/projects/{projectUID}/workflows/{workflowUID}
+     */
+    saveWorkflowDraft: (
+      projectUid: string,
+      workflowUid: string,
+      data: SaveWorkflowDraft,
+      params: RequestParams = {},
+    ) =>
+      this.request<SaveWorkflowDraftData, string>({
+        path: `/projects/${projectUid}/workflows/${workflowUid}`,
+        method: "PUT",
+        body: data,
+        type: ContentType.Json,
+        format: "json",
+        ...params,
+      }),
+
+    /**
+     * No description
+     *
+     * @name DeleteWorkflow
+     * @summary Delete a workflow
+     * @request DELETE:/projects/{projectUID}/workflows/{workflowUID}
+     */
+    deleteWorkflow: (
+      projectUid: string,
+      workflowUid: string,
+      params: RequestParams = {},
+    ) =>
+      this.request<DeleteWorkflowData, string>({
+        path: `/projects/${projectUid}/workflows/${workflowUid}`,
+        method: "DELETE",
+        ...params,
+      }),
+
+    /**
+     * @description Run the draft. The API trigger runs with the request; the other triggers run with the record (the latest one if not specified) or the current time. dry_run rolls back the writes and skips the asynchronous flows and external actions, live runs them for real and is recorded as a debug run.
+     *
+     * @name DebugWorkflow
+     * @summary Debug a workflow
+     * @request POST:/projects/{projectUID}/workflows/{workflowUID}/debug
+     */
+    debugWorkflow: (
+      projectUid: string,
+      workflowUid: string,
+      data: DebugWorkflow,
+      params: RequestParams = {},
+    ) =>
+      this.request<DebugWorkflowData, string>({
+        path: `/projects/${projectUid}/workflows/${workflowUid}/debug`,
+        method: "POST",
+        body: data,
+        type: ContentType.Json,
+        format: "json",
+        ...params,
+      }),
+
+    /**
+     * @description A disabled workflow ignores its triggers. The schedule restarts from now when it is enabled again, the missed times are skipped.
+     *
+     * @name SetWorkflowEnabled
+     * @summary Enable or disable a workflow
+     * @request PUT:/projects/{projectUID}/workflows/{workflowUID}/enabled
+     */
+    setWorkflowEnabled: (
+      projectUid: string,
+      workflowUid: string,
+      data: SetWorkflowEnabled,
+      params: RequestParams = {},
+    ) =>
+      this.request<SetWorkflowEnabledData, string>({
+        path: `/projects/${projectUid}/workflows/${workflowUid}/enabled`,
+        method: "PUT",
+        body: data,
+        type: ContentType.Json,
+        ...params,
+      }),
+
+    /**
+     * @description Run the failed job again, the steps which succeeded are not run again.
+     *
+     * @name RetryWorkflowJob
+     * @summary Retry a failed background job
+     * @request POST:/projects/{projectUID}/workflows/{workflowUID}/jobs/{jobID}/retry
+     */
+    retryWorkflowJob: (
+      projectUid: string,
+      workflowUid: string,
+      jobId: number,
+      params: RequestParams = {},
+    ) =>
+      this.request<RetryWorkflowJobData, string>({
+        path: `/projects/${projectUid}/workflows/${workflowUid}/jobs/${jobId}/retry`,
+        method: "POST",
+        ...params,
+      }),
+
+    /**
+     * No description
+     *
+     * @name ListWorkflowKeys
+     * @summary List the API keys of a workflow
+     * @request GET:/projects/{projectUID}/workflows/{workflowUID}/keys
+     */
+    listWorkflowKeys: (
+      projectUid: string,
+      workflowUid: string,
+      params: RequestParams = {},
+    ) =>
+      this.request<ListWorkflowKeysData, string>({
+        path: `/projects/${projectUid}/workflows/${workflowUid}/keys`,
+        method: "GET",
+        format: "json",
+        ...params,
+      }),
+
+    /**
+     * @description The secret is only returned once.
+     *
+     * @name CreateWorkflowKey
+     * @summary Create an API key of a workflow
+     * @request POST:/projects/{projectUID}/workflows/{workflowUID}/keys
+     */
+    createWorkflowKey: (
+      projectUid: string,
+      workflowUid: string,
+      data: CreateWorkflowKey,
+      params: RequestParams = {},
+    ) =>
+      this.request<CreateWorkflowKeyData, string>({
+        path: `/projects/${projectUid}/workflows/${workflowUid}/keys`,
+        method: "POST",
+        body: data,
+        type: ContentType.Json,
+        format: "json",
+        ...params,
+      }),
+
+    /**
+     * No description
+     *
+     * @name DeleteWorkflowKey
+     * @summary Delete an API key of a workflow
+     * @request DELETE:/projects/{projectUID}/workflows/{workflowUID}/keys/{keyID}
+     */
+    deleteWorkflowKey: (
+      projectUid: string,
+      workflowUid: string,
+      keyId: number,
+      params: RequestParams = {},
+    ) =>
+      this.request<DeleteWorkflowKeyData, string>({
+        path: `/projects/${projectUid}/workflows/${workflowUid}/keys/${keyId}`,
+        method: "DELETE",
+        ...params,
+      }),
+
+    /**
+     * @description Freeze the draft as a new immutable version which handles the triggers. Nothing is published if issues are returned.
+     *
+     * @name PublishWorkflow
+     * @summary Publish a workflow
+     * @request POST:/projects/{projectUID}/workflows/{workflowUID}/publish
+     */
+    publishWorkflow: (
+      projectUid: string,
+      workflowUid: string,
+      data: PublishWorkflow,
+      params: RequestParams = {},
+    ) =>
+      this.request<PublishWorkflowData, string>({
+        path: `/projects/${projectUid}/workflows/${workflowUid}/publish`,
+        method: "POST",
+        body: data,
+        type: ContentType.Json,
+        format: "json",
+        ...params,
+      }),
+
+    /**
+     * No description
+     *
+     * @name ListWorkflowRevisions
+     * @summary List the published versions of a workflow
+     * @request GET:/projects/{projectUID}/workflows/{workflowUID}/revisions
+     */
+    listWorkflowRevisions: (
+      projectUid: string,
+      workflowUid: string,
+      params: RequestParams = {},
+    ) =>
+      this.request<ListWorkflowRevisionsData, string>({
+        path: `/projects/${projectUid}/workflows/${workflowUid}/revisions`,
+        method: "GET",
+        format: "json",
+        ...params,
+      }),
+
+    /**
+     * No description
+     *
+     * @name ListWorkflowRuns
+     * @summary List the runs of a workflow
+     * @request GET:/projects/{projectUID}/workflows/{workflowUID}/runs
+     */
+    listWorkflowRuns: (
+      projectUid: string,
+      workflowUid: string,
+      query?: {
+        /** Filter by status */
+        status?: "queued" | "running" | "succeeded" | "failed" | "rejected";
+        /** Return the runs older than the cursor */
+        cursor?: number;
+      },
+      params: RequestParams = {},
+    ) =>
+      this.request<ListWorkflowRunsData, string>({
+        path: `/projects/${projectUid}/workflows/${workflowUid}/runs`,
+        method: "GET",
+        query: query,
+        format: "json",
+        ...params,
+      }),
+
+    /**
+     * @description Return the request or the trigger data, the response, the step trace and the background jobs of the run.
+     *
+     * @name GetWorkflowRun
+     * @summary Get a run of a workflow
+     * @request GET:/projects/{projectUID}/workflows/{workflowUID}/runs/{runUID}
+     */
+    getWorkflowRun: (
+      projectUid: string,
+      workflowUid: string,
+      runUid: string,
+      params: RequestParams = {},
+    ) =>
+      this.request<GetWorkflowRunData, string>({
+        path: `/projects/${projectUid}/workflows/${workflowUid}/runs/${runUid}`,
         method: "GET",
         format: "json",
         ...params,

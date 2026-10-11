@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"reflect"
 	"strings"
+	"time"
 
 	"github.com/cockroachdb/errors"
 	"github.com/samber/lo"
@@ -49,6 +50,8 @@ type applier struct {
 	dirty DirtyScope
 	// change is the data changed by the operations, which the field shortcuts regenerate the dependent cells by.
 	change Change
+	// events are the records created, updated or deleted by the operations, which may trigger workflows.
+	events []RecordEvent
 
 	// boolText returns the text of the checkbox values when converting them to text.
 	boolText func(bool) string
@@ -145,6 +148,13 @@ func (a *applier) applyAction(action Action) (*Action, error) {
 		if err := db.NewSLShortcutJobsStore(a.tx).DeleteByRecords(a.ctx, a.table.ID, action.RecordUIDs); err != nil {
 			return nil, errors.Wrap(err, "delete shortcut jobs")
 		}
+		records, err := db.NewSLRecordsStore(a.tx).ListByUIDs(a.ctx, a.table.ID, action.RecordUIDs)
+		if err != nil {
+			return nil, errors.Wrap(err, "list records")
+		}
+		for _, record := range records {
+			a.events = append(a.events, RecordEvent{Kind: RecordDeleted, Record: record})
+		}
 		return &action, db.NewSLRecordsStore(a.tx).DeleteByUIDs(a.ctx, a.table.ID, action.RecordUIDs)
 	case ActionAddField:
 		return a.addField(action)
@@ -207,14 +217,18 @@ func (a *applier) addRecords(actions []Action) ([]Action, error) {
 		dataList = append(dataList, jsonBytes)
 	}
 
-	if _, err := db.NewSLRecordsStore(a.tx).Import(a.ctx, a.table.ID, db.ImportSLRecordsOptions{
+	records, err := db.NewSLRecordsStore(a.tx).Import(a.ctx, a.table.ID, db.ImportSLRecordsOptions{
 		Data: dataList,
 		UIDs: uids,
-	}); err != nil {
+	})
+	if err != nil {
 		if errors.Is(err, db.ErrSLRecordExists) {
 			return nil, rejectf("collab::record_exists")
 		}
 		return nil, errors.Wrap(err, "import records")
+	}
+	for _, record := range records {
+		a.events = append(a.events, RecordEvent{Kind: RecordCreated, Record: record})
 	}
 	return actions, nil
 }
@@ -288,6 +302,9 @@ func (a *applier) setRecords(actions []Action) ([]Action, error) {
 		if err := recordsStore.Update(a.ctx, record.ID, jsonBytes); err != nil {
 			return nil, errors.Wrap(err, "update record")
 		}
+		updated := *record
+		updated.Data, updated.UpdatedAt = datatypes.JSON(jsonBytes), time.Now()
+		a.events = append(a.events, RecordEvent{Kind: RecordUpdated, Record: &updated, Previous: record.Data, Fields: changedKeys(record.Data, jsonBytes)})
 	}
 	return kept, nil
 }
@@ -527,6 +544,11 @@ func (a *applier) setFieldType(action Action) (*Action, error) {
 	if !newType.Check() {
 		return nil, rejectf("collab::invalid_field_type")
 	}
+	if newType != field.Type {
+		if err := a.checkWorkflowReference(field.UID); err != nil {
+			return nil, err
+		}
+	}
 	metadata := action.Field.Metadata
 	if metadata == nil {
 		metadata = map[string]interface{}{}
@@ -611,6 +633,9 @@ func (a *applier) deleteField(action Action) (*Action, error) {
 	if a.fields[0].UID == field.UID {
 		return nil, rejectf("collab::primary_field_undeletable")
 	}
+	if err := a.checkWorkflowReference(field.UID); err != nil {
+		return nil, err
+	}
 	if err := db.NewSLFieldsStore(a.tx).DeleteByID(a.ctx, field.ID); err != nil {
 		return nil, errors.Wrap(err, "delete field")
 	}
@@ -624,6 +649,18 @@ func (a *applier) deleteField(action Action) (*Action, error) {
 		a.change.RemovedShortcuts = append(a.change.RemovedShortcuts, field.UID)
 	}
 	return &action, a.reloadFields()
+}
+
+// checkWorkflowReference rejects deleting or changing the type of a field referenced by a published workflow, renaming is not affected.
+func (a *applier) checkWorkflowReference(fieldUID string) error {
+	wf, err := db.NewWorkflowsStore(a.tx).FindReference(a.ctx, a.table.ProjectID, fieldUID)
+	if err != nil {
+		if errors.Is(err, db.ErrWorkflowNotFound) {
+			return nil
+		}
+		return errors.Wrap(err, "find workflow reference")
+	}
+	return rejectf("collab::field_used_by_workflow", wf.Name)
 }
 
 func (a *applier) view(uid string) (*db.SLView, error) {

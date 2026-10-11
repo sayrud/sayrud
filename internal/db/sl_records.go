@@ -44,6 +44,9 @@ type SLRecordsStore interface {
 	// It returns ErrSLFieldNotFound if any referenced field does not exist, ErrSLFieldNotQueryable if any referenced field is a formula,
 	// and ErrUnsupportedFilterOperation, ErrInvalidFilterValue or ErrInvalidSortOrder if the options are invalid.
 	Query(ctx context.Context, slTableID int64, options QuerySLRecordsOptions) ([]*SLRecord, int64, error)
+	// MatchData checks whether the record values in data match the filters with the same semantics as Query and returns the matching keys; all filters must match if matchAny is false.
+	// data may be keyed by any identifier, e.g. the record UID.
+	MatchData(ctx context.Context, slTableID int64, filters []QuerySLRecordsFilter, matchAny bool, data map[string]json.RawMessage) ([]string, error)
 	// Import creates the records in batch and returns them in the same order as the options.
 	// It returns ErrSLRecordExists if any UID has been used in the table.
 	Import(ctx context.Context, slTableID int64, options ImportSLRecordsOptions) ([]*SLRecord, error)
@@ -157,8 +160,9 @@ type QuerySLRecordsGroup struct {
 
 // QuerySLRecordsOptions are the options of querying the records.
 type QuerySLRecordsOptions struct {
-	// Filter are the conditions the records must all match.
-	Filter []QuerySLRecordsFilter
+	// Filter are the conditions the records must all match, or match any of them if MatchAny is true.
+	Filter   []QuerySLRecordsFilter
+	MatchAny bool
 	// Order are the sort keys applied in order, the newest records come first for ties.
 	Order []QuerySLRecordsSort
 	// Group sorts records by the field values before Order, so records in the same group are adjacent.
@@ -198,12 +202,22 @@ func (db *slRecords) Query(ctx context.Context, slTableID int64, options QuerySL
 	orders = append(orders, "id DESC")
 
 	q := db.WithContext(ctx).Model(&SLRecord{}).Where("sl_table_id = ?", slTableID)
+	conditions := make([]string, 0, len(options.Filter))
+	var args []interface{}
 	for _, filter := range options.Filter {
-		condition, args, err := buildSLRecordFilter(fields[filter.FieldUID], filter)
+		condition, conditionArgs, err := buildSLRecordFilter(fields[filter.FieldUID], filter)
 		if err != nil {
 			return nil, 0, err
 		}
-		q = q.Where(condition, args...)
+		conditions = append(conditions, "("+condition+")")
+		args = append(args, conditionArgs...)
+	}
+	if len(conditions) > 0 {
+		joiner := " AND "
+		if options.MatchAny {
+			joiner = " OR "
+		}
+		q = q.Where("("+strings.Join(conditions, joiner)+")", args...)
 	}
 
 	var count int64
@@ -224,6 +238,44 @@ func (db *slRecords) Query(ctx context.Context, slTableID int64, options QuerySL
 		return nil, 0, errors.Wrap(err, "find")
 	}
 	return records, count, nil
+}
+
+func (db *slRecords) MatchData(ctx context.Context, slTableID int64, filters []QuerySLRecordsFilter, matchAny bool, data map[string]json.RawMessage) ([]string, error) {
+	if len(data) == 0 {
+		return []string{}, nil
+	}
+	if len(filters) == 0 {
+		return lo.Keys(data), nil
+	}
+	fields, err := db.getQueryFields(ctx, slTableID, QuerySLRecordsOptions{Filter: filters})
+	if err != nil {
+		return nil, err
+	}
+	conditions := make([]string, 0, len(filters))
+	var args []interface{}
+	for _, filter := range filters {
+		condition, conditionArgs, err := buildSLRecordFilter(fields[filter.FieldUID], filter)
+		if err != nil {
+			return nil, err
+		}
+		conditions = append(conditions, "("+condition+")")
+		args = append(args, conditionArgs...)
+	}
+	raw, err := json.Marshal(data)
+	if err != nil {
+		return nil, errors.Wrap(err, "encode data")
+	}
+	joiner := " AND "
+	if matchAny {
+		joiner = " OR "
+	}
+	keys := []string{}
+	// The filter conditions reference the data column, which jsonb_each provides for each record.
+	if err := db.WithContext(ctx).Table("jsonb_each(?::jsonb) AS t(key, data)", string(raw)).
+		Where(strings.Join(conditions, joiner), args...).Pluck("key", &keys).Error; err != nil {
+		return nil, errors.Wrap(err, "match")
+	}
+	return keys, nil
 }
 
 var slFieldUIDPattern = regexp.MustCompile(`^[A-Za-z0-9_]+$`)

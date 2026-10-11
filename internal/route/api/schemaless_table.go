@@ -181,6 +181,9 @@ func (schemalessRoute) UpdateTable(ctx context.Context, hub *collab.Hub, project
 // @ID deleteTable
 // @Router /projects/{projectUID}/tables/{tableUID} [delete]
 func (schemalessRoute) DeleteTable(ctx context.Context, hub *collab.Hub, project *db.Project, table *db.SLTable) error {
+	if err := checkWorkflowReference(ctx, db.Workflows, project, table.UID, "table::used_by_workflow"); err != nil {
+		return ctx.ApiErrorFrom(http.StatusBadRequest, err)
+	}
 	if err := db.SLTables.DeleteByID(ctx.Request().Context(), table.ID); err != nil {
 		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to delete sl table")
 		return ctx.ApiServerError()

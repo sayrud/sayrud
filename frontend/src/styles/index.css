@@ -203,6 +203,16 @@ textarea {
   border-radius: 4px;
 }
 
+/* Neutral-color variant of the Arco text button, for secondary actions such as icon buttons. */
+.arco-btn.arco-btn-text.btn-muted:not(.arco-btn-disabled) {
+  color: var(--text-caption);
+}
+.arco-btn.arco-btn-text.btn-muted:not(.arco-btn-disabled):hover,
+.arco-btn.arco-btn-text.btn-muted.active {
+  background: var(--fill-hover);
+  color: var(--text-title);
+}
+
 .tool-btn {
   display: inline-flex;
   align-items: center;

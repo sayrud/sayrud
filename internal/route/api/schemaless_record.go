@@ -8,10 +8,12 @@ import (
 	"bytes"
 	"encoding/json"
 	"net/http"
+	"time"
 
 	"github.com/cockroachdb/errors"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
+	"gorm.io/datatypes"
 	"gorm.io/gorm"
 
 	"github.com/wuhan005/sayrud/internal/collab"
@@ -179,17 +181,17 @@ func recordErrorResponse(err error) (statusCode int, msg string, ok bool) {
 // @Router /projects/{projectUID}/tables/{tableUID}/records [post]
 func (schemalessRoute) CreateRecord(ctx context.Context, hub *collab.Hub, project *db.Project, table *db.SLTable, f form.CreateRecord) error {
 	var slRecord *db.SLRecord
-	if err := hub.Mutate(ctx.Request().Context(), project, table, func(tx *gorm.DB) error {
+	if err := hub.MutateRecords(ctx.Request().Context(), project, table, func(tx *gorm.DB) ([]collab.RecordEvent, error) {
 		jsonBytes, err := routeutil.Validate(ctx.Request().Context(), tx, table.ID, f.Data)
 		if err != nil {
-			return errors.Wrap(err, "validate")
+			return nil, errors.Wrap(err, "validate")
 		}
 
 		slRecord, err = db.NewSLRecordsStore(tx).Create(ctx.Request().Context(), table.ID, jsonBytes)
 		if err != nil {
-			return errors.Wrap(err, "create sl record")
+			return nil, errors.Wrap(err, "create sl record")
 		}
-		return nil
+		return []collab.RecordEvent{{Kind: collab.RecordCreated, Record: slRecord}}, nil
 	}, func() collab.DirtyScope { return collab.DirtyScope{Records: []string{slRecord.UID}} }); err != nil {
 		if statusCode, msg, ok := recordErrorResponse(err); ok {
 			return ctx.ApiError(statusCode, msg)
@@ -220,12 +222,12 @@ func (schemalessRoute) CreateRecord(ctx context.Context, hub *collab.Hub, projec
 // @Router /projects/{projectUID}/tables/{tableUID}/records/batch [post]
 func (schemalessRoute) BatchCreateRecords(ctx context.Context, hub *collab.Hub, project *db.Project, table *db.SLTable, f form.BatchCreateRecords) error {
 	var slRecords []*db.SLRecord
-	if err := hub.Mutate(ctx.Request().Context(), project, table, func(tx *gorm.DB) error {
+	if err := hub.MutateRecords(ctx.Request().Context(), project, table, func(tx *gorm.DB) ([]collab.RecordEvent, error) {
 		dataList := make([]json.RawMessage, 0, len(f.Data))
 		for _, data := range f.Data {
 			jsonBytes, err := routeutil.Validate(ctx.Request().Context(), tx, table.ID, data)
 			if err != nil {
-				return errors.Wrap(err, "validate")
+				return nil, errors.Wrap(err, "validate")
 			}
 			dataList = append(dataList, jsonBytes)
 		}
@@ -235,9 +237,11 @@ func (schemalessRoute) BatchCreateRecords(ctx context.Context, hub *collab.Hub, 
 			Data: dataList,
 		})
 		if err != nil {
-			return errors.Wrap(err, "import sl records")
+			return nil, errors.Wrap(err, "import sl records")
 		}
-		return nil
+		return lo.Map(slRecords, func(r *db.SLRecord, _ int) collab.RecordEvent {
+			return collab.RecordEvent{Kind: collab.RecordCreated, Record: r}
+		}), nil
 	}, func() collab.DirtyScope { return collab.DirtyScope{AllRecords: true} }); err != nil {
 		if statusCode, msg, ok := recordErrorResponse(err); ok {
 			return ctx.ApiError(statusCode, msg)
@@ -268,22 +272,24 @@ func (schemalessRoute) BatchCreateRecords(ctx context.Context, hub *collab.Hub, 
 // @Router /projects/{projectUID}/tables/{tableUID}/records/{recordUID} [put]
 func (schemalessRoute) UpdateRecord(ctx context.Context, hub *collab.Hub, project *db.Project, table *db.SLTable, record *db.SLRecord, f form.UpdateRecord) error {
 	var changed []string
-	if err := hub.Mutate(ctx.Request().Context(), project, table, func(tx *gorm.DB) error {
+	if err := hub.MutateRecords(ctx.Request().Context(), project, table, func(tx *gorm.DB) ([]collab.RecordEvent, error) {
 		latest, err := db.NewSLRecordsStore(tx).GetByID(ctx.Request().Context(), record.ID)
 		if err != nil {
-			return err
+			return nil, err
 		}
 
 		jsonBytes, err := routeutil.Validate(ctx.Request().Context(), tx, record.SLTableID, f.Data)
 		if err != nil {
-			return errors.Wrap(err, "validate")
+			return nil, errors.Wrap(err, "validate")
 		}
 		changed = changedKeys(latest.Data, jsonBytes)
 
 		if err := db.NewSLRecordsStore(tx).Update(ctx.Request().Context(), record.ID, jsonBytes); err != nil {
-			return errors.Wrap(err, "update sl record")
+			return nil, errors.Wrap(err, "update sl record")
 		}
-		return nil
+		updated := *latest
+		updated.Data, updated.UpdatedAt = datatypes.JSON(jsonBytes), time.Now()
+		return []collab.RecordEvent{{Kind: collab.RecordUpdated, Record: &updated, Previous: latest.Data, Fields: changed}}, nil
 	}, func() collab.DirtyScope { return collab.DirtyScope{Records: []string{record.UID}} }); err != nil {
 		if statusCode, msg, ok := recordErrorResponse(err); ok {
 			return ctx.ApiError(statusCode, msg)
@@ -310,11 +316,18 @@ func (schemalessRoute) UpdateRecord(ctx context.Context, hub *collab.Hub, projec
 // @ID deleteRecord
 // @Router /projects/{projectUID}/tables/{tableUID}/records/{recordUID} [delete]
 func (schemalessRoute) DeleteRecord(ctx context.Context, hub *collab.Hub, project *db.Project, table *db.SLTable, record *db.SLRecord) error {
-	if err := hub.Mutate(ctx.Request().Context(), project, table, func(tx *gorm.DB) error {
+	if err := hub.MutateRecords(ctx.Request().Context(), project, table, func(tx *gorm.DB) ([]collab.RecordEvent, error) {
 		if err := db.NewSLShortcutJobsStore(tx).DeleteByRecords(ctx.Request().Context(), table.ID, []string{record.UID}); err != nil {
-			return errors.Wrap(err, "delete shortcut jobs")
+			return nil, errors.Wrap(err, "delete shortcut jobs")
 		}
-		return db.NewSLRecordsStore(tx).DeleteByID(ctx.Request().Context(), record.ID)
+		latest, err := db.NewSLRecordsStore(tx).GetByID(ctx.Request().Context(), record.ID)
+		if err != nil {
+			return nil, err
+		}
+		if err := db.NewSLRecordsStore(tx).DeleteByID(ctx.Request().Context(), record.ID); err != nil {
+			return nil, err
+		}
+		return []collab.RecordEvent{{Kind: collab.RecordDeleted, Record: latest}}, nil
 	}, func() collab.DirtyScope { return collab.DirtyScope{Records: []string{record.UID}} }); err != nil {
 		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to delete sl record")
 		return ctx.ApiServerError()
