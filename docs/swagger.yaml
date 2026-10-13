@@ -7329,15 +7329,26 @@ paths:
         name: workflowUID
         required: true
         type: string
-      - description: Filter by status
-        enum:
-        - queued
-        - running
-        - succeeded
-        - failed
-        - rejected
+      - description: 'Filter by the comma-separated statuses: queued, running, succeeded,
+          failed, rejected'
         in: query
         name: status
+        type: string
+      - description: Return the finished runs taking at least the milliseconds
+        in: query
+        name: minDuration
+        type: integer
+      - description: Return the finished runs taking less than the milliseconds
+        in: query
+        name: maxDuration
+        type: integer
+      - description: Return the runs created at or after the RFC 3339 time
+        in: query
+        name: from
+        type: string
+      - description: Return the runs created before the RFC 3339 time
+        in: query
+        name: to
         type: string
       - description: Return the runs older than the cursor
         in: query

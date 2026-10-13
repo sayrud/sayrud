@@ -324,7 +324,7 @@ function openActions(e: MouseEvent, uid: string, name: string) {
         @click="emit('selectWorkflow', wf.uid)"
         @contextmenu.prevent="openWorkflowActions($event, wf)"
       >
-        <span class="workflow-icon"><WorkflowIcon :size="13" /></span>
+        <span class="workflow-icon"><WorkflowIcon :size="15" /></span>
         <span class="table-name ellipsis">{{ wf.name }}</span>
         <span v-if="wf.triggerType === 'api'" class="workflow-badge method" :class="[METHOD_COLORS[wf.method], { muted: !wf.publishedVersion || !wf.enabled }]">{{ wf.method }}</span>
         <span
@@ -478,9 +478,7 @@ function openActions(e: MouseEvent, uid: string, name: string) {
   justify-content: center;
   width: 22px;
   height: 22px;
-  border-radius: 6px;
-  color: #7f3bf5;
-  background: rgba(127, 59, 245, 0.12);
+  opacity: 0.8;
   flex: none;
 }
 .workflow-badge {

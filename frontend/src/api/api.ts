@@ -4106,8 +4106,16 @@ export class Api<
       projectUid: string,
       workflowUid: string,
       query?: {
-        /** Filter by status */
-        status?: "queued" | "running" | "succeeded" | "failed" | "rejected";
+        /** Filter by the comma-separated statuses: queued, running, succeeded, failed, rejected */
+        status?: string;
+        /** Return the finished runs taking at least the milliseconds */
+        minDuration?: number;
+        /** Return the finished runs taking less than the milliseconds */
+        maxDuration?: number;
+        /** Return the runs created at or after the RFC 3339 time */
+        from?: string;
+        /** Return the runs created before the RFC 3339 time */
+        to?: string;
         /** Return the runs older than the cursor */
         cursor?: number;
       },

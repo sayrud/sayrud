@@ -263,6 +263,39 @@ textarea {
   text-overflow: ellipsis;
 }
 
+/* The resize handle between the debug panel columns takes a zero-width grid column, its hit area extends 4px to each side. */
+.debug-split-handle {
+  position: relative;
+  z-index: 1;
+  outline: none;
+  cursor: col-resize;
+  touch-action: none;
+}
+.debug-split-handle::before {
+  content: '';
+  position: absolute;
+  inset: 0 -4px;
+}
+.debug-split-handle::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -1px;
+  width: 1px;
+  background: var(--line-border);
+}
+.debug-split-handle:hover::after,
+.debug-split-handle:focus-visible::after {
+  width: 2px;
+  background: var(--color-primary);
+}
+body.resizing-debug-split,
+body.resizing-debug-split * {
+  cursor: col-resize !important;
+  user-select: none !important;
+}
+
 /* Arco tweaks */
 /* Dropdowns and date panels must cover the custom FloatingPanel (z-index: 1100). */
 .arco-trigger-popup {

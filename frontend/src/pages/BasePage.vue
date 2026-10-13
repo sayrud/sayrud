@@ -619,6 +619,8 @@ onBeforeUnmount(() => {
 .main-head {
   display: flex;
   align-items: center;
+  flex: none;
+  height: 48px;
   background: var(--bg-body);
   border-bottom: 1px solid var(--line-border);
 }

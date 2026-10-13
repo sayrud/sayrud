@@ -166,8 +166,14 @@ func (db *workflowRuns) GetByUID(ctx context.Context, workflowID int64, runUID s
 
 // ListWorkflowRunsOptions are the options of listing runs.
 type ListWorkflowRunsOptions struct {
-	// Status filters by status if not empty.
-	Status WorkflowRunStatus
+	// Statuses filters by any of the statuses if not empty.
+	Statuses []WorkflowRunStatus
+	// MinDurationMs and MaxDurationMs filter the finished runs by duration in [min, max), 0 means unbounded.
+	MinDurationMs int64
+	MaxDurationMs int64
+	// CreatedFrom and CreatedTo filter by the creation time in [from, to), the zero value means unbounded.
+	CreatedFrom time.Time
+	CreatedTo   time.Time
 	// BeforeID returns the earlier runs, used for pagination.
 	BeforeID int64
 	// Limit defaults to 50.
@@ -176,8 +182,23 @@ type ListWorkflowRunsOptions struct {
 
 func (db *workflowRuns) List(ctx context.Context, workflowID int64, opts ListWorkflowRunsOptions) ([]*WorkflowRun, error) {
 	q := db.WithContext(ctx).Omit("request", "event", "trace").Where("workflow_id = ?", workflowID)
-	if opts.Status != "" {
-		q = q.Where("status = ?", opts.Status)
+	if len(opts.Statuses) > 0 {
+		q = q.Where("status IN ?", opts.Statuses)
+	}
+	if opts.MinDurationMs > 0 || opts.MaxDurationMs > 0 {
+		q = q.Where("finished_at IS NOT NULL")
+	}
+	if opts.MinDurationMs > 0 {
+		q = q.Where("duration_ms >= ?", opts.MinDurationMs)
+	}
+	if opts.MaxDurationMs > 0 {
+		q = q.Where("duration_ms < ?", opts.MaxDurationMs)
+	}
+	if !opts.CreatedFrom.IsZero() {
+		q = q.Where("created_at >= ?", opts.CreatedFrom)
+	}
+	if !opts.CreatedTo.IsZero() {
+		q = q.Where("created_at < ?", opts.CreatedTo)
 	}
 	if opts.BeforeID > 0 {
 		q = q.Where("id < ?", opts.BeforeID)

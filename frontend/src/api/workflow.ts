@@ -29,6 +29,17 @@ export interface DebugRequest {
   body?: unknown
 }
 
+export interface RunsQuery {
+  status?: RunStatus[]
+  /** Duration range [minDuration, maxDuration) in milliseconds, matching finished runs only. */
+  minDuration?: number
+  maxDuration?: number
+  /** Creation time range [from, to) in RFC 3339. */
+  from?: string
+  to?: string
+  cursor?: number
+}
+
 export interface CreateWorkflowRequest {
   name: string
   description?: string
@@ -62,8 +73,11 @@ export const workflowsApi = {
     (await client.projects.debugWorkflow(projectUID, workflowUID, { ...req, draft: asSpec(req.draft), body: req.body as object | undefined })).data as unknown as DebugResult,
   revisions: async (projectUID: string, workflowUID: string) =>
     (await client.projects.listWorkflowRevisions(projectUID, workflowUID)).data as unknown as WorkflowRevision[],
-  runs: async (projectUID: string, workflowUID: string, params: { status?: RunStatus; cursor?: number } = {}) =>
-    (await client.projects.listWorkflowRuns(projectUID, workflowUID, params)).data as unknown as { runs: WorkflowRun[]; nextCursor: number },
+  runs: async (projectUID: string, workflowUID: string, params: RunsQuery = {}) =>
+    (await client.projects.listWorkflowRuns(projectUID, workflowUID, {
+      ...params,
+      status: params.status?.length ? params.status.join(',') : undefined,
+    })).data as unknown as { runs: WorkflowRun[]; nextCursor: number },
   run: async (projectUID: string, workflowUID: string, runUID: string) =>
     (await client.projects.getWorkflowRun(projectUID, workflowUID, runUID)).data as unknown as WorkflowRun,
   retryJob: async (projectUID: string, workflowUID: string, jobID: number) => {

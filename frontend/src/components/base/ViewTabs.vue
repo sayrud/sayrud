@@ -133,7 +133,7 @@ function onDrop() {
   display: flex;
   align-items: center;
   gap: 4px;
-  height: 44px;
+  height: 47px;
   padding: 0 12px;
   background: var(--bg-body);
   flex: none;
@@ -173,7 +173,7 @@ function onDrop() {
   position: absolute;
   left: 10px;
   right: 10px;
-  bottom: -7px;
+  bottom: -8.5px;
   height: 2px;
   border-radius: 1px;
   background: var(--color-primary);

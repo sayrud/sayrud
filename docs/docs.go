@@ -5714,16 +5714,33 @@ const docTemplate = `{
                         "required": true
                     },
                     {
-                        "enum": [
-                            "queued",
-                            "running",
-                            "succeeded",
-                            "failed",
-                            "rejected"
-                        ],
                         "type": "string",
-                        "description": "Filter by status",
+                        "description": "Filter by the comma-separated statuses: queued, running, succeeded, failed, rejected",
                         "name": "status",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Return the finished runs taking at least the milliseconds",
+                        "name": "minDuration",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Return the finished runs taking less than the milliseconds",
+                        "name": "maxDuration",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Return the runs created at or after the RFC 3339 time",
+                        "name": "from",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Return the runs created before the RFC 3339 time",
+                        "name": "to",
                         "in": "query"
                     },
                     {

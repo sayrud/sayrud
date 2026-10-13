@@ -499,7 +499,11 @@ type ListWorkflowRunsResp struct {
 // @Produce json
 // @Param projectUID path string true "Project UID"
 // @Param workflowUID path string true "Workflow UID"
-// @Param status query string false "Filter by status" Enums(queued, running, succeeded, failed, rejected)
+// @Param status query string false "Filter by the comma-separated statuses: queued, running, succeeded, failed, rejected"
+// @Param minDuration query int false "Return the finished runs taking at least the milliseconds"
+// @Param maxDuration query int false "Return the finished runs taking less than the milliseconds"
+// @Param from query string false "Return the runs created at or after the RFC 3339 time"
+// @Param to query string false "Return the runs created before the RFC 3339 time"
 // @Param cursor query int false "Return the runs older than the cursor"
 // @Success 200 {object} ListWorkflowRunsResp
 // @Failure 403 {string} string "Permission denied"
@@ -510,9 +514,26 @@ type ListWorkflowRunsResp struct {
 func (workflowRoute) ListRuns(ctx context.Context, wf *db.Workflow) error {
 	rctx := ctx.Request().Context()
 	const limit = 30
-	runs, err := db.WorkflowRuns.List(rctx, wf.ID, db.ListWorkflowRunsOptions{
-		Status: db.WorkflowRunStatus(ctx.Query("status")), BeforeID: int64(ctx.QueryInt64("cursor")), Limit: limit,
-	})
+	opts := db.ListWorkflowRunsOptions{
+		MinDurationMs: max(int64(ctx.QueryInt64("minDuration")), 0),
+		MaxDurationMs: max(int64(ctx.QueryInt64("maxDuration")), 0),
+		BeforeID:      int64(ctx.QueryInt64("cursor")),
+		Limit:         limit,
+	}
+	for _, s := range strings.Split(ctx.Query("status"), ",") {
+		switch status := db.WorkflowRunStatus(strings.TrimSpace(s)); status {
+		case db.WorkflowRunQueued, db.WorkflowRunRunning, db.WorkflowRunSucceeded, db.WorkflowRunFailed, db.WorkflowRunRejected:
+			opts.Statuses = append(opts.Statuses, status)
+		}
+	}
+	// Malformed times are ignored.
+	if t, err := time.Parse(time.RFC3339, ctx.Query("from")); err == nil {
+		opts.CreatedFrom = t
+	}
+	if t, err := time.Parse(time.RFC3339, ctx.Query("to")); err == nil {
+		opts.CreatedTo = t
+	}
+	runs, err := db.WorkflowRuns.List(rctx, wf.ID, opts)
 	if err != nil {
 		logrus.WithContext(rctx).WithError(err).Error("Failed to list workflow runs")
 		return ctx.ApiServerError()

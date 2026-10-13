@@ -7,6 +7,7 @@ import { useI18n } from 'vue-i18n'
 import { workflowsApi } from '@/api/workflow'
 import CodeEditor from '@/components/common/CodeEditor.vue'
 import TraceList from '@/components/workflow/TraceList.vue'
+import { useDebugSplit } from '@/composables/useDebugSplit'
 import { useWorkflowEditorStore } from '@/stores/workflowEditor'
 import type { SelectOption, SLRecord } from '@/types/bitable'
 import type { DebugResult, RunStatus, WorkflowSpec, WorkflowTraceStep } from '@/types/workflow'
@@ -27,6 +28,8 @@ const records = ref<SLRecord[]>([])
 const loadingRecords = ref(false)
 const running = ref(false)
 const result = ref<DebugResult | null>(null)
+const bodyEl = ref<HTMLElement>()
+const split = useDebugSplit(bodyEl, 280)
 /** Live runs execute in the background; poll the run record until it finishes. */
 const liveStatus = ref<RunStatus | null>(null)
 const liveError = ref('')
@@ -154,7 +157,7 @@ const resultTab = ref<'trace' | 'input'>('trace')
       <a-button type="text" size="small" class="btn-muted" :title="t('common.collapse')" :aria-label="t('common.collapse')" @click="emit('close')"><template #icon><X :size="15" /></template></a-button>
     </header>
 
-    <div class="debug-body">
+    <div ref="bodyEl" class="debug-body" :style="{ gridTemplateColumns: split.columns.value }">
       <div class="req">
         <div class="req-title">{{ t('workflow.debug.triggerData') }}</div>
         <template v-if="withRecord">
@@ -171,6 +174,18 @@ const resultTab = ref<'trace' | 'input'>('trace')
         <div v-else class="req-note">{{ t('workflow.debug.scheduleNote') }}</div>
         <div v-if="mode === 'live'" class="live-warn">{{ t('workflow.debug.liveWarn') }}</div>
       </div>
+
+      <div
+        class="debug-split-handle"
+        role="separator"
+        tabindex="0"
+        aria-orientation="vertical"
+        aria-valuemin="0"
+        aria-valuemax="100"
+        :aria-valuenow="split.percent.value"
+        :aria-label="t('workflow.debug.resize')"
+        v-on="split.handlers"
+      />
 
       <div class="res">
         <template v-if="result && status">
@@ -249,15 +264,14 @@ const resultTab = ref<'trace' | 'input'>('trace')
   flex: 1;
   min-height: 0;
   display: grid;
-  grid-template-columns: minmax(280px, 2fr) minmax(0, 3fr);
 }
 .req {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  min-width: 0;
   min-height: 0;
   padding: 12px 16px;
-  border-right: 1px solid var(--line-border);
   overflow: auto;
 }
 .req-title {

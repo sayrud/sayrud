@@ -7,6 +7,7 @@ import { useI18n } from 'vue-i18n'
 import { apiEndpoint, workflowsApi } from '@/api/workflow'
 import CodeEditor from '@/components/common/CodeEditor.vue'
 import TraceList from '@/components/workflow/TraceList.vue'
+import { useDebugSplit } from '@/composables/useDebugSplit'
 import { useWorkflowEditorStore } from '@/stores/workflowEditor'
 import type { DebugResult, WorkflowSpec } from '@/types/workflow'
 import { eventLabel, METHOD_COLORS, sampleRequest } from '@/utils/workflow'
@@ -25,6 +26,8 @@ const query = reactive<{ key: string; value: string }[]>([])
 const headers = reactive<{ key: string; value: string }[]>([])
 const running = ref(false)
 const result = ref<DebugResult | null>(null)
+const bodyEl = ref<HTMLElement>()
+const split = useDebugSplit(bodyEl, 300)
 
 const bodyInvalid = computed(() => {
   if (!body.value.trim()) return false
@@ -106,7 +109,7 @@ function addRow(list: { key: string; value: string }[]) {
       <a-button type="text" size="small" class="btn-muted" :title="t('common.collapse')" :aria-label="t('common.collapse')" @click="emit('close')"><template #icon><X :size="15" /></template></a-button>
     </header>
 
-    <div class="debug-body">
+    <div ref="bodyEl" class="debug-body" :style="{ gridTemplateColumns: split.columns.value }">
       <div class="req">
         <div class="req-tabs">
           <a-radio-group v-model="tab" type="button" size="mini">
@@ -135,6 +138,18 @@ function addRow(list: { key: string; value: string }[]) {
         </div>
         <div v-if="mode === 'live'" class="live-warn">{{ t('workflow.debug.liveWarn') }}</div>
       </div>
+
+      <div
+        class="debug-split-handle"
+        role="separator"
+        tabindex="0"
+        aria-orientation="vertical"
+        aria-valuemin="0"
+        aria-valuemax="100"
+        :aria-valuenow="split.percent.value"
+        :aria-label="t('workflow.debug.resize')"
+        v-on="split.handlers"
+      />
 
       <div class="res">
         <template v-if="result">
@@ -228,15 +243,13 @@ function addRow(list: { key: string; value: string }[]) {
   flex: 1;
   min-height: 0;
   display: grid;
-  grid-template-columns: minmax(300px, 2fr) minmax(0, 3fr);
 }
 .req {
   display: flex;
   flex-direction: column;
+  min-width: 0;
   min-height: 0;
-  border-right: 1px solid var(--line-border);
-}
-.req-tabs {
+}.req-tabs {
   display: flex;
   align-items: center;
   justify-content: space-between;

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Message, Modal } from '@arco-design/web-vue'
-import { CircleAlert, CircleCheck, CloudCheck, CloudOff, FlaskConical, History, LoaderCircle, PanelLeftOpen, Rocket, Send, Workflow } from '@lucide/vue'
+import { CircleAlert, CloudOff, FlaskConical, History, PanelLeftOpen, Rocket, Send, Workflow } from '@lucide/vue'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
@@ -87,27 +87,7 @@ watch(
   { deep: true },
 )
 
-const saveIndicator = computed(() => {
-  switch (store.saveState) {
-    case 'saving':
-      return { icon: LoaderCircle, text: t('workflow.editor.saving'), cls: 'saving' }
-    case 'dirty':
-      return { icon: LoaderCircle, text: t('workflow.editor.unsaved'), cls: 'dirty' }
-    case 'error':
-    case 'conflict':
-      return { icon: CloudOff, text: t('workflow.editor.saveFailed'), cls: 'error' }
-    default:
-      return { icon: CloudCheck, text: t('workflow.editor.saved'), cls: 'saved' }
-  }
-})
-
-const publishState = computed(() => {
-  const api = store.workflow
-  if (!api) return null
-  if (!api.publishedVersion) return { color: 'gray', text: t('workflow.editor.unpublished') }
-  if (api.hasUnpublishedChanges) return { color: 'orangered', text: t('workflow.editor.changed', { version: api.publishedVersion }) }
-  return { color: 'green', text: t('workflow.editor.published', { version: api.publishedVersion }) }
-})
+const saveFailed = computed(() => store.saveState === 'error' || store.saveState === 'conflict')
 
 function issueTargetName(issue: WorkflowIssue) {
   const [kind, id] = issue.target.split(':')
@@ -134,7 +114,7 @@ function locateIssue(issue: WorkflowIssue) {
 }
 
 async function publish() {
-  if (!store.workflow || publishing.value) return
+  if (!store.workflow || publishing.value) return false
   publishing.value = true
   try {
     await store.flush()
@@ -143,31 +123,45 @@ async function publish() {
       store.issues = resp.issues
       issuesOpen.value = true
       Message.warning(t('workflow.editor.publishBlocked', { n: resp.issues.length }))
-      return
+      return false
     }
     if (resp.workflow) store.setWorkflow(resp.workflow)
     justPublished.value = true
     publishOpen.value = true
+    return true
   } catch (e) {
     Message.error(e instanceof Error ? e.message : String(e))
+    return false
   } finally {
     publishing.value = false
   }
 }
 
-function showPublishInfo() {
-  justPublished.value = false
-  publishOpen.value = true
+// The switch shows whether the workflow is running: published and enabled. Turning it on publishes an unpublished workflow first.
+const running = computed(() => !!store.workflow?.publishedVersion && !!store.workflow.enabled)
+const toggling = ref(false)
+
+async function setEnabled(enabled: boolean) {
+  if (!store.workflow) return
+  await workflowsApi.setEnabled(store.projectUID, store.workflow.uid, enabled)
+  store.workflow.enabled = enabled
 }
 
-async function toggleEnabled(enabled: boolean | string | number) {
-  if (!store.workflow) return
+async function toggleRunning(value: boolean | string | number) {
+  if (!store.workflow || toggling.value) return
+  const enabled = !!value
+  toggling.value = true
   try {
-    await workflowsApi.setEnabled(store.projectUID, store.workflow.uid, !!enabled)
-    store.workflow.enabled = !!enabled
-    Message.success(enabled ? t('workflow.editor.enabledMsg') : t('workflow.editor.disabledMsg'))
+    if (enabled && !store.workflow.publishedVersion) {
+      if (!(await publish())) return
+      if (!store.workflow.enabled) await setEnabled(true)
+      return
+    }
+    await setEnabled(enabled)
   } catch (e) {
     Message.error(e instanceof Error ? e.message : String(e))
+  } finally {
+    toggling.value = false
   }
 }
 
@@ -209,23 +203,22 @@ onBeforeUnmount(() => {
       <template v-if="store.workflow && store.workflow.uid === workflowUid">
         <a-input v-if="editingName" ref="nameInput" v-model="store.name" size="small" class="name-input" :max-length="64" @press-enter="finishRename" @keydown.esc="finishRename" @blur="finishRename" />
         <span v-else class="workflow-name" :class="{ readonly: store.readonly }" :title="store.readonly ? undefined : t('workflow.editor.renameHint')" @click="startRename">{{ store.name }}</span>
-        <a-tag v-if="publishState" size="small" :color="publishState.color" class="state-tag" @click="showPublishInfo">{{ publishState.text }}</a-tag>
-        <a-tag v-if="store.workflow.publishedVersion && !store.workflow.enabled" size="small" color="red">{{ t('workflow.editor.disabledTag') }}</a-tag>
-        <span v-if="!store.readonly" class="save-state" :class="saveIndicator.cls">
-          <component :is="saveIndicator.icon" :size="14" />
-          <span class="save-text">{{ saveIndicator.text }}</span>
-        </span>
-        <a-tag v-else size="small">{{ t('workflow.editor.readonly') }}</a-tag>
+        <span class="head-divider" />
+        <a-switch :model-value="running" :loading="toggling" :disabled="!store.canManage" @change="toggleRunning" />
         <span class="spacer" />
-        <a-popover v-model:popup-visible="issuesOpen" trigger="click" position="br" :content-style="{ padding: 0 }">
-          <a-button size="small" shape="round" :status="store.issues.length ? 'danger' : 'success'">
-            <template #icon><component :is="store.issues.length ? CircleAlert : CircleCheck" :size="15" /></template>
-            {{ store.issues.length ? t('workflow.editor.issues', { n: store.issues.length }) : t('workflow.editor.noIssues') }}
+        <span v-if="saveFailed" class="save-error">
+          <CloudOff :size="14" />
+          {{ t('workflow.editor.saveFailed') }}
+        </span>
+        <a-popover v-if="store.issues.length" v-model:popup-visible="issuesOpen" trigger="click" position="br" :content-style="{ padding: 0 }">
+          <a-button size="small" shape="round" status="danger">
+            <template #icon><CircleAlert :size="15" /></template>
+            {{ t('workflow.editor.issues', { n: store.issues.length }) }}
           </a-button>
           <template #content>
             <div class="issues-pop">
-              <div class="issues-title">{{ store.issues.length ? t('workflow.editor.issuesTitle') : t('workflow.editor.noIssuesHint') }}</div>
-              <a-list v-if="store.issues.length" :bordered="false" size="small" hoverable :split="false">
+              <div class="issues-title">{{ t('workflow.editor.issuesTitle') }}</div>
+              <a-list :bordered="false" size="small" hoverable :split="false">
                 <a-list-item v-for="(issue, i) in store.issues" :key="i" class="issue-item" @click="locateIssue(issue)">
                   <a-list-item-meta :title="issueMessage(issue)" :description="issueTargetName(issue)" />
                 </a-list-item>
@@ -241,9 +234,6 @@ onBeforeUnmount(() => {
           <template #icon><History :size="14" /></template>
           {{ t('workflow.editor.runs') }}
         </a-button>
-        <a-tooltip v-if="store.workflow.publishedVersion && store.canManage" :content="t('workflow.editor.enableTip')">
-          <a-switch :model-value="store.workflow.enabled" size="small" @change="toggleEnabled" />
-        </a-tooltip>
         <a-button v-if="store.canManage" type="primary" size="small" :loading="publishing" @click="publish">
           <template #icon><component :is="store.workflow.publishedVersion ? Send : Rocket" :size="14" /></template>
           {{ t('workflow.editor.publish') }}
@@ -300,11 +290,10 @@ onBeforeUnmount(() => {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 26px;
-  height: 26px;
-  border-radius: 6px;
-  color: #7f3bf5;
-  background: rgba(127, 59, 245, 0.1);
+  width: 22px;
+  height: 22px;
+  color: var(--text-title);
+  opacity: 0.8;
 }
 .workflow-name {
   flex: 0 1 auto;
@@ -332,26 +321,17 @@ onBeforeUnmount(() => {
   font-size: 15px;
   font-weight: 600;
 }
-.state-tag {
-  cursor: pointer;
+.head-divider {
+  width: 1px;
+  height: 16px;
+  background: var(--line-border);
 }
-.save-state {
+.save-error {
   display: inline-flex;
   align-items: center;
   gap: 4px;
   font-size: 12px;
-  color: var(--text-placeholder);
-}
-.save-state.saving svg {
-  animation: spin 1s linear infinite;
-}
-.save-state.error {
   color: var(--color-danger);
-}
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
 }
 .spacer {
   flex: 1;
@@ -393,10 +373,5 @@ onBeforeUnmount(() => {
   min-width: 0;
   display: flex;
   flex-direction: column;
-}
-@media (max-width: 1280px) {
-  .save-text {
-    display: none;
-  }
 }
 </style>

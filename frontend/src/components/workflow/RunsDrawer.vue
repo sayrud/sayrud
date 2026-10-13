@@ -5,7 +5,7 @@ import dayjs from 'dayjs'
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
-import { workflowsApi } from '@/api/workflow'
+import { type RunsQuery, workflowsApi } from '@/api/workflow'
 import StateIllustration from '@/components/common/StateIllustration.vue'
 import { useWorkflowEditorStore } from '@/stores/workflowEditor'
 import type { AsyncEvent, JobStatus, RunStatus, TriggerType, WorkflowJob, WorkflowRun, WorkflowTraceStep } from '@/types/workflow'
@@ -15,7 +15,9 @@ const visible = defineModel<boolean>('visible', { required: true })
 const { t } = useI18n()
 const store = useWorkflowEditorStore()
 
-const status = ref<RunStatus | ''>('')
+const statuses = ref<RunStatus[]>([])
+const duration = ref<DurationKey>()
+const dateRange = ref<string[]>()
 const runs = ref<WorkflowRun[]>([])
 const cursor = ref(0)
 const loading = ref(false)
@@ -29,6 +31,36 @@ const RUN_STATUS: Record<RunStatus, { color: string; label: () => string }> = {
   running: { color: 'arcoblue', label: () => t('workflow.runs.running') },
   queued: { color: 'gray', label: () => t('workflow.runs.queued') },
 }
+const statusOptions = computed(() =>
+  (['running', 'succeeded', 'failed', 'queued', 'rejected'] as RunStatus[])
+    .filter((s) => s !== 'rejected' || store.spec?.trigger.type === 'api')
+    .map((s) => ({ value: s, label: RUN_STATUS[s].label() })),
+)
+
+type DurationKey = 'lt1s' | '1to5s' | '5to30s' | 'gt30s'
+const DURATIONS: Record<DurationKey, { min?: number; max?: number; label: () => string }> = {
+  lt1s: { max: 1000, label: () => t('workflow.runs.durationLt1s') },
+  '1to5s': { min: 1000, max: 5000, label: () => t('workflow.runs.duration1to5s') },
+  '5to30s': { min: 5000, max: 30000, label: () => t('workflow.runs.duration5to30s') },
+  gt30s: { min: 30000, label: () => t('workflow.runs.durationGt30s') },
+}
+const durationOptions = computed(() => (Object.keys(DURATIONS) as DurationKey[]).map((k) => ({ value: k, label: DURATIONS[k].label() })))
+
+const filtered = computed(() => statuses.value.length > 0 || !!duration.value || !!dateRange.value?.length)
+
+function query(): RunsQuery {
+  const d = duration.value ? DURATIONS[duration.value] : undefined
+  const [from, to] = dateRange.value ?? []
+  return {
+    status: statuses.value,
+    minDuration: d?.min,
+    maxDuration: d?.max,
+    // Whole days in the local time zone, the end date is inclusive.
+    from: from ? dayjs(from).startOf('day').toISOString() : undefined,
+    to: to ? dayjs(to).add(1, 'day').startOf('day').toISOString() : undefined,
+  }
+}
+
 const JOB_STATUS: Record<JobStatus, { color: string; label: () => string }> = {
   pending: { color: 'gray', label: () => t('workflow.runs.jobPending') },
   running: { color: 'arcoblue', label: () => t('workflow.runs.running') },
@@ -50,7 +82,7 @@ async function load(more = false) {
   if (!store.workflow) return
   loading.value = true
   try {
-    const resp = await workflowsApi.runs(store.projectUID, store.workflow.uid, { status: status.value || undefined, cursor: more ? cursor.value : undefined })
+    const resp = await workflowsApi.runs(store.projectUID, store.workflow.uid, { ...query(), cursor: more ? cursor.value : undefined })
     runs.value = more ? [...runs.value, ...resp.runs] : resp.runs
     cursor.value = resp.nextCursor
   } catch (e) {
@@ -88,7 +120,7 @@ watch(visible, (v) => {
     void load()
   }
 })
-watch(status, () => void load())
+watch([statuses, duration, dateRange], () => void load())
 
 const pretty = (v: unknown) => JSON.stringify(v ?? null, null, 2)
 const fmt = (v: string) => dayjs(v).format('YYYY-MM-DD HH:mm:ss')
@@ -120,15 +152,31 @@ function flowName(job: WorkflowJob) {
 
     <template v-if="!detail">
       <div class="toolbar">
-        <a-radio-group v-model="status" type="button" size="small">
-          <a-radio value="">{{ t('workflow.runs.all') }}</a-radio>
-          <template v-for="(s, key) in RUN_STATUS" :key="key">
-            <a-radio v-if="key !== 'rejected' || store.spec?.trigger.type === 'api'" :value="key">{{ s.label() }}</a-radio>
-          </template>
-        </a-radio-group>
-        <a-button size="small" :loading="loading" @click="load()">
-          <template #icon><RefreshCw :size="13" /></template>
-          {{ t('workflow.runs.refresh') }}
+        <a-select
+          v-model="statuses"
+          :options="statusOptions"
+          multiple
+          allow-clear
+          :max-tag-count="1"
+          :placeholder="t('workflow.runs.statusPlaceholder')"
+          class="filter-status"
+        />
+        <a-select
+          v-model="duration"
+          :options="durationOptions"
+          allow-clear
+          :placeholder="t('workflow.runs.durationPlaceholder')"
+          class="filter-duration"
+        />
+        <a-range-picker
+          v-model="dateRange"
+          value-format="YYYY-MM-DD"
+          :placeholder="[t('workflow.runs.startDate'), t('workflow.runs.endDate')]"
+          class="filter-date"
+        />
+        <span class="spacer" />
+        <a-button :loading="loading" :title="t('workflow.runs.refresh')" :aria-label="t('workflow.runs.refresh')" @click="load()">
+          <template #icon><RefreshCw :size="14" /></template>
         </a-button>
       </div>
       <a-spin :loading="loading && !runs.length" class="list-spin">
@@ -153,7 +201,7 @@ function flowName(job: WorkflowJob) {
         </a-list>
         <div v-if="!loading && !runs.length" class="empty">
           <StateIllustration name="no-results" :width="120" />
-          <span>{{ t('workflow.runs.empty') }}</span>
+          <span>{{ filtered ? t('workflow.runs.noMatch') : t('workflow.runs.empty') }}</span>
         </div>
         <a-button v-if="cursor" long class="more" :loading="loading" @click="load(true)">{{ t('workflow.runs.loadMore') }}</a-button>
       </a-spin>
@@ -247,8 +295,17 @@ function flowName(job: WorkflowJob) {
 .toolbar {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 8px;
   margin-bottom: 12px;
+}
+.filter-status {
+  width: 200px;
+}
+.filter-duration {
+  width: 130px;
+}
+.filter-date {
+  width: 250px;
 }
 .list-spin,
 .detail {
