@@ -106,15 +106,15 @@ func TestRunQueryMatchAnyAndFormula(t *testing.T) {
 			},
 		}},
 		Steps: []Step{
-			{ID: "q", Type: StepQuery, TableUID: f.table.UID, Match: "any", Filters: []Filter{
+			{ID: "q", Type: StepQuery, Config: &QueryConfig{TableUID: f.table.UID, Match: "any", Filters: []Filter{
 				{FieldUID: f.name.UID, Op: "eq", Value: vp("input.a")},
 				{FieldUID: f.name.UID, Op: "eq", Value: &Value{Kind: ValueFormula, Formula: `UPPER(LEFT({input.b}, 1)) & MID({input.b}, 2, 10)`}},
-			}},
-			{ID: "respond", Type: StepResponse, Status: 200, Body: &Body{Type: BodyObject, Fields: []BodyField{
+			}}},
+			{ID: "respond", Type: StepResponse, Config: &ResponseConfig{Status: 200, Body: &Body{Type: BodyObject, Fields: []BodyField{
 				{Key: "total", Value: Body{Type: BodyValue, Value: vp("steps.q.total")}},
 				{Key: "summary", Value: Body{Type: BodyValue, Value: &Value{Kind: ValueFormula, Formula: `"found " & {steps.q.total} & IF({steps.q.found}, "!", "?")`}}},
 				{Key: "double", Value: Body{Type: BodyValue, Value: &Value{Kind: ValueFormula, Formula: `{steps.q.total} * 2`}}},
-			}}},
+			}}}},
 		},
 		Async: []AsyncFlow{},
 	}
@@ -132,8 +132,9 @@ func TestRunQueryMatchAnyAndFormula(t *testing.T) {
 	assert.Equal(t, map[string]interface{}{"total": 2.0, "summary": "found 2!", "double": 4.0}, out)
 
 	// Formula syntax errors and references to nonexistent variables are reported by Check.
-	spec.Steps[1].Body.Fields[1].Value.Value.Formula = `"found " &`
-	spec.Steps[1].Body.Fields[2].Value.Value.Formula = `{steps.nope.total} * 2`
+	body := spec.Steps[1].Config.(*ResponseConfig).Body
+	body.Fields[1].Value.Value.Formula = `"found " &`
+	body.Fields[2].Value.Value.Formula = `{steps.nope.total} * 2`
 	issues, err = Check(t.Context(), f.db, f.project, spec)
 	require.NoError(t, err)
 	codes := make([]string, 0, len(issues))

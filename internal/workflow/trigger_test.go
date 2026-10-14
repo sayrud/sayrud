@@ -63,21 +63,21 @@ func TestRecordTriggers(t *testing.T) {
 	f := newLeadFixture(t)
 	created := f.publish(t, "On web lead", &Spec{
 		Trigger: Trigger{Type: TriggerRecordCreated, Record: &RecordTrigger{TableUID: f.table.UID, Filters: []Filter{{FieldUID: f.source.UID, Op: "eq", Value: constOf("Web")}}}},
-		Steps: []Step{{ID: "mark", Type: StepUpdate, TableUID: f.table.UID, RecordUID: vp("trigger.record.uid"), Fields: []FieldValue{
+		Steps: []Step{{ID: "mark", Type: StepUpdate, Config: &WriteConfig{TableUID: f.table.UID, RecordUID: vp("trigger.record.uid"), Fields: []FieldValue{
 			{FieldUID: f.name.UID, Value: Value{Kind: ValueTemplate, Template: "{{trigger.record.fields." + f.name.UID + "}} (web)"}},
-		}}},
+		}}}},
 	})
 	updated := f.publish(t, "On email change", &Spec{
 		Trigger: Trigger{Type: TriggerRecordUpdated, Record: &RecordTrigger{TableUID: f.table.UID, Fields: []string{f.email.UID}}},
-		Steps:   []Step{{ID: "find", Type: StepQuery, TableUID: f.table.UID, Limit: 1}},
+		Steps:   []Step{{ID: "find", Type: StepQuery, Config: &QueryConfig{TableUID: f.table.UID, Limit: 1}}},
 	})
 	matched := f.publish(t, "Became ads", &Spec{
 		Trigger: Trigger{Type: TriggerRecordMatched, Record: &RecordTrigger{TableUID: f.table.UID, Filters: []Filter{{FieldUID: f.source.UID, Op: "eq", Value: constOf("Ads")}}}},
-		Steps:   []Step{{ID: "find", Type: StepQuery, TableUID: f.table.UID, Limit: 1}},
+		Steps:   []Step{{ID: "find", Type: StepQuery, Config: &QueryConfig{TableUID: f.table.UID, Limit: 1}}},
 	})
 	renamed := f.publish(t, "On rename", &Spec{
 		Trigger: Trigger{Type: TriggerRecordUpdated, Record: &RecordTrigger{TableUID: f.table.UID, Fields: []string{f.name.UID}}},
-		Steps:   []Step{{ID: "find", Type: StepQuery, TableUID: f.table.UID, Limit: 1}},
+		Steps:   []Step{{ID: "find", Type: StepQuery, Config: &QueryConfig{TableUID: f.table.UID, Limit: 1}}},
 	})
 
 	web := f.create(t, map[string]interface{}{f.name.UID: "Ann", f.email.UID: "ann@example.com", f.source.UID: "optWeb"})
@@ -122,7 +122,7 @@ func TestRecordDeletedTrigger(t *testing.T) {
 	f := newLeadFixture(t)
 	deleted := f.publish(t, "On delete", &Spec{
 		Trigger: Trigger{Type: TriggerRecordDeleted, Record: &RecordTrigger{TableUID: f.table.UID}},
-		Steps:   []Step{{ID: "find", Type: StepQuery, TableUID: f.table.UID, Limit: 1}},
+		Steps:   []Step{{ID: "find", Type: StepQuery, Config: &QueryConfig{TableUID: f.table.UID, Limit: 1}}},
 	})
 	uid := f.create(t, map[string]interface{}{f.name.UID: "Ann"})
 	require.NoError(t, f.hub.MutateRecords(context.Background(), f.project, f.table, func(tx *gorm.DB) ([]collab.RecordEvent, error) {
@@ -144,9 +144,11 @@ func TestCheckTriggerScopes(t *testing.T) {
 	spec := &Spec{
 		Trigger: Trigger{Type: TriggerRecordCreated, Record: &RecordTrigger{TableUID: f.table.UID}},
 		Steps: []Step{
-			{ID: "find", Type: StepQuery, TableUID: f.table.UID, Filters: []Filter{{FieldUID: f.email.UID, Op: "eq", Value: vp("input.email")}}},
-			{ID: "mail", Type: StepEmail, To: vp("trigger.record.fields." + f.email.UID), Subject: &Value{Kind: ValueTemplate, Template: "{{trigger.previous.uid}}"}},
-			{ID: "respond", Type: StepResponse, Status: 200},
+			{ID: "find", Type: StepQuery, Config: &QueryConfig{TableUID: f.table.UID, Filters: []Filter{{FieldUID: f.email.UID, Op: "eq", Value: vp("input.email")}}}},
+			{ID: "mail", Type: StepEmail, Config: &EmailConfig{
+				Credential: f.smtp.UID, To: vp("trigger.record.fields." + f.email.UID), Subject: &Value{Kind: ValueTemplate, Template: "{{trigger.previous.uid}}"},
+			}},
+			{ID: "respond", Type: StepResponse, Config: &ResponseConfig{Status: 200}},
 		},
 	}
 	issues, err := Check(context.Background(), f.db, f.project, spec)
@@ -158,6 +160,7 @@ func TestCheckTriggerScopes(t *testing.T) {
 	assert.True(t, got["value.unknown_var"], "input and trigger.previous are not available")
 	assert.True(t, got["step.response_api_only"])
 	assert.False(t, got["step.async_only"], "background flows can send emails")
+	assert.False(t, got["step.credential_missing"])
 	assert.False(t, got["flow.missing_response"])
 
 	blank, err := ParseSpec(nil)
@@ -212,14 +215,14 @@ func TestScheduleAndDateTriggers(t *testing.T) {
 	now := time.Now().UTC().Truncate(time.Second)
 	scheduled := f.publish(t, "Daily report", &Spec{
 		Trigger: Trigger{Type: TriggerSchedule, Schedule: &ScheduleTrigger{Start: now.Add(-time.Hour).Format(ScheduleLayout), Timezone: "UTC", Repeat: RepeatHours, Interval: 1}},
-		Steps:   []Step{{ID: "find", Type: StepQuery, TableUID: f.table.UID, Limit: 1}},
+		Steps:   []Step{{ID: "find", Type: StepQuery, Config: &QueryConfig{TableUID: f.table.UID, Limit: 1}}},
 	})
 	require.NotNil(t, scheduled.NextRunAt)
 	assert.True(t, scheduled.NextRunAt.After(now), "the schedule starts after publishing")
 
 	reminder := f.publish(t, "Remind before due", &Spec{
 		Trigger: Trigger{Type: TriggerDateReached, Record: &RecordTrigger{TableUID: f.table.UID, DateFieldUID: due.UID, Offset: -60}},
-		Steps:   []Step{{ID: "find", Type: StepQuery, TableUID: f.table.UID, Limit: 1}},
+		Steps:   []Step{{ID: "find", Type: StepQuery, Config: &QueryConfig{TableUID: f.table.UID, Limit: 1}}},
 	})
 	soon := f.create(t, map[string]interface{}{f.name.UID: "Soon", due.UID: now.Add(90 * time.Minute).Format(time.RFC3339)})
 	f.create(t, map[string]interface{}{f.name.UID: "Later", due.UID: now.Add(5 * time.Hour).Format(time.RFC3339)})
@@ -257,7 +260,7 @@ func TestDateTriggerKeepsRecordsAtTruncatedTime(t *testing.T) {
 	now := time.Now().UTC().Truncate(time.Second)
 	reminder := f.publish(t, "Remind", &Spec{
 		Trigger: Trigger{Type: TriggerDateReached, Record: &RecordTrigger{TableUID: f.table.UID, DateFieldUID: due.UID}},
-		Steps:   []Step{{ID: "find", Type: StepQuery, TableUID: f.table.UID, Limit: 1}},
+		Steps:   []Step{{ID: "find", Type: StepQuery, Config: &QueryConfig{TableUID: f.table.UID, Limit: 1}}},
 	})
 	at := now.Add(30 * time.Minute).Format(time.RFC3339)
 	for _, name := range []string{"A", "B", "C"} {

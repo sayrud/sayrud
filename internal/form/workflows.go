@@ -54,21 +54,24 @@ type CreateWorkflowKey struct {
 	Name string `json:"name" valid:"required;maxlen:64"`
 } // @name CreateWorkflowKey
 
-type UpdateMailSettings struct {
-	Enabled  bool   `json:"enabled"`
-	Host     string `json:"host"`
-	Port     int    `json:"port"`
-	Security string `json:"security" enums:"tls,starttls,none"`
-	Username string `json:"username"`
-	// Password keeps the existing password if empty, and ClearPassword clears it if true.
-	Password      string `json:"password,omitempty"`
-	ClearPassword bool   `json:"clearPassword,omitempty"`
-	FromAddress   string `json:"fromAddress"`
-	FromName      string `json:"fromName"`
-} // @name UpdateMailSettings
+type SaveCredential struct {
+	// Type is the credential type, only used on creation.
+	Type string `json:"type"`
+	Name string `json:"name" valid:"required;maxlen:64"`
+	// Data holds the non-secret fields of the credential type DSL.
+	Data map[string]interface{} `json:"data"`
+	// Secrets holds the secret fields, empty ones keep the saved values; the fields in ClearSecrets are cleared.
+	Secrets      map[string]string `json:"secrets,omitempty"`
+	ClearSecrets []string          `json:"clearSecrets,omitempty"`
+} // @name SaveCredential
 
-type TestMailSettings struct {
-	UpdateMailSettings
-	// To is the recipient of the test email.
-	To string `json:"to" valid:"required"`
-} // @name TestMailSettings
+type TestCredential struct {
+	Type string `json:"type" valid:"required"`
+	// CredentialUID provides the saved secrets for the fields not given.
+	CredentialUID string                 `json:"credentialUID,omitempty"`
+	Data          map[string]interface{} `json:"data"`
+	Secrets       map[string]string      `json:"secrets,omitempty"`
+	ClearSecrets  []string               `json:"clearSecrets,omitempty"`
+	// Input holds the values of test.fields in the credential type DSL, e.g. the recipient of the test email.
+	Input map[string]string `json:"input"`
+} // @name TestCredential

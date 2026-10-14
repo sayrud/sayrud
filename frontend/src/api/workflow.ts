@@ -1,5 +1,6 @@
 import type { SLRecord } from '@/types/bitable'
 import type {
+  Credential,
   DebugResult,
   RunStatus,
   TriggerType,
@@ -7,14 +8,22 @@ import type {
   WorkflowIssue,
   WorkflowKey,
   WorkflowListItem,
+  WorkflowModules,
   WorkflowRevision,
   WorkflowRun,
   WorkflowSpec,
 } from '@/types/workflow'
-import type { AdminMailSettings, UpdateMailSettings, WorkflowSpec as GeneratedSpec } from './api'
+import type { WorkflowSpec as GeneratedSpec } from './api'
 import { client } from './client'
 
-export type { AdminMailSettings, UpdateMailSettings }
+/** Request to save a credential: empty Secrets keep the saved values, and the fields in ClearSecrets are cleared. */
+export interface SaveCredentialRequest {
+  type: string
+  name: string
+  data: Record<string, unknown>
+  secrets?: Record<string, string>
+  clearSecrets?: string[]
+}
 
 // The generated types describe arbitrary JSON as object; narrow them to the precise frontend types here.
 const asSpec = (spec: WorkflowSpec) => spec as unknown as GeneratedSpec
@@ -89,16 +98,23 @@ export const workflowsApi = {
   deleteKey: async (projectUID: string, workflowUID: string, keyID: number) => {
     await client.projects.deleteWorkflowKey(projectUID, workflowUID, keyID)
   },
+  /** JSON DSL definitions of the step modules and credential types. */
+  modules: async (projectUID: string) => (await client.projects.listWorkflowModules(projectUID)).data as unknown as WorkflowModules,
   /** Records selectable when debugging a record trigger, newest first. */
   sampleRecords: async (projectUID: string, tableUID: string) =>
     (await client.projects.listRecords(projectUID, tableUID, { limit: 50 })).data.records as unknown as SLRecord[],
 }
 
-export const mailSettingsApi = {
-  get: async () => (await client.admin.getAdminMailSettings()).data,
-  save: async (body: UpdateMailSettings) => (await client.admin.updateAdminMailSettings(body)).data,
-  test: async (body: UpdateMailSettings & { to: string }) => {
-    await client.admin.testAdminMailSettings(body)
+export const credentialsApi = {
+  list: async (projectUID: string) => (await client.projects.listCredentials(projectUID)).data as unknown as Credential[],
+  create: async (projectUID: string, body: SaveCredentialRequest) => (await client.projects.createCredential(projectUID, body)).data as unknown as Credential,
+  update: async (projectUID: string, credentialUID: string, body: SaveCredentialRequest) =>
+    (await client.projects.updateCredential(projectUID, credentialUID, body)).data as unknown as Credential,
+  remove: async (projectUID: string, credentialUID: string) => {
+    await client.projects.deleteCredential(projectUID, credentialUID)
+  },
+  test: async (projectUID: string, body: SaveCredentialRequest & { credentialUID?: string; input: Record<string, string> }) => {
+    await client.projects.testCredential(projectUID, body)
   },
 }
 

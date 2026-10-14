@@ -1,0 +1,42 @@
+{
+  "type": "http",
+  "order": 70,
+  "label": "workflow.step.http",
+  "description": "workflow.step.httpDesc",
+  "icon": "globe",
+  "color": "#245bdb",
+  "idBase": "http",
+  "flows": ["async", "background"],
+  "action": true,
+  "defaults": { "method": "POST", "url": { "kind": "template", "template": "https://" }, "headers": [], "timeout": 10 },
+  "outputs": [
+    { "key": "status", "label": "workflow.vars.status", "kind": "number" },
+    { "key": "body", "label": "workflow.vars.body", "kind": "object" },
+    { "key": "headers", "label": "workflow.vars.headers", "kind": "object" }
+  ],
+  "summary": { "parts": ["raw:method", "value:url"], "separator": " " },
+  "sections": [
+    {
+      "title": "workflow.http.title",
+      "description": "workflow.http.help",
+      "fields": [
+        {
+          "key": "method",
+          "widget": "select",
+          "label": "workflow.request.method",
+          "options": [{ "value": "GET" }, { "value": "POST" }, { "value": "PUT" }, { "value": "PATCH" }, { "value": "DELETE" }]
+        },
+        { "key": "url", "widget": "value", "label": "workflow.http.url", "required": true },
+        { "key": "timeout", "widget": "number", "label": "workflow.http.timeout", "min": 1, "max": 30, "suffix": "workflow.request.seconds" }
+      ]
+    },
+    {
+      "title": "workflow.http.headers",
+      "fields": [{ "key": "headers", "widget": "headers" }]
+    },
+    {
+      "title": "workflow.http.body",
+      "fields": [{ "key": "body", "widget": "body", "display": "optional", "placeholder": "workflow.http.noBody" }]
+    }
+  ]
+}

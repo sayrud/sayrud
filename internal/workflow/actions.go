@@ -25,7 +25,6 @@ import (
 
 	"github.com/wuhan005/sayrud/internal/db"
 	"github.com/wuhan005/sayrud/internal/shortcut/script"
-	"github.com/wuhan005/sayrud/internal/sso"
 )
 
 // ActionError is a failed external action; Message can be shown to the workflow author.
@@ -80,52 +79,64 @@ func (x *execution) email(step *Step) (interface{}, error) {
 	if x.actions == nil {
 		return nil, &ActionError{Message: "external actions are not available"}
 	}
-	to, err := x.recipients(step.To)
+	cfg := configOf[EmailConfig](step)
+	to, err := x.recipients(cfg.To)
 	if err != nil {
 		return nil, err
 	}
 	if len(to) == 0 {
 		return nil, &ActionError{Message: "no recipient"}
 	}
-	cc, err := x.recipients(step.CC)
+	cc, err := x.recipients(cfg.CC)
 	if err != nil {
 		return nil, err
 	}
-	subject, _ := x.scope.Resolve(step.Subject)
-	content, _ := x.scope.Resolve(step.Content)
+	server, err := x.smtpServer(cfg.Credential)
+	if err != nil {
+		return nil, err
+	}
+	subject, _ := x.scope.Resolve(cfg.Subject)
+	content, _ := x.scope.Resolve(cfg.Content)
 	runID, _ := x.scope.Lookup("run.id")
 	m := Mail{To: to, CC: cc, Subject: Text(subject), Content: Text(content), MessageID: fmt.Sprintf("<%s.%s@sayrud>", Text(runID), step.ID)}
-	if err := x.actions.SendEmail(x.ctx, m); err != nil {
+	if err := x.actions.SendEmail(x.ctx, *server, m); err != nil {
 		return nil, err
 	}
 	return map[string]interface{}{"to": to, "cc": cc, "subject": m.Subject, "messageID": m.MessageID}, nil
 }
 
-// previewAction returns the arguments the external action would use without performing it.
-func (x *execution) previewAction(step *Step) (interface{}, error) {
-	if step.Type == StepEmail {
-		to, err := x.recipients(step.To)
-		if err != nil {
-			return nil, err
-		}
-		cc, err := x.recipients(step.CC)
-		if err != nil {
-			return nil, err
-		}
-		subject, _ := x.scope.Resolve(step.Subject)
-		content, _ := x.scope.Resolve(step.Content)
-		return map[string]interface{}{"to": to, "cc": cc, "subject": Text(subject), "content": Text(content)}, nil
-	}
-	rawURL, _ := x.scope.Resolve(step.URL)
-	method := strings.ToUpper(step.HTTPMethod)
-	if method == "" {
-		method = defaultHTTPMethod
-	}
-	body, err := x.scope.BuildBody(step.Body)
+// previewEmail returns the arguments the email step would use without sending.
+func (x *execution) previewEmail(step *Step) (interface{}, error) {
+	cfg := configOf[EmailConfig](step)
+	to, err := x.recipients(cfg.To)
 	if err != nil {
 		return nil, err
 	}
-	return map[string]interface{}{"method": method, "url": Text(rawURL), "body": body}, nil
+	cc, err := x.recipients(cfg.CC)
+	if err != nil {
+		return nil, err
+	}
+	subject, _ := x.scope.Resolve(cfg.Subject)
+	content, _ := x.scope.Resolve(cfg.Content)
+	return map[string]interface{}{"to": to, "cc": cc, "subject": Text(subject), "content": Text(content)}, nil
+}
+
+// previewHTTP returns the arguments the http step would use without sending.
+func (x *execution) previewHTTP(step *Step) (interface{}, error) {
+	cfg := configOf[HTTPConfig](step)
+	rawURL, _ := x.scope.Resolve(cfg.URL)
+	body, err := x.scope.BuildBody(cfg.Body)
+	if err != nil {
+		return nil, err
+	}
+	return map[string]interface{}{"method": httpMethod(cfg), "url": Text(rawURL), "body": body}, nil
+}
+
+func httpMethod(cfg *HTTPConfig) string {
+	if method := strings.ToUpper(cfg.Method); method != "" {
+		return method
+	}
+	return defaultHTTPMethod
 }
 
 func (x *execution) recipients(v *Value) ([]string, error) {
@@ -164,10 +175,11 @@ func (x *execution) fetch(step *Step) (interface{}, error) {
 	if x.actions == nil {
 		return nil, &ActionError{Message: "external actions are not available"}
 	}
-	rawURL, _ := x.scope.Resolve(step.URL)
+	cfg := configOf[HTTPConfig](step)
+	rawURL, _ := x.scope.Resolve(cfg.URL)
 	headers := map[string]string{}
-	for i := range step.Headers {
-		h := &step.Headers[i]
+	for i := range cfg.Headers {
+		h := &cfg.Headers[i]
 		if h.Name == "" {
 			continue
 		}
@@ -175,24 +187,20 @@ func (x *execution) fetch(step *Step) (interface{}, error) {
 		headers[h.Name] = strings.NewReplacer("\r", "", "\n", "").Replace(Text(v))
 	}
 	var body interface{}
-	if step.Body != nil {
-		b, err := x.scope.BuildBody(step.Body)
+	if cfg.Body != nil {
+		b, err := x.scope.BuildBody(cfg.Body)
 		if err != nil {
 			return nil, err
 		}
 		body = b
 	}
-	timeout := time.Duration(min(max(step.Timeout, 1), 30)) * time.Second
-	if step.Timeout == 0 {
+	timeout := time.Duration(min(max(cfg.Timeout, 1), 30)) * time.Second
+	if cfg.Timeout == 0 {
 		timeout = 10 * time.Second
 	}
 	runID, _ := x.scope.Lookup("run.id")
-	method := strings.ToUpper(step.HTTPMethod)
-	if method == "" {
-		method = defaultHTTPMethod
-	}
 	result, err := x.actions.Fetch(x.ctx, HTTPRequest{
-		Method: method, URL: Text(rawURL), Headers: headers, Body: body, Timeout: timeout,
+		Method: httpMethod(cfg), URL: Text(rawURL), Headers: headers, Body: body, Timeout: timeout,
 		IdempotencyKey: Text(runID) + "-" + step.ID,
 	})
 	if err != nil {
@@ -201,7 +209,7 @@ func (x *execution) fetch(step *Step) (interface{}, error) {
 	return result, nil
 }
 
-// DefaultActions sends emails through the SMTP server configured in the admin console and sends HTTP requests with a client that cannot reach private networks.
+// DefaultActions sends emails with the SMTP credentials referenced by the steps, and sends HTTP requests with a client that cannot reach private networks.
 type DefaultActions struct {
 	Settings func() db.SettingsStore
 }
@@ -213,27 +221,31 @@ func (a *DefaultActions) settings() db.SettingsStore {
 	return db.Settings
 }
 
-func (a *DefaultActions) SendEmail(ctx context.Context, m Mail) error {
-	s, err := a.settings().GetMail(ctx)
-	if err != nil {
-		return errors.Wrap(err, "get mail settings")
-	}
-	if !s.Configured() {
-		return &ActionError{Message: "email sending is not configured by the administrator"}
-	}
-	password := ""
-	if s.SealedPassword != "" {
-		plain, err := sso.Open(s.SealedPassword)
-		if err != nil {
-			return &ActionError{Message: "the SMTP password can not be decrypted"}
-		}
-		password = string(plain)
-	}
-	return SendSMTP(ctx, *s, password, m)
+func (a *DefaultActions) SendEmail(ctx context.Context, server SMTPServer, m Mail) error {
+	return SendSMTP(ctx, server, m)
+}
+
+// SMTP encryption modes.
+const (
+	MailSecurityTLS      = "tls"
+	MailSecurityStartTLS = "starttls"
+	MailSecurityNone     = "none"
+)
+
+// SMTPServer is the sending configuration decrypted from an smtp credential.
+type SMTPServer struct {
+	Host string `json:"host"`
+	Port int    `json:"port"`
+	// Security is tls (implicit TLS, usually port 465), starttls (usually port 587) or none.
+	Security    string `json:"security"`
+	Username    string `json:"username"`
+	Password    string `json:"password"`
+	FromAddress string `json:"fromAddress"`
+	FromName    string `json:"fromName"`
 }
 
 // SendSMTP sends an email; failures before the content is submitted are retryable, while failures while awaiting confirmation after submission have an uncertain outcome.
-func SendSMTP(ctx context.Context, s db.MailSettings, password string, m Mail) error {
+func SendSMTP(ctx context.Context, s SMTPServer, m Mail) error {
 	transient := func(format string, args ...interface{}) error {
 		return &ActionError{Message: fmt.Sprintf(format, args...), Transient: true}
 	}
@@ -241,7 +253,7 @@ func SendSMTP(ctx context.Context, s db.MailSettings, password string, m Mail) e
 	dialer := &net.Dialer{Timeout: 10 * time.Second}
 	var conn net.Conn
 	var err error
-	if s.Security == db.MailSecurityTLS {
+	if s.Security == MailSecurityTLS {
 		conn, err = tls.DialWithDialer(dialer, "tcp", address, &tls.Config{ServerName: s.Host, MinVersion: tls.VersionTLS12})
 	} else {
 		conn, err = dialer.DialContext(ctx, "tcp", address)
@@ -262,13 +274,13 @@ func SendSMTP(ctx context.Context, s db.MailSettings, password string, m Mail) e
 	}
 	defer func() { _ = client.Close() }()
 
-	if s.Security == db.MailSecurityStartTLS {
+	if s.Security == MailSecurityStartTLS {
 		if err := client.StartTLS(&tls.Config{ServerName: s.Host, MinVersion: tls.VersionTLS12}); err != nil {
 			return transient("start TLS: %v", err)
 		}
 	}
 	if s.Username != "" {
-		if err := client.Auth(smtp.PlainAuth("", s.Username, password, s.Host)); err != nil {
+		if err := client.Auth(smtp.PlainAuth("", s.Username, s.Password, s.Host)); err != nil {
 			return &ActionError{Message: fmt.Sprintf("SMTP authentication failed: %v", err)}
 		}
 	}
@@ -295,7 +307,7 @@ func SendSMTP(ctx context.Context, s db.MailSettings, password string, m Mail) e
 	return nil
 }
 
-func buildMessage(s db.MailSettings, m Mail) []byte {
+func buildMessage(s SMTPServer, m Mail) []byte {
 	from := s.FromAddress
 	if s.FromName != "" {
 		from = (&mail.Address{Name: s.FromName, Address: s.FromAddress}).String()

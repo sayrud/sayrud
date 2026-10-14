@@ -1,7 +1,8 @@
 import type { Component } from 'vue'
-import { Activity, AlarmClock, Braces, CalendarClock, Database, FilePlus2, GitBranch, Globe, Hash, List, ListFilter, Mail, PencilLine, Repeat, Reply, SquareCheck, SquarePen, SquarePlus, Table2, Trash2, Type, Webhook, Zap } from '@lucide/vue'
+import { Activity, AlarmClock, Braces, CalendarClock, Hash, List, ListFilter, Repeat, Reply, SquareCheck, SquarePen, SquarePlus, Table2, Trash2, Type, Webhook, Zap } from '@lucide/vue'
 
 import { t } from '@/i18n'
+import { dslText, hasBranches, isBlank, isTerminal, moduleDef, stepMeta, stepTable, stepTypesFor, type StepMeta } from '@/utils/modules'
 import { FORMULA_REF, TEMPLATE_REF } from '@/utils/valueRefs'
 import type { SLField } from '@/types/bitable'
 import type {
@@ -17,12 +18,14 @@ import type {
   HttpMethod,
   ParamType,
   ScheduleTrigger,
+  StepConfig,
   StepType,
   TriggerType,
   WorkflowTrigger,
 } from '@/types/workflow'
 
 export { FORMULA_REF, TEMPLATE_REF, refText, splitRefs, valueToFormula, type RefStyle, type TextToken } from '@/utils/valueRefs'
+export { hasBranches, isTerminal, moduleDef, stepMeta, stepTable, stepTypesFor, type StepMeta } from '@/utils/modules'
 
 export const HTTP_METHODS: HttpMethod[] = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE']
 
@@ -33,14 +36,6 @@ export const METHOD_COLORS: Record<string, string> = {
   PUT: 'orangered',
   PATCH: 'purple',
   DELETE: 'red',
-}
-
-export interface StepMeta {
-  icon: Component
-  /** Accent color of the node icon. */
-  color: string
-  label: string
-  description: string
 }
 
 function meta(icon: Component, color: string, label: () => string, description: () => string): StepMeta {
@@ -55,21 +50,6 @@ function meta(icon: Component, color: string, label: () => string, description: 
     },
   }
 }
-
-export const STEP_META: Record<StepType, StepMeta> = {
-  query: meta(Database, '#3370ff', () => t('workflow.step.query'), () => t('workflow.step.queryDesc')),
-  create: meta(FilePlus2, '#14a37f', () => t('workflow.step.create'), () => t('workflow.step.createDesc')),
-  update: meta(PencilLine, '#0e9ca4', () => t('workflow.step.update'), () => t('workflow.step.updateDesc')),
-  condition: meta(GitBranch, '#ff8800', () => t('workflow.step.condition'), () => t('workflow.step.conditionDesc')),
-  response: meta(Reply, '#7f3bf5', () => t('workflow.step.response'), () => t('workflow.step.responseDesc')),
-  email: meta(Mail, '#f14bab', () => t('workflow.step.email'), () => t('workflow.step.emailDesc')),
-  http: meta(Globe, '#245bdb', () => t('workflow.step.http'), () => t('workflow.step.httpDesc')),
-}
-
-/** Steps that can be added to the sync flow and async flows of an API trigger, and to the background flow of other trigger types. */
-export const MAIN_STEP_TYPES: StepType[] = ['query', 'create', 'update', 'condition', 'response']
-export const ASYNC_STEP_TYPES: StepType[] = ['email', 'http', 'query', 'create', 'update', 'condition']
-export const BACKGROUND_STEP_TYPES: StepType[] = ['query', 'create', 'update', 'condition', 'email', 'http']
 
 // ---- Trigger types ----
 
@@ -123,7 +103,7 @@ export function apiOf(spec: WorkflowSpec): ApiTrigger | undefined {
 
 /** Steps that can be added to the main flow. */
 export function mainStepTypes(spec: WorkflowSpec) {
-  return spec.trigger.type === 'api' ? MAIN_STEP_TYPES : BACKGROUND_STEP_TYPES
+  return stepTypesFor(spec.trigger.type === 'api' ? 'sync' : 'background')
 }
 
 export function defaultTimezone() {
@@ -149,14 +129,14 @@ export function newSchedule(): ScheduleTrigger {
 export function triggerSwitchLoss(spec: WorkflowSpec, to: TriggerType) {
   if (spec.trigger.type !== 'api' || to === 'api') return { params: 0, responses: 0, async: 0 }
   let responses = 0
-  walk(spec.steps, (s) => s.type === 'response' && responses++)
+  walk(spec.steps, (s) => isTerminal(s) && responses++)
   return { params: spec.trigger.api?.params.length ?? 0, responses, async: spec.async.length }
 }
 
 function withoutResponses(steps: WorkflowStep[]): WorkflowStep[] {
   return steps
-    .filter((s) => s.type !== 'response')
-    .map((s) => (s.type === 'condition' ? { ...s, then: withoutResponses(s.then ?? []), else: withoutResponses(s.else ?? []) } : s))
+    .filter((s) => !isTerminal(s))
+    .map((s) => (hasBranches(s) ? { ...s, then: withoutResponses(s.then ?? []), else: withoutResponses(s.else ?? []) } : s))
 }
 
 /** Switch trigger types: keep config for the same table; leaving API removes params, responses, and async flows, and switching to API appends a response at the end. */
@@ -167,7 +147,8 @@ export function switchTrigger(spec: WorkflowSpec, to: TriggerType, tables: Map<s
   if (to === 'api') {
     next.api = newApiTrigger()
     const last = spec.steps[spec.steps.length - 1]
-    if (last?.type !== 'response') spec.steps.push(newStep(spec, 'response'))
+    const terminal = stepTypesFor('sync').find((type) => isTerminal({ type }))
+    if (terminal && (!last || !isTerminal(last))) spec.steps.push(newStep(spec, terminal))
   } else if (to === 'schedule') {
     next.schedule = newSchedule()
   } else {
@@ -266,7 +247,7 @@ export function eventDescription(event: AsyncEvent) {
 }
 
 export function stepTitle(step: WorkflowStep) {
-  return step.name?.trim() || STEP_META[step.type].label
+  return step.name?.trim() || stepMeta(step.type).label
 }
 
 const PARAM_TYPE_LABELS: Record<ParamType, () => string> = {
@@ -292,21 +273,15 @@ export function randomID(prefix: string) {
   return prefix + Math.random().toString(36).slice(2, 10)
 }
 
-const ID_BASES: Record<StepType, string> = {
-  query: 'query',
-  create: 'create',
-  update: 'update',
-  condition: 'check',
-  response: 'respond',
-  email: 'email',
-  http: 'http',
+function idBase(type: StepType) {
+  return moduleDef(type)?.idBase || type
 }
 
 /** Return a step ID not yet used in the spec, e.g. query, query2. */
 export function nextStepID(spec: WorkflowSpec, type: StepType) {
   const used = new Set<string>()
   walkAll(spec, (s) => used.add(s.id))
-  const base = ID_BASES[type]
+  const base = idBase(type)
   if (!used.has(base)) return base
   for (let n = 2; ; n++) if (!used.has(`${base}${n}`)) return `${base}${n}`
 }
@@ -314,35 +289,35 @@ export function nextStepID(spec: WorkflowSpec, type: StepType) {
 export const constValue = (v: unknown): WorkflowValue => ({ kind: 'const', const: v })
 export const varValue = (path: string): WorkflowValue => ({ kind: 'var', var: path })
 
+/** Creates a step with the default config of the module DSL; tableUID fills the table field of the module. */
 export function newStep(spec: WorkflowSpec, type: StepType, tableUID?: string): WorkflowStep {
-  const id = nextStepID(spec, type)
-  switch (type) {
-    case 'query':
-      return { id, type, tableUID, filters: [], sort: [], limit: 20 }
-    case 'create':
-      return { id, type, tableUID, fields: [] }
-    case 'update':
-      return { id, type, tableUID, fields: [], recordUID: varValue('') }
-    case 'condition':
-      return { id, type, match: 'all', conditions: [{ left: varValue(''), op: 'not_empty' }], then: [], else: [] }
-    case 'response':
-      return { id, type, status: 200, body: { type: 'object', fields: [{ key: 'ok', value: { type: 'value', value: constValue(true) } }] } }
-    case 'email':
-      return { id, type, to: varValue(''), subject: { kind: 'template', template: '' }, content: { kind: 'template', template: '' } }
-    case 'http':
-      return { id, type, httpMethod: 'POST', url: { kind: 'template', template: 'https://' }, headers: [], timeout: 10 }
-  }
+  const def = moduleDef(type)
+  const config = JSON.parse(JSON.stringify(def?.defaults ?? {})) as StepConfig
+  if (def?.tableKey && tableUID) config[def.tableKey] = tableUID
+  const step: WorkflowStep = { id: nextStepID(spec, type), type, config }
+  if (def?.branches) Object.assign(step, { then: [], else: [] })
+  return step
+}
+
+/** Status code of a response step, 200 when unset. */
+function responseStatus(step: WorkflowStep) {
+  return typeof step.config.status === 'number' ? step.config.status : 200
 }
 
 /** Node that succeeded-event async flows are drawn from: preferably the successful response at the end of the main lane, otherwise the first successful response node, or null if none. */
 export function successAnchor(spec: WorkflowSpec): string | null {
   const last = spec.steps[spec.steps.length - 1]
-  if (last?.type === 'response' && (last.status ?? 200) < 400) return last.id
+  if (last && isTerminal(last) && responseStatus(last) < 400) return last.id
   let anchor: string | null = null
   walk(spec.steps, (s) => {
-    if (!anchor && s.type === 'response' && (s.status ?? 200) < 400) anchor = s.id
+    if (!anchor && isTerminal(s) && responseStatus(s) < 400) anchor = s.id
   })
   return anchor
+}
+
+/** A terminal step returning a successful response, where succeeded async flows fork from. */
+export function isSuccessResponse(step: WorkflowStep | null | undefined) {
+  return !!step && isTerminal(step) && responseStatus(step) < 400
 }
 
 export function newAsyncFlow(spec: WorkflowSpec, event: AsyncEvent): WorkflowAsyncFlow {
@@ -432,7 +407,7 @@ export function cloneStep(spec: WorkflowSpec, step: WorkflowStep): WorkflowStep 
   const reserved = new Set<string>()
   walkAll(spec, (s) => reserved.add(s.id))
   walk([copy], (s) => {
-    const base = ID_BASES[s.type]
+    const base = idBase(s.type)
     let n = 2
     while (reserved.has(`${base}${n}`)) n++
     s.id = `${base}${n}`
@@ -481,7 +456,7 @@ export function contextBefore(spec: WorkflowSpec, stepID: string): VarContext | 
     const scope = [...before]
     for (const s of steps) {
       if (s.id === stepID) return scope
-      if (s.type === 'condition') {
+      if (hasBranches(s)) {
         const inThen = search(s.then ?? [], scope)
         if (inThen) return inThen
         const inElse = search(s.else ?? [], scope)
@@ -496,7 +471,7 @@ export function contextBefore(spec: WorkflowSpec, stepID: string): VarContext | 
   if (main) return { steps: main, requestOnly: false, response: false }
   for (const f of spec.async) {
     const syncSteps: WorkflowStep[] = []
-    if (f.event === 'succeeded') walk(spec.steps, (s) => s.type !== 'condition' && s.type !== 'response' && syncSteps.push(s))
+    if (f.event === 'succeeded') walk(spec.steps, (s) => hasOutputs(s) && syncSteps.push(s))
     const found = search(f.steps, syncSteps)
     if (found) return { steps: found, requestOnly: f.event === 'request_received', response: f.event === 'succeeded' }
   }
@@ -506,7 +481,7 @@ export function contextBefore(spec: WorkflowSpec, stepID: string): VarContext | 
 /** Return the context that can be referenced after the sync flow finishes, for an async flow as a whole. */
 export function asyncContext(spec: WorkflowSpec, flow: WorkflowAsyncFlow): VarContext {
   const steps: WorkflowStep[] = []
-  if (flow.event === 'succeeded') walk(spec.steps, (s) => s.type !== 'condition' && s.type !== 'response' && steps.push(s))
+  if (flow.event === 'succeeded') walk(spec.steps, (s) => hasOutputs(s) && steps.push(s))
   return { steps, requestOnly: flow.event === 'request_received', response: flow.event === 'succeeded' }
 }
 
@@ -521,36 +496,20 @@ function recordNodes(prefix: string, table: TableMeta | undefined): VarNode[] {
   ]
 }
 
+/** Whether the module DSL declares outputs. */
+function hasOutputs(step: WorkflowStep) {
+  return !!moduleDef(step.type)?.outputs.length
+}
+
+/** Builds the variable tree of a step from the DSL outputs; record outputs expand the fields of the step table. */
 function stepNodes(step: WorkflowStep, tables: Map<string, TableMeta>): VarNode[] {
   const p = `steps.${step.id}`
-  const table = step.tableUID ? tables.get(step.tableUID) : undefined
-  switch (step.type) {
-    case 'query':
-      return [
-        { path: `${p}.first`, label: t('workflow.vars.first'), kind: 'record', children: recordNodes(`${p}.first`, table) },
-        { path: `${p}.records`, label: t('workflow.vars.records'), kind: 'array' },
-        { path: `${p}.found`, label: t('workflow.vars.found'), kind: 'boolean' },
-        { path: `${p}.count`, label: t('workflow.vars.count'), kind: 'number' },
-        { path: `${p}.total`, label: t('workflow.vars.total'), kind: 'number' },
-      ]
-    case 'create':
-    case 'update':
-      return [{ path: `${p}.record`, label: t('workflow.vars.record'), kind: 'record', children: recordNodes(`${p}.record`, table) }]
-    case 'email':
-      return [
-        { path: `${p}.to`, label: t('workflow.vars.to'), kind: 'array' },
-        { path: `${p}.subject`, label: t('workflow.vars.subject'), kind: 'string' },
-        { path: `${p}.messageID`, label: t('workflow.vars.messageID'), kind: 'string' },
-      ]
-    case 'http':
-      return [
-        { path: `${p}.status`, label: t('workflow.vars.status'), kind: 'number' },
-        { path: `${p}.body`, label: t('workflow.vars.body'), kind: 'object' },
-        { path: `${p}.headers`, label: t('workflow.vars.headers'), kind: 'object' },
-      ]
-    default:
-      return []
-  }
+  const tableUID = stepTable(step)
+  const table = tableUID ? tables.get(tableUID) : undefined
+  return (moduleDef(step.type)?.outputs ?? []).map((o): VarNode => {
+    const path = `${p}.${o.key}`
+    return o.kind === 'record' ? { path, label: dslText(o.label), kind: 'record', children: recordNodes(path, table) } : { path, label: dslText(o.label), kind: o.kind }
+  })
 }
 
 function paramKind(p: WorkflowParam): VarNode['kind'] {
@@ -564,7 +523,7 @@ function paramKind(p: WorkflowParam): VarNode['kind'] {
 /** Table of the elements when a list map iterates over query results. */
 export function itemTableUID(spec: WorkflowSpec, source: string | undefined): string | undefined {
   const m = source ? /^steps\.([A-Za-z0-9_]+)\.records$/.exec(source) : null
-  return m ? findStep(spec, m[1]!)?.tableUID : undefined
+  return m ? stepTable(findStep(spec, m[1]!)) : undefined
 }
 
 function itemNodes(spec: WorkflowSpec, source: string, tables: Map<string, TableMeta>): VarNode[] {
@@ -667,7 +626,8 @@ export function referenceEntries(spec: WorkflowSpec, ctx: VarContext, tables: Ma
   for (const node of byKey.get('steps')?.nodes ?? []) {
     const step = findStep(spec, node.path.slice('steps.'.length))
     if (!step) continue
-    out.push({ key: node.path, label: `${n++}. ${node.label}`, icon: STEP_META[step.type].icon, color: STEP_META[step.type].color, nodes: node.children ?? [] })
+    const meta = stepMeta(step.type)
+    out.push({ key: node.path, label: `${n++}. ${node.label}`, icon: meta.icon, color: meta.color, nodes: node.children ?? [] })
   }
   const response = byKey.get('response')
   if (response) out.push({ key: 'response', label: response.label, icon: Reply, color: '#7f3bf5', nodes: response.nodes })
@@ -710,13 +670,9 @@ export function describeVar(spec: WorkflowSpec, path: string, tables: Map<string
       if (!step) return path
       const out = [stepTitle(step)]
       const key = parts[2]
-      const names: Record<string, string> = {
-        records: t('workflow.vars.records'), first: t('workflow.vars.first'), count: t('workflow.vars.count'),
-        total: t('workflow.vars.total'), found: t('workflow.vars.found'), record: t('workflow.vars.record'),
-        status: t('workflow.vars.status'), body: t('workflow.vars.body'), headers: t('workflow.vars.headers'),
-      }
-      if (key) out.push(names[key] ?? key)
-      if (key === 'first' || key === 'record') out.push(...recordPart(parts.slice(3), step.tableUID))
+      const output = moduleDef(step.type)?.outputs.find((o) => o.key === key)
+      if (key) out.push(output ? dslText(output.label) : key)
+      if (output?.kind === 'record') out.push(...recordPart(parts.slice(3), stepTable(step)))
       else out.push(...parts.slice(3))
       return out.join(' › ')
     }
@@ -796,23 +752,40 @@ export function writableField(field: SLField) {
 
 // ---- Summaries and issues ----
 
+/** Builds the node summary from the DSL summary; values look like table:tableUID, count:filters, raw:method, value:url or i18n:<key>. */
 export function stepSummary(spec: WorkflowSpec, step: WorkflowStep, tables: Map<string, TableMeta>): string {
-  const table = step.tableUID ? tables.get(step.tableUID)?.name : undefined
-  switch (step.type) {
-    case 'query':
-      return table ? t('workflow.node.querySummary', { table, n: step.filters?.length ?? 0 }) : t('workflow.node.noTable')
-    case 'create':
-    case 'update':
-      return table ? t('workflow.node.writeSummary', { table, n: step.fields?.length ?? 0 }) : t('workflow.node.noTable')
-    case 'condition':
-      return t('workflow.node.conditionSummary', { n: step.conditions?.length ?? 0 })
-    case 'response':
-      return `${step.status ?? 200} · ${t('workflow.node.json')}`
-    case 'email':
-      return valueText(spec, step.to, tables) || t('workflow.value.empty')
-    case 'http':
-      return `${step.httpMethod ?? 'POST'} ${valueText(spec, step.url, tables)}`.trim()
+  const summary = moduleDef(step.type)?.summary
+  if (!summary) return ''
+  const resolve = (expr: string): string => {
+    const i = expr.indexOf(':')
+    const kind = expr.slice(0, i)
+    const arg = expr.slice(i + 1)
+    const v = step.config[arg]
+    switch (kind) {
+      case 'table':
+        return typeof v === 'string' ? (tables.get(v)?.name ?? '') : ''
+      case 'count':
+        return String(Array.isArray(v) ? v.length : 0)
+      case 'value':
+        return valueText(spec, v as WorkflowValue | undefined, tables)
+      case 'i18n':
+        return dslText(arg)
+      default:
+        return v === undefined || v === null ? '' : String(v)
+    }
   }
+  if (summary.requires) {
+    const missing = moduleDef(step.type)?.tableKey === summary.requires ? !resolve(`table:${summary.requires}`) : isBlank(step.config[summary.requires])
+    if (missing) return dslText(summary.fallback)
+  }
+  let text: string
+  if (summary.template) {
+    const args = Object.fromEntries(Object.entries(summary.args ?? {}).map(([k, expr]) => [k, resolve(expr)]))
+    text = dslText(summary.template, args)
+  } else {
+    text = (summary.parts ?? []).map(resolve).filter((s) => s !== '').join(summary.separator ?? ' ')
+  }
+  return text || dslText(summary.fallback)
 }
 
 const ISSUE_MESSAGES: Record<string, (args: Record<string, string>) => string> = {
@@ -853,24 +826,21 @@ const ISSUE_MESSAGES: Record<string, (args: Record<string, string>) => string> =
   'flow.missing_response': () => t('workflow.issue.missingResponse'),
   'step.unreachable': () => t('workflow.issue.unreachable'),
   'step.table_missing': () => t('workflow.issue.tableMissing'),
-  'step.invalid_limit': (a) => t('workflow.issue.invalidLimit', a),
+  'step.required': (a) => t('workflow.issue.required', { field: dslText(a.field) }),
+  'step.out_of_range': (a) => (a.min && a.max ? t('workflow.issue.outOfRange', { field: dslText(a.field), min: a.min, max: a.max }) : t('workflow.issue.invalidOption', { field: dslText(a.field) })),
+  'step.invalid_option': (a) => t('workflow.issue.invalidOption', { field: dslText(a.field) }),
+  'step.credential_missing': () => t('workflow.issue.credentialMissing'),
+  'step.flow_not_allowed': () => t('workflow.issue.flowNotAllowed'),
   'step.field_missing': () => t('workflow.issue.fieldMissing'),
   'step.invalid_operator': () => t('workflow.issue.invalidOperator'),
   'step.no_fields': () => t('workflow.issue.noFields'),
   'step.field_not_writable': (a) => t('workflow.issue.fieldNotWritable', a),
   'step.duplicate_field': (a) => t('workflow.issue.duplicateField', a),
-  'step.record_required': () => t('workflow.issue.recordRequired'),
   'step.no_conditions': () => t('workflow.issue.noConditions'),
   'step.response_in_async': () => t('workflow.issue.responseInAsync'),
-  'step.invalid_status': () => t('workflow.issue.invalidStatus'),
   'step.invalid_body_key': () => t('workflow.issue.invalidBodyKey'),
   'step.invalid_body': () => t('workflow.issue.invalidBodyKey'),
   'step.async_only': () => t('workflow.issue.asyncOnly'),
-  'step.email_to_required': () => t('workflow.issue.emailTo'),
-  'step.email_subject_required': () => t('workflow.issue.emailSubject'),
-  'step.url_required': () => t('workflow.issue.urlRequired'),
-  'step.invalid_method': () => t('workflow.issue.invalidMethod'),
-  'step.invalid_timeout': () => t('workflow.issue.invalidTimeout'),
   'value.invalid_const': () => t('workflow.issue.invalidConst'),
   'value.invalid_kind': () => t('workflow.issue.invalidConst'),
   'value.unknown_var': (a) => t('workflow.issue.unknownVar', a),
@@ -982,7 +952,10 @@ export function renameInputRefs(spec: WorkflowSpec, from: string, to: string) {
 export function referencedTables(spec: WorkflowSpec) {
   const uids = new Set<string>()
   if (spec.trigger.record?.tableUID) uids.add(spec.trigger.record.tableUID)
-  walkAll(spec, (s) => s.tableUID && uids.add(s.tableUID))
+  walkAll(spec, (s) => {
+    const uid = stepTable(s)
+    if (uid) uids.add(uid)
+  })
   return uids
 }
 

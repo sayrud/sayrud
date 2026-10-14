@@ -1,0 +1,56 @@
+{
+  "type": "query",
+  "order": 10,
+  "label": "workflow.step.query",
+  "description": "workflow.step.queryDesc",
+  "icon": "database",
+  "color": "#3370ff",
+  "idBase": "query",
+  "flows": ["sync", "async", "background"],
+  "tableKey": "tableUID",
+  "defaults": { "filters": [], "match": "all", "sort": [], "limit": 20 },
+  "outputs": [
+    { "key": "first", "label": "workflow.vars.first", "kind": "record" },
+    { "key": "records", "label": "workflow.vars.records", "kind": "array", "items": "record" },
+    { "key": "found", "label": "workflow.vars.found", "kind": "boolean" },
+    { "key": "count", "label": "workflow.vars.count", "kind": "number" },
+    { "key": "total", "label": "workflow.vars.total", "kind": "number" }
+  ],
+  "summary": {
+    "template": "workflow.node.querySummary",
+    "args": { "table": "table:tableUID", "n": "count:filters" },
+    "requires": "tableUID",
+    "fallback": "workflow.node.noTable"
+  },
+  "sections": [
+    {
+      "title": "workflow.query.table",
+      "fields": [{ "key": "tableUID", "widget": "table", "required": true, "placeholder": "workflow.query.selectTable", "resets": ["filters", "sort"] }]
+    },
+    {
+      "title": "workflow.query.filters",
+      "description": "workflow.query.filtersHelp",
+      "showIf": "tableUID",
+      "extra": {
+        "key": "match",
+        "widget": "select",
+        "showIf": "filters",
+        "prefix": "workflow.query.matchPrefix",
+        "suffix": "workflow.query.matchSuffix",
+        "options": [
+          { "value": "all", "label": "workflow.query.matchAll" },
+          { "value": "any", "label": "workflow.query.matchAny" }
+        ]
+      },
+      "fields": [{ "key": "filters", "widget": "filters" }]
+    },
+    {
+      "title": "workflow.query.sort",
+      "showIf": "tableUID",
+      "fields": [
+        { "key": "sort", "widget": "sort" },
+        { "key": "limit", "widget": "number", "label": "workflow.query.limit", "prefix": "workflow.query.limit", "min": 1, "max": 100, "suffix": "workflow.query.records" }
+      ]
+    }
+  ]
+}

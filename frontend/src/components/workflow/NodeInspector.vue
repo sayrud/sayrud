@@ -3,20 +3,15 @@ import { ArrowLeftRight, ListChecks, X, Zap } from '@lucide/vue'
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
+import ModulePanel from '@/components/workflow/module/ModulePanel.vue'
 import AsyncPanel from '@/components/workflow/panels/AsyncPanel.vue'
-import ConditionPanel from '@/components/workflow/panels/ConditionPanel.vue'
-import EmailPanel from '@/components/workflow/panels/EmailPanel.vue'
-import HttpPanel from '@/components/workflow/panels/HttpPanel.vue'
 import ParamsPanel from '@/components/workflow/panels/ParamsPanel.vue'
-import QueryPanel from '@/components/workflow/panels/QueryPanel.vue'
-import ResponsePanel from '@/components/workflow/panels/ResponsePanel.vue'
 import TriggerPanel from '@/components/workflow/panels/TriggerPanel.vue'
-import WritePanel from '@/components/workflow/panels/WritePanel.vue'
 import TriggerList from '@/components/workflow/TriggerList.vue'
 import { useTriggerSwitch } from '@/components/workflow/useTriggerSwitch'
 import { useWorkflowEditorStore } from '@/stores/workflowEditor'
 import type { TriggerType } from '@/types/workflow'
-import { findStep, issueMessage, STEP_META, triggerMetaOf } from '@/utils/workflow'
+import { findStep, issueMessage, stepMeta, triggerMetaOf } from '@/utils/workflow'
 
 const { t } = useI18n()
 const store = useWorkflowEditorStore()
@@ -39,7 +34,7 @@ const head = computed(() => {
     return { icon: meta.icon, color: meta.color, fallback: meta.label, name: store.spec.trigger.name ?? '' }
   }
   if (s?.kind === 'params') return { icon: ListChecks, color: '#646a73', fallback: t('workflow.node.params'), name: '' }
-  if (step.value) return { icon: STEP_META[step.value.type].icon, color: STEP_META[step.value.type].color, fallback: STEP_META[step.value.type].label, name: step.value.name ?? '' }
+  if (step.value) return { icon: stepMeta(step.value.type).icon, color: stepMeta(step.value.type).color, fallback: stepMeta(step.value.type).label, name: step.value.name ?? '' }
   if (flow.value) return { icon: Zap, color: flow.value.event === 'succeeded' ? '#14a37f' : '#3370ff', fallback: t('workflow.async.untitled'), name: flow.value.name ?? '' }
   return null
 })
@@ -133,14 +128,7 @@ const issues = computed(() => {
       <a-form layout="vertical" :model="{}" :disabled="store.readonly" class="inspector-form" auto-label-width>
         <TriggerPanel v-if="store.selection?.kind === 'trigger'" />
         <ParamsPanel v-else-if="store.selection?.kind === 'params'" />
-        <template v-else-if="step">
-          <QueryPanel v-if="step.type === 'query'" :key="step.id" :step-id="step.id" />
-          <WritePanel v-else-if="step.type === 'create' || step.type === 'update'" :key="step.id" :step-id="step.id" />
-          <ConditionPanel v-else-if="step.type === 'condition'" :key="step.id" :step-id="step.id" />
-          <ResponsePanel v-else-if="step.type === 'response'" :key="step.id" :step-id="step.id" />
-          <EmailPanel v-else-if="step.type === 'email'" :key="step.id" :step-id="step.id" />
-          <HttpPanel v-else-if="step.type === 'http'" :key="step.id" :step-id="step.id" />
-        </template>
+        <ModulePanel v-else-if="step" :key="step.id" :step-id="step.id" />
         <AsyncPanel v-else-if="flow" :key="flow.id" :flow-id="flow.id" />
       </a-form>
     </div>

@@ -150,19 +150,6 @@ export interface AdminFieldShortcut {
   usedBy: number;
 }
 
-export interface AdminMailSettings {
-  enabled: boolean;
-  fromAddress: string;
-  fromName: string;
-  hasPassword: boolean;
-  host: string;
-  port: number;
-  /** SecretsReady is false if auth.secret_key is not configured, in which case the password cannot be saved. */
-  secretsReady: boolean;
-  security: "tls" | "starttls" | "none";
-  username: string;
-}
-
 export interface AdminOverview {
   activeSessions: number;
   projects: number;
@@ -385,6 +372,17 @@ export interface CreateWorkflowKey {
 export interface CreateWorkflowKeyResp {
   key: WorkflowKey;
   secret: string;
+}
+
+export interface Credential {
+  createdAt: string;
+  data: Record<string, any>;
+  name: string;
+  /** Secrets lists the saved secret fields. */
+  secrets: string[];
+  type: string;
+  uid: string;
+  updatedAt: string;
 }
 
 export interface DebugWorkflow {
@@ -731,6 +729,17 @@ export interface SLView {
   uid: string;
 }
 
+export interface SaveCredential {
+  clearSecrets?: string[];
+  /** Data holds the non-secret fields of the credential type DSL. */
+  data: Record<string, any>;
+  name: string;
+  /** Secrets holds the secret fields, empty ones keep the saved values; the fields in ClearSecrets are cleared. */
+  secrets?: Record<string, string>;
+  /** Type is the credential type, only used on creation. */
+  type: string;
+}
+
 export interface SaveFieldShortcut {
   /** AIEnabled allows the script to call the globally configured AI model. */
   aiEnabled: boolean;
@@ -939,6 +948,17 @@ export interface TestAuthProvider {
   username?: string;
 }
 
+export interface TestCredential {
+  clearSecrets?: string[];
+  /** CredentialUID provides the saved secrets for the fields not given. */
+  credentialUID?: string;
+  data: Record<string, any>;
+  /** Input holds the values of test.fields in the credential type DSL, e.g. the recipient of the test email. */
+  input: Record<string, string>;
+  secrets?: Record<string, string>;
+  type: string;
+}
+
 export interface TestFieldShortcut {
   /** Params are passed to execute as is, keyed by the form item key. */
   params: Record<string, any>;
@@ -959,21 +979,6 @@ export interface TestFieldShortcutResp {
   logs: string[];
   /** Value is the value returned by execute, before converting to the cell value. */
   value?: object;
-}
-
-export interface TestMailSettings {
-  clearPassword?: boolean;
-  enabled: boolean;
-  fromAddress: string;
-  fromName: string;
-  host: string;
-  /** Password keeps the existing password if empty, and ClearPassword clears it if true. */
-  password?: string;
-  port: number;
-  security: "tls" | "starttls" | "none";
-  /** To is the recipient of the test email. */
-  to: string;
-  username: string;
 }
 
 export interface TransferProjectOwner {
@@ -1039,19 +1044,6 @@ export interface UpdateLinkShare {
   includeChildren: boolean;
   /** Nil preserves the password, an empty string disables it. */
   password?: string;
-}
-
-export interface UpdateMailSettings {
-  clearPassword?: boolean;
-  enabled: boolean;
-  fromAddress: string;
-  fromName: string;
-  host: string;
-  /** Password keeps the existing password if empty, and ClearPassword clears it if true. */
-  password?: string;
-  port: number;
-  security: "tls" | "starttls" | "none";
-  username: string;
 }
 
 export interface UpdatePassword {
@@ -1234,41 +1226,51 @@ export interface WorkflowAuth {
   type: "none" | "api_key";
 }
 
-export interface WorkflowBody {
-  /** Fields are the properties of an object. */
-  fields?: WorkflowBodyField[];
-  item?: WorkflowBody;
-  /** Source is the array a map node iterates over, and Item builds each element using the variable item. */
-  source?: WorkflowValue;
-  type: "object" | "value" | "map";
-  /** Value is the value of a value node. */
-  value?: WorkflowValue;
+export interface WorkflowCredentialTestDef {
+  action: string;
+  description?: string;
+  fields: WorkflowFieldDef[];
+  success: string;
 }
 
-export interface WorkflowBodyField {
-  key: string;
-  value: WorkflowBody;
+export interface WorkflowCredentialTypeDef {
+  description?: string;
+  icon: string;
+  label: string;
+  sections: WorkflowSectionDef[];
+  /** Summary are the non-secret fields that tell credentials apart in lists. */
+  summary: string[];
+  test?: WorkflowCredentialTestDef;
+  type: string;
 }
 
-export interface WorkflowCondition {
-  left: WorkflowValue;
-  op:
-    | "eq"
-    | "neq"
-    | "gt"
-    | "gte"
-    | "lt"
-    | "lte"
-    | "contains"
-    | "not_contains"
-    | "empty"
-    | "not_empty";
-  right?: WorkflowValue;
-}
-
-export interface WorkflowFieldValue {
-  fieldUID: string;
-  value: WorkflowValue;
+export interface WorkflowFieldDef {
+  /** CredentialType is the credential type a credential widget selects. */
+  credentialType?: string;
+  default?: object;
+  /** Display is the presentation of the widget, e.g. radio for select, response / optional for body. */
+  display?: string;
+  help?: string;
+  /** Key is the property name in the config object, empty for display-only widgets such as branches. */
+  key?: string;
+  label?: string;
+  max?: number;
+  maxLength?: number;
+  min?: number;
+  multiline?: boolean;
+  options?: WorkflowOptionDef[];
+  placeholder?: string;
+  prefix?: string;
+  required?: boolean;
+  /** Resets are the fields cleared when this field changes, e.g. the filters when the table changes. */
+  resets?: string[];
+  /** Secret marks a credential field that is stored encrypted and never returned to the frontend. */
+  secret?: boolean;
+  /** ShowIf is another field of the same config; this field is hidden while that one is empty. */
+  showIf?: string;
+  suffix?: string;
+  /** Widget is value, number, select, text, email, password, credential, table, filters, sort, fieldMapping, conditions, headers, body, status or branches. */
+  widget: string;
 }
 
 export interface WorkflowFilter {
@@ -1286,11 +1288,6 @@ export interface WorkflowFilter {
     | "empty"
     | "not_empty";
   value?: WorkflowValue;
-}
-
-export interface WorkflowHeader {
-  name: string;
-  value: WorkflowValue;
 }
 
 export interface WorkflowIssue {
@@ -1351,6 +1348,53 @@ export interface WorkflowListItem {
     | "schedule";
   uid: string;
   updatedAt: string;
+}
+
+export interface WorkflowModuleDef {
+  /** Action marks external side effects; simulated debugging only computes the arguments. */
+  action?: boolean;
+  /** Branches marks modules with then / else branches. */
+  branches?: boolean;
+  color: string;
+  defaults: object;
+  description: string;
+  /** Flows are the allowed flows: sync (the API sync flow), async (API async flows) and background (the main flow of other triggers). */
+  flows: string[];
+  icon: string;
+  /** IDBase is the prefix of new step IDs, e.g. query, query2. */
+  idBase: string;
+  label: string;
+  order: number;
+  outputs: WorkflowOutputDef[];
+  sections: WorkflowSectionDef[];
+  summary?: WorkflowSummaryDef;
+  /** TableKey is the config field referencing a table. */
+  tableKey?: string;
+  /** Terminal marks modules that return the response and end the sync flow. */
+  terminal?: boolean;
+  type: string;
+}
+
+export interface WorkflowModules {
+  credentialTypes: WorkflowCredentialTypeDef[];
+  modules: WorkflowModuleDef[];
+  /** SecretsReady is false if auth.secret_key is not configured, in which case secret fields can not be saved. */
+  secretsReady: boolean;
+}
+
+export interface WorkflowOptionDef {
+  label?: string;
+  patch?: object;
+  value: object;
+}
+
+export interface WorkflowOutputDef {
+  /** Items is the element type of an array, record for table records. */
+  items?: string;
+  key: string;
+  /** Kind is string, number, boolean, object, array or record; record expands the fields of the table given by TableKey. */
+  kind: string;
+  label: string;
 }
 
 export interface WorkflowParam {
@@ -1473,43 +1517,23 @@ export interface WorkflowScheduleTrigger {
   weekdays?: number[];
 }
 
-export interface WorkflowSort {
-  fieldUID: string;
-  order: "asc" | "desc";
+export interface WorkflowSectionDef {
+  description?: string;
+  /** Extra is a compact field shown on the right of the section title. */
+  extra?: WorkflowFieldDef;
+  fields: WorkflowFieldDef[];
+  showIf?: string;
+  title?: string;
 }
 
 export interface WorkflowStep {
-  body?: WorkflowBody;
-  cc?: WorkflowValue;
-  /** Conditions decide which branch a condition takes. */
-  conditions?: WorkflowCondition[];
-  content?: WorkflowValue;
+  /** Config is the module configuration defined by the DSL of the type (see ModuleDef), decoded as the matching *XxxConfig. */
+  config: object;
   else?: WorkflowStep[];
-  /** Fields are the field values written by create and update. */
-  fields?: WorkflowFieldValue[];
-  /** Filters are the query's filter conditions, all or any of which must hold per Match. */
-  filters?: WorkflowFilter[];
-  headers?: WorkflowHeader[];
-  /** HTTPMethod, URL and Timeout make up the request of an http step; Timeout is in seconds, 1–30. */
-  httpMethod?: string;
   id: string;
-  /** Limit is the maximum number of records a query returns, 1–100. */
-  limit?: number;
-  /** Match is how a condition's conditions or a query's filters are combined: all means every one must hold, any means at least one; empty is equivalent to all. */
-  match?: "all" | "any";
   name?: string;
-  /** RecordUID specifies the record to update. */
-  recordUID?: WorkflowValue;
-  sort?: WorkflowSort[];
-  /** Status and Body build the response of a response step, whose headers cannot be set by the flow; Headers and Body are also used as the request of an http step. */
-  status?: number;
-  subject?: WorkflowValue;
-  /** TableUID is the table operated on by query, create and update. */
-  tableUID?: string;
+  /** Then and Else are the branches of a branching module (condition). */
   then?: WorkflowStep[];
-  timeout?: number;
-  /** To, CC, Subject and Content are the recipients, CC, subject and body of an email step. */
-  to?: WorkflowValue;
   type:
     | "query"
     | "create"
@@ -1518,7 +1542,16 @@ export interface WorkflowStep {
     | "response"
     | "email"
     | "http";
-  url?: WorkflowValue;
+}
+
+export interface WorkflowSummaryDef {
+  args?: Record<string, string>;
+  fallback?: string;
+  parts?: string[];
+  /** Fallback is shown while the Requires field is empty. */
+  requires?: string;
+  separator?: string;
+  template?: string;
 }
 
 export interface WorkflowTraceStep {
@@ -1603,12 +1636,6 @@ export type GetAdminFieldShortcutData = AdminFieldShortcut;
 export type UpdateAdminFieldShortcutData = AdminFieldShortcut;
 
 export type DeleteAdminFieldShortcutData = any;
-
-export type GetAdminMailSettingsData = AdminMailSettings;
-
-export type UpdateAdminMailSettingsData = AdminMailSettings;
-
-export type TestAdminMailSettingsData = any;
 
 export type GetAdminOverviewData = AdminOverview;
 
@@ -1698,6 +1725,16 @@ export type DeleteProjectData = any;
 /** @format binary */
 export type GetAttachmentData = File;
 
+export type ListCredentialsData = Credential[];
+
+export type CreateCredentialData = Credential;
+
+export type TestCredentialData = any;
+
+export type UpdateCredentialData = Credential;
+
+export type DeleteCredentialData = any;
+
 export type ListFieldShortcutsData = FieldShortcutManifest[];
 
 export type ListProjectMembersData = ProjectMember[];
@@ -1774,6 +1811,8 @@ export type PreviewFieldShortcutData = ShortcutPreview[];
 export type GetTableSnapshotData = TableSnapshot;
 
 export type ListViewsData = SLView[];
+
+export type ListWorkflowModulesData = WorkflowModules;
 
 export type ListWorkflowsData = WorkflowListItem[];
 
@@ -2287,60 +2326,6 @@ export class Api<
       this.request<DeleteAdminFieldShortcutData, string>({
         path: `/admin/field-shortcuts/${shortcutUid}`,
         method: "DELETE",
-        ...params,
-      }),
-
-    /**
-     * @description Requires the admin. The password is not returned.
-     *
-     * @name GetAdminMailSettings
-     * @summary Get the SMTP settings
-     * @request GET:/admin/mail
-     */
-    getAdminMailSettings: (params: RequestParams = {}) =>
-      this.request<GetAdminMailSettingsData, string>({
-        path: `/admin/mail`,
-        method: "GET",
-        format: "json",
-        ...params,
-      }),
-
-    /**
-     * @description Requires the admin. The password is encrypted by auth.secret_key, empty keeps the saved one.
-     *
-     * @name UpdateAdminMailSettings
-     * @summary Update the SMTP settings
-     * @request PUT:/admin/mail
-     */
-    updateAdminMailSettings: (
-      data: UpdateMailSettings,
-      params: RequestParams = {},
-    ) =>
-      this.request<UpdateAdminMailSettingsData, string>({
-        path: `/admin/mail`,
-        method: "PUT",
-        body: data,
-        type: ContentType.Json,
-        format: "json",
-        ...params,
-      }),
-
-    /**
-     * @description Requires the admin. Send an email with the unsaved settings, the saved password is used if it is not given.
-     *
-     * @name TestAdminMailSettings
-     * @summary Send a test email
-     * @request POST:/admin/mail/test
-     */
-    testAdminMailSettings: (
-      data: TestMailSettings,
-      params: RequestParams = {},
-    ) =>
-      this.request<TestAdminMailSettingsData, string>({
-        path: `/admin/mail/test`,
-        method: "POST",
-        body: data,
-        type: ContentType.Json,
         ...params,
       }),
 
@@ -3094,6 +3079,110 @@ export class Api<
       }),
 
     /**
+     * @description The values of the secret fields are not returned. Filter by type with the type query.
+     *
+     * @name ListCredentials
+     * @summary List the credentials of a project
+     * @request GET:/projects/{projectUID}/credentials
+     */
+    listCredentials: (
+      projectUid: string,
+      query?: {
+        /** Credential type */
+        type?: string;
+      },
+      params: RequestParams = {},
+    ) =>
+      this.request<ListCredentialsData, string>({
+        path: `/projects/${projectUid}/credentials`,
+        method: "GET",
+        query: query,
+        format: "json",
+        ...params,
+      }),
+
+    /**
+     * @description The fields are defined by the DSL of the credential type, the secret fields are encrypted by auth.secret_key.
+     *
+     * @name CreateCredential
+     * @summary Create a credential in a project
+     * @request POST:/projects/{projectUID}/credentials
+     */
+    createCredential: (
+      projectUid: string,
+      data: SaveCredential,
+      params: RequestParams = {},
+    ) =>
+      this.request<CreateCredentialData, string>({
+        path: `/projects/${projectUid}/credentials`,
+        method: "POST",
+        body: data,
+        type: ContentType.Json,
+        format: "json",
+        ...params,
+      }),
+
+    /**
+     * @description Run the test action of the credential type (e.g. send a test email) with the unsaved values; the saved secrets of credentialUID are used for the fields not given.
+     *
+     * @name TestCredential
+     * @summary Test a credential
+     * @request POST:/projects/{projectUID}/credentials/test
+     */
+    testCredential: (
+      projectUid: string,
+      data: TestCredential,
+      params: RequestParams = {},
+    ) =>
+      this.request<TestCredentialData, string>({
+        path: `/projects/${projectUid}/credentials/test`,
+        method: "POST",
+        body: data,
+        type: ContentType.Json,
+        ...params,
+      }),
+
+    /**
+     * @description Takes effect immediately for the workflows that reference it. The empty secret fields keep the saved values.
+     *
+     * @name UpdateCredential
+     * @summary Update a credential
+     * @request PUT:/projects/{projectUID}/credentials/{credentialUID}
+     */
+    updateCredential: (
+      projectUid: string,
+      credentialUid: string,
+      data: SaveCredential,
+      params: RequestParams = {},
+    ) =>
+      this.request<UpdateCredentialData, string>({
+        path: `/projects/${projectUid}/credentials/${credentialUid}`,
+        method: "PUT",
+        body: data,
+        type: ContentType.Json,
+        format: "json",
+        ...params,
+      }),
+
+    /**
+     * @description A credential referenced by a published workflow can not be deleted.
+     *
+     * @name DeleteCredential
+     * @summary Delete a credential
+     * @request DELETE:/projects/{projectUID}/credentials/{credentialUID}
+     */
+    deleteCredential: (
+      projectUid: string,
+      credentialUid: string,
+      params: RequestParams = {},
+    ) =>
+      this.request<DeleteCredentialData, string>({
+        path: `/projects/${projectUid}/credentials/${credentialUid}`,
+        method: "DELETE",
+        ...params,
+      }),
+
+    /**
      * @description List the enabled custom shortcuts, with the forms to configure them.
      *
      * @name ListFieldShortcuts
@@ -3832,6 +3921,21 @@ export class Api<
     ) =>
       this.request<ListViewsData, string>({
         path: `/projects/${projectUid}/tables/${tableUid}/views`,
+        method: "GET",
+        format: "json",
+        ...params,
+      }),
+
+    /**
+     * @description Return the JSON DSL definitions the editor renders the nodes and the configuration forms with.
+     *
+     * @name ListWorkflowModules
+     * @summary List the step modules and credential types
+     * @request GET:/projects/{projectUID}/workflow-modules
+     */
+    listWorkflowModules: (projectUid: string, params: RequestParams = {}) =>
+      this.request<ListWorkflowModulesData, string>({
+        path: `/projects/${projectUid}/workflow-modules`,
         method: "GET",
         format: "json",
         ...params,

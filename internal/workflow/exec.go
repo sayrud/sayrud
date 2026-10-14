@@ -97,7 +97,8 @@ func traceOutput(v interface{}) json.RawMessage {
 
 // Actions performs async actions with external side effects.
 type Actions interface {
-	SendEmail(ctx context.Context, mail Mail) error
+	// SendEmail sends with the SMTP server resolved from the credential referenced by the step.
+	SendEmail(ctx context.Context, server SMTPServer, mail Mail) error
 	Fetch(ctx context.Context, req HTTPRequest) (*HTTPResult, error)
 }
 
@@ -258,8 +259,15 @@ func (x *execution) runStep(step *Step) (bool, error) {
 		return true, nil
 	}
 
-	if x.preview && (step.Type == StepEmail || step.Type == StepHTTP) {
-		output, err := x.previewAction(step)
+	impl, ok := moduleImpls[step.Type]
+	if !ok || impl.exec == nil {
+		err := &StepError{StepID: step.ID, Code: ErrCodeConfig, Status: http.StatusInternalServerError, Err: errors.Newf("unsupported step type %q", step.Type)}
+		x.addTrace(step, TraceFailed, start, nil, err)
+		return false, err
+	}
+
+	if x.preview && impl.preview != nil {
+		output, err := impl.preview(x, step)
 		if err != nil {
 			x.addTrace(step, TraceFailed, start, nil, err)
 			return false, classify(step, err)
@@ -270,22 +278,8 @@ func (x *execution) runStep(step *Step) (bool, error) {
 		return false, nil
 	}
 
-	var output interface{}
-	var err error
-	persisted := false
-	switch step.Type {
-	case StepQuery:
-		output, err = x.query(step)
-	case StepCreate, StepUpdate:
-		output, err = x.write(step)
-		persisted = x.batch == nil
-	case StepEmail:
-		output, err = x.email(step)
-	case StepHTTP:
-		output, err = x.fetch(step)
-	default:
-		err = &StepError{StepID: step.ID, Code: ErrCodeConfig, Status: http.StatusInternalServerError, Err: errors.Newf("unsupported step type %q", step.Type)}
-	}
+	output, err := impl.exec(x, step)
+	persisted := impl.ownTx && x.batch == nil
 	if err != nil {
 		x.addTrace(step, TraceFailed, start, nil, err)
 		return false, classify(step, err)
@@ -334,25 +328,26 @@ func classify(step *Step, err error) error {
 }
 
 func (x *execution) query(step *Step) (interface{}, error) {
-	info, err := x.table(step.TableUID)
+	cfg := configOf[QueryConfig](step)
+	info, err := x.table(cfg.TableUID)
 	if err != nil {
 		return nil, err
 	}
-	filters, err := buildFilters(info, x.scope, step.Filters)
+	filters, err := buildFilters(info, x.scope, cfg.Filters)
 	if err != nil {
 		return nil, err
 	}
-	limit := step.Limit
+	limit := cfg.Limit
 	if limit <= 0 {
 		limit = DefaultQueryLimit
 	}
 	limit = min(limit, MaxQueryLimit)
-	sorts := make([]db.QuerySLRecordsSort, 0, len(step.Sort))
-	for _, s := range step.Sort {
+	sorts := make([]db.QuerySLRecordsSort, 0, len(cfg.Sort))
+	for _, s := range cfg.Sort {
 		sorts = append(sorts, db.QuerySLRecordsSort{FieldUID: s.FieldUID, Order: s.Order})
 	}
 
-	records, total, err := db.NewSLRecordsStore(x.reader()).Query(x.ctx, info.table.ID, db.QuerySLRecordsOptions{Filter: filters, MatchAny: step.Match == "any", Order: sorts, Limit: limit})
+	records, total, err := db.NewSLRecordsStore(x.reader()).Query(x.ctx, info.table.ID, db.QuerySLRecordsOptions{Filter: filters, MatchAny: cfg.Match == "any", Order: sorts, Limit: limit})
 	if err != nil {
 		return nil, err
 	}
@@ -368,10 +363,10 @@ func (x *execution) query(step *Step) (interface{}, error) {
 }
 
 // cellValues computes the field values mapped by the step, keyed by field UID; nil means clear the field.
-func (x *execution) cellValues(info *tableInfo, step *Step) (map[string]interface{}, error) {
-	values := make(map[string]interface{}, len(step.Fields))
-	for i := range step.Fields {
-		fv := &step.Fields[i]
+func (x *execution) cellValues(info *tableInfo, cfg *WriteConfig) (map[string]interface{}, error) {
+	values := make(map[string]interface{}, len(cfg.Fields))
+	for i := range cfg.Fields {
+		fv := &cfg.Fields[i]
 		field, ok := info.byUID[fv.FieldUID]
 		if !ok {
 			return nil, errors.Wrapf(db.ErrSLFieldNotFound, "field %q", fv.FieldUID)
@@ -393,17 +388,18 @@ func (x *execution) cellValues(info *tableInfo, step *Step) (map[string]interfac
 }
 
 func (x *execution) write(step *Step) (interface{}, error) {
-	info, err := x.table(step.TableUID)
+	cfg := configOf[WriteConfig](step)
+	info, err := x.table(cfg.TableUID)
 	if err != nil {
 		return nil, err
 	}
-	values, err := x.cellValues(info, step)
+	values, err := x.cellValues(info, cfg)
 	if err != nil {
 		return nil, err
 	}
 	var recordUID string
 	if step.Type == StepUpdate {
-		v, err := x.scope.Resolve(step.RecordUID)
+		v, err := x.scope.Resolve(cfg.RecordUID)
 		if err != nil {
 			return nil, err
 		}
@@ -451,12 +447,13 @@ func (x *execution) write(step *Step) (interface{}, error) {
 }
 
 func (x *execution) evalConditions(step *Step) (bool, error) {
-	if len(step.Conditions) == 0 {
+	cfg := configOf[ConditionConfig](step)
+	if len(cfg.Conditions) == 0 {
 		return true, nil
 	}
-	matchAny := step.Match == "any"
-	for i := range step.Conditions {
-		c := &step.Conditions[i]
+	matchAny := cfg.Match == "any"
+	for i := range cfg.Conditions {
+		c := &cfg.Conditions[i]
 		left, err := x.scope.Resolve(&c.Left)
 		if err != nil {
 			return false, err
@@ -587,11 +584,12 @@ func equal(a, b interface{}) bool {
 }
 
 func (x *execution) buildResponse(step *Step) (*Response, error) {
-	status := step.Status
+	cfg := configOf[ResponseConfig](step)
+	status := cfg.Status
 	if status == 0 {
 		status = http.StatusOK
 	}
-	body, err := x.scope.BuildBody(step.Body)
+	body, err := x.scope.BuildBody(cfg.Body)
 	if err != nil {
 		return nil, err
 	}

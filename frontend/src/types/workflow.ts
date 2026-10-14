@@ -3,7 +3,8 @@
 export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
 export type ParamSource = 'query' | 'header' | 'body'
 export type ParamType = 'string' | 'number' | 'integer' | 'boolean' | 'date' | 'datetime' | 'enum' | 'array'
-export type StepType = 'query' | 'create' | 'update' | 'condition' | 'response' | 'email' | 'http'
+/** Step module type defined by the module DSL from the backend; the built-in ones are query, create, update, condition, response, email and http. */
+export type StepType = string
 export type ValueKind = 'const' | 'var' | 'template' | 'formula'
 export type AsyncEvent = 'request_received' | 'succeeded'
 export type TriggerType = 'api' | 'record_created' | 'record_updated' | 'record_matched' | 'record_deleted' | 'date_reached' | 'schedule'
@@ -78,30 +79,124 @@ export interface WorkflowBodyField {
   value: WorkflowBody
 }
 
+/** Module configuration whose structure is described by the form DSL of the module. */
+export type StepConfig = Record<string, unknown>
+
 export interface WorkflowStep {
   id: string
   type: StepType
   name?: string
-  tableUID?: string
-  filters?: WorkflowFilter[]
-  sort?: WorkflowSort[]
-  limit?: number
-  recordUID?: WorkflowValue
-  fields?: WorkflowFieldValue[]
-  conditions?: WorkflowCondition[]
-  match?: 'all' | 'any'
+  config: StepConfig
+  /** The two branches of a branching module (condition). */
   then?: WorkflowStep[]
   else?: WorkflowStep[]
-  status?: number
-  headers?: WorkflowHeader[]
-  body?: WorkflowBody
-  to?: WorkflowValue
-  cc?: WorkflowValue
-  subject?: WorkflowValue
-  content?: WorkflowValue
-  httpMethod?: string
-  url?: WorkflowValue
-  timeout?: number
+}
+
+// ---- JSON DSL of modules and credential types, matching the backend workflow.ModuleDef / CredentialTypeDef; text fields are i18n keys ----
+
+export type FieldWidget =
+  | 'value' | 'number' | 'select' | 'text' | 'email' | 'password' | 'credential' | 'table'
+  | 'filters' | 'sort' | 'fieldMapping' | 'conditions' | 'headers' | 'body' | 'status' | 'branches'
+
+export interface OptionDef {
+  value: string | number | boolean
+  label?: string
+  /** Other fields changed along with the selection, only when they still hold the value of the previous option. */
+  patch?: Record<string, unknown>
+}
+
+export interface FieldDef {
+  key?: string
+  widget: FieldWidget
+  label?: string
+  help?: string
+  placeholder?: string
+  prefix?: string
+  suffix?: string
+  display?: string
+  required?: boolean
+  showIf?: string
+  min?: number
+  max?: number
+  maxLength?: number
+  multiline?: boolean
+  default?: unknown
+  options?: OptionDef[]
+  resets?: string[]
+  credentialType?: string
+  secret?: boolean
+}
+
+export interface SectionDef {
+  title?: string
+  description?: string
+  showIf?: string
+  extra?: FieldDef
+  fields: FieldDef[]
+}
+
+export interface OutputDef {
+  key: string
+  label: string
+  kind: 'string' | 'number' | 'boolean' | 'object' | 'array' | 'record'
+  items?: string
+}
+
+export interface SummaryDef {
+  template?: string
+  args?: Record<string, string>
+  parts?: string[]
+  separator?: string
+  requires?: string
+  fallback?: string
+}
+
+export type FlowKind = 'sync' | 'async' | 'background'
+
+export interface ModuleDef {
+  type: StepType
+  order: number
+  label: string
+  description: string
+  icon: string
+  color: string
+  idBase: string
+  flows: FlowKind[]
+  action?: boolean
+  branches?: boolean
+  terminal?: boolean
+  tableKey?: string
+  defaults: StepConfig
+  outputs: OutputDef[]
+  summary?: SummaryDef
+  sections: SectionDef[]
+}
+
+export interface CredentialTypeDef {
+  type: string
+  label: string
+  description?: string
+  icon: string
+  summary: string[]
+  sections: SectionDef[]
+  test?: { description?: string; action: string; success: string; fields: FieldDef[] }
+}
+
+export interface WorkflowModules {
+  modules: ModuleDef[]
+  credentialTypes: CredentialTypeDef[]
+  secretsReady: boolean
+}
+
+export interface Credential {
+  uid: string
+  type: string
+  name: string
+  data: Record<string, unknown>
+  /** Names of the saved secret fields; their values are never returned. */
+  secrets: string[]
+  createdAt: string
+  updatedAt: string
 }
 
 export interface WorkflowAsyncFlow {

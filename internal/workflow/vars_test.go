@@ -79,15 +79,45 @@ func TestNormalizePath(t *testing.T) {
 	}
 }
 
-func TestNormalizeClearsResponseHeaders(t *testing.T) {
+func TestNormalizeStepConfig(t *testing.T) {
 	s := &Spec{
 		Trigger: Trigger{Type: TriggerAPI},
 		Steps: []Step{
-			{ID: "c", Type: StepCondition, Then: []Step{{ID: "r", Type: StepResponse, Headers: []Header{{Name: "X-Total"}}}}},
-			{ID: "h", Type: StepHTTP, Headers: []Header{{Name: "X-Token"}}},
+			{ID: "c", Type: StepCondition, Then: []Step{{ID: "r", Type: StepResponse}}},
+			{ID: "h", Type: StepHTTP, Then: []Step{{ID: "x", Type: StepResponse}}},
 		},
 	}
 	s.Normalize()
-	assert.Nil(t, s.Steps[0].Then[0].Headers, "response steps cannot set headers")
-	assert.Len(t, s.Steps[1].Headers, 1, "http steps keep the request headers")
+	assert.Len(t, s.Steps[0].Then, 1, "condition steps keep their branches")
+	assert.Nil(t, s.Steps[1].Then, "steps without branches drop them")
+	assert.IsType(t, &ResponseConfig{}, s.Steps[0].Then[0].Config, "missing configs are filled with the zero value")
+}
+
+func TestStepConfigDecoding(t *testing.T) {
+	spec, err := ParseSpec([]byte(`{"trigger":{"type":"api"},"steps":[
+		{"id":"q","type":"query","config":{"tableUID":"tbl1","limit":5}},
+		{"id":"x","type":"unknown","config":{"a":1}}
+	]}`))
+	require.NoError(t, err)
+	q, ok := spec.Steps[0].Config.(*QueryConfig)
+	require.True(t, ok)
+	assert.Equal(t, "tbl1", q.TableUID)
+	assert.Equal(t, 5, q.Limit)
+	assert.Equal(t, "tbl1", spec.Steps[0].Table())
+	assert.JSONEq(t, `{"a":1}`, string(spec.Steps[1].Config.(json.RawMessage)))
+
+	_, err = ParseSpec([]byte(`{"steps":[{"id":"q","type":"query","config":{"limit":"many"}}]}`))
+	assert.Error(t, err, "a malformed config is rejected")
+}
+
+func TestModuleDefinitions(t *testing.T) {
+	for _, def := range Modules() {
+		assert.NotEmpty(t, def.Label, def.Type)
+		assert.NotEmpty(t, def.IDBase, def.Type)
+		var defaults map[string]interface{}
+		require.NoError(t, json.Unmarshal(def.Defaults, &defaults), def.Type)
+		cfg := moduleImpls[def.Type].newConfig()
+		require.NoError(t, json.Unmarshal(def.Defaults, cfg), "the defaults of %s match its config", def.Type)
+	}
+	require.NotNil(t, CredentialType("smtp"))
 }

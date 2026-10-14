@@ -95,6 +95,8 @@ type checker struct {
 	stepIDs map[string]*Step
 	// inputKeys are the declared parameter names; input.<key> may only reference them.
 	inputKeys map[string]bool
+	// credentials caches whether a credential UID is usable.
+	credentials map[string]bool
 }
 
 func (c *checker) add(code, target string, args ...string) {
@@ -131,7 +133,10 @@ func (c *checker) table(uid string) (*tableInfo, error) {
 
 // Check returns the issues that must be fixed before publishing, or an empty list if there are none.
 func Check(ctx context.Context, gormDB *gorm.DB, project *db.Project, spec *Spec) ([]Issue, error) {
-	c := &checker{ctx: ctx, db: gormDB, project: project, spec: spec, tables: map[string]*tableInfo{}, stepIDs: map[string]*Step{}, inputKeys: map[string]bool{}}
+	c := &checker{
+		ctx: ctx, db: gormDB, project: project, spec: spec, tables: map[string]*tableInfo{}, stepIDs: map[string]*Step{},
+		inputKeys: map[string]bool{}, credentials: map[string]bool{},
+	}
 	if err := c.checkTrigger(); err != nil {
 		return nil, err
 	}
@@ -406,10 +411,12 @@ func (c *checker) checkSequence(steps []Step, scope *flowScope, kind int) (bool,
 			return false, err
 		}
 		terminated := false
-		switch step.Type {
-		case StepResponse:
+		def := moduleDefs[step.Type]
+		switch {
+		case def == nil:
+		case def.Terminal:
 			terminated = kind == flowSync
-		case StepCondition:
+		case def.Branches:
 			thenDone, err := c.checkSequence(step.Then, scope.clone(), kind)
 			if err != nil {
 				return false, err
@@ -434,130 +441,226 @@ func (c *checker) checkSequence(steps []Step, scope *flowScope, kind int) (bool,
 
 func (c *checker) checkStep(step *Step, scope *flowScope, kind int) error {
 	target := "step:" + step.ID
-	switch step.Type {
-	case StepQuery, StepCreate, StepUpdate:
-		info, err := c.table(step.TableUID)
+	def, impl := moduleDefs[step.Type], moduleImpls[step.Type]
+	if def == nil {
+		c.add("step.invalid_type", target)
+		return nil
+	}
+	if !contains(def.Flows, flowName(kind)) {
+		switch {
+		case kind == flowSync:
+			c.add("step.async_only", target)
+		case def.Terminal && kind == flowAsync:
+			c.add("step.response_in_async", target)
+		case def.Terminal:
+			c.add("step.response_api_only", target)
+		default:
+			c.add("step.flow_not_allowed", target)
+		}
+	}
+	if err := c.checkFields(def, step, scope, target); err != nil {
+		return err
+	}
+	if impl.check != nil {
+		return impl.check(c, step, scope, target)
+	}
+	return nil
+}
+
+func flowName(kind int) string {
+	switch kind {
+	case flowSync:
+		return "sync"
+	case flowAsync:
+		return "async"
+	}
+	return "background"
+}
+
+// checkFields runs the generic checks of the module DSL: required fields, number ranges, options, variable references, and existence of credentials and tables.
+func (c *checker) checkFields(def *ModuleDef, step *Step, scope *flowScope, target string) error {
+	raw := rawConfig(step)
+	for _, section := range def.Sections {
+		fields := section.Fields
+		if section.Extra != nil {
+			fields = append([]FieldDef{*section.Extra}, fields...)
+		}
+		for _, f := range fields {
+			if f.Key == "" {
+				continue
+			}
+			label := f.Label
+			if label == "" {
+				label = section.Title
+			}
+			v := raw[f.Key]
+			if isEmptyJSON(v) {
+				if f.Required {
+					c.add("step.required", target, "field", label)
+				}
+				continue
+			}
+			if err := c.checkField(f, v, label, scope, target); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func (c *checker) checkField(f FieldDef, v json.RawMessage, label string, scope *flowScope, target string) error {
+	switch f.Widget {
+	case "value":
+		var val Value
+		if json.Unmarshal(v, &val) != nil {
+			c.add("value.invalid_kind", target)
+			return nil
+		}
+		if f.Required && val.Kind == "" {
+			c.add("step.required", target, "field", label)
+		}
+		c.checkValue(&val, scope, target)
+	case "number", "status":
+		var n float64
+		if json.Unmarshal(v, &n) != nil || n != float64(int64(n)) || (f.Min != nil && n < *f.Min) || (f.Max != nil && n > *f.Max) {
+			args := []string{"field", label}
+			if f.Min != nil && f.Max != nil {
+				args = append(args, "min", strconv.FormatFloat(*f.Min, 'f', -1, 64), "max", strconv.FormatFloat(*f.Max, 'f', -1, 64))
+			}
+			c.add("step.out_of_range", target, args...)
+		}
+	case "select":
+		ok := false
+		for _, o := range f.Options {
+			if string(o.Value) == string(v) {
+				ok = true
+				break
+			}
+		}
+		if !ok {
+			c.add("step.invalid_option", target, "field", label)
+		}
+	case "credential":
+		var uid string
+		_ = json.Unmarshal(v, &uid)
+		exists, err := c.credentialExists(uid, f.CredentialType)
+		if err != nil {
+			return err
+		}
+		if !exists {
+			c.add("step.credential_missing", target, "field", label)
+		}
+	case "table":
+		var uid string
+		_ = json.Unmarshal(v, &uid)
+		info, err := c.table(uid)
 		if err != nil {
 			return err
 		}
 		if info == nil {
 			c.add("step.table_missing", target)
-			break
 		}
-		if step.Type == StepQuery {
-			if step.Limit < 0 || step.Limit > MaxQueryLimit {
-				c.add("step.invalid_limit", target, "max", strconv.Itoa(MaxQueryLimit))
-			}
-			if step.Match != "" && step.Match != "all" && step.Match != "any" {
-				c.add("step.invalid_match", target)
-			}
-			for _, f := range step.Filters {
-				field, ok := info.byUID[f.FieldUID]
-				if !ok {
-					c.add("step.field_missing", target)
-					continue
-				}
-				if !contains(filterOps[field.Type], f.Op) {
-					c.add("step.invalid_operator", target, "field", field.Label)
-				}
-				c.checkValue(f.Value, scope, target)
-			}
-			for _, s := range step.Sort {
-				field, ok := info.byUID[s.FieldUID]
-				if !ok || field.Type == db.FormulaFieldType {
-					c.add("step.field_missing", target)
-				}
-			}
-			break
+	case "headers":
+		var headers []Header
+		_ = json.Unmarshal(v, &headers)
+		for i := range headers {
+			c.checkValue(&headers[i].Value, scope, target)
 		}
-		if len(step.Fields) == 0 {
-			c.add("step.no_fields", target)
+	case "body":
+		var body Body
+		if json.Unmarshal(v, &body) != nil {
+			c.add("step.invalid_body", target)
+			return nil
 		}
-		seen := map[string]bool{}
-		for i := range step.Fields {
-			fv := &step.Fields[i]
-			field, ok := info.byUID[fv.FieldUID]
-			if !ok {
-				c.add("step.field_missing", target)
-				continue
-			}
-			if !WritableField(field) {
-				c.add("step.field_not_writable", target, "field", field.Label)
-			}
-			if seen[field.UID] {
-				c.add("step.duplicate_field", target, "field", field.Label)
-			}
-			seen[field.UID] = true
-			c.checkValue(&fv.Value, scope, target)
-		}
-		if step.Type == StepUpdate {
-			if step.RecordUID == nil || step.RecordUID.Kind == "" {
-				c.add("step.record_required", target)
-			}
-			c.checkValue(step.RecordUID, scope, target)
-		}
+		c.checkBody(&body, scope, target)
+	}
+	return nil
+}
 
-	case StepCondition:
-		if len(step.Conditions) == 0 {
-			c.add("step.no_conditions", target)
-		}
-		for i := range step.Conditions {
-			cond := &step.Conditions[i]
-			if !contains(conditionOps, cond.Op) {
-				c.add("step.invalid_operator", target)
-			}
-			c.checkValue(&cond.Left, scope, target)
-			c.checkValue(cond.Right, scope, target)
-		}
+// credentialExists reports whether the project has the credential of the type.
+func (c *checker) credentialExists(uid, credType string) (bool, error) {
+	if ok, cached := c.credentials[uid]; cached {
+		return ok, nil
+	}
+	cred, err := db.NewCredentialsStore(c.db).GetByUID(c.ctx, uid)
+	if err != nil && !errors.Is(err, db.ErrCredentialNotFound) {
+		return false, err
+	}
+	ok := err == nil && cred.ProjectID == c.project.ID && (credType == "" || cred.Type == credType)
+	c.credentials[uid] = ok
+	return ok, nil
+}
 
-	case StepResponse:
-		switch kind {
-		case flowAsync:
-			c.add("step.response_in_async", target)
-		case flowBackground:
-			c.add("step.response_api_only", target)
+func (c *checker) checkQuery(step *Step, scope *flowScope, target string) error {
+	cfg := configOf[QueryConfig](step)
+	info, err := c.table(cfg.TableUID)
+	if err != nil || info == nil {
+		return err
+	}
+	if cfg.Match != "" && cfg.Match != "all" && cfg.Match != "any" {
+		c.add("step.invalid_match", target)
+	}
+	for _, f := range cfg.Filters {
+		field, ok := info.byUID[f.FieldUID]
+		if !ok {
+			c.add("step.field_missing", target)
+			continue
 		}
-		if step.Status < 100 || step.Status > 599 {
-			c.add("step.invalid_status", target)
+		if !contains(filterOps[field.Type], f.Op) {
+			c.add("step.invalid_operator", target, "field", field.Label)
 		}
-		c.checkBody(step.Body, scope, target)
+		c.checkValue(f.Value, scope, target)
+	}
+	for _, s := range cfg.Sort {
+		field, ok := info.byUID[s.FieldUID]
+		if !ok || field.Type == db.FormulaFieldType {
+			c.add("step.field_missing", target)
+		}
+	}
+	return nil
+}
 
-	case StepEmail:
-		if kind == flowSync {
-			c.add("step.async_only", target)
+func (c *checker) checkWrite(step *Step, scope *flowScope, target string) error {
+	cfg := configOf[WriteConfig](step)
+	info, err := c.table(cfg.TableUID)
+	if err != nil || info == nil {
+		return err
+	}
+	if len(cfg.Fields) == 0 {
+		c.add("step.no_fields", target)
+	}
+	seen := map[string]bool{}
+	for i := range cfg.Fields {
+		fv := &cfg.Fields[i]
+		field, ok := info.byUID[fv.FieldUID]
+		if !ok {
+			c.add("step.field_missing", target)
+			continue
 		}
-		if step.To == nil || step.To.Kind == "" {
-			c.add("step.email_to_required", target)
+		if !WritableField(field) {
+			c.add("step.field_not_writable", target, "field", field.Label)
 		}
-		if step.Subject == nil || step.Subject.Kind == "" {
-			c.add("step.email_subject_required", target)
+		if seen[field.UID] {
+			c.add("step.duplicate_field", target, "field", field.Label)
 		}
-		c.checkValue(step.To, scope, target)
-		c.checkValue(step.CC, scope, target)
-		c.checkValue(step.Subject, scope, target)
-		c.checkValue(step.Content, scope, target)
+		seen[field.UID] = true
+		c.checkValue(&fv.Value, scope, target)
+	}
+	return nil
+}
 
-	case StepHTTP:
-		if kind == flowSync {
-			c.add("step.async_only", target)
+func (c *checker) checkCondition(step *Step, scope *flowScope, target string) error {
+	cfg := configOf[ConditionConfig](step)
+	if len(cfg.Conditions) == 0 {
+		c.add("step.no_conditions", target)
+	}
+	for i := range cfg.Conditions {
+		cond := &cfg.Conditions[i]
+		if !contains(conditionOps, cond.Op) {
+			c.add("step.invalid_operator", target)
 		}
-		if step.URL == nil || step.URL.Kind == "" {
-			c.add("step.url_required", target)
-		}
-		if step.HTTPMethod != "" && !ValidMethod(strings.ToUpper(step.HTTPMethod)) {
-			c.add("step.invalid_method", target)
-		}
-		if step.Timeout < 0 || step.Timeout > 30 {
-			c.add("step.invalid_timeout", target)
-		}
-		c.checkValue(step.URL, scope, target)
-		for i := range step.Headers {
-			c.checkValue(&step.Headers[i].Value, scope, target)
-		}
-		c.checkBody(step.Body, scope, target)
-
-	default:
-		c.add("step.invalid_type", target)
+		c.checkValue(&cond.Left, scope, target)
+		c.checkValue(cond.Right, scope, target)
 	}
 	return nil
 }
@@ -622,13 +725,16 @@ func (c *checker) checkValue(v *Value, scope *flowScope, target string) {
 	}
 }
 
-// stepOutputs lists the output properties of each step type.
-var stepOutputs = map[string][]string{
-	StepQuery:  {"records", "first", "count", "total", "found"},
-	StepCreate: {"record"},
-	StepUpdate: {"record"},
-	StepEmail:  {"to", "cc", "subject", "messageID"},
-	StepHTTP:   {"status", "headers", "body"},
+// hasOutput reports whether the module DSL declares the output.
+func hasOutput(stepType, key string) bool {
+	if def := moduleDefs[stepType]; def != nil {
+		for _, o := range def.Outputs {
+			if o.Key == key {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // TriggerOutputs lists the properties each trigger type provides through the trigger variable.
@@ -703,11 +809,11 @@ func (c *checker) checkVar(path string, scope *flowScope, target string) {
 			unknown()
 			return
 		}
-		if len(parts) >= 3 && !contains(stepOutputs[step.Type], parts[2]) {
+		if len(parts) >= 3 && !hasOutput(step.Type, parts[2]) {
 			unknown()
 			return
 		}
-		if !c.checkFieldRef(parts, 3, step.TableUID) {
+		if !c.checkFieldRef(parts, 3, step.Table()) {
 			unknown()
 		}
 		return

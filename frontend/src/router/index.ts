@@ -78,7 +78,6 @@ const router = createRouter({
         },
         { path: 'site', name: 'admin-site', component: () => import('@/pages/admin/SitePage.vue') },
         { path: 'ai', name: 'admin-ai', component: () => import('@/pages/admin/AIModelPage.vue') },
-        { path: 'mail', name: 'admin-mail', component: () => import('@/pages/admin/MailPage.vue') },
         {
           path: 'field-shortcuts',
           name: 'admin-field-shortcuts',

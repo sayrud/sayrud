@@ -4,7 +4,7 @@ import { nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import FlowNode from '@/components/workflow/FlowNode.vue'
 import FlowSequence from '@/components/workflow/FlowSequence.vue'
 import type { WorkflowAsyncFlow } from '@/types/workflow'
-import { ASYNC_STEP_TYPES } from '@/utils/workflow'
+import { stepTypesFor } from '@/utils/workflow'
 
 const props = defineProps<{ flows: WorkflowAsyncFlow[] }>()
 
@@ -59,7 +59,7 @@ watch(
         <div data-fork-start>
           <FlowNode :async-flow-id="flow.id" />
         </div>
-        <FlowSequence :steps="flow.steps" :address="{ flow: flow.id }" :types="ASYNC_STEP_TYPES" branch />
+        <FlowSequence :steps="flow.steps" :address="{ flow: flow.id }" :types="stepTypesFor('async')" branch />
       </div>
     </div>
   </div>

@@ -4,7 +4,7 @@ import { useI18n } from 'vue-i18n'
 
 import { useWorkflowEditorStore } from '@/stores/workflowEditor'
 import type { StepType } from '@/types/workflow'
-import { type ListAddress, newStep, resolveList, STEP_META, varValue } from '@/utils/workflow'
+import { type ListAddress, moduleDef, newStep, resolveList, stepMeta, stepTable, varValue } from '@/utils/workflow'
 
 const props = withDefaults(defineProps<{ address: ListAddress; index: number; types: StepType[]; tall?: boolean; hideLine?: boolean }>(), { tall: false, hideLine: false })
 const { t } = useI18n()
@@ -17,9 +17,11 @@ function add(type: StepType) {
   const tableUID = store.spec!.trigger.record?.tableUID || (store.tables.length === 1 ? store.tables[0]!.uid : undefined)
   const step = newStep(store.spec!, type, tableUID)
   const trigger = store.spec!.trigger
-  if (type === 'update' && trigger.record && trigger.type !== 'record_deleted' && step.tableUID === trigger.record.tableUID) step.recordUID = varValue('trigger.record.uid')
+  // Steps on the trigger table that need a record default to the triggering record.
+  const targetsTrigger = trigger.record && trigger.type !== 'record_deleted' && stepTable(step) === trigger.record.tableUID
+  if (targetsTrigger && 'recordUID' in (moduleDef(type)?.defaults ?? {})) step.config.recordUID = varValue('trigger.record.uid')
   list.splice(props.index, 0, step)
-  void store.ensureFields(step.tableUID)
+  void store.ensureFields(stepTable(step))
   store.select({ kind: 'step', id: step.id })
 }
 </script>
@@ -35,12 +37,12 @@ function add(type: StepType) {
       <template #content>
         <a-doption v-for="type in types" :key="type" class="step-option" @click="add(type)">
           <div class="option-row">
-            <span class="option-icon" :style="{ background: STEP_META[type].color }">
-              <component :is="STEP_META[type].icon" :size="15" />
+            <span class="option-icon" :style="{ background: stepMeta(type).color }">
+              <component :is="stepMeta(type).icon" :size="15" />
             </span>
             <span class="option-text">
-              <span class="option-label">{{ STEP_META[type].label }}</span>
-              <span class="option-desc">{{ STEP_META[type].description }}</span>
+              <span class="option-label">{{ stepMeta(type).label }}</span>
+              <span class="option-desc">{{ stepMeta(type).description }}</span>
             </span>
           </div>
         </a-doption>

@@ -34,10 +34,6 @@ type SettingsStore interface {
 	GetAI(ctx context.Context) (*AISettings, error)
 	// SaveAI saves the AI settings, the caller must Validate them first.
 	SaveAI(ctx context.Context, s AISettings) error
-	// GetMail returns the SMTP settings, the unsaved ones take the defaults.
-	GetMail(ctx context.Context) (*MailSettings, error)
-	// SaveMail saves the SMTP settings, the caller must Validate them first.
-	SaveMail(ctx context.Context, s MailSettings) error
 	// GetUser returns the settings of the user, the unsaved ones take the defaults.
 	GetUser(ctx context.Context, userID int64) (*UserSettings, error)
 	// SaveUser saves the settings of the user, the caller must Validate them first.
@@ -380,103 +376,6 @@ func (db *settings) SaveAI(ctx context.Context, s AISettings) error {
 	s.BaseURL, _ = NormalizeAIBaseURL(s.BaseURL)
 	s.Model = strings.TrimSpace(s.Model)
 	return db.save(ctx, SystemSettingsUserID, aiSettingsRow{AI: s})
-}
-
-// MailSettings is the SMTP service that workflows send emails with, edited in the admin console.
-type MailSettings struct {
-	// Enabled indicates whether sending emails is enabled.
-	Enabled bool   `json:"enabled"`
-	Host    string `json:"host"`
-	Port    int    `json:"port"`
-	// Security is tls (implicit TLS, usually port 465), starttls (usually port 587) or none.
-	Security string `json:"security" enums:"tls,starttls,none"`
-	Username string `json:"username"`
-	// SealedPassword is the password encrypted with auth.secret_key, empty if the server requires no authentication.
-	SealedPassword string `json:"sealedPassword"`
-	// FromAddress is the sender address.
-	FromAddress string `json:"fromAddress"`
-	// FromName is the optional sender name.
-	FromName string `json:"fromName"`
-}
-
-// mailSettingsRow saves the SMTP settings as the row keyed "mail" in the system settings.
-type mailSettingsRow struct {
-	Mail MailSettings `json:"mail"`
-}
-
-const (
-	MailSecurityTLS      = "tls"
-	MailSecurityStartTLS = "starttls"
-	MailSecurityNone     = "none"
-	mailFieldMaxLength   = 255
-)
-
-// DefaultMailSettings returns the default SMTP settings before any are saved.
-func DefaultMailSettings() MailSettings {
-	return MailSettings{Port: 465, Security: MailSecurityTLS}
-}
-
-// Configured reports whether sending is enabled and both the server and the sender are filled in.
-func (s MailSettings) Configured() bool {
-	return s.Enabled && s.Host != "" && s.FromAddress != ""
-}
-
-func isMailSecurity(security string) bool {
-	return security == MailSecurityTLS || security == MailSecurityStartTLS || security == MailSecurityNone
-}
-
-// Validate returns an *i18n.Error to be translated.
-func (s MailSettings) Validate() error {
-	host := strings.TrimSpace(s.Host)
-	from := strings.TrimSpace(s.FromAddress)
-	if s.Enabled && host == "" {
-		return i18n.Errorf("mail::host_required")
-	}
-	if s.Port < 1 || s.Port > 65535 {
-		return i18n.Errorf("mail::invalid_port")
-	}
-	if !isMailSecurity(s.Security) {
-		return i18n.Errorf("mail::invalid_security")
-	}
-	if s.Enabled && from == "" {
-		return i18n.Errorf("mail::from_required")
-	}
-	if from != "" && !strings.Contains(from, "@") {
-		return i18n.Errorf("mail::invalid_from")
-	}
-	for _, v := range []string{host, from, s.Username, s.FromName} {
-		if utf8.RuneCountInString(v) > mailFieldMaxLength {
-			return i18n.Errorf("mail::too_long", mailFieldMaxLength)
-		}
-	}
-	return nil
-}
-
-func (db *settings) GetMail(ctx context.Context) (*MailSettings, error) {
-	raw, err := db.load(ctx, SystemSettingsUserID)
-	if err != nil {
-		return nil, err
-	}
-	var row struct {
-		Mail json.RawMessage `json:"mail"`
-	}
-	_ = json.Unmarshal(raw, &row)
-	s := DefaultMailSettings()
-	if len(row.Mail) > 0 && json.Unmarshal(row.Mail, &s) != nil {
-		s = DefaultMailSettings()
-	}
-	if !isMailSecurity(s.Security) {
-		s.Security = MailSecurityTLS
-	}
-	return &s, nil
-}
-
-func (db *settings) SaveMail(ctx context.Context, s MailSettings) error {
-	s.Host = strings.TrimSpace(s.Host)
-	s.FromAddress = strings.TrimSpace(s.FromAddress)
-	s.FromName = strings.TrimSpace(s.FromName)
-	s.Username = strings.TrimSpace(s.Username)
-	return db.save(ctx, SystemSettingsUserID, mailSettingsRow{Mail: s})
 }
 
 // The appearances of the user interface.

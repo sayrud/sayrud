@@ -3,9 +3,10 @@ import { computed, nextTick, reactive, ref, watch } from 'vue'
 
 import { syncApi, projectsApi, tablesApi } from '@/api/bitable'
 import { ApiError } from '@/api/client'
-import { workflowsApi } from '@/api/workflow'
+import { credentialsApi, workflowsApi } from '@/api/workflow'
 import type { Project } from '@/types/bitable'
-import type { WorkflowIssue, WorkflowSpec, WorkflowTraceStep, Workflow } from '@/types/workflow'
+import type { Credential, WorkflowIssue, WorkflowSpec, WorkflowTraceStep, Workflow } from '@/types/workflow'
+import { modulesLoaded, setModuleDefs } from '@/utils/modules'
 import { referencedTables, type TableMeta } from '@/utils/workflow'
 import { roleAtLeast } from '@/utils/role'
 
@@ -38,6 +39,8 @@ export const useWorkflowEditorStore = defineStore('workflowEditor', () => {
   const notFound = ref(false)
   /** Step results of the most recent debug run, indexed by step ID, used to mark nodes on the canvas. */
   const lastTrace = ref<Map<string, WorkflowTraceStep>>(new Map())
+  /** Credentials of the project, loaded on demand by steps referencing credentials; null means not loaded yet. */
+  const credentials = ref<Credential[] | null>(null)
 
   const canManage = computed(() => roleAtLeast(project.value?.role, 'manager'))
   const readonly = computed(() => !canManage.value)
@@ -88,9 +91,12 @@ export const useWorkflowEditorStore = defineStore('workflowEditor', () => {
     projectUID.value = pid
     fields.clear()
     lastTrace.value = new Map()
+    credentials.value = null
     selection.value = { kind: 'trigger' }
     try {
-      const [p, list, data] = await Promise.all([projectsApi.get(pid), tablesApi.list(pid), workflowsApi.get(pid, workflowUID)])
+      const modules = modulesLoaded() ? null : workflowsApi.modules(pid)
+      const [p, list, data, defs] = await Promise.all([projectsApi.get(pid), tablesApi.list(pid), workflowsApi.get(pid, workflowUID), modules])
+      if (defs) setModuleDefs(defs)
       project.value = p
       tables.value = list.tables.map((t) => ({ uid: t.uid, name: t.name }))
       apply(data)
@@ -172,17 +178,45 @@ export const useWorkflowEditorStore = defineStore('workflowEditor', () => {
     selection.value = s
   }
 
+  let credentialsLoading: Promise<void> | null = null
+
+  /** Loads the project credentials once; force fetches them again. */
+  function loadCredentials(force = false) {
+    if (!projectUID.value || (credentials.value && !force)) return Promise.resolve()
+    if (credentialsLoading && !force) return credentialsLoading
+    const pid = projectUID.value
+    credentialsLoading = credentialsApi
+      .list(pid)
+      .then((list) => {
+        if (projectUID.value === pid) credentials.value = list
+      })
+      .finally(() => (credentialsLoading = null))
+    return credentialsLoading
+  }
+
+  /** Syncs a created or updated credential into the list. */
+  function upsertCredential(c: Credential) {
+    const list = credentials.value ?? []
+    const i = list.findIndex((x) => x.uid === c.uid)
+    credentials.value = i >= 0 ? list.map((x, j) => (j === i ? c : x)) : [...list, c]
+  }
+
+  function removeCredential(uid: string) {
+    credentials.value = (credentials.value ?? []).filter((c) => c.uid !== uid)
+  }
+
   function reset() {
     clearTimeout(timer)
     workflow.value = null
     spec.value = null
     project.value = null
+    credentials.value = null
     fields.clear()
   }
 
   return {
-    projectUID, project, workflow, spec, name, description, draftVersion, issues, saveState, selection, tables, fields, loading, notFound, lastTrace,
+    projectUID, project, workflow, spec, name, description, draftVersion, issues, saveState, selection, tables, fields, loading, notFound, lastTrace, credentials,
     canManage, readonly,
-    issuesOf, ensureFields, load, save, flush, reload, setWorkflow, select, reset,
+    issuesOf, ensureFields, load, save, flush, reload, setWorkflow, select, loadCredentials, upsertCredential, removeCredential, reset,
   }
 })

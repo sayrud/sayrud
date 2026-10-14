@@ -177,16 +177,32 @@ type CreateWorkflowKeyResp struct {
 	Secret string       `json:"secret"`
 } // @name CreateWorkflowKeyResp
 
-// AdminMailSettings is the SMTP settings in the admin console, without the password.
-type AdminMailSettings struct {
-	Enabled     bool   `json:"enabled"`
-	Host        string `json:"host"`
-	Port        int    `json:"port"`
-	Security    string `json:"security" enums:"tls,starttls,none"`
-	Username    string `json:"username"`
-	HasPassword bool   `json:"hasPassword"`
-	FromAddress string `json:"fromAddress"`
-	FromName    string `json:"fromName"`
-	// SecretsReady is false if auth.secret_key is not configured, in which case the password cannot be saved.
+// WorkflowModules are the DSL definitions of the step modules and credential types, which the editor renders nodes and forms with.
+type WorkflowModules struct {
+	Modules         []*workflow.ModuleDef         `json:"modules"`
+	CredentialTypes []*workflow.CredentialTypeDef `json:"credentialTypes"`
+	// SecretsReady is false if auth.secret_key is not configured, in which case secret fields can not be saved.
 	SecretsReady bool `json:"secretsReady"`
-} // @name AdminMailSettings
+} // @name WorkflowModules
+
+// Credential is a project credential without the values of its secret fields.
+type Credential struct {
+	UID  string                 `json:"uid"`
+	Type string                 `json:"type"`
+	Name string                 `json:"name"`
+	Data map[string]interface{} `json:"data"`
+	// Secrets lists the saved secret fields.
+	Secrets   []string  `json:"secrets"`
+	CreatedAt time.Time `json:"createdAt"`
+	UpdatedAt time.Time `json:"updatedAt"`
+} // @name Credential
+
+// ToCredential converts the credential, secrets are the names of the saved secret fields.
+func ToCredential(c *db.Credential, secrets []string) *Credential {
+	data := map[string]interface{}{}
+	_ = json.Unmarshal(c.Data, &data)
+	if secrets == nil {
+		secrets = []string{}
+	}
+	return &Credential{UID: c.UID, Type: c.Type, Name: c.Name, Data: data, Secrets: secrets, CreatedAt: c.CreatedAt, UpdatedAt: c.UpdatedAt}
+}

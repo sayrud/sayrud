@@ -57,8 +57,10 @@ func BlankSpec(path string) *Spec {
 			Method: "POST", Path: path, Auth: Auth{Type: AuthNone}, Params: []Param{}, RateLimit: RateLimit{Limit: 60, Window: 60},
 		}},
 		Steps: []Step{{
-			ID: "respond", Type: StepResponse, Status: 200,
-			Body: &Body{Type: BodyObject, Fields: []BodyField{{Key: "ok", Value: Body{Type: BodyValue, Value: &Value{Kind: ValueConst, Const: json.RawMessage("true")}}}}},
+			ID: "respond", Type: StepResponse, Config: &ResponseConfig{
+				Status: 200,
+				Body:   &Body{Type: BodyObject, Fields: []BodyField{{Key: "ok", Value: Body{Type: BodyValue, Value: &Value{Kind: ValueConst, Const: json.RawMessage("true")}}}}},
+			},
 		}},
 		Async: []AsyncFlow{},
 	}
@@ -147,7 +149,7 @@ func TableSpec(template string, table *db.SLTable, fields []*db.SLField) *Spec {
 
 	switch template {
 	case TemplateCreate:
-		create := Step{ID: "create", Type: StepCreate, TableUID: table.UID}
+		create := &WriteConfig{TableUID: table.UID}
 		for i, field := range fields {
 			if !WritableField(field) {
 				continue
@@ -160,17 +162,19 @@ func TableSpec(template string, table *db.SLTable, fields []*db.SLField) *Spec {
 			spec.Trigger.API.Params = append(spec.Trigger.API.Params, p)
 			create.Fields = append(create.Fields, FieldValue{FieldUID: field.UID, Value: *varValue("input." + p.Key)})
 		}
-		spec.Steps = append(spec.Steps, create, Step{
-			ID: "respond", Type: StepResponse, Status: 201,
-			Body: &Body{Type: BodyObject, Fields: []BodyField{
-				{Key: "id", Value: Body{Type: BodyValue, Value: varValue("steps.create.record.uid")}},
-				{Key: "createdAt", Value: Body{Type: BodyValue, Value: varValue("steps.create.record.createdAt")}},
-			}},
+		spec.Steps = append(spec.Steps, Step{ID: "create", Type: StepCreate, Config: create}, Step{
+			ID: "respond", Type: StepResponse, Config: &ResponseConfig{
+				Status: 201,
+				Body: &Body{Type: BodyObject, Fields: []BodyField{
+					{Key: "id", Value: Body{Type: BodyValue, Value: varValue("steps.create.record.uid")}},
+					{Key: "createdAt", Value: Body{Type: BodyValue, Value: varValue("steps.create.record.createdAt")}},
+				}},
+			},
 		})
 
 	case TemplateQuery:
 		spec.Trigger.API.Method = "GET"
-		query := Step{ID: "query", Type: StepQuery, TableUID: table.UID, Limit: DefaultQueryLimit}
+		query := &QueryConfig{TableUID: table.UID, Match: "all", Limit: DefaultQueryLimit}
 		item := &Body{Type: BodyObject, Fields: []BodyField{{Key: "id", Value: Body{Type: BodyValue, Value: varValue("item.uid")}}}}
 		for i, field := range fields {
 			if field.Type == db.FormulaFieldType || field.Type == db.AttachmentFieldType || field.Type.IsUnknown() {
@@ -185,12 +189,14 @@ func TableSpec(template string, table *db.SLTable, fields []*db.SLField) *Spec {
 				query.Filters = append(query.Filters, Filter{FieldUID: field.UID, Op: "like", Value: varValue("input." + key)})
 			}
 		}
-		spec.Steps = append(spec.Steps, query, Step{
-			ID: "respond", Type: StepResponse, Status: 200,
-			Body: &Body{Type: BodyObject, Fields: []BodyField{
-				{Key: "total", Value: Body{Type: BodyValue, Value: varValue("steps.query.total")}},
-				{Key: "records", Value: Body{Type: BodyMap, Source: varValue("steps.query.records"), Item: item}},
-			}},
+		spec.Steps = append(spec.Steps, Step{ID: "query", Type: StepQuery, Config: query}, Step{
+			ID: "respond", Type: StepResponse, Config: &ResponseConfig{
+				Status: 200,
+				Body: &Body{Type: BodyObject, Fields: []BodyField{
+					{Key: "total", Value: Body{Type: BodyValue, Value: varValue("steps.query.total")}},
+					{Key: "records", Value: Body{Type: BodyMap, Source: varValue("steps.query.records"), Item: item}},
+				}},
+			},
 		})
 	}
 	return spec

@@ -294,43 +294,6 @@ definitions:
     - updatedAt
     - usedBy
     type: object
-  AdminMailSettings:
-    properties:
-      enabled:
-        type: boolean
-      fromAddress:
-        type: string
-      fromName:
-        type: string
-      hasPassword:
-        type: boolean
-      host:
-        type: string
-      port:
-        type: integer
-      secretsReady:
-        description: SecretsReady is false if auth.secret_key is not configured, in
-          which case the password cannot be saved.
-        type: boolean
-      security:
-        enum:
-        - tls
-        - starttls
-        - none
-        type: string
-      username:
-        type: string
-    required:
-    - enabled
-    - fromAddress
-    - fromName
-    - hasPassword
-    - host
-    - port
-    - secretsReady
-    - security
-    - username
-    type: object
   AdminOverview:
     properties:
       activeSessions:
@@ -811,6 +774,35 @@ definitions:
     required:
     - key
     - secret
+    type: object
+  Credential:
+    properties:
+      createdAt:
+        type: string
+      data:
+        additionalProperties: true
+        type: object
+      name:
+        type: string
+      secrets:
+        description: Secrets lists the saved secret fields.
+        items:
+          type: string
+        type: array
+      type:
+        type: string
+      uid:
+        type: string
+      updatedAt:
+        type: string
+    required:
+    - createdAt
+    - data
+    - name
+    - secrets
+    - type
+    - uid
+    - updatedAt
     type: object
   DebugWorkflow:
     properties:
@@ -1597,6 +1589,32 @@ definitions:
     - type
     - uid
     type: object
+  SaveCredential:
+    properties:
+      clearSecrets:
+        items:
+          type: string
+        type: array
+      data:
+        additionalProperties: true
+        description: Data holds the non-secret fields of the credential type DSL.
+        type: object
+      name:
+        type: string
+      secrets:
+        additionalProperties:
+          type: string
+        description: Secrets holds the secret fields, empty ones keep the saved values;
+          the fields in ClearSecrets are cleared.
+        type: object
+      type:
+        description: Type is the credential type, only used on creation.
+        type: string
+    required:
+    - data
+    - name
+    - type
+    type: object
   SaveFieldShortcut:
     properties:
       aiEnabled:
@@ -2059,6 +2077,35 @@ definitions:
     - config
     - type
     type: object
+  TestCredential:
+    properties:
+      clearSecrets:
+        items:
+          type: string
+        type: array
+      credentialUID:
+        description: CredentialUID provides the saved secrets for the fields not given.
+        type: string
+      data:
+        additionalProperties: true
+        type: object
+      input:
+        additionalProperties:
+          type: string
+        description: Input holds the values of test.fields in the credential type
+          DSL, e.g. the recipient of the test email.
+        type: object
+      secrets:
+        additionalProperties:
+          type: string
+        type: object
+      type:
+        type: string
+    required:
+    - data
+    - input
+    - type
+    type: object
   TestFieldShortcut:
     properties:
       params:
@@ -2102,45 +2149,6 @@ definitions:
     required:
     - durationMs
     - logs
-    type: object
-  TestMailSettings:
-    properties:
-      clearPassword:
-        type: boolean
-      enabled:
-        type: boolean
-      fromAddress:
-        type: string
-      fromName:
-        type: string
-      host:
-        type: string
-      password:
-        description: Password keeps the existing password if empty, and ClearPassword
-          clears it if true.
-        type: string
-      port:
-        type: integer
-      security:
-        enum:
-        - tls
-        - starttls
-        - none
-        type: string
-      to:
-        description: To is the recipient of the test email.
-        type: string
-      username:
-        type: string
-    required:
-    - enabled
-    - fromAddress
-    - fromName
-    - host
-    - port
-    - security
-    - to
-    - username
     type: object
   TransferProjectOwner:
     properties:
@@ -2266,41 +2274,6 @@ definitions:
     required:
     - enabled
     - includeChildren
-    type: object
-  UpdateMailSettings:
-    properties:
-      clearPassword:
-        type: boolean
-      enabled:
-        type: boolean
-      fromAddress:
-        type: string
-      fromName:
-        type: string
-      host:
-        type: string
-      password:
-        description: Password keeps the existing password if empty, and ClearPassword
-          clears it if true.
-        type: string
-      port:
-        type: integer
-      security:
-        enum:
-        - tls
-        - starttls
-        - none
-        type: string
-      username:
-        type: string
-    required:
-    - enabled
-    - fromAddress
-    - fromName
-    - host
-    - port
-    - security
-    - username
     type: object
   UpdatePassword:
     properties:
@@ -2685,75 +2658,112 @@ definitions:
     required:
     - type
     type: object
-  WorkflowBody:
+  WorkflowCredentialTestDef:
     properties:
-      fields:
-        description: Fields are the properties of an object.
-        items:
-          $ref: '#/definitions/WorkflowBodyField'
-        type: array
-      item:
-        $ref: '#/definitions/WorkflowBody'
-      source:
-        allOf:
-        - $ref: '#/definitions/WorkflowValue'
-        description: Source is the array a map node iterates over, and Item builds
-          each element using the variable item.
-      type:
-        enum:
-        - object
-        - value
-        - map
+      action:
         type: string
-      value:
-        allOf:
-        - $ref: '#/definitions/WorkflowValue'
-        description: Value is the value of a value node.
+      description:
+        type: string
+      fields:
+        items:
+          $ref: '#/definitions/WorkflowFieldDef'
+        type: array
+      success:
+        type: string
     required:
+    - action
+    - fields
+    - success
+    type: object
+  WorkflowCredentialTypeDef:
+    properties:
+      description:
+        type: string
+      icon:
+        type: string
+      label:
+        type: string
+      sections:
+        items:
+          $ref: '#/definitions/WorkflowSectionDef'
+        type: array
+      summary:
+        description: Summary are the non-secret fields that tell credentials apart
+          in lists.
+        items:
+          type: string
+        type: array
+      test:
+        $ref: '#/definitions/WorkflowCredentialTestDef'
+      type:
+        type: string
+    required:
+    - icon
+    - label
+    - sections
+    - summary
     - type
     type: object
-  WorkflowBodyField:
+  WorkflowFieldDef:
     properties:
+      credentialType:
+        description: CredentialType is the credential type a credential widget selects.
+        type: string
+      default:
+        type: object
+      display:
+        description: Display is the presentation of the widget, e.g. radio for select,
+          response / optional for body.
+        type: string
+      help:
+        type: string
       key:
+        description: Key is the property name in the config object, empty for display-only
+          widgets such as branches.
         type: string
-      value:
-        $ref: '#/definitions/WorkflowBody'
-    required:
-    - key
-    - value
-    type: object
-  WorkflowCondition:
-    properties:
-      left:
-        $ref: '#/definitions/WorkflowValue'
-      op:
-        enum:
-        - eq
-        - neq
-        - gt
-        - gte
-        - lt
-        - lte
-        - contains
-        - not_contains
-        - empty
-        - not_empty
+      label:
         type: string
-      right:
-        $ref: '#/definitions/WorkflowValue'
-    required:
-    - left
-    - op
-    type: object
-  WorkflowFieldValue:
-    properties:
-      fieldUID:
+      max:
+        type: number
+      maxLength:
+        type: integer
+      min:
+        type: number
+      multiline:
+        type: boolean
+      options:
+        items:
+          $ref: '#/definitions/WorkflowOptionDef'
+        type: array
+      placeholder:
         type: string
-      value:
-        $ref: '#/definitions/WorkflowValue'
+      prefix:
+        type: string
+      required:
+        type: boolean
+      resets:
+        description: Resets are the fields cleared when this field changes, e.g. the
+          filters when the table changes.
+        items:
+          type: string
+        type: array
+      secret:
+        description: Secret marks a credential field that is stored encrypted and
+          never returned to the frontend.
+        type: boolean
+      showIf:
+        description: ShowIf is another field of the same config; this field is hidden
+          while that one is empty.
+        type: string
+      suffix:
+        type: string
+      widget:
+        description: Widget is value, number, select, text, email, password, credential,
+          table, filters, sort, fieldMapping, conditions, headers, body, status or
+          branches.
+        type: string
     required:
-    - fieldUID
-    - value
+    - widget
     type: object
   WorkflowFilter:
     properties:
@@ -2778,16 +2788,6 @@ definitions:
     required:
     - fieldUID
     - op
-    type: object
-  WorkflowHeader:
-    properties:
-      name:
-        type: string
-      value:
-        $ref: '#/definitions/WorkflowValue'
-    required:
-    - name
-    - value
     type: object
   WorkflowIssue:
     properties:
@@ -2936,6 +2936,116 @@ definitions:
     - triggerType
     - uid
     - updatedAt
+    type: object
+  WorkflowModuleDef:
+    properties:
+      action:
+        description: Action marks external side effects; simulated debugging only
+          computes the arguments.
+        type: boolean
+      branches:
+        description: Branches marks modules with then / else branches.
+        type: boolean
+      color:
+        type: string
+      defaults:
+        type: object
+      description:
+        type: string
+      flows:
+        description: 'Flows are the allowed flows: sync (the API sync flow), async
+          (API async flows) and background (the main flow of other triggers).'
+        items:
+          type: string
+        type: array
+      icon:
+        type: string
+      idBase:
+        description: IDBase is the prefix of new step IDs, e.g. query, query2.
+        type: string
+      label:
+        type: string
+      order:
+        type: integer
+      outputs:
+        items:
+          $ref: '#/definitions/WorkflowOutputDef'
+        type: array
+      sections:
+        items:
+          $ref: '#/definitions/WorkflowSectionDef'
+        type: array
+      summary:
+        $ref: '#/definitions/WorkflowSummaryDef'
+      tableKey:
+        description: TableKey is the config field referencing a table.
+        type: string
+      terminal:
+        description: Terminal marks modules that return the response and end the sync
+          flow.
+        type: boolean
+      type:
+        type: string
+    required:
+    - color
+    - defaults
+    - description
+    - flows
+    - icon
+    - idBase
+    - label
+    - order
+    - outputs
+    - sections
+    - type
+    type: object
+  WorkflowModules:
+    properties:
+      credentialTypes:
+        items:
+          $ref: '#/definitions/WorkflowCredentialTypeDef'
+        type: array
+      modules:
+        items:
+          $ref: '#/definitions/WorkflowModuleDef'
+        type: array
+      secretsReady:
+        description: SecretsReady is false if auth.secret_key is not configured, in
+          which case secret fields can not be saved.
+        type: boolean
+    required:
+    - credentialTypes
+    - modules
+    - secretsReady
+    type: object
+  WorkflowOptionDef:
+    properties:
+      label:
+        type: string
+      patch:
+        type: object
+      value:
+        type: object
+    required:
+    - value
+    type: object
+  WorkflowOutputDef:
+    properties:
+      items:
+        description: Items is the element type of an array, record for table records.
+        type: string
+      key:
+        type: string
+      kind:
+        description: Kind is string, number, boolean, object, array or record; record
+          expands the fields of the table given by TableKey.
+        type: string
+      label:
+        type: string
+    required:
+    - key
+    - kind
+    - label
     type: object
   WorkflowParam:
     properties:
@@ -3213,99 +3323,44 @@ definitions:
     - start
     - timezone
     type: object
-  WorkflowSort:
+  WorkflowSectionDef:
     properties:
-      fieldUID:
+      description:
         type: string
-      order:
-        enum:
-        - asc
-        - desc
+      extra:
+        allOf:
+        - $ref: '#/definitions/WorkflowFieldDef'
+        description: Extra is a compact field shown on the right of the section title.
+      fields:
+        items:
+          $ref: '#/definitions/WorkflowFieldDef'
+        type: array
+      showIf:
+        type: string
+      title:
         type: string
     required:
-    - fieldUID
-    - order
+    - fields
     type: object
   WorkflowStep:
     properties:
-      body:
-        $ref: '#/definitions/WorkflowBody'
-      cc:
-        $ref: '#/definitions/WorkflowValue'
-      conditions:
-        description: Conditions decide which branch a condition takes.
-        items:
-          $ref: '#/definitions/WorkflowCondition'
-        type: array
-      content:
-        $ref: '#/definitions/WorkflowValue'
+      config:
+        description: Config is the module configuration defined by the DSL of the
+          type (see ModuleDef), decoded as the matching *XxxConfig.
+        type: object
       else:
         items:
           $ref: '#/definitions/WorkflowStep'
         type: array
-      fields:
-        description: Fields are the field values written by create and update.
-        items:
-          $ref: '#/definitions/WorkflowFieldValue'
-        type: array
-      filters:
-        description: Filters are the query's filter conditions, all or any of which
-          must hold per Match.
-        items:
-          $ref: '#/definitions/WorkflowFilter'
-        type: array
-      headers:
-        items:
-          $ref: '#/definitions/WorkflowHeader'
-        type: array
-      httpMethod:
-        description: HTTPMethod, URL and Timeout make up the request of an http step;
-          Timeout is in seconds, 1–30.
-        type: string
       id:
-        type: string
-      limit:
-        description: Limit is the maximum number of records a query returns, 1–100.
-        type: integer
-      match:
-        description: 'Match is how a condition''s conditions or a query''s filters
-          are combined: all means every one must hold, any means at least one; empty
-          is equivalent to all.'
-        enum:
-        - all
-        - any
         type: string
       name:
         type: string
-      recordUID:
-        allOf:
-        - $ref: '#/definitions/WorkflowValue'
-        description: RecordUID specifies the record to update.
-      sort:
-        items:
-          $ref: '#/definitions/WorkflowSort'
-        type: array
-      status:
-        description: Status and Body build the response of a response step, whose
-          headers cannot be set by the flow; Headers and Body are also used as the
-          request of an http step.
-        type: integer
-      subject:
-        $ref: '#/definitions/WorkflowValue'
-      tableUID:
-        description: TableUID is the table operated on by query, create and update.
-        type: string
       then:
+        description: Then and Else are the branches of a branching module (condition).
         items:
           $ref: '#/definitions/WorkflowStep'
         type: array
-      timeout:
-        type: integer
-      to:
-        allOf:
-        - $ref: '#/definitions/WorkflowValue'
-        description: To, CC, Subject and Content are the recipients, CC, subject and
-          body of an email step.
       type:
         enum:
         - query
@@ -3316,11 +3371,30 @@ definitions:
         - email
         - http
         type: string
-      url:
-        $ref: '#/definitions/WorkflowValue'
     required:
+    - config
     - id
     - type
+    type: object
+  WorkflowSummaryDef:
+    properties:
+      args:
+        additionalProperties:
+          type: string
+        type: object
+      fallback:
+        type: string
+      parts:
+        items:
+          type: string
+        type: array
+      requires:
+        description: Fallback is shown while the Requires field is empty.
+        type: string
+      separator:
+        type: string
+      template:
+        type: string
     type: object
   WorkflowTraceStep:
     properties:
@@ -3932,91 +4006,6 @@ paths:
           schema:
             type: string
       summary: Test a custom field shortcut
-  /admin/mail:
-    get:
-      description: Requires the admin. The password is not returned.
-      operationId: getAdminMailSettings
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/AdminMailSettings'
-        "403":
-          description: Not an admin
-          schema:
-            type: string
-        "500":
-          description: Internal server error
-          schema:
-            type: string
-      summary: Get the SMTP settings
-    put:
-      consumes:
-      - application/json
-      description: Requires the admin. The password is encrypted by auth.secret_key,
-        empty keeps the saved one.
-      operationId: updateAdminMailSettings
-      parameters:
-      - description: SMTP settings
-        in: body
-        name: data
-        required: true
-        schema:
-          $ref: '#/definitions/UpdateMailSettings'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/AdminMailSettings'
-        "400":
-          description: Invalid settings
-          schema:
-            type: string
-        "403":
-          description: Not an admin
-          schema:
-            type: string
-        "500":
-          description: Internal server error
-          schema:
-            type: string
-      summary: Update the SMTP settings
-  /admin/mail/test:
-    post:
-      consumes:
-      - application/json
-      description: Requires the admin. Send an email with the unsaved settings, the
-        saved password is used if it is not given.
-      operationId: testAdminMailSettings
-      parameters:
-      - description: SMTP settings and the recipient
-        in: body
-        name: data
-        required: true
-        schema:
-          $ref: '#/definitions/TestMailSettings'
-      produces:
-      - application/json
-      responses:
-        "204":
-          description: No Content
-        "400":
-          description: Invalid settings or sending failed
-          schema:
-            type: string
-        "403":
-          description: Not an admin
-          schema:
-            type: string
-        "500":
-          description: Internal server error
-          schema:
-            type: string
-      summary: Send a test email
   /admin/overview:
     get:
       description: Requires the admin.
@@ -5318,6 +5307,211 @@ paths:
           schema:
             type: string
       summary: Read an attachment
+  /projects/{projectUID}/credentials:
+    get:
+      description: The values of the secret fields are not returned. Filter by type
+        with the type query.
+      operationId: listCredentials
+      parameters:
+      - description: Project UID
+        in: path
+        name: projectUID
+        required: true
+        type: string
+      - description: Credential type
+        in: query
+        name: type
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/Credential'
+            type: array
+        "403":
+          description: Permission denied
+          schema:
+            type: string
+        "404":
+          description: Project not found
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      summary: List the credentials of a project
+    post:
+      consumes:
+      - application/json
+      description: The fields are defined by the DSL of the credential type, the secret
+        fields are encrypted by auth.secret_key.
+      operationId: createCredential
+      parameters:
+      - description: Project UID
+        in: path
+        name: projectUID
+        required: true
+        type: string
+      - description: Credential
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/SaveCredential'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/Credential'
+        "400":
+          description: Invalid credential
+          schema:
+            type: string
+        "403":
+          description: Permission denied
+          schema:
+            type: string
+        "404":
+          description: Project not found
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      summary: Create a credential in a project
+  /projects/{projectUID}/credentials/{credentialUID}:
+    delete:
+      description: A credential referenced by a published workflow can not be deleted.
+      operationId: deleteCredential
+      parameters:
+      - description: Project UID
+        in: path
+        name: projectUID
+        required: true
+        type: string
+      - description: Credential UID
+        in: path
+        name: credentialUID
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "403":
+          description: Permission denied
+          schema:
+            type: string
+        "404":
+          description: Project or credential not found
+          schema:
+            type: string
+        "409":
+          description: Used by a published workflow
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      summary: Delete a credential
+    put:
+      consumes:
+      - application/json
+      description: Takes effect immediately for the workflows that reference it. The
+        empty secret fields keep the saved values.
+      operationId: updateCredential
+      parameters:
+      - description: Project UID
+        in: path
+        name: projectUID
+        required: true
+        type: string
+      - description: Credential UID
+        in: path
+        name: credentialUID
+        required: true
+        type: string
+      - description: Credential
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/SaveCredential'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/Credential'
+        "400":
+          description: Invalid credential or the saved secrets can not be decrypted
+          schema:
+            type: string
+        "403":
+          description: Permission denied
+          schema:
+            type: string
+        "404":
+          description: Project or credential not found
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      summary: Update a credential
+  /projects/{projectUID}/credentials/test:
+    post:
+      consumes:
+      - application/json
+      description: Run the test action of the credential type (e.g. send a test email)
+        with the unsaved values; the saved secrets of credentialUID are used for the
+        fields not given.
+      operationId: testCredential
+      parameters:
+      - description: Project UID
+        in: path
+        name: projectUID
+        required: true
+        type: string
+      - description: Credential and the test input
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/TestCredential'
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Invalid credential or the test failed
+          schema:
+            type: string
+        "403":
+          description: Permission denied
+          schema:
+            type: string
+        "404":
+          description: Project or credential not found
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      summary: Test a credential
   /projects/{projectUID}/field-shortcuts:
     get:
       description: List the enabled custom shortcuts, with the forms to configure
@@ -6794,6 +6988,33 @@ paths:
           schema:
             type: string
       summary: List field types
+  /projects/{projectUID}/workflow-modules:
+    get:
+      description: Return the JSON DSL definitions the editor renders the nodes and
+        the configuration forms with.
+      operationId: listWorkflowModules
+      parameters:
+      - description: Project UID
+        in: path
+        name: projectUID
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/WorkflowModules'
+        "403":
+          description: Permission denied
+          schema:
+            type: string
+        "404":
+          description: Project not found
+          schema:
+            type: string
+      summary: List the step modules and credential types
   /projects/{projectUID}/workflows:
     get:
       operationId: listWorkflows

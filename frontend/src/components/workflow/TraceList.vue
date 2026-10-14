@@ -5,7 +5,7 @@ import { useI18n } from 'vue-i18n'
 
 import { useWorkflowEditorStore } from '@/stores/workflowEditor'
 import type { WorkflowTraceStep } from '@/types/workflow'
-import { findStep, STEP_META, stepTitle } from '@/utils/workflow'
+import { findStep, stepMeta, stepTitle } from '@/utils/workflow'
 
 defineProps<{ trace: WorkflowTraceStep[] }>()
 const { t } = useI18n()
@@ -22,7 +22,7 @@ function title(s: WorkflowTraceStep) {
   return step ? stepTitle(step) : s.name || s.stepID
 }
 function typeOf(s: WorkflowTraceStep) {
-  return STEP_META[s.type as keyof typeof STEP_META]
+  return stepMeta(s.type)
 }
 
 /** Select the step on the canvas and expand its output. */

@@ -188,46 +188,16 @@ const (
 	StepHTTP      = "http"
 )
 
-// Step is a node in a flow; the fields used depend on its type, and its output is referenced as steps.<id>.
+// Step is a node in a flow, its output is referenced as steps.<id>.
 type Step struct {
 	ID   string `json:"id"`
 	Type string `json:"type" enums:"query,create,update,condition,response,email,http"`
 	Name string `json:"name,omitempty"`
-
-	// TableUID is the table operated on by query, create and update.
-	TableUID string `json:"tableUID,omitempty"`
-	// Filters are the query's filter conditions, all or any of which must hold per Match.
-	Filters []Filter `json:"filters,omitempty"`
-	Sort    []Sort   `json:"sort,omitempty"`
-	// Limit is the maximum number of records a query returns, 1–100.
-	Limit int `json:"limit,omitempty"`
-	// RecordUID specifies the record to update.
-	RecordUID *Value `json:"recordUID,omitempty"`
-	// Fields are the field values written by create and update.
-	Fields []FieldValue `json:"fields,omitempty"`
-
-	// Conditions decide which branch a condition takes.
-	Conditions []Condition `json:"conditions,omitempty"`
-	// Match is how a condition's conditions or a query's filters are combined: all means every one must hold, any means at least one; empty is equivalent to all.
-	Match string `json:"match,omitempty" enums:"all,any"`
-	Then  []Step `json:"then,omitempty"`
-	Else  []Step `json:"else,omitempty"`
-
-	// Status and Body build the response of a response step, whose headers cannot be set by the flow; Headers and Body are also used as the request of an http step.
-	Status  int      `json:"status,omitempty"`
-	Headers []Header `json:"headers,omitempty"`
-	Body    *Body    `json:"body,omitempty"`
-
-	// To, CC, Subject and Content are the recipients, CC, subject and body of an email step.
-	To      *Value `json:"to,omitempty"`
-	CC      *Value `json:"cc,omitempty"`
-	Subject *Value `json:"subject,omitempty"`
-	Content *Value `json:"content,omitempty"`
-
-	// HTTPMethod, URL and Timeout make up the request of an http step; Timeout is in seconds, 1–30.
-	HTTPMethod string `json:"httpMethod,omitempty"`
-	URL        *Value `json:"url,omitempty"`
-	Timeout    int    `json:"timeout,omitempty"`
+	// Config is the module configuration defined by the DSL of the type (see ModuleDef), decoded as the matching *XxxConfig.
+	Config interface{} `json:"config" swaggertype:"object"`
+	// Then and Else are the branches of a branching module (condition).
+	Then []Step `json:"then,omitempty"`
+	Else []Step `json:"else,omitempty"`
 } // @name WorkflowStep
 
 // Value kinds.
@@ -370,21 +340,18 @@ func (s *Spec) Normalize() {
 		t.API, t.Schedule = nil, nil
 		s.Async = []AsyncFlow{}
 	}
-	clearResponseHeaders(s.Steps)
-	for i := range s.Async {
-		clearResponseHeaders(s.Async[i].Steps)
-	}
-}
-
-// clearResponseHeaders clears the headers of response steps.
-func clearResponseHeaders(steps []Step) {
-	for i := range steps {
-		if steps[i].Type == StepResponse {
-			steps[i].Headers = nil
+	s.AllSteps(func(step *Step) {
+		def := moduleDefs[step.Type]
+		if def == nil {
+			return
 		}
-		clearResponseHeaders(steps[i].Then)
-		clearResponseHeaders(steps[i].Else)
-	}
+		if !def.Branches {
+			step.Then, step.Else = nil, nil
+		}
+		if step.Config == nil {
+			step.Config = moduleImpls[step.Type].newConfig()
+		}
+	})
 }
 
 // IsAPI reports whether the workflow is triggered by API requests.
@@ -422,9 +389,9 @@ func (s *Spec) WriteTables() []string {
 	var uids []string
 	seen := map[string]bool{}
 	WalkSteps(s.Steps, func(step *Step) {
-		if (step.Type == StepCreate || step.Type == StepUpdate) && step.TableUID != "" && !seen[step.TableUID] {
-			seen[step.TableUID] = true
-			uids = append(uids, step.TableUID)
+		if uid := step.Table(); (step.Type == StepCreate || step.Type == StepUpdate) && uid != "" && !seen[uid] {
+			seen[uid] = true
+			uids = append(uids, uid)
 		}
 	})
 	return uids

@@ -54,19 +54,20 @@ func newTestDB(t *testing.T) *gorm.DB {
 	})
 	require.NoError(t, gormDB.AutoMigrate(
 		&db.Setting{}, &db.Project{}, &db.SLTable{}, &db.SLField{}, &db.SLRecord{}, &db.SLChangeset{}, &db.SLShortcutJob{},
-		&db.Workflow{}, &db.WorkflowRevision{}, &db.WorkflowRun{}, &db.WorkflowJob{}, &db.WorkflowKey{},
+		&db.Workflow{}, &db.WorkflowRevision{}, &db.WorkflowRun{}, &db.WorkflowJob{}, &db.WorkflowKey{}, &db.Credential{},
 	))
 	db.SetDatabaseStore(gormDB)
 	return gormDB
 }
 
 type fakeActions struct {
-	mu    sync.Mutex
-	mails []Mail
-	fail  int
+	mu      sync.Mutex
+	mails   []Mail
+	servers []SMTPServer
+	fail    int
 }
 
-func (f *fakeActions) SendEmail(_ context.Context, m Mail) error {
+func (f *fakeActions) SendEmail(_ context.Context, server SMTPServer, m Mail) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	if f.fail > 0 {
@@ -74,6 +75,7 @@ func (f *fakeActions) SendEmail(_ context.Context, m Mail) error {
 		return &ActionError{Message: "temporarily unavailable", Transient: true}
 	}
 	f.mails = append(f.mails, m)
+	f.servers = append(f.servers, server)
 	return nil
 }
 
@@ -99,6 +101,7 @@ type leadFixture struct {
 	source  *db.SLField
 	api     *db.Workflow
 	spec    *Spec
+	smtp    *db.Credential
 }
 
 func vv(path string) Value  { return Value{Kind: ValueVar, Var: path} }
@@ -120,6 +123,11 @@ func newLeadFixture(t *testing.T) *leadFixture {
 		"options": []interface{}{map[string]interface{}{"uid": "optWeb", "name": "Web", "color": 0}, map[string]interface{}{"uid": "optAds", "name": "Ads", "color": 1}},
 	}})
 	require.NoError(t, err)
+	smtp, err := db.NewCredentialsStore(gormDB).Create(ctx, db.CreateCredentialOptions{
+		ProjectID: project.ID, Type: "smtp", Name: "Mailer",
+		Data: []byte(`{"host":"smtp.example.com","port":465,"security":"tls","fromAddress":"bot@example.com"}`),
+	})
+	require.NoError(t, err)
 
 	spec := &Spec{
 		Trigger: Trigger{Type: TriggerAPI, API: &APITrigger{
@@ -131,26 +139,29 @@ func newLeadFixture(t *testing.T) *leadFixture {
 			},
 		}},
 		Steps: []Step{
-			{ID: "find", Type: StepQuery, TableUID: table.UID, Limit: 1, Filters: []Filter{{FieldUID: email.UID, Op: "eq", Value: vp("input.email")}}},
-			{ID: "exists", Type: StepCondition, Conditions: []Condition{{Left: vv("steps.find.found"), Op: "eq", Right: &Value{Kind: ValueConst, Const: json.RawMessage("true")}}},
-				Then: []Step{{ID: "existing", Type: StepResponse, Status: 200, Body: &Body{Type: BodyObject, Fields: []BodyField{
+			{ID: "find", Type: StepQuery, Config: &QueryConfig{TableUID: table.UID, Limit: 1, Filters: []Filter{{FieldUID: email.UID, Op: "eq", Value: vp("input.email")}}}},
+			{ID: "exists", Type: StepCondition, Config: &ConditionConfig{Conditions: []Condition{{Left: vv("steps.find.found"), Op: "eq", Right: &Value{Kind: ValueConst, Const: json.RawMessage("true")}}}},
+				Then: []Step{{ID: "existing", Type: StepResponse, Config: &ResponseConfig{Status: 200, Body: &Body{Type: BodyObject, Fields: []BodyField{
 					{Key: "id", Value: Body{Type: BodyValue, Value: vp("steps.find.first.uid")}},
 					{Key: "existed", Value: Body{Type: BodyValue, Value: &Value{Kind: ValueConst, Const: json.RawMessage("true")}}},
-				}}}},
+				}}}}},
 			},
-			{ID: "lead", Type: StepCreate, TableUID: table.UID, Fields: []FieldValue{
+			{ID: "lead", Type: StepCreate, Config: &WriteConfig{TableUID: table.UID, Fields: []FieldValue{
 				{FieldUID: name.UID, Value: vv("input.name")},
 				{FieldUID: email.UID, Value: vv("input.email")},
 				{FieldUID: source.UID, Value: vv("input.source")},
-			}},
-			{ID: "created", Type: StepResponse, Status: 201, Body: &Body{Type: BodyObject, Fields: []BodyField{
+			}}},
+			{ID: "created", Type: StepResponse, Config: &ResponseConfig{Status: 201, Body: &Body{Type: BodyObject, Fields: []BodyField{
 				{Key: "id", Value: Body{Type: BodyValue, Value: vp("steps.lead.record.uid")}},
 				{Key: "source", Value: Body{Type: BodyValue, Value: vp("steps.lead.record.fields." + source.UID)}},
-			}}},
+			}}}},
 		},
 		Async: []AsyncFlow{
-			{ID: "audit", Event: EventRequestReceived, Steps: []Step{{ID: "ping", Type: StepHTTP, URL: &Value{Kind: ValueConst, Const: json.RawMessage(`"https://example.com/hook"`)}}}},
-			{ID: "notify", Event: EventSucceeded, Steps: []Step{{ID: "mail", Type: StepEmail, To: vp("input.email"), Subject: &Value{Kind: ValueTemplate, Template: "Hi {{input.name}}"}, Content: &Value{Kind: ValueTemplate, Template: "Lead {{steps.lead.record.uid}}"}}}},
+			{ID: "audit", Event: EventRequestReceived, Steps: []Step{{ID: "ping", Type: StepHTTP, Config: &HTTPConfig{URL: &Value{Kind: ValueConst, Const: json.RawMessage(`"https://example.com/hook"`)}}}}},
+			{ID: "notify", Event: EventSucceeded, Steps: []Step{{ID: "mail", Type: StepEmail, Config: &EmailConfig{
+				Credential: smtp.UID, To: vp("input.email"),
+				Subject: &Value{Kind: ValueTemplate, Template: "Hi {{input.name}}"}, Content: &Value{Kind: ValueTemplate, Template: "Lead {{steps.lead.record.uid}}"},
+			}}}},
 		},
 	}
 	issues, err := Check(ctx, gormDB, project, spec)
@@ -162,7 +173,7 @@ func newLeadFixture(t *testing.T) *leadFixture {
 	hub.SetWorkflowHooks(engine)
 	actions := &fakeActions{}
 	engine.SetActions(actions)
-	f := &leadFixture{db: gormDB, engine: engine, hub: hub, actions: actions, project: project, table: table, name: name, email: email, source: source, spec: spec}
+	f := &leadFixture{db: gormDB, engine: engine, hub: hub, actions: actions, project: project, table: table, name: name, email: email, source: source, spec: spec, smtp: smtp}
 	f.api = f.publish(t, "Leads", spec)
 	return f
 }
@@ -287,6 +298,8 @@ func TestWorkerRetriesAndSucceeds(t *testing.T) {
 	assert.Equal(t, []string{"ann@example.com"}, mails[0].To)
 	assert.Equal(t, "Hi Ann", mails[0].Subject)
 	assert.True(t, strings.HasPrefix(mails[0].Content, "Lead rec"))
+	assert.Equal(t, "smtp.example.com", f.actions.servers[0].Host, "the email is sent with the referenced credential")
+	assert.Equal(t, "bot@example.com", f.actions.servers[0].FromAddress)
 
 	var job db.WorkflowJob
 	require.NoError(t, f.db.Where("flow_id = ?", "notify").First(&job).Error)
@@ -308,8 +321,8 @@ func TestCheckReportsIssues(t *testing.T) {
 	api := *f.spec.Trigger.API
 	spec.Trigger.API = &api
 	spec.Steps = []Step{
-		{ID: "lead", Type: StepCreate, TableUID: f.table.UID, Fields: []FieldValue{{FieldUID: f.email.UID, Value: vv("input.missing")}}},
-		{ID: "mail", Type: StepEmail, To: vp("input.email"), Subject: &Value{Kind: ValueTemplate, Template: "x"}},
+		{ID: "lead", Type: StepCreate, Config: &WriteConfig{TableUID: f.table.UID, Fields: []FieldValue{{FieldUID: f.email.UID, Value: vv("input.missing")}}}},
+		{ID: "mail", Type: StepEmail, Config: &EmailConfig{Credential: "crdMissing", To: vp("input.email")}},
 	}
 	api.Params = append(append([]Param{}, api.Params...), Param{ID: "p9", Key: "name", Source: SourceBody, Type: TypeString})
 	issues, err := Check(context.Background(), f.db, f.project, &spec)
@@ -318,7 +331,7 @@ func TestCheckReportsIssues(t *testing.T) {
 	for _, i := range issues {
 		got[i.Code] = true
 	}
-	for _, code := range []string{"value.unknown_var", "step.async_only", "flow.missing_response", "param.duplicate_key"} {
+	for _, code := range []string{"value.unknown_var", "step.async_only", "flow.missing_response", "param.duplicate_key", "step.credential_missing", "step.required"} {
 		assert.True(t, got[code], code)
 	}
 }

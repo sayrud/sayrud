@@ -707,131 +707,6 @@
                 }
             }
         },
-        "/admin/mail": {
-            "get": {
-                "description": "Requires the admin. The password is not returned.",
-                "produces": [
-                    "application/json"
-                ],
-                "summary": "Get the SMTP settings",
-                "operationId": "getAdminMailSettings",
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/AdminMailSettings"
-                        }
-                    },
-                    "403": {
-                        "description": "Not an admin",
-                        "schema": {
-                            "type": "string"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal server error",
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                }
-            },
-            "put": {
-                "description": "Requires the admin. The password is encrypted by auth.secret_key, empty keeps the saved one.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "summary": "Update the SMTP settings",
-                "operationId": "updateAdminMailSettings",
-                "parameters": [
-                    {
-                        "description": "SMTP settings",
-                        "name": "data",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/UpdateMailSettings"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/AdminMailSettings"
-                        }
-                    },
-                    "400": {
-                        "description": "Invalid settings",
-                        "schema": {
-                            "type": "string"
-                        }
-                    },
-                    "403": {
-                        "description": "Not an admin",
-                        "schema": {
-                            "type": "string"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal server error",
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                }
-            }
-        },
-        "/admin/mail/test": {
-            "post": {
-                "description": "Requires the admin. Send an email with the unsaved settings, the saved password is used if it is not given.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "summary": "Send a test email",
-                "operationId": "testAdminMailSettings",
-                "parameters": [
-                    {
-                        "description": "SMTP settings and the recipient",
-                        "name": "data",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/TestMailSettings"
-                        }
-                    }
-                ],
-                "responses": {
-                    "204": {
-                        "description": "No Content"
-                    },
-                    "400": {
-                        "description": "Invalid settings or sending failed",
-                        "schema": {
-                            "type": "string"
-                        }
-                    },
-                    "403": {
-                        "description": "Not an admin",
-                        "schema": {
-                            "type": "string"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal server error",
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                }
-            }
-        },
         "/admin/overview": {
             "get": {
                 "description": "Requires the admin.",
@@ -2742,6 +2617,304 @@
                     },
                     "404": {
                         "description": "Project or attachment not found",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/projects/{projectUID}/credentials": {
+            "get": {
+                "description": "The values of the secret fields are not returned. Filter by type with the type query.",
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "List the credentials of a project",
+                "operationId": "listCredentials",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Project UID",
+                        "name": "projectUID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Credential type",
+                        "name": "type",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/Credential"
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Permission denied",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "404": {
+                        "description": "Project not found",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "The fields are defined by the DSL of the credential type, the secret fields are encrypted by auth.secret_key.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "Create a credential in a project",
+                "operationId": "createCredential",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Project UID",
+                        "name": "projectUID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Credential",
+                        "name": "data",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/SaveCredential"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/Credential"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid credential",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "403": {
+                        "description": "Permission denied",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "404": {
+                        "description": "Project not found",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/projects/{projectUID}/credentials/test": {
+            "post": {
+                "description": "Run the test action of the credential type (e.g. send a test email) with the unsaved values; the saved secrets of credentialUID are used for the fields not given.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "Test a credential",
+                "operationId": "testCredential",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Project UID",
+                        "name": "projectUID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Credential and the test input",
+                        "name": "data",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/TestCredential"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "description": "Invalid credential or the test failed",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "403": {
+                        "description": "Permission denied",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "404": {
+                        "description": "Project or credential not found",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/projects/{projectUID}/credentials/{credentialUID}": {
+            "put": {
+                "description": "Takes effect immediately for the workflows that reference it. The empty secret fields keep the saved values.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "Update a credential",
+                "operationId": "updateCredential",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Project UID",
+                        "name": "projectUID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Credential UID",
+                        "name": "credentialUID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Credential",
+                        "name": "data",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/SaveCredential"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/Credential"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid credential or the saved secrets can not be decrypted",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "403": {
+                        "description": "Permission denied",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "404": {
+                        "description": "Project or credential not found",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "A credential referenced by a published workflow can not be deleted.",
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "Delete a credential",
+                "operationId": "deleteCredential",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Project UID",
+                        "name": "projectUID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Credential UID",
+                        "name": "credentialUID",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "403": {
+                        "description": "Permission denied",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "404": {
+                        "description": "Project or credential not found",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "409": {
+                        "description": "Used by a published workflow",
                         "schema": {
                             "type": "string"
                         }
@@ -4921,6 +5094,45 @@
                 }
             }
         },
+        "/projects/{projectUID}/workflow-modules": {
+            "get": {
+                "description": "Return the JSON DSL definitions the editor renders the nodes and the configuration forms with.",
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "List the step modules and credential types",
+                "operationId": "listWorkflowModules",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Project UID",
+                        "name": "projectUID",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/WorkflowModules"
+                        }
+                    },
+                    "403": {
+                        "description": "Permission denied",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "404": {
+                        "description": "Project not found",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
         "/projects/{projectUID}/workflows": {
             "get": {
                 "produces": [
@@ -6654,55 +6866,6 @@
                 }
             }
         },
-        "AdminMailSettings": {
-            "type": "object",
-            "required": [
-                "enabled",
-                "fromAddress",
-                "fromName",
-                "hasPassword",
-                "host",
-                "port",
-                "secretsReady",
-                "security",
-                "username"
-            ],
-            "properties": {
-                "enabled": {
-                    "type": "boolean"
-                },
-                "fromAddress": {
-                    "type": "string"
-                },
-                "fromName": {
-                    "type": "string"
-                },
-                "hasPassword": {
-                    "type": "boolean"
-                },
-                "host": {
-                    "type": "string"
-                },
-                "port": {
-                    "type": "integer"
-                },
-                "secretsReady": {
-                    "description": "SecretsReady is false if auth.secret_key is not configured, in which case the password cannot be saved.",
-                    "type": "boolean"
-                },
-                "security": {
-                    "type": "string",
-                    "enum": [
-                        "tls",
-                        "starttls",
-                        "none"
-                    ]
-                },
-                "username": {
-                    "type": "string"
-                }
-            }
-        },
         "AdminOverview": {
             "type": "object",
             "required": [
@@ -7350,6 +7513,46 @@
                     "$ref": "#/definitions/WorkflowKey"
                 },
                 "secret": {
+                    "type": "string"
+                }
+            }
+        },
+        "Credential": {
+            "type": "object",
+            "required": [
+                "createdAt",
+                "data",
+                "name",
+                "secrets",
+                "type",
+                "uid",
+                "updatedAt"
+            ],
+            "properties": {
+                "createdAt": {
+                    "type": "string"
+                },
+                "data": {
+                    "type": "object",
+                    "additionalProperties": true
+                },
+                "name": {
+                    "type": "string"
+                },
+                "secrets": {
+                    "description": "Secrets lists the saved secret fields.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "type": {
+                    "type": "string"
+                },
+                "uid": {
+                    "type": "string"
+                },
+                "updatedAt": {
                     "type": "string"
                 }
             }
@@ -8427,6 +8630,41 @@
                 }
             }
         },
+        "SaveCredential": {
+            "type": "object",
+            "required": [
+                "data",
+                "name",
+                "type"
+            ],
+            "properties": {
+                "clearSecrets": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "data": {
+                    "description": "Data holds the non-secret fields of the credential type DSL.",
+                    "type": "object",
+                    "additionalProperties": true
+                },
+                "name": {
+                    "type": "string"
+                },
+                "secrets": {
+                    "description": "Secrets holds the secret fields, empty ones keep the saved values; the fields in ClearSecrets are cleared.",
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "type": {
+                    "description": "Type is the credential type, only used on creation.",
+                    "type": "string"
+                }
+            }
+        },
         "SaveFieldShortcut": {
             "type": "object",
             "required": [
@@ -9029,6 +9267,46 @@
                 }
             }
         },
+        "TestCredential": {
+            "type": "object",
+            "required": [
+                "data",
+                "input",
+                "type"
+            ],
+            "properties": {
+                "clearSecrets": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "credentialUID": {
+                    "description": "CredentialUID provides the saved secrets for the fields not given.",
+                    "type": "string"
+                },
+                "data": {
+                    "type": "object",
+                    "additionalProperties": true
+                },
+                "input": {
+                    "description": "Input holds the values of test.fields in the credential type DSL, e.g. the recipient of the test email.",
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "secrets": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "type": {
+                    "type": "string"
+                }
+            }
+        },
         "TestFieldShortcut": {
             "type": "object",
             "required": [
@@ -9084,58 +9362,6 @@
                 "value": {
                     "description": "Value is the value returned by execute, before converting to the cell value.",
                     "type": "object"
-                }
-            }
-        },
-        "TestMailSettings": {
-            "type": "object",
-            "required": [
-                "enabled",
-                "fromAddress",
-                "fromName",
-                "host",
-                "port",
-                "security",
-                "to",
-                "username"
-            ],
-            "properties": {
-                "clearPassword": {
-                    "type": "boolean"
-                },
-                "enabled": {
-                    "type": "boolean"
-                },
-                "fromAddress": {
-                    "type": "string"
-                },
-                "fromName": {
-                    "type": "string"
-                },
-                "host": {
-                    "type": "string"
-                },
-                "password": {
-                    "description": "Password keeps the existing password if empty, and ClearPassword clears it if true.",
-                    "type": "string"
-                },
-                "port": {
-                    "type": "integer"
-                },
-                "security": {
-                    "type": "string",
-                    "enum": [
-                        "tls",
-                        "starttls",
-                        "none"
-                    ]
-                },
-                "to": {
-                    "description": "To is the recipient of the test email.",
-                    "type": "string"
-                },
-                "username": {
-                    "type": "string"
                 }
             }
         },
@@ -9302,53 +9528,6 @@
                 },
                 "password": {
                     "description": "Nil preserves the password, an empty string disables it.",
-                    "type": "string"
-                }
-            }
-        },
-        "UpdateMailSettings": {
-            "type": "object",
-            "required": [
-                "enabled",
-                "fromAddress",
-                "fromName",
-                "host",
-                "port",
-                "security",
-                "username"
-            ],
-            "properties": {
-                "clearPassword": {
-                    "type": "boolean"
-                },
-                "enabled": {
-                    "type": "boolean"
-                },
-                "fromAddress": {
-                    "type": "string"
-                },
-                "fromName": {
-                    "type": "string"
-                },
-                "host": {
-                    "type": "string"
-                },
-                "password": {
-                    "description": "Password keeps the existing password if empty, and ClearPassword clears it if true.",
-                    "type": "string"
-                },
-                "port": {
-                    "type": "integer"
-                },
-                "security": {
-                    "type": "string",
-                    "enum": [
-                        "tls",
-                        "starttls",
-                        "none"
-                    ]
-                },
-                "username": {
                     "type": "string"
                 }
             }
@@ -9860,105 +10039,146 @@
                 }
             }
         },
-        "WorkflowBody": {
+        "WorkflowCredentialTestDef": {
             "type": "object",
             "required": [
+                "action",
+                "fields",
+                "success"
+            ],
+            "properties": {
+                "action": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "fields": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/WorkflowFieldDef"
+                    }
+                },
+                "success": {
+                    "type": "string"
+                }
+            }
+        },
+        "WorkflowCredentialTypeDef": {
+            "type": "object",
+            "required": [
+                "icon",
+                "label",
+                "sections",
+                "summary",
                 "type"
             ],
             "properties": {
-                "fields": {
-                    "description": "Fields are the properties of an object.",
+                "description": {
+                    "type": "string"
+                },
+                "icon": {
+                    "type": "string"
+                },
+                "label": {
+                    "type": "string"
+                },
+                "sections": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/WorkflowBodyField"
+                        "$ref": "#/definitions/WorkflowSectionDef"
                     }
                 },
-                "item": {
-                    "$ref": "#/definitions/WorkflowBody"
+                "summary": {
+                    "description": "Summary are the non-secret fields that tell credentials apart in lists.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 },
-                "source": {
-                    "description": "Source is the array a map node iterates over, and Item builds each element using the variable item.",
-                    "allOf": [
-                        {
-                            "$ref": "#/definitions/WorkflowValue"
-                        }
-                    ]
+                "test": {
+                    "$ref": "#/definitions/WorkflowCredentialTestDef"
                 },
                 "type": {
-                    "type": "string",
-                    "enum": [
-                        "object",
-                        "value",
-                        "map"
-                    ]
-                },
-                "value": {
-                    "description": "Value is the value of a value node.",
-                    "allOf": [
-                        {
-                            "$ref": "#/definitions/WorkflowValue"
-                        }
-                    ]
+                    "type": "string"
                 }
             }
         },
-        "WorkflowBodyField": {
+        "WorkflowFieldDef": {
             "type": "object",
             "required": [
-                "key",
-                "value"
+                "widget"
             ],
             "properties": {
+                "credentialType": {
+                    "description": "CredentialType is the credential type a credential widget selects.",
+                    "type": "string"
+                },
+                "default": {
+                    "type": "object"
+                },
+                "display": {
+                    "description": "Display is the presentation of the widget, e.g. radio for select, response / optional for body.",
+                    "type": "string"
+                },
+                "help": {
+                    "type": "string"
+                },
                 "key": {
+                    "description": "Key is the property name in the config object, empty for display-only widgets such as branches.",
                     "type": "string"
                 },
-                "value": {
-                    "$ref": "#/definitions/WorkflowBody"
-                }
-            }
-        },
-        "WorkflowCondition": {
-            "type": "object",
-            "required": [
-                "left",
-                "op"
-            ],
-            "properties": {
-                "left": {
-                    "$ref": "#/definitions/WorkflowValue"
-                },
-                "op": {
-                    "type": "string",
-                    "enum": [
-                        "eq",
-                        "neq",
-                        "gt",
-                        "gte",
-                        "lt",
-                        "lte",
-                        "contains",
-                        "not_contains",
-                        "empty",
-                        "not_empty"
-                    ]
-                },
-                "right": {
-                    "$ref": "#/definitions/WorkflowValue"
-                }
-            }
-        },
-        "WorkflowFieldValue": {
-            "type": "object",
-            "required": [
-                "fieldUID",
-                "value"
-            ],
-            "properties": {
-                "fieldUID": {
+                "label": {
                     "type": "string"
                 },
-                "value": {
-                    "$ref": "#/definitions/WorkflowValue"
+                "max": {
+                    "type": "number"
+                },
+                "maxLength": {
+                    "type": "integer"
+                },
+                "min": {
+                    "type": "number"
+                },
+                "multiline": {
+                    "type": "boolean"
+                },
+                "options": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/WorkflowOptionDef"
+                    }
+                },
+                "placeholder": {
+                    "type": "string"
+                },
+                "prefix": {
+                    "type": "string"
+                },
+                "required": {
+                    "type": "boolean"
+                },
+                "resets": {
+                    "description": "Resets are the fields cleared when this field changes, e.g. the filters when the table changes.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "secret": {
+                    "description": "Secret marks a credential field that is stored encrypted and never returned to the frontend.",
+                    "type": "boolean"
+                },
+                "showIf": {
+                    "description": "ShowIf is another field of the same config; this field is hidden while that one is empty.",
+                    "type": "string"
+                },
+                "suffix": {
+                    "type": "string"
+                },
+                "widget": {
+                    "description": "Widget is value, number, select, text, email, password, credential, table, filters, sort, fieldMapping, conditions, headers, body, status or branches.",
+                    "type": "string"
                 }
             }
         },
@@ -9987,21 +10207,6 @@
                         "empty",
                         "not_empty"
                     ]
-                },
-                "value": {
-                    "$ref": "#/definitions/WorkflowValue"
-                }
-            }
-        },
-        "WorkflowHeader": {
-            "type": "object",
-            "required": [
-                "name",
-                "value"
-            ],
-            "properties": {
-                "name": {
-                    "type": "string"
                 },
                 "value": {
                     "$ref": "#/definitions/WorkflowValue"
@@ -10198,6 +10403,154 @@
                     "type": "string"
                 },
                 "updatedAt": {
+                    "type": "string"
+                }
+            }
+        },
+        "WorkflowModuleDef": {
+            "type": "object",
+            "required": [
+                "color",
+                "defaults",
+                "description",
+                "flows",
+                "icon",
+                "idBase",
+                "label",
+                "order",
+                "outputs",
+                "sections",
+                "type"
+            ],
+            "properties": {
+                "action": {
+                    "description": "Action marks external side effects; simulated debugging only computes the arguments.",
+                    "type": "boolean"
+                },
+                "branches": {
+                    "description": "Branches marks modules with then / else branches.",
+                    "type": "boolean"
+                },
+                "color": {
+                    "type": "string"
+                },
+                "defaults": {
+                    "type": "object"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "flows": {
+                    "description": "Flows are the allowed flows: sync (the API sync flow), async (API async flows) and background (the main flow of other triggers).",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "icon": {
+                    "type": "string"
+                },
+                "idBase": {
+                    "description": "IDBase is the prefix of new step IDs, e.g. query, query2.",
+                    "type": "string"
+                },
+                "label": {
+                    "type": "string"
+                },
+                "order": {
+                    "type": "integer"
+                },
+                "outputs": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/WorkflowOutputDef"
+                    }
+                },
+                "sections": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/WorkflowSectionDef"
+                    }
+                },
+                "summary": {
+                    "$ref": "#/definitions/WorkflowSummaryDef"
+                },
+                "tableKey": {
+                    "description": "TableKey is the config field referencing a table.",
+                    "type": "string"
+                },
+                "terminal": {
+                    "description": "Terminal marks modules that return the response and end the sync flow.",
+                    "type": "boolean"
+                },
+                "type": {
+                    "type": "string"
+                }
+            }
+        },
+        "WorkflowModules": {
+            "type": "object",
+            "required": [
+                "credentialTypes",
+                "modules",
+                "secretsReady"
+            ],
+            "properties": {
+                "credentialTypes": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/WorkflowCredentialTypeDef"
+                    }
+                },
+                "modules": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/WorkflowModuleDef"
+                    }
+                },
+                "secretsReady": {
+                    "description": "SecretsReady is false if auth.secret_key is not configured, in which case secret fields can not be saved.",
+                    "type": "boolean"
+                }
+            }
+        },
+        "WorkflowOptionDef": {
+            "type": "object",
+            "required": [
+                "value"
+            ],
+            "properties": {
+                "label": {
+                    "type": "string"
+                },
+                "patch": {
+                    "type": "object"
+                },
+                "value": {
+                    "type": "object"
+                }
+            }
+        },
+        "WorkflowOutputDef": {
+            "type": "object",
+            "required": [
+                "key",
+                "kind",
+                "label"
+            ],
+            "properties": {
+                "items": {
+                    "description": "Items is the element type of an array, record for table records.",
+                    "type": "string"
+                },
+                "key": {
+                    "type": "string"
+                },
+                "kind": {
+                    "description": "Kind is string, number, boolean, object, array or record; record expands the fields of the table given by TableKey.",
+                    "type": "string"
+                },
+                "label": {
                     "type": "string"
                 }
             }
@@ -10568,47 +10921,48 @@
                 }
             }
         },
-        "WorkflowSort": {
+        "WorkflowSectionDef": {
             "type": "object",
             "required": [
-                "fieldUID",
-                "order"
+                "fields"
             ],
             "properties": {
-                "fieldUID": {
+                "description": {
                     "type": "string"
                 },
-                "order": {
-                    "type": "string",
-                    "enum": [
-                        "asc",
-                        "desc"
+                "extra": {
+                    "description": "Extra is a compact field shown on the right of the section title.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/WorkflowFieldDef"
+                        }
                     ]
+                },
+                "fields": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/WorkflowFieldDef"
+                    }
+                },
+                "showIf": {
+                    "type": "string"
+                },
+                "title": {
+                    "type": "string"
                 }
             }
         },
         "WorkflowStep": {
             "type": "object",
             "required": [
+                "config",
                 "id",
                 "type"
             ],
             "properties": {
-                "body": {
-                    "$ref": "#/definitions/WorkflowBody"
-                },
-                "cc": {
-                    "$ref": "#/definitions/WorkflowValue"
-                },
-                "conditions": {
-                    "description": "Conditions decide which branch a condition takes.",
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/WorkflowCondition"
-                    }
-                },
-                "content": {
-                    "$ref": "#/definitions/WorkflowValue"
+                "config": {
+                    "description": "Config is the module configuration defined by the DSL of the type (see ModuleDef), decoded as the matching *XxxConfig.",
+                    "type": "object"
                 },
                 "else": {
                     "type": "array",
@@ -10616,89 +10970,18 @@
                         "$ref": "#/definitions/WorkflowStep"
                     }
                 },
-                "fields": {
-                    "description": "Fields are the field values written by create and update.",
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/WorkflowFieldValue"
-                    }
-                },
-                "filters": {
-                    "description": "Filters are the query's filter conditions, all or any of which must hold per Match.",
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/WorkflowFilter"
-                    }
-                },
-                "headers": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/WorkflowHeader"
-                    }
-                },
-                "httpMethod": {
-                    "description": "HTTPMethod, URL and Timeout make up the request of an http step; Timeout is in seconds, 1–30.",
-                    "type": "string"
-                },
                 "id": {
                     "type": "string"
-                },
-                "limit": {
-                    "description": "Limit is the maximum number of records a query returns, 1–100.",
-                    "type": "integer"
-                },
-                "match": {
-                    "description": "Match is how a condition's conditions or a query's filters are combined: all means every one must hold, any means at least one; empty is equivalent to all.",
-                    "type": "string",
-                    "enum": [
-                        "all",
-                        "any"
-                    ]
                 },
                 "name": {
                     "type": "string"
                 },
-                "recordUID": {
-                    "description": "RecordUID specifies the record to update.",
-                    "allOf": [
-                        {
-                            "$ref": "#/definitions/WorkflowValue"
-                        }
-                    ]
-                },
-                "sort": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/WorkflowSort"
-                    }
-                },
-                "status": {
-                    "description": "Status and Body build the response of a response step, whose headers cannot be set by the flow; Headers and Body are also used as the request of an http step.",
-                    "type": "integer"
-                },
-                "subject": {
-                    "$ref": "#/definitions/WorkflowValue"
-                },
-                "tableUID": {
-                    "description": "TableUID is the table operated on by query, create and update.",
-                    "type": "string"
-                },
                 "then": {
+                    "description": "Then and Else are the branches of a branching module (condition).",
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/WorkflowStep"
                     }
-                },
-                "timeout": {
-                    "type": "integer"
-                },
-                "to": {
-                    "description": "To, CC, Subject and Content are the recipients, CC, subject and body of an email step.",
-                    "allOf": [
-                        {
-                            "$ref": "#/definitions/WorkflowValue"
-                        }
-                    ]
                 },
                 "type": {
                     "type": "string",
@@ -10711,9 +10994,36 @@
                         "email",
                         "http"
                     ]
+                }
+            }
+        },
+        "WorkflowSummaryDef": {
+            "type": "object",
+            "properties": {
+                "args": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
                 },
-                "url": {
-                    "$ref": "#/definitions/WorkflowValue"
+                "fallback": {
+                    "type": "string"
+                },
+                "parts": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "requires": {
+                    "description": "Fallback is shown while the Requires field is empty.",
+                    "type": "string"
+                },
+                "separator": {
+                    "type": "string"
+                },
+                "template": {
+                    "type": "string"
                 }
             }
         },

@@ -15,10 +15,11 @@ import {
   eventLabel,
   findStep,
   issueMessage,
+  isSuccessResponse as isSuccessStep,
   locate,
   METHOD_COLORS,
   newAsyncFlow,
-  STEP_META,
+  stepMeta,
   stepSummary,
   stepTitle,
   successAnchor,
@@ -88,18 +89,18 @@ const icon = computed(() => {
   if (kind.value === 'trigger') return triggerMeta.value.icon
   if (kind.value === 'params') return ListChecks
   if (kind.value === 'async') return Zap
-  return STEP_META[props.step!.type].icon
+  return stepMeta(props.step!.type).icon
 })
 const color = computed(() => {
   if (kind.value === 'trigger') return triggerMeta.value.color
   if (kind.value === 'params') return '#646a73'
   if (kind.value === 'async') return flow.value?.event === 'request_received' ? '#3370ff' : '#14a37f'
-  return STEP_META[props.step!.type].color
+  return stepMeta(props.step!.type).color
 })
 
 // ---- Async flow forks ----
 
-const isSuccessResponse = computed(() => props.step?.type === 'response' && (props.step.status ?? 200) < 400)
+const isSuccessResponse = computed(() => isSuccessStep(props.step))
 /** Async flow event this node can fork: request received for an API trigger node, succeeded for a successful response node. */
 const forkEvent = computed<AsyncEvent | null>(() => {
   if (kind.value === 'trigger') return api.value ? 'request_received' : null
@@ -155,7 +156,7 @@ function commitRename() {
   else if (kind.value === 'async' && flow.value) flow.value.name = name || undefined
   else if (props.step) {
     const step = findStep(store.spec!, props.step.id)
-    if (step) step.name = name && name !== STEP_META[step.type].label ? name : undefined
+    if (step) step.name = name && name !== stepMeta(step.type).label ? name : undefined
   }
 }
 

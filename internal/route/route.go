@@ -159,12 +159,6 @@ func New(opts Options) *flamego.Flame {
 					Put(form.Bind(form.UpdateAISettings{}), api.Admin.UpdateAISettings)
 				f.Post("/test", form.Bind(form.UpdateAISettings{}), api.Admin.TestAISettings)
 			})
-			f.Group("/mail", func() {
-				f.Combo("").
-					Get(api.Admin.GetMailSettings).
-					Put(form.Bind(form.UpdateMailSettings{}), api.Admin.UpdateMailSettings)
-				f.Post("/test", form.Bind(form.TestMailSettings{}), api.Admin.TestMailSettings)
-			})
 			f.Group("/field-shortcuts", func() {
 				f.Combo("").
 					Get(api.Admin.ListFieldShortcuts).
@@ -223,6 +217,16 @@ func New(opts Options) *flamego.Flame {
 							Post(form.Bind(form.CreateWorkflowKey{}), api.Workflow.CreateKey)
 						f.Delete("/keys/{keyID}", canManage, api.Workflow.DeleteKey)
 					}, api.Workflow.Workflower)
+				}, canEdit)
+				f.Get("/workflow-modules", canEdit, api.Workflow.Modules)
+				f.Group("/credentials", func() {
+					f.Combo("").
+						Get(api.Credential.List).
+						Post(canManage, form.Bind(form.SaveCredential{}), api.Credential.Create)
+					f.Post("/test", canManage, form.Bind(form.TestCredential{}), api.Credential.Test)
+					f.Combo("/{credentialUID}", canManage, api.Credential.Credentialer).
+						Put(form.Bind(form.SaveCredential{}), api.Credential.Update).
+						Delete(api.Credential.Delete)
 				}, canEdit)
 				f.Get("/attachments/{fileUID}", api.Schemaless.Attachment)
 
