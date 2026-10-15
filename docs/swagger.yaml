@@ -2955,6 +2955,13 @@ definitions:
       branches:
         description: Branches marks modules with then / else branches.
         type: boolean
+      category:
+        description: Category groups the module in the node picker, one of ModuleCategories.
+        enum:
+        - data
+        - logic
+        - integration
+        type: string
       color:
         type: string
       defaults:
@@ -2996,6 +3003,7 @@ definitions:
       type:
         type: string
     required:
+    - category
     - color
     - defaults
     - description

@@ -153,9 +153,13 @@ export interface SummaryDef {
 
 export type FlowKind = 'sync' | 'async' | 'background'
 
+export type ModuleCategory = 'data' | 'logic' | 'integration'
+
 export interface ModuleDef {
   type: StepType
   order: number
+  /** Group of the module in the node picker. */
+  category: ModuleCategory
   label: string
   description: string
   icon: string

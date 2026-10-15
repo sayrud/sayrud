@@ -1638,6 +1638,14 @@ const ru: typeof zhCN = {
       today: 'Сегодня',
       yesterday: 'Вчера',
     },
+    picker: {
+      all: 'Все',
+      data: 'Таблица',
+      empty: 'Нет подходящих узлов',
+      integration: 'Сервисы',
+      logic: 'Логика',
+      search: 'Поиск узлов',
+    },
     query: {
       addFilter: 'Добавить фильтр',
       addSort: 'Добавить сортировку',

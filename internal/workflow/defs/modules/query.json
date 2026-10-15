@@ -1,6 +1,7 @@
 {
   "type": "query",
   "order": 10,
+  "category": "data",
   "label": "workflow.step.query",
   "description": "workflow.step.queryDesc",
   "icon": "database",

@@ -10513,6 +10513,7 @@ const docTemplate = `{
         "WorkflowModuleDef": {
             "type": "object",
             "required": [
+                "category",
                 "color",
                 "defaults",
                 "description",
@@ -10533,6 +10534,15 @@ const docTemplate = `{
                 "branches": {
                     "description": "Branches marks modules with then / else branches.",
                     "type": "boolean"
+                },
+                "category": {
+                    "description": "Category groups the module in the node picker, one of ModuleCategories.",
+                    "type": "string",
+                    "enum": [
+                        "data",
+                        "logic",
+                        "integration"
+                    ]
                 },
                 "color": {
                     "type": "string"

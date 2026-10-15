@@ -4,6 +4,7 @@ import (
 	"embed"
 	"encoding/json"
 	"path"
+	"slices"
 	"sort"
 
 	"github.com/cockroachdb/errors"
@@ -84,8 +85,10 @@ type SummaryDef struct {
 
 // ModuleDef is the JSON DSL of a step module: the node appearance, allowed flows, default config, outputs and configuration form.
 type ModuleDef struct {
-	Type        string `json:"type"`
-	Order       int    `json:"order"`
+	Type  string `json:"type"`
+	Order int    `json:"order"`
+	// Category groups the module in the node picker, one of ModuleCategories.
+	Category    string `json:"category" enums:"data,logic,integration"`
 	Label       string `json:"label"`
 	Description string `json:"description"`
 	Icon        string `json:"icon"`
@@ -137,6 +140,9 @@ func (d *CredentialTypeDef) Fields() []FieldDef {
 	return out
 }
 
+// ModuleCategories are the categories of the node picker in display order.
+var ModuleCategories = []string{"data", "logic", "integration"}
+
 var (
 	moduleDefs     = map[string]*ModuleDef{}
 	moduleList     []*ModuleDef
@@ -166,6 +172,9 @@ func loadDefs() error {
 		}
 		if _, ok := moduleImpls[def.Type]; !ok {
 			return errors.Newf("module %q has no implementation", def.Type)
+		}
+		if !slices.Contains(ModuleCategories, def.Category) {
+			return errors.Newf("module %q has an unknown category %q", def.Type, def.Category)
 		}
 		moduleDefs[def.Type] = &def
 		moduleList = append(moduleList, &def)

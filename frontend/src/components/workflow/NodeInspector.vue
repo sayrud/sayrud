@@ -201,6 +201,8 @@ const issues = computed(() => {
 }
 
 .switch-menu {
+  width: 300px;
+  padding: 8px 6px 6px;
   border: 1px solid var(--line-border);
   border-radius: 8px;
   background: var(--bg-popover);

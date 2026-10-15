@@ -1638,6 +1638,14 @@ const fr: typeof zhCN = {
       today: 'Aujourd’hui',
       yesterday: 'Hier',
     },
+    picker: {
+      all: 'Tout',
+      data: 'Table',
+      empty: 'Aucun nœud correspondant',
+      integration: 'Services',
+      logic: 'Logique',
+      search: 'Rechercher un nœud',
+    },
     query: {
       addFilter: 'Ajouter un filtre',
       addSort: 'Ajouter un tri',

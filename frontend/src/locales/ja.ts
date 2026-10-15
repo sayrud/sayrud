@@ -1638,6 +1638,14 @@ const ja: typeof zhCN = {
       today: '今日',
       yesterday: '昨日',
     },
+    picker: {
+      all: 'すべて',
+      data: 'テーブル',
+      empty: '一致するノードはありません',
+      integration: '外部サービス',
+      logic: 'フロー制御',
+      search: 'ノードを検索',
+    },
     query: {
       addFilter: '条件を追加',
       addSort: '並べ替えを追加',

@@ -1,6 +1,7 @@
 {
   "type": "email",
   "order": 60,
+  "category": "integration",
   "label": "workflow.step.email",
   "description": "workflow.step.emailDesc",
   "icon": "mail",

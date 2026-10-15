@@ -30,10 +30,9 @@ const type = computed(() => store.spec!.trigger.type)
 </template>
 
 <style scoped>
+/* The rows bleed into the section padding so that the icons and group titles align with the section title. */
 .pick-list {
-  width: auto;
-  padding: 0;
-  margin: 0 -8px;
+  margin: 4px -8px 0;
 }
 :global(.switch-loss) {
   margin: 8px 0 0;

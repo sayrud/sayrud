@@ -1638,6 +1638,14 @@ const ko: typeof zhCN = {
       today: '오늘',
       yesterday: '어제',
     },
+    picker: {
+      all: '전체',
+      data: '테이블',
+      empty: '일치하는 노드가 없습니다',
+      integration: '외부 서비스',
+      logic: '흐름 제어',
+      search: '노드 검색',
+    },
     query: {
       addFilter: '필터 추가',
       addSort: '정렬 추가',

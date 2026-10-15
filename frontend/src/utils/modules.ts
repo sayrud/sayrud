@@ -3,7 +3,7 @@ import { shallowRef } from 'vue'
 import { Blocks, Database, FilePlus2, GitBranch, Globe, KeyRound, Mail, PencilLine, Reply } from '@lucide/vue'
 
 import { i18n, t } from '@/i18n'
-import type { CredentialTypeDef, FlowKind, ModuleDef, StepType, WorkflowModules, WorkflowStep } from '@/types/workflow'
+import type { CredentialTypeDef, FlowKind, ModuleCategory, ModuleDef, StepType, WorkflowModules, WorkflowStep } from '@/types/workflow'
 
 /** Maps the icon names in the DSL to icon components; unknown names fall back to a generic icon. */
 const ICONS: Record<string, Component> = {
@@ -81,6 +81,14 @@ export function stepMeta(type: StepType): StepMeta {
     label: def ? dslText(def.label) : type,
     description: dslText(def?.description),
   }
+}
+
+/** Categories of the node picker in display order. */
+export const MODULE_CATEGORIES: ModuleCategory[] = ['data', 'logic', 'integration']
+
+/** Group of a node in the node picker; unknown types fall into the last group. */
+export function stepCategory(type: StepType): ModuleCategory {
+  return byType.get(type)?.category ?? 'integration'
 }
 
 /** Steps with then / else branches (condition). */

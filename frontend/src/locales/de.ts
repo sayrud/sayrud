@@ -1638,6 +1638,14 @@ const de: typeof zhCN = {
       today: 'Heute',
       yesterday: 'Gestern',
     },
+    picker: {
+      all: 'Alle',
+      data: 'Tabelle',
+      empty: 'Keine passenden Knoten',
+      integration: 'Dienste',
+      logic: 'Logik',
+      search: 'Knoten suchen',
+    },
     query: {
       addFilter: 'Filter hinzufügen',
       addSort: 'Sortierung hinzufügen',

@@ -1636,6 +1636,14 @@ export default {
       today: '今天',
       yesterday: '昨天',
     },
+    picker: {
+      all: '全部',
+      data: '数据表',
+      empty: '没有匹配的节点',
+      integration: '外部服务',
+      logic: '流程控制',
+      search: '搜索节点',
+    },
     query: {
       addFilter: '添加条件',
       addSort: '添加排序',

@@ -1638,6 +1638,14 @@ const en: typeof zhCN = {
       today: 'Today',
       yesterday: 'Yesterday',
     },
+    picker: {
+      all: 'All',
+      data: 'Table',
+      empty: 'No matching nodes',
+      integration: 'Services',
+      logic: 'Logic',
+      search: 'Search nodes',
+    },
     query: {
       addFilter: 'Add filter',
       addSort: 'Add sort',

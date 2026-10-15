@@ -1,6 +1,7 @@
 {
   "type": "update",
   "order": 30,
+  "category": "data",
   "label": "workflow.step.update",
   "description": "workflow.step.updateDesc",
   "icon": "pencil-line",

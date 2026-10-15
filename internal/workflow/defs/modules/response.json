@@ -1,6 +1,7 @@
 {
   "type": "response",
   "order": 50,
+  "category": "logic",
   "label": "workflow.step.response",
   "description": "workflow.step.responseDesc",
   "icon": "reply",

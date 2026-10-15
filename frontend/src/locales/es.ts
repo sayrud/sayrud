@@ -1638,6 +1638,14 @@ const es: typeof zhCN = {
       today: 'Hoy',
       yesterday: 'Ayer',
     },
+    picker: {
+      all: 'Todo',
+      data: 'Tabla',
+      empty: 'No hay nodos coincidentes',
+      integration: 'Servicios',
+      logic: 'Lógica',
+      search: 'Buscar nodos',
+    },
     query: {
       addFilter: 'Añadir filtro',
       addSort: 'Añadir orden',

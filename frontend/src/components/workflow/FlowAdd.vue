@@ -1,16 +1,20 @@
 <script setup lang="ts">
 import { Plus } from '@lucide/vue'
+import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 
+import StepPicker from '@/components/workflow/StepPicker.vue'
 import { useWorkflowEditorStore } from '@/stores/workflowEditor'
 import type { StepType } from '@/types/workflow'
-import { type ListAddress, moduleDef, newStep, resolveList, stepMeta, stepTable, varValue } from '@/utils/workflow'
+import { type ListAddress, moduleDef, newStep, resolveList, stepTable, varValue } from '@/utils/workflow'
 
 const props = withDefaults(defineProps<{ address: ListAddress; index: number; types: StepType[]; tall?: boolean; hideLine?: boolean }>(), { tall: false, hideLine: false })
 const { t } = useI18n()
 const store = useWorkflowEditorStore()
+const open = ref(false)
 
 function add(type: StepType) {
+  open.value = false
   const list = store.spec ? resolveList(store.spec, props.address) : null
   if (!list) return
   // Data steps default to the table the trigger listens on.
@@ -28,26 +32,23 @@ function add(type: StepType) {
 
 <template>
   <div class="flow-add" :class="{ tall, 'no-line': hideLine }">
-    <a-dropdown v-if="!store.readonly" trigger="click" position="bl" class="add-dropdown">
-      <a-tooltip :content="t('workflow.node.add')" mini position="right">
-        <a-button shape="circle" size="mini" class="add-btn" :aria-label="t('workflow.node.add')">
+    <a-popover
+      v-if="!store.readonly"
+      v-model:popup-visible="open"
+      trigger="click"
+      position="bottom"
+      :content-style="{ padding: 0 }"
+      :trigger-props="{ showArrow: false, popupOffset: 6, unmountOnClose: true }"
+    >
+      <a-tooltip :content="t('workflow.node.add')" mini position="right" :disabled="open">
+        <a-button shape="circle" size="mini" class="add-btn" :class="{ open }" :aria-label="t('workflow.node.add')">
           <template #icon><Plus :size="13" /></template>
         </a-button>
       </a-tooltip>
       <template #content>
-        <a-doption v-for="type in types" :key="type" class="step-option" @click="add(type)">
-          <div class="option-row">
-            <span class="option-icon" :style="{ background: stepMeta(type).color }">
-              <component :is="stepMeta(type).icon" :size="15" />
-            </span>
-            <span class="option-text">
-              <span class="option-label">{{ stepMeta(type).label }}</span>
-              <span class="option-desc">{{ stepMeta(type).description }}</span>
-            </span>
-          </div>
-        </a-doption>
+        <StepPicker :types="types" @select="add" @close="open = false" />
       </template>
-    </a-dropdown>
+    </a-popover>
   </div>
 </template>
 
@@ -92,43 +93,12 @@ function add(type: StepType) {
     border-color 0.15s,
     opacity 0.15s;
 }
-.add-btn:hover {
+.add-btn:hover,
+.add-btn.open {
   transform: scale(1.12);
   color: #fff;
   background: var(--color-primary);
   border-color: var(--color-primary);
   opacity: 1;
-}
-.step-option :deep(.arco-dropdown-option-content) {
-  width: 100%;
-}
-.option-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 4px 0;
-  min-width: 220px;
-}
-.option-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 30px;
-  height: 30px;
-  border-radius: 8px;
-  color: #fff;
-  flex: none;
-}
-.option-text {
-  display: flex;
-  flex-direction: column;
-  line-height: 18px;
-}
-.option-label {
-  color: var(--text-title);
-}
-.option-desc {
-  font-size: 12px;
-  color: var(--text-placeholder);
 }
 </style>

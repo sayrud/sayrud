@@ -47,9 +47,7 @@ const typesOf = (group: TriggerMeta['group']) => TRIGGER_TYPES.filter((type) => 
   gap: 14px;
 }
 .trigger-list.compact {
-  gap: 4px;
-  width: 300px;
-  padding: 6px;
+  gap: 8px;
 }
 .group-title {
   margin-bottom: 8px;
@@ -57,7 +55,8 @@ const typesOf = (group: TriggerMeta['group']) => TRIGGER_TYPES.filter((type) => 
   color: var(--text-placeholder);
 }
 .compact .group-title {
-  margin: 4px 8px 2px;
+  margin: 0 8px 4px;
+  line-height: 20px;
 }
 .items {
   display: grid !important;
@@ -69,6 +68,8 @@ const typesOf = (group: TriggerMeta['group']) => TRIGGER_TYPES.filter((type) => 
   gap: 0;
 }
 :deep(.item-radio) {
+  display: flex;
+  width: 100%;
   margin: 0;
   padding: 0;
 }
@@ -95,9 +96,10 @@ const typesOf = (group: TriggerMeta['group']) => TRIGGER_TYPES.filter((type) => 
 }
 .compact .item {
   align-items: center;
-  padding: 6px 8px;
+  height: 40px;
+  padding: 0 8px;
   border: none;
-  border-radius: 6px;
+  border-radius: var(--border-radius-medium);
 }
 .compact .item:hover {
   background: var(--fill-hover);
@@ -131,7 +133,10 @@ const typesOf = (group: TriggerMeta['group']) => TRIGGER_TYPES.filter((type) => 
   color: var(--text-title);
 }
 .compact .label {
+  overflow: hidden;
   font-weight: 400;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 .desc {
   margin-top: 2px;

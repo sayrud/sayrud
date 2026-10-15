@@ -1638,6 +1638,14 @@ const zhTW: typeof zhCN = {
       today: '今天',
       yesterday: '昨天',
     },
+    picker: {
+      all: '全部',
+      data: '資料表',
+      empty: '沒有符合的節點',
+      integration: '外部服務',
+      logic: '流程控制',
+      search: '搜尋節點',
+    },
     query: {
       addFilter: '新增條件',
       addSort: '新增排序',

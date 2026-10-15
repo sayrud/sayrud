@@ -1,6 +1,7 @@
 {
   "type": "http",
   "order": 70,
+  "category": "integration",
   "label": "workflow.step.http",
   "description": "workflow.step.httpDesc",
   "icon": "globe",

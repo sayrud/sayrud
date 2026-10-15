@@ -1360,6 +1360,8 @@ export interface WorkflowModuleDef {
   action?: boolean;
   /** Branches marks modules with then / else branches. */
   branches?: boolean;
+  /** Category groups the module in the node picker, one of ModuleCategories. */
+  category: "data" | "logic" | "integration";
   color: string;
   defaults: object;
   description: string;

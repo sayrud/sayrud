@@ -1638,6 +1638,14 @@ const ptBR: typeof zhCN = {
       today: 'Hoje',
       yesterday: 'Ontem',
     },
+    picker: {
+      all: 'Todos',
+      data: 'Tabela',
+      empty: 'Nenhum nó correspondente',
+      integration: 'Serviços',
+      logic: 'Lógica',
+      search: 'Buscar nós',
+    },
     query: {
       addFilter: 'Adicionar filtro',
       addSort: 'Adicionar ordenação',

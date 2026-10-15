@@ -1,6 +1,7 @@
 {
   "type": "condition",
   "order": 40,
+  "category": "logic",
   "label": "workflow.step.condition",
   "description": "workflow.step.conditionDesc",
   "icon": "git-branch",
