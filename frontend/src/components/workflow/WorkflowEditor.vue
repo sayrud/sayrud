@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Message, Modal } from '@arco-design/web-vue'
-import { CircleAlert, CloudOff, FlaskConical, History, PanelLeftOpen, Rocket, Send, Workflow } from '@lucide/vue'
+import { CircleAlert, CloudOff, FlaskConical, GitCommitVertical, History, PanelLeftOpen, Rocket, Send, Workflow } from '@lucide/vue'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
@@ -8,6 +8,7 @@ import DebugPanel from '@/components/workflow/DebugPanel.vue'
 import TriggerDebugPanel from '@/components/workflow/TriggerDebugPanel.vue'
 import FlowCanvas from '@/components/workflow/FlowCanvas.vue'
 import NodeInspector from '@/components/workflow/NodeInspector.vue'
+import RevisionsDrawer from '@/components/workflow/RevisionsDrawer.vue'
 import RunsDrawer from '@/components/workflow/RunsDrawer.vue'
 import StateIllustration from '@/components/common/StateIllustration.vue'
 import { workflowsApi } from '@/api/workflow'
@@ -24,6 +25,7 @@ const workflows = useProjectWorkflowsStore()
 
 const debugOpen = ref(false)
 const runsOpen = ref(false)
+const revisionsOpen = ref(false)
 const publishing = ref(false)
 const issuesOpen = ref(false)
 const editingName = ref(false)
@@ -116,7 +118,7 @@ async function setEnabled(enabled: boolean) {
   store.workflow.enabled = enabled
 }
 
-// 保存草稿并发布为新版本，未启用时一并启用。
+// Saves the draft, publishes it as a new version, and enables the workflow if it is disabled.
 async function saveAndEnable() {
   if (!store.workflow || publishing.value) return
   publishing.value = true
@@ -229,6 +231,10 @@ onBeforeUnmount(() => {
           <template #icon><History :size="14" /></template>
           {{ t('workflow.editor.runs') }}
         </a-button>
+        <a-button size="small" @click="revisionsOpen = true">
+          <template #icon><GitCommitVertical :size="14" /></template>
+          {{ t('workflow.revisions.title') }}
+        </a-button>
         <a-button v-if="store.canManage" type="primary" size="small" :loading="publishing" @click="saveAndEnable">
           <template #icon><component :is="store.workflow.publishedVersion ? Send : Rocket" :size="14" /></template>
           {{ t('workflow.editor.publish') }}
@@ -256,6 +262,7 @@ onBeforeUnmount(() => {
     </div>
 
     <RunsDrawer v-model:visible="runsOpen" />
+    <RevisionsDrawer v-model:visible="revisionsOpen" />
   </div>
 </template>
 

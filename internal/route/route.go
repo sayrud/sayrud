@@ -209,6 +209,7 @@ func New(opts Options) *flamego.Flame {
 						f.Post("/publish", canManage, form.Bind(form.PublishWorkflow{}), api.Workflow.Publish)
 						f.Post("/debug", canManage, form.Bind(form.DebugWorkflow{}), api.Workflow.Debug)
 						f.Get("/revisions", api.Workflow.ListRevisions)
+						f.Post("/revisions/{version}/rollback", canManage, form.Bind(form.RollbackWorkflow{}), api.Workflow.Rollback)
 						f.Get("/runs", api.Workflow.ListRuns)
 						f.Get("/runs/{runUID}", api.Workflow.GetRun)
 						f.Post("/jobs/{jobID}/retry", canManage, api.Workflow.RetryJob)

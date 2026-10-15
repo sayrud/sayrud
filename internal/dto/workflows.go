@@ -64,12 +64,14 @@ type Workflow struct {
 
 // WorkflowRevision is a published revision.
 type WorkflowRevision struct {
-	Version     int        `json:"version"`
-	TriggerType string     `json:"triggerType"`
-	Method      string     `json:"method"`
-	Path        string     `json:"path"`
-	CreatedAt   time.Time  `json:"createdAt"`
-	CreatedBy   *UserBrief `json:"createdBy"`
+	Version     int    `json:"version"`
+	TriggerType string `json:"triggerType"`
+	Method      string `json:"method"`
+	Path        string `json:"path"`
+	// RestoredFrom is the version this revision rolls back to, 0 if published from the draft.
+	RestoredFrom int        `json:"restoredFrom"`
+	CreatedAt    time.Time  `json:"createdAt"`
+	CreatedBy    *UserBrief `json:"createdBy"`
 } // @name WorkflowRevision
 
 // SaveWorkflowDraftResp is the result of saving a draft.

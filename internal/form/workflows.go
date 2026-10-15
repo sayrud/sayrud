@@ -32,6 +32,11 @@ type PublishWorkflow struct {
 	DraftVersion int64 `json:"draftVersion" valid:"required"`
 } // @name PublishWorkflow
 
+type RollbackWorkflow struct {
+	// DraftVersion is the current draft version which the rollback overwrites, 409 is returned if the draft has changed.
+	DraftVersion int64 `json:"draftVersion" valid:"required"`
+} // @name RollbackWorkflow
+
 type SetWorkflowEnabled struct {
 	Enabled bool `json:"enabled"`
 } // @name SetWorkflowEnabled

@@ -331,12 +331,18 @@ func (workflowRoute) Publish(ctx context.Context, engine *workflow.Engine, user 
 	if len(issues) > 0 {
 		return ctx.ApiSuccess(dto.PublishWorkflowResp{Issues: issues})
 	}
+	return publishSpec(ctx, engine, user, project, wf, spec, f.DraftVersion, 0)
+}
 
-	opts, err := workflow.PublishOptions(rctx, engine.DB(), spec, f.DraftVersion, user.ID, dbutil.Now())
+// publishSpec publishes the checked spec as a new version, restoredFrom is the version being rolled back to or 0.
+func publishSpec(ctx context.Context, engine *workflow.Engine, user *db.User, project *db.Project, wf *db.Workflow, spec *workflow.Spec, draftVersion int64, restoredFrom int) error {
+	rctx := ctx.Request().Context()
+	opts, err := workflow.PublishOptions(rctx, engine.DB(), spec, draftVersion, user.ID, dbutil.Now())
 	if err != nil {
 		logrus.WithContext(rctx).WithError(err).Error("Failed to prepare workflow publishing")
 		return ctx.ApiServerError()
 	}
+	opts.RestoredFrom = restoredFrom
 	if _, err := db.Workflows.Publish(rctx, wf.ID, opts); err != nil {
 		switch {
 		case errors.Is(err, db.ErrWorkflowVersionConflict):
@@ -360,6 +366,52 @@ func (workflowRoute) Publish(ctx context.Context, engine *workflow.Engine, user 
 		return ctx.ApiServerError()
 	}
 	return ctx.ApiSuccess(dto.PublishWorkflowResp{Issues: []workflow.Issue{}, Workflow: resp})
+}
+
+// RollbackWorkflow
+// @Summary Roll back a workflow to a published version
+// @Description Republish the spec of the version as a new version, the draft is overwritten by it.
+// @Accept json
+// @Produce json
+// @Param projectUID path string true "Project UID"
+// @Param workflowUID path string true "Workflow UID"
+// @Param version path int true "Version to roll back to"
+// @Param data body form.RollbackWorkflow true "Draft version"
+// @Success 200 {object} dto.PublishWorkflowResp
+// @Failure 400 {string} string "The version references deleted tables, fields or credentials"
+// @Failure 403 {string} string "Permission denied"
+// @Failure 404 {string} string "Project, workflow or version not found"
+// @Failure 409 {string} string "Draft changed or route conflict"
+// @Failure 500 {string} string "Internal server error"
+// @ID rollbackWorkflow
+// @Router /projects/{projectUID}/workflows/{workflowUID}/revisions/{version}/rollback [post]
+func (workflowRoute) Rollback(ctx context.Context, engine *workflow.Engine, user *db.User, project *db.Project, wf *db.Workflow, f form.RollbackWorkflow) error {
+	rctx := ctx.Request().Context()
+	if f.DraftVersion != wf.DraftVersion {
+		return ctx.ApiError(http.StatusConflict, "workflow::version_conflict")
+	}
+	revision, err := db.WorkflowRevisions.GetByVersion(rctx, wf.ID, int(ctx.ParamInt64("version")))
+	if err != nil {
+		if errors.Is(err, db.ErrWorkflowRevisionNotFound) {
+			return ctx.ApiError(http.StatusNotFound, "workflow::revision_not_found")
+		}
+		logrus.WithContext(rctx).WithError(err).Error("Failed to get workflow revision")
+		return ctx.ApiServerError()
+	}
+	spec, err := workflow.ParseSpec(revision.Spec)
+	if err != nil {
+		return ctx.ApiError(http.StatusBadRequest, "workflow::invalid_draft")
+	}
+	// The tables, fields or credentials referenced by the version may have been deleted since.
+	issues, err := workflow.Check(rctx, engine.DB(), project, spec)
+	if err != nil {
+		logrus.WithContext(rctx).WithError(err).Error("Failed to check workflow")
+		return ctx.ApiServerError()
+	}
+	if len(issues) > 0 {
+		return ctx.ApiError(http.StatusBadRequest, "workflow::revision_invalid")
+	}
+	return publishSpec(ctx, engine, user, project, wf, spec, f.DraftVersion, revision.Version)
 }
 
 // DebugWorkflow
@@ -478,7 +530,7 @@ func (workflowRoute) ListRevisions(ctx context.Context, wf *db.Workflow) error {
 	}
 	out := make([]*dto.WorkflowRevision, 0, len(revisions))
 	for _, r := range revisions {
-		item := &dto.WorkflowRevision{Version: r.Version, TriggerType: r.TriggerType, Method: r.Method, Path: r.Path, CreatedAt: r.CreatedAt}
+		item := &dto.WorkflowRevision{Version: r.Version, TriggerType: r.TriggerType, Method: r.Method, Path: r.Path, RestoredFrom: r.RestoredFrom, CreatedAt: r.CreatedAt}
 		if u, ok := users[r.CreatedBy]; ok {
 			item.CreatedBy = dto.ToUserBrief(u)
 		}

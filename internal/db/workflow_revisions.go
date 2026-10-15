@@ -18,6 +18,8 @@ var WorkflowRevisions WorkflowRevisionsStore
 type WorkflowRevisionsStore interface {
 	// GetByID returns the revision with the given ID, it returns ErrWorkflowRevisionNotFound if it does not exist.
 	GetByID(ctx context.Context, revisionID int64) (*WorkflowRevision, error)
+	// GetByVersion returns the revision of the workflow with the given version, it returns ErrWorkflowRevisionNotFound if it does not exist.
+	GetByVersion(ctx context.Context, workflowID int64, version int) (*WorkflowRevision, error)
 	// ListByWorkflowID returns the revisions of the workflow (without the spec), the newest first.
 	ListByWorkflowID(ctx context.Context, workflowID int64, limit int) ([]*WorkflowRevision, error)
 }
@@ -39,6 +41,8 @@ type WorkflowRevision struct {
 	Path        string `gorm:"not null"`
 	// Spec is the frozen workflow.Spec.
 	Spec datatypes.JSON `gorm:"type:jsonb;not null"`
+	// RestoredFrom is the version this revision republishes on rollback, 0 if published from the draft.
+	RestoredFrom int `gorm:"not null;default:0"`
 	// CreatedBy is the publisher, i.e. the identity the revision runs as.
 	CreatedBy int64 `gorm:"not null;default:0"`
 	CreatedAt time.Time
@@ -51,8 +55,16 @@ type workflowRevisions struct {
 var ErrWorkflowRevisionNotFound = errors.New("workflow revision does not exist")
 
 func (db *workflowRevisions) GetByID(ctx context.Context, revisionID int64) (*WorkflowRevision, error) {
+	return db.getBy(ctx, "id = ?", revisionID)
+}
+
+func (db *workflowRevisions) GetByVersion(ctx context.Context, workflowID int64, version int) (*WorkflowRevision, error) {
+	return db.getBy(ctx, "workflow_id = ? AND version = ?", workflowID, version)
+}
+
+func (db *workflowRevisions) getBy(ctx context.Context, where string, args ...interface{}) (*WorkflowRevision, error) {
 	var revision WorkflowRevision
-	if err := db.WithContext(ctx).Where("id = ?", revisionID).First(&revision).Error; err != nil {
+	if err := db.WithContext(ctx).Where(where, args...).First(&revision).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, ErrWorkflowRevisionNotFound
 		}

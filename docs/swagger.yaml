@@ -1433,6 +1433,15 @@ definitions:
     required:
     - token
     type: object
+  RollbackWorkflow:
+    properties:
+      draftVersion:
+        description: DraftVersion is the current draft version which the rollback
+          overwrites, 409 is returned if the draft has changed.
+        type: integer
+    required:
+    - draftVersion
+    type: object
   RunFieldShortcut:
     properties:
       recordUIDs:
@@ -3225,6 +3234,10 @@ definitions:
         type: string
       path:
         type: string
+      restoredFrom:
+        description: RestoredFrom is the version this revision rolls back to, 0 if
+          published from the draft.
+        type: integer
       triggerType:
         type: string
       version:
@@ -3234,6 +3247,7 @@ definitions:
     - createdBy
     - method
     - path
+    - restoredFrom
     - triggerType
     - version
     type: object
@@ -7536,6 +7550,63 @@ paths:
           schema:
             type: string
       summary: List the published versions of a workflow
+  /projects/{projectUID}/workflows/{workflowUID}/revisions/{version}/rollback:
+    post:
+      consumes:
+      - application/json
+      description: Republish the spec of the version as a new version, the draft is
+        overwritten by it.
+      operationId: rollbackWorkflow
+      parameters:
+      - description: Project UID
+        in: path
+        name: projectUID
+        required: true
+        type: string
+      - description: Workflow UID
+        in: path
+        name: workflowUID
+        required: true
+        type: string
+      - description: Version to roll back to
+        in: path
+        name: version
+        required: true
+        type: integer
+      - description: Draft version
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/RollbackWorkflow'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/PublishWorkflowResp'
+        "400":
+          description: The version references deleted tables, fields or credentials
+          schema:
+            type: string
+        "403":
+          description: Permission denied
+          schema:
+            type: string
+        "404":
+          description: Project, workflow or version not found
+          schema:
+            type: string
+        "409":
+          description: Draft changed or route conflict
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      summary: Roll back a workflow to a published version
   /projects/{projectUID}/workflows/{workflowUID}/runs:
     get:
       operationId: listWorkflowRuns

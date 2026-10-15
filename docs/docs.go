@@ -5903,6 +5903,89 @@ const docTemplate = `{
                 }
             }
         },
+        "/projects/{projectUID}/workflows/{workflowUID}/revisions/{version}/rollback": {
+            "post": {
+                "description": "Republish the spec of the version as a new version, the draft is overwritten by it.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "Roll back a workflow to a published version",
+                "operationId": "rollbackWorkflow",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Project UID",
+                        "name": "projectUID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Workflow UID",
+                        "name": "workflowUID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Version to roll back to",
+                        "name": "version",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Draft version",
+                        "name": "data",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/RollbackWorkflow"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/PublishWorkflowResp"
+                        }
+                    },
+                    "400": {
+                        "description": "The version references deleted tables, fields or credentials",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "403": {
+                        "description": "Permission denied",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "404": {
+                        "description": "Project, workflow or version not found",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "409": {
+                        "description": "Draft changed or route conflict",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
         "/projects/{projectUID}/workflows/{workflowUID}/runs": {
             "get": {
                 "produces": [
@@ -8433,6 +8516,18 @@ const docTemplate = `{
                 }
             }
         },
+        "RollbackWorkflow": {
+            "type": "object",
+            "required": [
+                "draftVersion"
+            ],
+            "properties": {
+                "draftVersion": {
+                    "description": "DraftVersion is the current draft version which the rollback overwrites, 409 is returned if the draft has changed.",
+                    "type": "integer"
+                }
+            }
+        },
         "RunFieldShortcut": {
             "type": "object",
             "required": [
@@ -10792,6 +10887,7 @@ const docTemplate = `{
                 "createdBy",
                 "method",
                 "path",
+                "restoredFrom",
                 "triggerType",
                 "version"
             ],
@@ -10807,6 +10903,10 @@ const docTemplate = `{
                 },
                 "path": {
                     "type": "string"
+                },
+                "restoredFrom": {
+                    "description": "RestoredFrom is the version this revision rolls back to, 0 if published from the draft.",
+                    "type": "integer"
                 },
                 "triggerType": {
                     "type": "string"

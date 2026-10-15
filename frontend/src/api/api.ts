@@ -659,6 +659,11 @@ export interface ResolvedLinkShare {
   token: string;
 }
 
+export interface RollbackWorkflow {
+  /** DraftVersion is the current draft version which the rollback overwrites, 409 is returned if the draft has changed. */
+  draftVersion: number;
+}
+
 export interface RunFieldShortcut {
   /** RecordUIDs are the records to generate if Scope is records. */
   recordUIDs?: string[];
@@ -1476,6 +1481,8 @@ export interface WorkflowRevision {
   createdBy: UserBrief;
   method: string;
   path: string;
+  /** RestoredFrom is the version this revision rolls back to, 0 if published from the draft. */
+  restoredFrom: number;
   triggerType: string;
   version: number;
 }
@@ -1839,6 +1846,8 @@ export type DeleteWorkflowKeyData = any;
 export type PublishWorkflowData = PublishWorkflowResp;
 
 export type ListWorkflowRevisionsData = WorkflowRevision[];
+
+export type RollbackWorkflowData = PublishWorkflowResp;
 
 export type ListWorkflowRunsData = ListWorkflowRunsResp;
 
@@ -4195,6 +4204,29 @@ export class Api<
       this.request<ListWorkflowRevisionsData, string>({
         path: `/projects/${projectUid}/workflows/${workflowUid}/revisions`,
         method: "GET",
+        format: "json",
+        ...params,
+      }),
+
+    /**
+     * @description Republish the spec of the version as a new version, the draft is overwritten by it.
+     *
+     * @name RollbackWorkflow
+     * @summary Roll back a workflow to a published version
+     * @request POST:/projects/{projectUID}/workflows/{workflowUID}/revisions/{version}/rollback
+     */
+    rollbackWorkflow: (
+      projectUid: string,
+      workflowUid: string,
+      version: number,
+      data: RollbackWorkflow,
+      params: RequestParams = {},
+    ) =>
+      this.request<RollbackWorkflowData, string>({
+        path: `/projects/${projectUid}/workflows/${workflowUid}/revisions/${version}/rollback`,
+        method: "POST",
+        body: data,
+        type: ContentType.Json,
         format: "json",
         ...params,
       }),

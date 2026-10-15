@@ -194,6 +194,52 @@ func (f *leadFixture) publish(t *testing.T, name string, spec *Spec) *db.Workflo
 	return wf
 }
 
+func TestRollback(t *testing.T) {
+	f := newLeadFixture(t)
+	ctx := context.Background()
+	workflows := db.NewWorkflowsStore(f.db)
+	revisions := db.NewWorkflowRevisionsStore(f.db)
+
+	// Change the path in the draft and publish it as v2.
+	v2 := *f.spec
+	api := *v2.Trigger.API
+	api.Path = "/bbbb"
+	v2.Trigger.API = &api
+	raw, _ := json.Marshal(&v2)
+	draftVersion, err := workflows.UpdateDraft(ctx, f.api.ID, f.api.DraftVersion, db.UpdateWorkflowDraftOptions{Name: f.api.Name, Draft: raw})
+	require.NoError(t, err)
+	opts, err := PublishOptions(ctx, f.db, &v2, draftVersion, 0, time.Now())
+	require.NoError(t, err)
+	_, err = workflows.Publish(ctx, f.api.ID, opts)
+	require.NoError(t, err)
+
+	// Roll back to v1, which publishes v3 and overwrites the draft with v1.
+	v1, err := revisions.GetByVersion(ctx, f.api.ID, 1)
+	require.NoError(t, err)
+	spec, err := ParseSpec(v1.Spec)
+	require.NoError(t, err)
+	opts, err = PublishOptions(ctx, f.db, spec, draftVersion, 0, time.Now())
+	require.NoError(t, err)
+	opts.RestoredFrom = v1.Version
+	v3, err := workflows.Publish(ctx, f.api.ID, opts)
+	require.NoError(t, err)
+	assert.Equal(t, 3, v3.Version)
+	assert.Equal(t, 1, v3.RestoredFrom)
+
+	wf, err := workflows.GetByID(ctx, f.api.ID)
+	require.NoError(t, err)
+	assert.Equal(t, 3, wf.PublishedVersion)
+	assert.Equal(t, "/aaaa", wf.Path)
+	assert.Equal(t, draftVersion+1, wf.DraftVersion)
+	assert.Equal(t, wf.DraftVersion, wf.PublishedDraftVersion)
+	draft, err := ParseSpec(wf.Draft)
+	require.NoError(t, err)
+	assert.Equal(t, "/aaaa", draft.Trigger.API.Path)
+
+	_, err = revisions.GetByVersion(ctx, f.api.ID, 9)
+	assert.ErrorIs(t, err, db.ErrWorkflowRevisionNotFound)
+}
+
 func (f *leadFixture) call(t *testing.T, body string, header map[string]string) (*httptest.ResponseRecorder, map[string]interface{}) {
 	t.Helper()
 	req := httptest.NewRequest(http.MethodPost, "/api/"+f.project.UID+"/aaaa", bytes.NewBufferString(body))

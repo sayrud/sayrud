@@ -82,6 +82,9 @@ export const workflowsApi = {
     (await client.projects.debugWorkflow(projectUID, workflowUID, { ...req, draft: asSpec(req.draft), body: req.body as object | undefined })).data as unknown as DebugResult,
   revisions: async (projectUID: string, workflowUID: string) =>
     (await client.projects.listWorkflowRevisions(projectUID, workflowUID)).data as unknown as WorkflowRevision[],
+  /** Republishes the version as a new version and overwrites the draft with it. */
+  rollback: async (projectUID: string, workflowUID: string, version: number, draftVersion: number) =>
+    (await client.projects.rollbackWorkflow(projectUID, workflowUID, version, { draftVersion })).data as unknown as { issues: WorkflowIssue[]; workflow?: Workflow },
   runs: async (projectUID: string, workflowUID: string, params: RunsQuery = {}) =>
     (await client.projects.listWorkflowRuns(projectUID, workflowUID, {
       ...params,

@@ -45,6 +45,7 @@ type WorkflowsStore interface {
 	// SetEnabled enables or disables the published revision; if schedule is not nil, it also updates the next processing time and the scan position.
 	SetEnabled(ctx context.Context, workflowID int64, enabled bool, schedule *WorkflowSchedule) error
 	// Publish freezes the spec into a new immutable revision and updates the published pointer in a transaction, it returns ErrWorkflowRouteConflict if a published API in the project already uses the same method and path.
+	// A rollback (RestoredFrom > 0) also overwrites the draft with the spec.
 	Publish(ctx context.Context, workflowID int64, opts PublishWorkflowOptions) (*WorkflowRevision, error)
 	// DeleteByID deletes the workflow, the revisions are kept for the running jobs.
 	DeleteByID(ctx context.Context, workflowID int64) error
@@ -252,7 +253,9 @@ type PublishWorkflowOptions struct {
 	// Schedule returns the scheduling state of the schedule and date triggers given the currently published workflow; the zero value means no scheduling.
 	Schedule func(current *Workflow) WorkflowSchedule
 	Spec     []byte
-	UserID   int64
+	// RestoredFrom is the version being rolled back to; when set, the draft is replaced by Spec in the same transaction.
+	RestoredFrom int
+	UserID       int64
 }
 
 func (db *workflows) Publish(ctx context.Context, workflowID int64, opts PublishWorkflowOptions) (*WorkflowRevision, error) {
@@ -280,13 +283,14 @@ func (db *workflows) Publish(ctx context.Context, workflowID int64, opts Publish
 		}
 
 		revision = &WorkflowRevision{
-			WorkflowID:  w.ID,
-			Version:     w.PublishedVersion + 1,
-			TriggerType: opts.TriggerType,
-			Method:      opts.Method,
-			Path:        opts.Path,
-			Spec:        datatypes.JSON(opts.Spec),
-			CreatedBy:   opts.UserID,
+			WorkflowID:   w.ID,
+			Version:      w.PublishedVersion + 1,
+			TriggerType:  opts.TriggerType,
+			Method:       opts.Method,
+			Path:         opts.Path,
+			Spec:         datatypes.JSON(opts.Spec),
+			RestoredFrom: opts.RestoredFrom,
+			CreatedBy:    opts.UserID,
 		}
 		if err := tx.Create(revision).Error; err != nil {
 			return errors.Wrap(err, "create revision")
@@ -296,19 +300,25 @@ func (db *workflows) Publish(ctx context.Context, workflowID int64, opts Publish
 		if opts.Schedule != nil {
 			schedule = opts.Schedule(&w)
 		}
-		if err := tx.Model(&Workflow{}).Where("id = ?", w.ID).Updates(map[string]interface{}{
-			"trigger_type":            opts.TriggerType,
-			"method":                  opts.Method,
-			"path":                    opts.Path,
-			"trigger_table_id":        opts.TriggerTableID,
-			"next_run_at":             schedule.NextRunAt,
-			"cursor":                  schedule.Cursor,
-			"published_revision_id":   revision.ID,
-			"published_version":       revision.Version,
-			"published_draft_version": opts.DraftVersion,
-			"published_at":            dbutil.Now(),
-			"updated_by":              opts.UserID,
-		}).Error; err != nil {
+		draftVersion := opts.DraftVersion
+		values := map[string]interface{}{
+			"trigger_type":          opts.TriggerType,
+			"method":                opts.Method,
+			"path":                  opts.Path,
+			"trigger_table_id":      opts.TriggerTableID,
+			"next_run_at":           schedule.NextRunAt,
+			"cursor":                schedule.Cursor,
+			"published_revision_id": revision.ID,
+			"published_version":     revision.Version,
+			"published_at":          dbutil.Now(),
+			"updated_by":            opts.UserID,
+		}
+		if opts.RestoredFrom > 0 {
+			draftVersion++
+			values["draft"], values["draft_version"] = datatypes.JSON(opts.Spec), draftVersion
+		}
+		values["published_draft_version"] = draftVersion
+		if err := tx.Model(&Workflow{}).Where("id = ?", w.ID).Updates(values).Error; err != nil {
 			if dbutil.IsUniqueViolation(err, "idx_workflows_route") {
 				return ErrWorkflowRouteConflict
 			}

@@ -386,6 +386,8 @@ export interface WorkflowRevision {
   triggerType: string
   method: string
   path: string
+  /** Version this revision rolls back to, 0 if published from the draft. */
+  restoredFrom: number
   createdAt: string
-  createdBy: { userName: string } | null
+  createdBy: { userName: string; color: string; avatarUrl: string } | null
 }
