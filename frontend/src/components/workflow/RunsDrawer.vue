@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { Message } from '@arco-design/web-vue'
-import { ArrowLeft, CircleCheck, CircleDashed, CircleX, RefreshCw, RotateCcw, TriangleAlert, Zap } from '@lucide/vue'
+import { CircleCheck, CircleDashed, CircleX, MousePointerClick, RefreshCw, RotateCcw, TriangleAlert, Workflow, Zap } from '@lucide/vue'
 import dayjs from 'dayjs'
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import { type RunsQuery, workflowsApi } from '@/api/workflow'
+import CodeEditor from '@/components/common/CodeEditor.vue'
 import StateIllustration from '@/components/common/StateIllustration.vue'
 import { useWorkflowEditorStore } from '@/stores/workflowEditor'
 import type { AsyncEvent, JobStatus, RunStatus, TriggerType, WorkflowJob, WorkflowRun, WorkflowTraceStep } from '@/types/workflow'
@@ -37,12 +38,18 @@ const statusOptions = computed(() =>
     .map((s) => ({ value: s, label: RUN_STATUS[s].label() })),
 )
 
-type DurationKey = 'lt1s' | '1to5s' | '5to30s' | 'gt30s'
+type DurationKey = 'lt100ms' | '100msTo1s' | '1to5s' | '5to30s' | '30sTo1m' | '1to5m' | '5to30m' | 'gt30m'
+const SECOND = 1000
+const MINUTE = 60 * SECOND
 const DURATIONS: Record<DurationKey, { min?: number; max?: number; label: () => string }> = {
-  lt1s: { max: 1000, label: () => t('workflow.runs.durationLt1s') },
-  '1to5s': { min: 1000, max: 5000, label: () => t('workflow.runs.duration1to5s') },
-  '5to30s': { min: 5000, max: 30000, label: () => t('workflow.runs.duration5to30s') },
-  gt30s: { min: 30000, label: () => t('workflow.runs.durationGt30s') },
+  lt100ms: { max: 100, label: () => t('workflow.runs.durationLt100ms') },
+  '100msTo1s': { min: 100, max: SECOND, label: () => t('workflow.runs.duration100msTo1s') },
+  '1to5s': { min: SECOND, max: 5 * SECOND, label: () => t('workflow.runs.duration1to5s') },
+  '5to30s': { min: 5 * SECOND, max: 30 * SECOND, label: () => t('workflow.runs.duration5to30s') },
+  '30sTo1m': { min: 30 * SECOND, max: MINUTE, label: () => t('workflow.runs.duration30sTo1m') },
+  '1to5m': { min: MINUTE, max: 5 * MINUTE, label: () => t('workflow.runs.duration1to5m') },
+  '5to30m': { min: 5 * MINUTE, max: 30 * MINUTE, label: () => t('workflow.runs.duration5to30m') },
+  gt30m: { min: 30 * MINUTE, label: () => t('workflow.runs.durationGt30m') },
 }
 const durationOptions = computed(() => (Object.keys(DURATIONS) as DurationKey[]).map((k) => ({ value: k, label: DURATIONS[k].label() })))
 
@@ -85,6 +92,11 @@ async function load(more = false) {
     const resp = await workflowsApi.runs(store.projectUID, store.workflow.uid, { ...query(), cursor: more ? cursor.value : undefined })
     runs.value = more ? [...runs.value, ...resp.runs] : resp.runs
     cursor.value = resp.nextCursor
+    // The detail pane follows the list: keep the selected run if it is still listed, otherwise show the newest one.
+    if (!more && !runs.value.some((r) => r.uid === detail.value?.uid)) {
+      if (runs.value[0]) void open(runs.value[0])
+      else detail.value = null
+    }
   } catch (e) {
     Message.error(e instanceof Error ? e.message : String(e))
   } finally {
@@ -96,7 +108,9 @@ async function open(run: WorkflowRun) {
   detailLoading.value = true
   detail.value = run
   try {
-    detail.value = await workflowsApi.run(store.projectUID, store.workflow!.uid, run.uid)
+    const full = await workflowsApi.run(store.projectUID, store.workflow!.uid, run.uid)
+    // Ignore a stale response when another run has been selected meanwhile.
+    if (detail.value?.uid === run.uid) detail.value = full
   } catch (e) {
     Message.error(e instanceof Error ? e.message : String(e))
   } finally {
@@ -141,47 +155,64 @@ function flowName(job: WorkflowJob) {
 </script>
 
 <template>
-  <a-drawer v-model:visible="visible" :width="720" :footer="false" unmount-on-close class="runs-drawer">
+  <a-drawer
+    v-model:visible="visible"
+    placement="bottom"
+    height="calc(100vh - 56px)"
+    :footer="false"
+    unmount-on-close
+    :drawer-style="{ left: '56px', width: 'calc(100% - 112px)', borderRadius: '12px 12px 0 0', overflow: 'hidden' }"
+    :body-style="{ display: 'flex', flexDirection: 'column', padding: 0, overflow: 'hidden' }"
+    class="runs-drawer"
+  >
     <template #title>
       <div class="drawer-title">
-        <a-button v-if="detail" type="text" size="small" class="btn-muted" :title="t('workflow.runs.back')" :aria-label="t('workflow.runs.back')" @click="detail = null"><template #icon><ArrowLeft :size="16" /></template></a-button>
-        <span>{{ detail ? t('workflow.runs.detail') : t('workflow.runs.title') }}</span>
-        <code v-if="detail" class="run-uid">{{ detail.uid }}</code>
+        <Workflow :size="18" class="title-icon" />
+        <span class="title-name">{{ store.name }}</span>
+        <span class="title-divider" />
+        <span>{{ t('workflow.runs.title') }}</span>
       </div>
     </template>
 
-    <template v-if="!detail">
-      <div class="toolbar">
-        <a-select
-          v-model="statuses"
-          :options="statusOptions"
-          multiple
-          allow-clear
-          :max-tag-count="1"
-          :placeholder="t('workflow.runs.statusPlaceholder')"
-          class="filter-status"
-        />
-        <a-select
-          v-model="duration"
-          :options="durationOptions"
-          allow-clear
-          :placeholder="t('workflow.runs.durationPlaceholder')"
-          class="filter-duration"
-        />
-        <a-range-picker
-          v-model="dateRange"
-          value-format="YYYY-MM-DD"
-          :placeholder="[t('workflow.runs.startDate'), t('workflow.runs.endDate')]"
-          class="filter-date"
-        />
-        <span class="spacer" />
-        <a-button :loading="loading" :title="t('workflow.runs.refresh')" :aria-label="t('workflow.runs.refresh')" @click="load()">
-          <template #icon><RefreshCw :size="14" /></template>
-        </a-button>
-      </div>
-      <a-spin :loading="loading && !runs.length" class="list-spin">
-        <a-list v-if="runs.length" :bordered="false" hoverable :split="false" class="run-list">
-          <a-list-item v-for="run in runs" :key="run.uid" class="run" @click="open(run)">
+    <div class="toolbar">
+      <a-select
+        v-model="statuses"
+        :options="statusOptions"
+        multiple
+        allow-clear
+        :max-tag-count="1"
+        :placeholder="t('workflow.runs.statusPlaceholder')"
+        class="filter-status"
+      />
+      <a-select
+        v-model="duration"
+        :options="durationOptions"
+        allow-clear
+        :placeholder="t('workflow.runs.durationPlaceholder')"
+        class="filter-duration"
+      />
+      <a-range-picker
+        v-model="dateRange"
+        value-format="YYYY-MM-DD"
+        :placeholder="[t('workflow.runs.startDate'), t('workflow.runs.endDate')]"
+        class="filter-date"
+      />
+      <span class="spacer" />
+      <a-button :loading="loading" @click="load()">
+        <template #icon><RefreshCw :size="14" /></template>
+        {{ t('workflow.runs.refresh') }}
+      </a-button>
+    </div>
+
+    <div v-if="!loading && !runs.length" class="empty">
+      <StateIllustration name="no-results" :width="140" />
+      <span>{{ filtered ? t('workflow.runs.noMatch') : t('workflow.runs.empty') }}</span>
+    </div>
+
+    <div v-else class="split">
+      <a-spin :loading="loading && !runs.length" class="list-col">
+        <a-list :bordered="false" hoverable :split="false" class="run-list">
+          <a-list-item v-for="run in runs" :key="run.uid" class="run" :class="{ selected: run.uid === detail?.uid }" @click="open(run)">
             <span v-if="isBackground(run)" class="run-code bg" :class="run.status"><component :is="TRIGGER_META[(store.spec?.trigger.type ?? 'api') as TriggerType].icon" :size="14" /></span>
             <span v-else class="run-code" :class="run.statusCode >= 500 ? 'server' : run.statusCode >= 400 ? 'client' : 'ok'">{{ run.statusCode || '—' }}</span>
             <div class="run-main">
@@ -199,84 +230,90 @@ function flowName(job: WorkflowJob) {
             </div>
           </a-list-item>
         </a-list>
-        <div v-if="!loading && !runs.length" class="empty">
-          <StateIllustration name="no-results" :width="120" />
-          <span>{{ filtered ? t('workflow.runs.noMatch') : t('workflow.runs.empty') }}</span>
-        </div>
         <a-button v-if="cursor" long class="more" :loading="loading" @click="load(true)">{{ t('workflow.runs.loadMore') }}</a-button>
       </a-spin>
-    </template>
 
-    <a-spin v-else :loading="detailLoading" class="detail">
-      <div class="detail-summary">
-        <span v-if="!isBackground(detail)" class="run-code big" :class="detail.statusCode >= 500 ? 'server' : detail.statusCode >= 400 ? 'client' : 'ok'">{{ detail.statusCode }}</span>
-        <a-tag :color="RUN_STATUS[detail.status].color">{{ RUN_STATUS[detail.status].label() }}</a-tag>
-        <span class="run-trigger">{{ triggerLabel(detail.trigger) }}</span>
-        <span class="run-meta">{{ fmt(detail.createdAt) }} · {{ t('workflow.debug.duration', { ms: detail.durationMs }) }}</span>
-        <template v-if="isBackground(detail) && mainJob(detail)">
-          <span class="muted">{{ t('workflow.runs.attempts', { n: mainJob(detail)!.attempts }) }}</span>
-          <span class="spacer" />
-          <a-button v-if="mainJob(detail)!.status === 'failed' && store.canManage" size="mini" @click="retry(mainJob(detail)!)">
-            <template #icon><RotateCcw :size="12" /></template>
-            {{ t('workflow.runs.retry') }}
-          </a-button>
-        </template>
-      </div>
-      <div v-if="detail.error?.message" class="detail-error">{{ detail.error.message }}</div>
-      <div v-if="isBackground(detail) && mainJob(detail)?.uncertain" class="uncertain"><TriangleAlert :size="13" />{{ t('workflow.runs.uncertain') }}</div>
-
-      <div class="section-title">{{ t('workflow.debug.trace') }}</div>
-      <div class="trace">
-        <div v-for="s in detail.trace ?? []" :key="s.stepID" class="trace-row" :class="s.status">
-          <component :is="traceIcon(s)" :size="14" class="trace-icon" />
-          <span class="ellipsis">{{ traceTitle(s) }}</span>
-          <span v-if="s.branch" class="branch">{{ s.branch === 'then' ? t('workflow.node.then') : t('workflow.node.else') }}</span>
-          <span class="trace-ms">{{ t('workflow.debug.duration', { ms: s.durationMs }) }}</span>
-          <div v-if="s.error" class="trace-error">{{ s.error }}</div>
+      <div class="detail-col">
+        <div v-if="!detail" class="detail-empty">
+          <MousePointerClick :size="20" />
+          <span>{{ t('workflow.runs.pickRun') }}</span>
         </div>
-        <div v-if="!detail.trace?.length" class="muted">{{ t('workflow.debug.noTrace') }}</div>
-      </div>
+        <a-spin v-else :loading="detailLoading" class="detail">
+          <div class="detail-head">
+            <span class="detail-title">{{ t('workflow.runs.detail') }}</span>
+            <code class="run-uid">{{ detail.uid }}</code>
+          </div>
+          <div class="detail-summary">
+            <a-tag v-if="!isBackground(detail)" :color="detail.statusCode >= 500 ? 'red' : detail.statusCode >= 400 ? 'orange' : 'green'" class="code-tag">{{ detail.statusCode }}</a-tag>
+            <a-tag :color="RUN_STATUS[detail.status].color">{{ RUN_STATUS[detail.status].label() }}</a-tag>
+            <span class="run-trigger">{{ triggerLabel(detail.trigger) }}</span>
+            <span class="run-meta">{{ fmt(detail.createdAt) }} · {{ t('workflow.debug.duration', { ms: detail.durationMs }) }}</span>
+            <template v-if="isBackground(detail) && mainJob(detail)">
+              <span class="muted">{{ t('workflow.runs.attempts', { n: mainJob(detail)!.attempts }) }}</span>
+              <span class="spacer" />
+              <a-button v-if="mainJob(detail)!.status === 'failed' && store.canManage" size="mini" @click="retry(mainJob(detail)!)">
+                <template #icon><RotateCcw :size="12" /></template>
+                {{ t('workflow.runs.retry') }}
+              </a-button>
+            </template>
+          </div>
+          <div v-if="detail.error?.message" class="detail-error">{{ detail.error.message }}</div>
+          <div v-if="isBackground(detail) && mainJob(detail)?.uncertain" class="uncertain"><TriangleAlert :size="13" />{{ t('workflow.runs.uncertain') }}</div>
 
-      <template v-if="!isBackground(detail)">
-      <div class="section-title">{{ t('workflow.debug.jobs') }}</div>
-      <div v-for="job in asyncJobs(detail)" :key="job.id" class="job">
-        <div class="job-head">
-          <Zap :size="13" class="job-icon" />
-          <span class="job-name">{{ flowName(job) }}</span>
-          <span class="muted">{{ eventLabel(job.event as AsyncEvent) }}</span>
-          <a-tag size="small" :color="JOB_STATUS[job.status].color">{{ JOB_STATUS[job.status].label() }}</a-tag>
-          <span class="muted">{{ t('workflow.runs.attempts', { n: job.attempts }) }}</span>
-          <span class="spacer" />
-          <a-button v-if="job.status === 'failed' && store.canManage" size="mini" @click="retry(job)">
-            <template #icon><RotateCcw :size="12" /></template>
-            {{ t('workflow.runs.retry') }}
-          </a-button>
-        </div>
-        <div v-if="job.uncertain" class="uncertain"><TriangleAlert :size="13" />{{ t('workflow.runs.uncertain') }}</div>
-        <div v-if="job.error" class="trace-error job-error">{{ job.error }}</div>
-        <div v-for="s in job.trace ?? []" :key="s.stepID" class="trace-row nested" :class="s.status">
-          <component :is="traceIcon(s)" :size="13" class="trace-icon" />
-          <span class="ellipsis">{{ traceTitle(s) }}</span>
-          <span v-if="s.reused" class="branch">{{ t('workflow.runs.reused') }}</span>
-          <span class="trace-ms">{{ t('workflow.debug.duration', { ms: s.durationMs }) }}</span>
-        </div>
-      </div>
-      <div v-if="!asyncJobs(detail).length" class="muted">{{ t('workflow.debug.noJobs') }}</div>
+          <div class="section-title">{{ t('workflow.debug.trace') }}</div>
+          <div class="trace">
+            <div v-for="s in detail.trace ?? []" :key="s.stepID" class="trace-row" :class="s.status">
+              <component :is="traceIcon(s)" :size="14" class="trace-icon" />
+              <span class="ellipsis">{{ traceTitle(s) }}</span>
+              <span v-if="s.branch" class="branch">{{ s.branch === 'then' ? t('workflow.node.then') : t('workflow.node.else') }}</span>
+              <span class="trace-ms">{{ t('workflow.debug.duration', { ms: s.durationMs }) }}</span>
+              <div v-if="s.error" class="trace-error">{{ s.error }}</div>
+            </div>
+            <div v-if="!detail.trace?.length" class="muted">{{ t('workflow.debug.noTrace') }}</div>
+          </div>
 
-      <div class="section-title">{{ t('workflow.runs.request') }}</div>
-      <div v-if="detail.request" class="kv">
-        <div><span class="muted">{{ t('workflow.vars.method') }}</span><code>{{ detail.request.method }} {{ detail.request.path }}</code></div>
-        <div v-for="(v, k) in detail.request.query" :key="`q-${k}`"><span class="muted">{{ t('workflow.debug.query') }}</span><code>{{ k }}={{ v }}</code></div>
+          <template v-if="!isBackground(detail)">
+          <div class="section-title">{{ t('workflow.debug.jobs') }}</div>
+          <div v-for="job in asyncJobs(detail)" :key="job.id" class="job">
+            <div class="job-head">
+              <Zap :size="13" class="job-icon" />
+              <span class="job-name">{{ flowName(job) }}</span>
+              <span class="muted">{{ eventLabel(job.event as AsyncEvent) }}</span>
+              <a-tag size="small" :color="JOB_STATUS[job.status].color">{{ JOB_STATUS[job.status].label() }}</a-tag>
+              <span class="muted">{{ t('workflow.runs.attempts', { n: job.attempts }) }}</span>
+              <span class="spacer" />
+              <a-button v-if="job.status === 'failed' && store.canManage" size="mini" @click="retry(job)">
+                <template #icon><RotateCcw :size="12" /></template>
+                {{ t('workflow.runs.retry') }}
+              </a-button>
+            </div>
+            <div v-if="job.uncertain" class="uncertain"><TriangleAlert :size="13" />{{ t('workflow.runs.uncertain') }}</div>
+            <div v-if="job.error" class="trace-error job-error">{{ job.error }}</div>
+            <div v-for="s in job.trace ?? []" :key="s.stepID" class="trace-row nested" :class="s.status">
+              <component :is="traceIcon(s)" :size="13" class="trace-icon" />
+              <span class="ellipsis">{{ traceTitle(s) }}</span>
+              <span v-if="s.reused" class="branch">{{ t('workflow.runs.reused') }}</span>
+              <span class="trace-ms">{{ t('workflow.debug.duration', { ms: s.durationMs }) }}</span>
+            </div>
+          </div>
+          <div v-if="!asyncJobs(detail).length" class="muted">{{ t('workflow.debug.noJobs') }}</div>
+
+          <div class="section-title">{{ t('workflow.runs.request') }}</div>
+          <div v-if="detail.request" class="kv">
+            <div><span class="muted">{{ t('workflow.vars.method') }}</span><code>{{ detail.request.method }} {{ detail.request.path }}</code></div>
+            <div v-for="(v, k) in detail.request.query" :key="`q-${k}`"><span class="muted">{{ t('workflow.debug.query') }}</span><code>{{ k }}={{ v }}</code></div>
+          </div>
+          <CodeEditor :model-value="requestBody" language="json" readonly min-height="40px" max-height="360px" :aria-label="t('workflow.runs.request')" />
+          <div class="section-title">{{ t('workflow.debug.response') }}</div>
+          <CodeEditor :model-value="responseBody" language="json" readonly min-height="40px" max-height="480px" :aria-label="t('workflow.debug.response')" />
+          </template>
+          <template v-else>
+            <div class="section-title">{{ t('workflow.debug.triggerData') }}</div>
+            <CodeEditor :model-value="eventBody" language="json" readonly min-height="40px" max-height="480px" :aria-label="t('workflow.debug.triggerData')" />
+          </template>
+        </a-spin>
       </div>
-      <pre class="code">{{ requestBody }}</pre>
-      <div class="section-title">{{ t('workflow.debug.response') }}</div>
-      <pre class="code">{{ responseBody }}</pre>
-      </template>
-      <template v-else>
-        <div class="section-title">{{ t('workflow.debug.triggerData') }}</div>
-        <pre class="code">{{ eventBody }}</pre>
-      </template>
-    </a-spin>
+    </div>
   </a-drawer>
 </template>
 
@@ -284,7 +321,25 @@ function flowName(job: WorkflowJob) {
 .drawer-title {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
+  min-width: 0;
+}
+.title-icon {
+  color: var(--color-primary);
+  flex: none;
+}
+.title-name {
+  max-width: 360px;
+  overflow: hidden;
+  font-weight: 600;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.title-divider {
+  width: 1px;
+  height: 14px;
+  background: var(--line-border);
+  flex: none;
 }
 .run-uid {
   font-family: 'SF Mono', Menlo, Consolas, monospace;
@@ -296,25 +351,73 @@ function flowName(job: WorkflowJob) {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-bottom: 12px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--line-border);
+  flex: none;
 }
-.filter-status {
-  width: 200px;
+/* Arco selects render through a trigger and do not carry the scope attribute, so they are reached with :deep. */
+.toolbar :deep(.filter-status) {
+  width: 220px;
+  flex: none;
 }
-.filter-duration {
-  width: 130px;
+.toolbar :deep(.filter-duration) {
+  width: 140px;
+  flex: none;
 }
-.filter-date {
-  width: 250px;
+.toolbar :deep(.filter-date) {
+  width: 260px;
+  flex: none;
 }
-.list-spin,
+.split {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+.list-col {
+  display: block;
+  width: 400px;
+  padding: 8px;
+  overflow-y: auto;
+  border-right: 1px solid var(--line-border);
+  flex: none;
+}
+.detail-col {
+  flex: 1;
+  min-width: 0;
+  padding: 16px 24px 24px;
+  overflow-y: auto;
+}
 .detail {
   display: block;
+}
+.detail-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 100%;
+  font-size: 13px;
+  color: var(--text-placeholder);
+}
+.detail-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.detail-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-title);
 }
 :deep(.run) {
   padding: 10px 12px !important;
   border-radius: 8px;
   cursor: pointer;
+}
+:deep(.run.selected) {
+  background: var(--color-primary-lighter);
 }
 :deep(.run .arco-list-item-content) {
   display: flex;
@@ -339,9 +442,9 @@ function flowName(job: WorkflowJob) {
   color: var(--color-danger);
   background: rgba(245, 74, 69, 0.1);
 }
-.run-code.big {
-  padding: 4px 10px;
-  font-size: 16px;
+.code-tag {
+  font-family: 'SF Mono', Menlo, Consolas, monospace;
+  font-weight: 600;
 }
 .run-code.bg {
   display: inline-flex;
@@ -407,14 +510,17 @@ function flowName(job: WorkflowJob) {
 }
 .empty {
   display: flex;
+  flex: 1;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
-  padding: 48px 0;
+  justify-content: center;
+  gap: 12px;
+  padding-bottom: 8vh;
+  font-size: 13px;
   color: var(--text-placeholder);
 }
 .more {
-  margin-top: 12px;
+  margin-top: 8px;
 }
 .detail-summary {
   display: flex;
@@ -524,18 +630,5 @@ function flowName(job: WorkflowJob) {
 }
 .kv code {
   font-family: 'SF Mono', Menlo, Consolas, monospace;
-}
-.code {
-  margin: 0;
-  padding: 10px 12px;
-  max-height: 260px;
-  overflow: auto;
-  border-radius: 6px;
-  background: var(--bg-base);
-  font-family: 'SF Mono', Menlo, Consolas, monospace;
-  font-size: 12px;
-  line-height: 1.6;
-  white-space: pre-wrap;
-  word-break: break-all;
 }
 </style>
