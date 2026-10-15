@@ -356,6 +356,8 @@ function cellClass(item: RecordItem, col: Col) {
 }
 
 function onCellMouseDown(e: MouseEvent, item: RecordItem, col: Col) {
+  // Controls inside a cell, such as the attachment buttons, open their own panels instead of selecting.
+  if ((e.target as Element).closest('.cell-control')) return
   if (e.button === 2) {
     if (!rect.value || item.nav < rect.value.r1 || item.nav > rect.value.r2) select(item.nav, col.index)
     return
@@ -881,7 +883,8 @@ const colDrag = ref<{ uid: string; index: number; startX: number; x: number; y: 
 const dropLineX = ref<number | null>(null)
 
 function onHeaderMouseDown(e: MouseEvent, col: Col) {
-  if (e.button !== 0) return
+  // The menu button and resize handle handle their own presses; they do not stop propagation so that popups still close.
+  if (e.button !== 0 || (e.target as Element).closest('.header-menu, .resize-handle')) return
   e.preventDefault()
   colDrag.value = { uid: col.field.uid, index: col.index, startX: e.clientX, x: e.clientX, y: e.clientY, active: false, drop: -1 }
   window.addEventListener('mousemove', onHeaderMouseMove)
@@ -933,7 +936,6 @@ function onHeaderMouseUp() {
 
 function onResizeStart(e: MouseEvent, col: Col) {
   e.preventDefault()
-  e.stopPropagation()
   resizing.value = { uid: col.field.uid, startX: e.clientX, startW: col.width, width: col.width }
   const move = (ev: MouseEvent) => {
     if (resizing.value) resizing.value.width = Math.max(80, Math.min(800, resizing.value.startW + ev.clientX - resizing.value.startX))
@@ -1161,7 +1163,7 @@ defineExpose({ addRecord })
           >
             <FieldTypeIcon :type="col.field.type" />
             <span class="header-label ellipsis">{{ col.field.label }}</span>
-            <button class="icon-btn sm header-menu" @mousedown.stop @click.stop="openFieldMenu($event, col)">
+            <button class="icon-btn sm header-menu" @click.stop="openFieldMenu($event, col)">
               <ChevronDown :size="14" />
             </button>
             <span class="resize-handle" @mousedown="onResizeStart($event, col)" />

@@ -35,7 +35,6 @@ function setWidth(value: number) {
 
 function startResize(e: PointerEvent) {
   if (e.button !== 0 || !e.isPrimary || !sidebar.value) return
-  e.preventDefault()
   resize = { pointerId: e.pointerId, startX: e.clientX, startWidth: sidebar.value.getBoundingClientRect().width }
   const handle = e.currentTarget as HTMLElement
   handle.setPointerCapture(e.pointerId)

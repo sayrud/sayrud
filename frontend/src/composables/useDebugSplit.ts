@@ -21,7 +21,6 @@ export function useDebugSplit(container: Ref<HTMLElement | undefined>, minLeft: 
 
   function start(e: PointerEvent) {
     if (e.button !== 0 || !e.isPrimary || !container.value) return
-    e.preventDefault()
     drag = { pointerId: e.pointerId, startX: e.clientX, startLeft: leftWidth(), width: container.value.clientWidth }
     ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
     document.body.classList.add('resizing-debug-split')

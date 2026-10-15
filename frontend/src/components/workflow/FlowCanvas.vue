@@ -198,7 +198,7 @@ function onPointerDown(e: PointerEvent) {
   }
   if (!background && e.button !== 1) return
   if (e.button !== 0 && e.button !== 1) return
-  e.preventDefault()
+  // Not cancelled: a cancelled pointerdown suppresses mousedown, which Arco popups rely on to close on outside clicks.
   viewport.value!.focus({ preventScroll: true })
   try {
     viewport.value!.setPointerCapture(e.pointerId)
@@ -291,6 +291,7 @@ onBeforeUnmount(() => {
       :class="{ panning }"
       tabindex="-1"
       @pointerdown="onPointerDown"
+      @mousedown.middle.prevent
       @pointermove="onPointerMove"
       @pointerup="onPointerUp"
       @pointercancel="onPointerUp"

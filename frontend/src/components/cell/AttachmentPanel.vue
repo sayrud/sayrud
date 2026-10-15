@@ -184,7 +184,7 @@ async function uploadFiles(selected: File[]) {
 </script>
 
 <template>
-  <div ref="panel" class="attachment-panel" tabindex="-1" role="group" :aria-label="field.label" :aria-busy="uploading" @mousedown.stop @keydown.stop @paste="onPaste" @dragover="onDragOver" @dragleave="dragging = false" @drop="onDrop">
+  <div ref="panel" class="attachment-panel" tabindex="-1" role="group" :aria-label="field.label" :aria-busy="uploading" @keydown.stop @paste="onPaste" @dragover="onDragOver" @dragleave="dragging = false" @drop="onDrop">
     <div v-if="files.length" class="attachments">
       <a-card v-for="file in files" :key="file.uid" class="attachment-card" :class="{ 'image-card': isAttachmentImage(file), 'is-dragging': reorderUID === file.uid, 'drop-target': dropTargetUID === file.uid }" :data-attachment="file.uid" :body-style="{ padding: 0 }" @dragover="onCardDragOver($event, file.uid)" @drop="onCardDrop($event, file.uid)">
         <a-image v-if="isAttachmentImage(file)" :src="file.url" :alt="file.name" width="100%" height="108" fit="cover" class="image" :preview="false" :draggable="false" @click="setPreview(file)" />

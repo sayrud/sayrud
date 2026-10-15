@@ -15,7 +15,7 @@ const c = computed(() => tagColor(props.color, themeStore.theme))
 <template>
   <span class="tag" :style="{ background: c.bg, color: c.text }">
     <span class="tag-text">{{ name }}</span>
-    <X v-if="closable" :size="12" class="tag-close" @mousedown.stop.prevent @click.stop="$emit('close')" />
+    <X v-if="closable" :size="12" class="tag-close" @mousedown.prevent @click.stop="$emit('close')" />
   </span>
 </template>
 

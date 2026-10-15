@@ -40,7 +40,7 @@ function add(type: StepType) {
       :content-style="{ padding: 0 }"
       :trigger-props="{ showArrow: false, popupOffset: 6, unmountOnClose: true }"
     >
-      <a-tooltip :content="t('workflow.node.add')" mini position="right" :disabled="open">
+      <a-tooltip :content="t('workflow.node.add')" mini position="right" :popup-visible="open ? false : undefined">
         <a-button shape="circle" size="mini" class="add-btn" :class="{ open }" :aria-label="t('workflow.node.add')">
           <template #icon><Plus :size="13" /></template>
         </a-button>
