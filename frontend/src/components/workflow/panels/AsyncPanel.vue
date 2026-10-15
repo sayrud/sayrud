@@ -40,12 +40,19 @@ const flow = computed(() => store.spec!.async.find((f) => f.id === props.flowId)
   padding: 10px 12px;
   border: 1px solid var(--line-border);
   border-radius: 8px;
+  /* Arco radios use a 32px line height, which pushes the title below the dot. */
+  line-height: 22px;
+}
+/* Centers the 14px dot on the 22px title line. */
+:deep(.event .arco-icon-hover) {
+  margin-top: 4px;
 }
 :deep(.event.active) {
   border-color: var(--color-primary);
   background: var(--color-primary-lighter);
 }
 :deep(.event .arco-radio-label) {
+  line-height: 22px;
   white-space: normal;
 }
 .event-title {
