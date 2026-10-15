@@ -8,7 +8,6 @@ import DebugPanel from '@/components/workflow/DebugPanel.vue'
 import TriggerDebugPanel from '@/components/workflow/TriggerDebugPanel.vue'
 import FlowCanvas from '@/components/workflow/FlowCanvas.vue'
 import NodeInspector from '@/components/workflow/NodeInspector.vue'
-import PublishDialog from '@/components/workflow/PublishDialog.vue'
 import RunsDrawer from '@/components/workflow/RunsDrawer.vue'
 import StateIllustration from '@/components/common/StateIllustration.vue'
 import { workflowsApi } from '@/api/workflow'
@@ -25,8 +24,6 @@ const workflows = useProjectWorkflowsStore()
 
 const debugOpen = ref(false)
 const runsOpen = ref(false)
-const publishOpen = ref(false)
-const justPublished = ref(false)
 const publishing = ref(false)
 const issuesOpen = ref(false)
 const editingName = ref(false)
@@ -113,8 +110,15 @@ function locateIssue(issue: WorkflowIssue) {
   else store.select({ kind: 'trigger' })
 }
 
-async function publish() {
-  if (!store.workflow || publishing.value) return false
+async function setEnabled(enabled: boolean) {
+  if (!store.workflow) return
+  await workflowsApi.setEnabled(store.projectUID, store.workflow.uid, enabled)
+  store.workflow.enabled = enabled
+}
+
+// 保存草稿并发布为新版本，未启用时一并启用。
+async function saveAndEnable() {
+  if (!store.workflow || publishing.value) return
   publishing.value = true
   try {
     await store.flush()
@@ -123,15 +127,13 @@ async function publish() {
       store.issues = resp.issues
       issuesOpen.value = true
       Message.warning(t('workflow.editor.publishBlocked', { n: resp.issues.length }))
-      return false
+      return
     }
     if (resp.workflow) store.setWorkflow(resp.workflow)
-    justPublished.value = true
-    publishOpen.value = true
-    return true
+    if (!store.workflow.enabled) await setEnabled(true)
+    Message.success(t('workflow.editor.publishSuccess'))
   } catch (e) {
     Message.error(e instanceof Error ? e.message : String(e))
-    return false
   } finally {
     publishing.value = false
   }
@@ -141,20 +143,13 @@ async function publish() {
 const running = computed(() => !!store.workflow?.publishedVersion && !!store.workflow.enabled)
 const toggling = ref(false)
 
-async function setEnabled(enabled: boolean) {
-  if (!store.workflow) return
-  await workflowsApi.setEnabled(store.projectUID, store.workflow.uid, enabled)
-  store.workflow.enabled = enabled
-}
-
 async function toggleRunning(value: boolean | string | number) {
   if (!store.workflow || toggling.value) return
   const enabled = !!value
   toggling.value = true
   try {
     if (enabled && !store.workflow.publishedVersion) {
-      if (!(await publish())) return
-      if (!store.workflow.enabled) await setEnabled(true)
+      await saveAndEnable()
       return
     }
     await setEnabled(enabled)
@@ -234,7 +229,7 @@ onBeforeUnmount(() => {
           <template #icon><History :size="14" /></template>
           {{ t('workflow.editor.runs') }}
         </a-button>
-        <a-button v-if="store.canManage" type="primary" size="small" :loading="publishing" @click="publish">
+        <a-button v-if="store.canManage" type="primary" size="small" :loading="publishing" @click="saveAndEnable">
           <template #icon><component :is="store.workflow.publishedVersion ? Send : Rocket" :size="14" /></template>
           {{ t('workflow.editor.publish') }}
         </a-button>
@@ -261,7 +256,6 @@ onBeforeUnmount(() => {
     </div>
 
     <RunsDrawer v-model:visible="runsOpen" />
-    <PublishDialog v-model:visible="publishOpen" :just-published="justPublished" />
   </div>
 </template>
 
