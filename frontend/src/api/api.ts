@@ -715,9 +715,7 @@ export interface SLRecord {
 }
 
 export interface SLTable {
-  color: string;
   createdAt: string;
-  icon: string;
   name: string;
   projectUID: string;
   uid: string;
@@ -917,10 +915,8 @@ export interface SystemSettings {
 }
 
 export interface TableListItem {
-  color: string;
   count: number;
   createdAt: string;
-  icon: string;
   name: string;
   projectUID: string;
   uid: string;
@@ -1095,13 +1091,6 @@ export interface UpdateSystemSettings {
 }
 
 export interface UpdateTable {
-  /** Color is orange, coral, pink, purple, indigo, blue, teal or green; an empty string resets the color. */
-  color?: string;
-  /**
-   * Icon is a lowercase kebab-case identifier, an empty string resets the icon.
-   * @maxLength 64
-   */
-  icon?: string;
   name?: string;
 }
 

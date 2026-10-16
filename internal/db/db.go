@@ -62,6 +62,9 @@ func Init() (*gorm.DB, error) {
 		if err := dropLegacyApis(tx); err != nil {
 			return errors.Wrap(err, "drop legacy apis")
 		}
+		if err := dropTableAppearance(tx); err != nil {
+			return errors.Wrap(err, "drop table appearance")
+		}
 
 		return tx.AutoMigrate(tables...)
 	}); err != nil {
@@ -117,4 +120,17 @@ func dropLegacyApis(tx *gorm.DB) error {
 		return nil
 	}
 	return tx.Migrator().DropTable("apis")
+}
+
+// dropTableAppearance drops the deprecated icon and color columns of the tables.
+func dropTableAppearance(tx *gorm.DB) error {
+	m := tx.Migrator()
+	for _, column := range []string{"icon", "color"} {
+		if m.HasColumn("sl_tables", column) {
+			if err := m.DropColumn("sl_tables", column); err != nil {
+				return errors.Wrapf(err, "drop sl_tables.%s", column)
+			}
+		}
+	}
+	return nil
 }

@@ -12,8 +12,6 @@ import { browserTimezone } from '@/stores/workflowEditor'
 import type { Workflow, WorkflowListItem } from '@/types/workflow'
 import { METHOD_COLORS, triggerMetaOf } from '@/utils/workflow'
 import AppearanceIcon from '@/components/common/AppearanceIcon.vue'
-import AppearancePicker from '@/components/common/AppearancePicker.vue'
-import type { Appearance } from '@/utils/appearance'
 
 const { t } = useI18n()
 
@@ -73,21 +71,6 @@ const keyword = ref('')
 const renaming = ref<string | null>(null)
 const renameText = ref('')
 const creating = ref(false)
-const savingAppearance = ref(false)
-
-async function changeAppearance(uid: string, appearance: Appearance) {
-  if (savingAppearance.value) return
-
-  savingAppearance.value = true
-
-  try {
-    await store.setTableAppearance(uid, appearance)
-  } catch (e) {
-    Message.error(e instanceof Error ? e.message : String(e))
-  } finally {
-    savingAppearance.value = false
-  }
-}
 
 const tables = computed(() => {
   const k = keyword.value.trim().toLowerCase()
@@ -285,30 +268,7 @@ function openActions(e: MouseEvent, uid: string, name: string) {
         @dblclick="startRename(table.uid, table.name)"
         @contextmenu="openActions($event, table.uid, table.name)"
       >
-        <AppearancePicker
-          v-if="store.canEdit"
-          v-slot="{ visible }"
-          :icon="table.icon"
-          :color="table.color"
-          :saving="savingAppearance"
-          @change="changeAppearance(table.uid, $event)"
-        >
-          <a-button
-            type="text"
-            shape="square"
-            size="mini"
-            class="table-icon"
-            :title="t('appearance.edit')"
-            :aria-label="t('appearance.edit') + ': ' + table.name"
-            aria-haspopup="dialog"
-            :aria-expanded="visible"
-            @click.stop
-            @dblclick.stop
-          >
-            <AppearanceIcon :icon="table.icon" :color="table.color" :size="22" />
-          </a-button>
-        </AppearancePicker>
-        <AppearanceIcon v-else :icon="table.icon" :color="table.color" :size="22" class="table-icon" />
+        <AppearanceIcon :size="22" class="table-icon" />
         <input
           v-if="renaming === table.uid"
           v-model="renameText"

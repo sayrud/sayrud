@@ -34,8 +34,6 @@ export interface SLTable {
   uid: string
   projectUID: string
   name: string
-  icon?: string
-  color?: string
   createdAt: string
   updatedAt: string
 }

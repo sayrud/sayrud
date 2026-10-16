@@ -34,10 +34,6 @@ func TestValidAppearanceUpdate(t *testing.T) {
 			var project form.UpdateProject
 			require.NoError(t, json.Unmarshal([]byte(tc.body), &project))
 			require.Equal(t, tc.want, validAppearanceUpdate(project.Name, project.Icon, project.Color))
-
-			var table form.UpdateTable
-			require.NoError(t, json.Unmarshal([]byte(tc.body), &table))
-			require.Equal(t, tc.want, validAppearanceUpdate(table.Name, table.Icon, table.Color))
 		})
 	}
 

@@ -566,17 +566,6 @@ export const useBaseStore = defineStore('base', () => {
     }
   }
 
-  async function setTableAppearance(tableUID: string, appearance: Appearance) {
-    if (!tableList.value.some((table) => table.uid === tableUID) || !ensureEditable()) return
-
-    const projectUID = pid()
-    await tablesApi.update(projectUID, tableUID, appearance)
-
-    if (project.value?.uid === projectUID) {
-      tableList.value = tableList.value.map((table) => (table.uid === tableUID ? { ...table, ...appearance } : table))
-    }
-  }
-
   async function deleteTable(tableUID: string) {
     if (!ensureEditable()) return
     await tablesApi.delete(pid(), tableUID)
@@ -596,12 +585,6 @@ export const useBaseStore = defineStore('base', () => {
 
     const data = syncs.get(tableUID)?.data ?? (await syncApi.snapshot(pid(), tableUID))
     const table = await tablesApi.create(pid(), t('base.copyName', { name: src.name }))
-
-    if (src.icon || src.color) {
-      const appearance = { icon: src.icon ?? '', color: src.color ?? '' }
-      await tablesApi.update(pid(), table.uid, appearance)
-      Object.assign(table, appearance)
-    }
 
     tableList.value = [...tableList.value.filter((item) => item.uid !== table.uid), { ...table, count: data.records.length }]
 
@@ -1040,7 +1023,6 @@ export const useBaseStore = defineStore('base', () => {
     openTable,
     createTable,
     renameTable,
-    setTableAppearance,
     deleteTable,
     duplicateTable,
     createField,

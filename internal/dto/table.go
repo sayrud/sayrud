@@ -11,8 +11,6 @@ type Table struct {
 	UID        string    `json:"uid"`
 	ProjectUID string    `json:"projectUID"`
 	Name       string    `json:"name"`
-	Icon       string    `json:"icon"`
-	Color      string    `json:"color"`
 	CreatedAt  time.Time `json:"createdAt"`
 	UpdatedAt  time.Time `json:"updatedAt"`
 } // @name SLTable
@@ -22,8 +20,6 @@ func ToTable(project *db.Project, table *db.SLTable) *Table {
 		UID:        table.UID,
 		ProjectUID: project.UID,
 		Name:       table.Name,
-		Icon:       table.Icon,
-		Color:      table.Color,
 		CreatedAt:  table.CreatedAt,
 		UpdatedAt:  table.UpdatedAt,
 	}

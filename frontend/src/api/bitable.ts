@@ -60,8 +60,8 @@ export const membersApi = {
 export const tablesApi = {
   list: async (projectUID: string) => (await client.projects.listTables(projectUID, { pageSize: 1000 })).data,
   create: async (projectUID: string, name: string) => (await client.projects.createTable(projectUID, { name })).data as SLTable,
-  update: async (projectUID: string, tableUID: string, patch: string | Partial<Pick<SLTable, 'name' | 'icon' | 'color'>>) => {
-    await client.projects.updateTable(projectUID, tableUID, typeof patch === 'string' ? { name: patch } : patch)
+  update: async (projectUID: string, tableUID: string, name: string) => {
+    await client.projects.updateTable(projectUID, tableUID, { name })
   },
   delete: async (projectUID: string, tableUID: string) => {
     await client.projects.deleteTable(projectUID, tableUID)

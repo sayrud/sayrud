@@ -8662,22 +8662,14 @@ const docTemplate = `{
         "SLTable": {
             "type": "object",
             "required": [
-                "color",
                 "createdAt",
-                "icon",
                 "name",
                 "projectUID",
                 "uid",
                 "updatedAt"
             ],
             "properties": {
-                "color": {
-                    "type": "string"
-                },
                 "createdAt": {
-                    "type": "string"
-                },
-                "icon": {
                     "type": "string"
                 },
                 "name": {
@@ -9248,26 +9240,18 @@ const docTemplate = `{
         "TableListItem": {
             "type": "object",
             "required": [
-                "color",
                 "count",
                 "createdAt",
-                "icon",
                 "name",
                 "projectUID",
                 "uid",
                 "updatedAt"
             ],
             "properties": {
-                "color": {
-                    "type": "string"
-                },
                 "count": {
                     "type": "integer"
                 },
                 "createdAt": {
-                    "type": "string"
-                },
-                "icon": {
                     "type": "string"
                 },
                 "name": {
@@ -9755,15 +9739,6 @@ const docTemplate = `{
         "UpdateTable": {
             "type": "object",
             "properties": {
-                "color": {
-                    "description": "Color is orange, coral, pink, purple, indigo, blue, teal or green; an empty string resets the color.",
-                    "type": "string"
-                },
-                "icon": {
-                    "description": "Icon is a lowercase kebab-case identifier, an empty string resets the icon.",
-                    "type": "string",
-                    "maxLength": 64
-                },
                 "name": {
                     "type": "string"
                 }
