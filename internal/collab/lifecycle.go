@@ -77,6 +77,11 @@ func (h *Hub) runBackground(parent context.Context, fn func(context.Context)) {
 	})
 }
 
+// RunBackground runs fn detached from the request, e.g. a long import; shutdown waits for it and then cancels its context.
+func (h *Hub) RunBackground(parent context.Context, fn func(context.Context)) {
+	h.runBackground(parent, fn)
+}
+
 // WaitBackground is called once HTTP handlers, WebSocket handlers and workers
 // can no longer create new tasks. Tasks may create children before returning.
 func (h *Hub) WaitBackground(ctx context.Context) error {

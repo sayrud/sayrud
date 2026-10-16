@@ -74,6 +74,7 @@ var literalAllowlist = map[string][]string{
 	"internal/i18n/i18n.go":       {"简体中文", "繁體中文", "日本語"},
 	"internal/collab/convert.go":  {"是", "年", "月", "日"},
 	"internal/collab/client.go":   {"是", "否"},
+	"internal/importer/detect.go": {"是", "否"},
 	"internal/context/context.go": {"success"}, // API success marker, not displayed as UI text.
 }
 

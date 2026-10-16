@@ -1,6 +1,14 @@
 import type { Attachment, FieldType, MemberRole, Project, ProjectMember, RecordData, SelectOption, SLField, SLRecord, SLTable, SLView, UserBrief } from '@/types/bitable'
 import type { Changeset } from '@/collab/types'
-import type { RequestParams, SLField as ApiField, SLRecord as ApiRecord, SLView as ApiView } from './api'
+import type {
+  Import,
+  ImportUpload,
+  RequestParams,
+  SLField as ApiField,
+  SLRecord as ApiRecord,
+  SLView as ApiView,
+  StartImport,
+} from './api'
 import { client } from './client'
 
 export interface ProjectListItem extends Project {
@@ -26,6 +34,24 @@ const asViews = (list: ApiView[]) => list as unknown as SLView[]
 export const attachmentsApi = {
   upload: async (projectUID: string, field: SLField, file: File, params: RequestParams = {}): Promise<Attachment> =>
     (await client.projects.uploadAttachment(projectUID, field.tableUID, field.uid, { file }, params)).data,
+}
+
+export type ImportState = Import
+export type { ImportUpload, StartImport }
+export type { ImportSheet } from './api'
+
+export const importsApi = {
+  /** Uploads the file and returns the preview of its sheets, onProgress receives the uploaded ratio. */
+  upload: async (projectUID: string, file: File, onProgress?: (ratio: number) => void): Promise<ImportUpload> =>
+    (await client.projects.uploadImport(projectUID, { file }, {
+      onUploadProgress: (e) => onProgress?.(e.total ? e.loaded / e.total : 0),
+    })).data,
+  /** Starts writing the mapped columns in the background, the import is polled by get. */
+  start: async (projectUID: string, importUID: string, data: StartImport): Promise<ImportState> =>
+    (await client.projects.startImport(projectUID, importUID, data)).data,
+  /** Returns the progress of the import, a failed import has written nothing. */
+  get: async (projectUID: string, importUID: string): Promise<ImportState> =>
+    (await client.projects.getImport(projectUID, importUID)).data,
 }
 
 export const projectsApi = {

@@ -352,17 +352,25 @@ var (
 
 // parseDate parses the date text in local time zone, and returns the time in RFC 3339 format.
 func parseDate(text string) (string, bool) {
+	return parseDateIn(text, time.Local)
+}
+
+// parseDateIn parses the date text without a time zone in the location, and returns the time in RFC 3339 format.
+func parseDateIn(text string, loc *time.Location) (string, bool) {
 	if text == "" {
 		return "", false
 	}
 	if t, err := time.Parse(time.RFC3339, text); err == nil {
-		return t.UTC().Format("2006-01-02T15:04:05.000Z"), true
+		return t.UTC().Format(storedTimeLayout), true
 	}
 	normalized := dateNormalizer.Replace(text)
 	for _, layout := range dateLayouts {
-		if t, err := time.ParseInLocation(layout, normalized, time.Local); err == nil {
-			return t.UTC().Format("2006-01-02T15:04:05.000Z"), true
+		if t, err := time.ParseInLocation(layout, normalized, loc); err == nil {
+			return t.UTC().Format(storedTimeLayout), true
 		}
 	}
 	return "", false
 }
+
+// storedTimeLayout is the format of the stored datetime values, the same as toISOString of the frontend.
+const storedTimeLayout = "2006-01-02T15:04:05.000Z"

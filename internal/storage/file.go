@@ -25,12 +25,16 @@ import (
 type Category string
 
 const (
-	CategoryAvatar     Category = "avatars"
+	// CategoryAvatar holds the avatars of the users.
+	CategoryAvatar Category = "avatars"
+	// CategoryAttachment holds the files of the attachment fields.
 	CategoryAttachment Category = "attachments"
+	// CategoryImport holds the uploaded Excel / CSV files until their imports expire.
+	CategoryImport Category = "imports"
 )
 
 func (c Category) valid() bool {
-	return c == CategoryAvatar || c == CategoryAttachment
+	return c == CategoryAvatar || c == CategoryAttachment || c == CategoryImport
 }
 
 // NameMaxLength is the maximum number of characters of the saved original file name.

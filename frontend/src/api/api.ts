@@ -18,6 +18,25 @@ export enum DbWorkflowRunStatus {
   WorkflowRunRejected = "rejected",
 }
 
+export enum DbSLImportStatus {
+  SLImportPending = "pending",
+  SLImportRunning = "running",
+  SLImportSucceeded = "succeeded",
+  SLImportFailed = "failed",
+}
+
+export enum DbSLFieldType {
+  TextFieldType = "text",
+  SingleSelectFieldType = "single_select",
+  MultiSelectFieldType = "multi_select",
+  DateTimeFieldType = "datetime",
+  NumberFieldType = "number",
+  CheckboxFieldType = "checkbox",
+  AttachmentFieldType = "attachment",
+  FormulaFieldType = "formula",
+  UnknownFieldType = "unknown",
+}
+
 export interface Action {
   /** Action is the type of the action. */
   action:
@@ -479,6 +498,64 @@ export interface FieldShortcutManifest {
   resultTypes: string[];
 }
 
+export interface Import {
+  /** Done is the number of the records inserted, they are visible only after the import succeeds. */
+  done: number;
+  /** Error is the reason of the failure in the language of the request. */
+  error?: string;
+  /** Status is the state of the import, a running import without progress for a minute is reported as failed. */
+  status: "pending" | "running" | "succeeded" | "failed";
+  /** TableUID is the table the import writes to, empty before a new table is created. */
+  tableUID: string;
+  /** Total is the number of the records to insert. */
+  total: number;
+  /** UID identifies the import. */
+  uid: string;
+}
+
+export interface ImportColumnSchema {
+  /** Empty reports whether the rows after the first row are all empty. */
+  empty: boolean;
+  /** EmptyWithoutHeader reports whether all the rows are empty. */
+  emptyWithoutHeader: boolean;
+  /** Type is inferred from the rows after the first row. */
+  type:
+    | "text"
+    | "single_select"
+    | "multi_select"
+    | "datetime"
+    | "number"
+    | "checkbox";
+  /** TypeWithoutHeader is inferred from all the rows. */
+  typeWithoutHeader:
+    | "text"
+    | "single_select"
+    | "multi_select"
+    | "datetime"
+    | "number"
+    | "checkbox";
+}
+
+export interface ImportSheet {
+  /** Columns are the inferred schemas of the columns, excluding the trailing empty ones. */
+  columns: ImportColumnSchema[];
+  /** Name is the sheet name, or the file name without the extension for the CSV files. */
+  name: string;
+  /** RowCount is the number of the non-blank rows, including the header row. */
+  rowCount: number;
+  /** Rows are the displayed texts of the leading rows, each padded to the number of the columns. */
+  rows: string[][];
+}
+
+export interface ImportUpload {
+  /** FileName is the original name of the uploaded file. */
+  fileName: string;
+  /** Sheets are the visible non-blank sheets of the file. */
+  sheets: ImportSheet[];
+  /** UID identifies the import to start. */
+  uid: string;
+}
+
 export interface LDAPSignIn {
   password: string;
   username: string;
@@ -893,6 +970,40 @@ export interface SiteInfo {
   /** Providers are the enabled and usable sign-in methods in the order of the admin console. */
   providers: SiteAuthProvider[];
   siteName: string;
+}
+
+export interface StartImport {
+  /** Columns are the imported columns and their target fields. */
+  columns: StartImportColumn[];
+  /** HeaderRow uses the first row as the field titles instead of importing it. */
+  headerRow: boolean;
+  /** Sheet is the index of the sheet in the upload response. */
+  sheet: number;
+  /** TableName is the name of the new table, required if TableUID is empty. */
+  tableName?: string;
+  /** TableUID is the existing table to append the records to. */
+  tableUID?: string;
+  /** Timezone is the IANA time zone of the dates without a time zone, e.g. Asia/Shanghai. */
+  timezone?: string;
+  /** ViewName is the name of the grid view of the new table. */
+  viewName?: string;
+}
+
+export interface StartImportColumn {
+  /** FieldUID is the existing target field. */
+  fieldUID?: string;
+  /** Index is the zero-based index of the column in the sheet. */
+  index: number;
+  /** Label is the title of the new field. */
+  label?: string;
+  /** Type is the type of the new field. */
+  type?:
+    | "text"
+    | "single_select"
+    | "multi_select"
+    | "datetime"
+    | "number"
+    | "checkbox";
 }
 
 export interface SystemSettings {
@@ -1734,6 +1845,17 @@ export type UpdateCredentialData = Credential;
 export type DeleteCredentialData = any;
 
 export type ListFieldShortcutsData = FieldShortcutManifest[];
+
+export interface UploadImportPayload {
+  /** Excel or CSV file */
+  file: File;
+}
+
+export type UploadImportData = ImportUpload;
+
+export type GetImportData = Import;
+
+export type StartImportData = Import;
 
 export type ListProjectMembersData = ProjectMember[];
 
@@ -3193,6 +3315,68 @@ export class Api<
       this.request<ListFieldShortcutsData, string>({
         path: `/projects/${projectUid}/field-shortcuts`,
         method: "GET",
+        format: "json",
+        ...params,
+      }),
+
+    /**
+     * @description Upload an Excel (.xlsx) or CSV file up to 20 MiB. The response previews the visible sheets with the inferred column types; the file is kept for 24 hours to start the import.
+     *
+     * @name UploadImport
+     * @summary Upload a file to import
+     * @request POST:/projects/{projectUID}/imports
+     */
+    uploadImport: (
+      projectUid: string,
+      data: UploadImportPayload,
+      params: RequestParams = {},
+    ) =>
+      this.request<UploadImportData, string>({
+        path: `/projects/${projectUid}/imports`,
+        method: "POST",
+        body: data,
+        type: ContentType.FormData,
+        format: "json",
+        ...params,
+      }),
+
+    /**
+     * No description
+     *
+     * @name GetImport
+     * @summary Get the state of an import
+     * @request GET:/projects/{projectUID}/imports/{importUID}
+     */
+    getImport: (
+      projectUid: string,
+      importUid: string,
+      params: RequestParams = {},
+    ) =>
+      this.request<GetImportData, string>({
+        path: `/projects/${projectUid}/imports/${importUid}`,
+        method: "GET",
+        format: "json",
+        ...params,
+      }),
+
+    /**
+     * @description Import a sheet of the uploaded file in the background, into the table or a new table. The fields, options and records are written in a single transaction, so a failed import changes nothing. Poll the import for the progress.
+     *
+     * @name StartImport
+     * @summary Start an import
+     * @request POST:/projects/{projectUID}/imports/{importUID}/start
+     */
+    startImport: (
+      projectUid: string,
+      importUid: string,
+      data: StartImport,
+      params: RequestParams = {},
+    ) =>
+      this.request<StartImportData, string>({
+        path: `/projects/${projectUid}/imports/${importUid}/start`,
+        method: "POST",
+        body: data,
+        type: ContentType.Json,
         format: "json",
         ...params,
       }),

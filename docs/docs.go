@@ -2984,6 +2984,218 @@ const docTemplate = `{
                 }
             }
         },
+        "/projects/{projectUID}/imports": {
+            "post": {
+                "description": "Upload an Excel (.xlsx) or CSV file up to 20 MiB. The response previews the visible sheets with the inferred column types; the file is kept for 24 hours to start the import.",
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "Upload a file to import",
+                "operationId": "uploadImport",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Project UID",
+                        "name": "projectUID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "file",
+                        "description": "Excel or CSV file",
+                        "name": "file",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/ImportUpload"
+                        }
+                    },
+                    "400": {
+                        "description": "Unsupported, empty or invalid file",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "401": {
+                        "description": "Not signed in",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "403": {
+                        "description": "Permission denied",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "404": {
+                        "description": "Project not found",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "413": {
+                        "description": "File is too large",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/projects/{projectUID}/imports/{importUID}": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "Get the state of an import",
+                "operationId": "getImport",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Project UID",
+                        "name": "projectUID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Import UID",
+                        "name": "importUID",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/Import"
+                        }
+                    },
+                    "401": {
+                        "description": "Not signed in",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "403": {
+                        "description": "Permission denied",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "404": {
+                        "description": "Project or import not found",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/projects/{projectUID}/imports/{importUID}/start": {
+            "post": {
+                "description": "Import a sheet of the uploaded file in the background, into the table or a new table. The fields, options and records are written in a single transaction, so a failed import changes nothing. Poll the import for the progress.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "Start an import",
+                "operationId": "startImport",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Project UID",
+                        "name": "projectUID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Import UID",
+                        "name": "importUID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Sheet and column mapping",
+                        "name": "data",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/StartImport"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/Import"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid sheet, columns or table name",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "401": {
+                        "description": "Not signed in",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "403": {
+                        "description": "Permission denied",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "404": {
+                        "description": "Project, import, table or file not found",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "409": {
+                        "description": "The import is running or has succeeded",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
         "/projects/{projectUID}/members": {
             "get": {
                 "description": "List the owner and the collaborators of the project, the owner comes first.",
@@ -7920,6 +8132,164 @@ const docTemplate = `{
                 }
             }
         },
+        "Import": {
+            "type": "object",
+            "required": [
+                "done",
+                "status",
+                "tableUID",
+                "total",
+                "uid"
+            ],
+            "properties": {
+                "done": {
+                    "description": "Done is the number of the records inserted, they are visible only after the import succeeds.",
+                    "type": "integer"
+                },
+                "error": {
+                    "description": "Error is the reason of the failure in the language of the request.",
+                    "type": "string"
+                },
+                "status": {
+                    "description": "Status is the state of the import, a running import without progress for a minute is reported as failed.",
+                    "enum": [
+                        "pending",
+                        "running",
+                        "succeeded",
+                        "failed"
+                    ],
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/db.SLImportStatus"
+                        }
+                    ]
+                },
+                "tableUID": {
+                    "description": "TableUID is the table the import writes to, empty before a new table is created.",
+                    "type": "string"
+                },
+                "total": {
+                    "description": "Total is the number of the records to insert.",
+                    "type": "integer"
+                },
+                "uid": {
+                    "description": "UID identifies the import.",
+                    "type": "string"
+                }
+            }
+        },
+        "ImportColumnSchema": {
+            "type": "object",
+            "required": [
+                "empty",
+                "emptyWithoutHeader",
+                "type",
+                "typeWithoutHeader"
+            ],
+            "properties": {
+                "empty": {
+                    "description": "Empty reports whether the rows after the first row are all empty.",
+                    "type": "boolean"
+                },
+                "emptyWithoutHeader": {
+                    "description": "EmptyWithoutHeader reports whether all the rows are empty.",
+                    "type": "boolean"
+                },
+                "type": {
+                    "description": "Type is inferred from the rows after the first row.",
+                    "enum": [
+                        "text",
+                        "single_select",
+                        "multi_select",
+                        "datetime",
+                        "number",
+                        "checkbox"
+                    ],
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/db.SLFieldType"
+                        }
+                    ]
+                },
+                "typeWithoutHeader": {
+                    "description": "TypeWithoutHeader is inferred from all the rows.",
+                    "enum": [
+                        "text",
+                        "single_select",
+                        "multi_select",
+                        "datetime",
+                        "number",
+                        "checkbox"
+                    ],
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/db.SLFieldType"
+                        }
+                    ]
+                }
+            }
+        },
+        "ImportSheet": {
+            "type": "object",
+            "required": [
+                "columns",
+                "name",
+                "rowCount",
+                "rows"
+            ],
+            "properties": {
+                "columns": {
+                    "description": "Columns are the inferred schemas of the columns, excluding the trailing empty ones.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/ImportColumnSchema"
+                    }
+                },
+                "name": {
+                    "description": "Name is the sheet name, or the file name without the extension for the CSV files.",
+                    "type": "string"
+                },
+                "rowCount": {
+                    "description": "RowCount is the number of the non-blank rows, including the header row.",
+                    "type": "integer"
+                },
+                "rows": {
+                    "description": "Rows are the displayed texts of the leading rows, each padded to the number of the columns.",
+                    "type": "array",
+                    "items": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "ImportUpload": {
+            "type": "object",
+            "required": [
+                "fileName",
+                "sheets",
+                "uid"
+            ],
+            "properties": {
+                "fileName": {
+                    "description": "FileName is the original name of the uploaded file.",
+                    "type": "string"
+                },
+                "sheets": {
+                    "description": "Sheets are the visible non-blank sheets of the file.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/ImportSheet"
+                    }
+                },
+                "uid": {
+                    "description": "UID identifies the import to start.",
+                    "type": "string"
+                }
+            }
+        },
         "LDAPSignIn": {
             "type": "object",
             "required": [
@@ -9184,6 +9554,79 @@ const docTemplate = `{
                 },
                 "siteName": {
                     "type": "string"
+                }
+            }
+        },
+        "StartImport": {
+            "type": "object",
+            "required": [
+                "columns",
+                "headerRow",
+                "sheet"
+            ],
+            "properties": {
+                "columns": {
+                    "description": "Columns are the imported columns and their target fields.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/StartImportColumn"
+                    }
+                },
+                "headerRow": {
+                    "description": "HeaderRow uses the first row as the field titles instead of importing it.",
+                    "type": "boolean"
+                },
+                "sheet": {
+                    "description": "Sheet is the index of the sheet in the upload response.",
+                    "type": "integer"
+                },
+                "tableName": {
+                    "description": "TableName is the name of the new table, required if TableUID is empty.",
+                    "type": "string"
+                },
+                "tableUID": {
+                    "description": "TableUID is the existing table to append the records to.",
+                    "type": "string"
+                },
+                "timezone": {
+                    "description": "Timezone is the IANA time zone of the dates without a time zone, e.g. Asia/Shanghai.",
+                    "type": "string"
+                },
+                "viewName": {
+                    "description": "ViewName is the name of the grid view of the new table.",
+                    "type": "string"
+                }
+            }
+        },
+        "StartImportColumn": {
+            "type": "object",
+            "required": [
+                "index"
+            ],
+            "properties": {
+                "fieldUID": {
+                    "description": "FieldUID is the existing target field.",
+                    "type": "string"
+                },
+                "index": {
+                    "description": "Index is the zero-based index of the column in the sheet.",
+                    "type": "integer"
+                },
+                "label": {
+                    "description": "Label is the title of the new field.",
+                    "type": "string"
+                },
+                "type": {
+                    "description": "Type is the type of the new field.",
+                    "type": "string",
+                    "enum": [
+                        "text",
+                        "single_select",
+                        "multi_select",
+                        "datetime",
+                        "number",
+                        "checkbox"
+                    ]
                 }
             }
         },
@@ -11244,6 +11687,46 @@ const docTemplate = `{
                     "type": "string"
                 }
             }
+        },
+        "db.SLFieldType": {
+            "type": "string",
+            "enum": [
+                "text",
+                "single_select",
+                "multi_select",
+                "datetime",
+                "number",
+                "checkbox",
+                "attachment",
+                "formula",
+                "unknown"
+            ],
+            "x-enum-varnames": [
+                "TextFieldType",
+                "SingleSelectFieldType",
+                "MultiSelectFieldType",
+                "DateTimeFieldType",
+                "NumberFieldType",
+                "CheckboxFieldType",
+                "AttachmentFieldType",
+                "FormulaFieldType",
+                "UnknownFieldType"
+            ]
+        },
+        "db.SLImportStatus": {
+            "type": "string",
+            "enum": [
+                "pending",
+                "running",
+                "succeeded",
+                "failed"
+            ],
+            "x-enum-varnames": [
+                "SLImportPending",
+                "SLImportRunning",
+                "SLImportSucceeded",
+                "SLImportFailed"
+            ]
         },
         "db.WorkflowRunStatus": {
             "type": "string",

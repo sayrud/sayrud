@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Message, Modal } from '@arco-design/web-vue'
-import { ChevronsLeft, Copy, Ellipsis, Link, Pencil, Plus, Search, Table2, Trash, Workflow as WorkflowIcon, X } from '@lucide/vue'
+import { ChevronsLeft, Copy, Ellipsis, FileUp, Link, Pencil, Plus, Search, Table2, Trash, Workflow as WorkflowIcon, X } from '@lucide/vue'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 
@@ -12,6 +12,7 @@ import { browserTimezone } from '@/stores/workflowEditor'
 import type { Workflow, WorkflowListItem } from '@/types/workflow'
 import { METHOD_COLORS, triggerMetaOf } from '@/utils/workflow'
 import AppearanceIcon from '@/components/common/AppearanceIcon.vue'
+import ImportDialog from './ImportDialog.vue'
 
 const { t } = useI18n()
 
@@ -71,6 +72,14 @@ const keyword = ref('')
 const renaming = ref<string | null>(null)
 const renameText = ref('')
 const creating = ref(false)
+const importVisible = ref(false)
+/** Table to import into, empty to import as a new table. */
+const importTableUID = ref('')
+
+function openImport(tableUID = '') {
+  importTableUID.value = tableUID
+  importVisible.value = true
+}
 
 const tables = computed(() => {
   const k = keyword.value.trim().toLowerCase()
@@ -198,6 +207,7 @@ function openActions(e: MouseEvent, uid: string, name: string) {
         }
       },
     },
+    { label: t('import.menuToTable'), icon: FileUp, onClick: () => openImport(uid) },
     { divider: true },
     {
       label: t('tableSidebar.delete'),
@@ -244,6 +254,10 @@ function openActions(e: MouseEvent, uid: string, name: string) {
           <a-doption @click="create">
             <template #icon><Table2 :size="15" /></template>
             {{ t('tableSidebar.create') }}
+          </a-doption>
+          <a-doption @click="openImport()">
+            <template #icon><FileUp :size="15" /></template>
+            {{ t('import.menuNewTable') }}
           </a-doption>
           <a-doption @click="createWorkflow">
             <template #icon><WorkflowIcon :size="15" /></template>
@@ -328,6 +342,7 @@ function openActions(e: MouseEvent, uid: string, name: string) {
       @lostpointercapture="stopResize"
       @keydown="resizeWithKey"
     />
+    <ImportDialog v-model:visible="importVisible" :table-uid="importTableUID || undefined" @open="(uid) => emit('select', uid)" />
   </aside>
 </template>
 

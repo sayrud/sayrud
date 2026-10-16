@@ -231,6 +231,14 @@ func New(opts Options) *flamego.Flame {
 				}, canEdit)
 				f.Get("/attachments/{fileUID}", api.Schemaless.Attachment)
 
+				f.Group("/imports", func() {
+					f.Post("", api.Import.LimitUpload, api.Import.Upload)
+					f.Group("/{importUID}", func() {
+						f.Get("", api.Import.Get)
+						f.Post("/start", form.Bind(form.StartImport{}), api.Import.Start)
+					}, api.Import.Importer)
+				}, canEdit)
+
 				f.Group("/tables", func() {
 					f.Combo("").
 						Get(api.Schemaless.ListTables).
