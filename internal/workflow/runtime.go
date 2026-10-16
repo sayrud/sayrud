@@ -412,15 +412,17 @@ func (e *Engine) AllowRate(ctx context.Context, apiID int64, ip string, rl RateL
 	window := int64(rl.Window)
 	now := time.Now().Unix()
 	key := "api_rate:" + strconv.FormatInt(apiID, 10) + ":" + ip + ":" + strconv.FormatInt(now/window, 10)
-	count, err := e.redis.Incr(ctx, key).Result()
-	if err != nil {
+	// INCR and EXPIRE run in one transaction so that a counter never lives without a TTL.
+	var incr *redis.IntCmd
+	if _, err := e.redis.TxPipelined(ctx, func(pipe redis.Pipeliner) error {
+		incr = pipe.Incr(ctx, key)
+		pipe.Expire(ctx, key, time.Duration(window)*time.Second)
+		return nil
+	}); err != nil {
 		logrus.WithContext(ctx).WithError(err).Warn("Failed to count api rate")
 		return true, 0
 	}
-	if count == 1 {
-		e.redis.Expire(ctx, key, time.Duration(window)*time.Second)
-	}
-	return count <= int64(rl.Limit), int(window - now%window)
+	return incr.Val() <= int64(rl.Limit), int(window - now%window)
 }
 
 // Serve handles requests to /api/{projectUID}/{path}, i.e. API-triggered workflows.

@@ -276,3 +276,30 @@ func TestDateTriggerKeepsRecordsAtTruncatedTime(t *testing.T) {
 	}
 	assert.Len(t, f.runs(t, reminder), 4, "the records sharing the time at the scan limit all trigger")
 }
+
+func TestDateTriggerPagesTiedRecordsWithFractionalTime(t *testing.T) {
+	f := newLeadFixture(t)
+	ctx := context.Background()
+	due, err := db.NewSLFieldsStore(f.db).Create(ctx, db.CreateSLFieldOptions{SLTableID: f.table.ID, Label: "Due", Type: db.DateTimeFieldType, Metadata: map[string]interface{}{}})
+	require.NoError(t, err)
+	defer func(n, m int) { maxDateRecords, sameTimePageSize = n, m }(maxDateRecords, sameTimePageSize)
+	maxDateRecords, sameTimePageSize = 2, 2
+
+	now := time.Now().UTC().Truncate(time.Second)
+	reminder := f.publish(t, "Remind", &Spec{
+		Trigger: Trigger{Type: TriggerDateReached, Record: &RecordTrigger{TableUID: f.table.UID, DateFieldUID: due.UID}},
+		Steps:   []Step{{ID: "find", Type: StepQuery, Config: &QueryConfig{TableUID: f.table.UID, Limit: 1}}},
+	})
+	at := now.Add(30*time.Minute + 500*time.Millisecond).Format(time.RFC3339Nano)
+	for _, name := range []string{"A", "B", "C", "D", "E"} {
+		f.create(t, map[string]interface{}{f.name.UID: name, due.UID: at})
+	}
+	f.create(t, map[string]interface{}{f.name.UID: "F", due.UID: now.Add(40 * time.Minute).Format(time.RFC3339)})
+
+	later := now.Add(time.Hour)
+	for range 4 {
+		_, err = f.engine.RunDue(ctx, later)
+		require.NoError(t, err)
+	}
+	assert.Len(t, f.runs(t, reminder), 6, "the tied records beyond one page all trigger, and none triggers twice")
+}

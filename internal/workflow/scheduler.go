@@ -18,8 +18,6 @@ const (
 	schedulePollInterval = 15 * time.Second
 	// dateScanInterval is the interval at which date triggers scan records.
 	dateScanInterval = time.Minute
-	// maxSameTimeRecords is the maximum number of records sharing the last time of a truncated scan that are added to the scan.
-	maxSameTimeRecords = 5000
 	// scheduleBatch is the number of due workflows handled per batch.
 	scheduleBatch = 20
 	// scheduleRetryDelay is the delay before retrying after a failure.
@@ -29,6 +27,9 @@ const (
 // maxDateRecords is the maximum number of records a date trigger handles per scan; the rest are handled in the next scan.
 // It is a variable so that the tests can lower it.
 var maxDateRecords = 500
+
+// sameTimePageSize is the page size for loading all the records sharing the last time of a truncated scan.
+var sameTimePageSize = 5000
 
 // NotifySchedule makes the scheduler check due workflows immediately, e.g. after publishing or enabling.
 func (e *Engine) NotifySchedule() {
@@ -156,9 +157,10 @@ func dateTriggers(ctx context.Context, tx *gorm.DB, wf *db.Workflow, r *RecordTr
 	}
 
 	offset := time.Duration(r.Offset) * time.Minute
+	// The bounds keep fractional seconds, otherwise sub-second record times trigger again in the scan after a truncated one.
 	window := []db.QuerySLRecordsFilter{
-		{FieldUID: r.DateFieldUID, Operation: db.FilterOperationGreaterThan, Value: cursor.Add(-offset).UTC().Format(time.RFC3339)},
-		{FieldUID: r.DateFieldUID, Operation: db.FilterOperationLessThanOrEqual, Value: now.Add(-offset).UTC().Format(time.RFC3339)},
+		{FieldUID: r.DateFieldUID, Operation: db.FilterOperationGreaterThan, Value: cursor.Add(-offset).UTC().Format(time.RFC3339Nano)},
+		{FieldUID: r.DateFieldUID, Operation: db.FilterOperationLessThanOrEqual, Value: now.Add(-offset).UTC().Format(time.RFC3339Nano)},
 	}
 	records := db.NewSLRecordsStore(tx)
 	list, _, err := records.Query(ctx, table.ID, db.QuerySLRecordsOptions{
@@ -173,20 +175,24 @@ func dateTriggers(ctx context.Context, tx *gorm.DB, wf *db.Workflow, r *RecordTr
 		if t, ok := recordTime(list[len(list)-1], r.DateFieldUID); ok {
 			next = t.Add(offset)
 			// The next scan starts after the last time, so the records sharing it that were cut off by the limit are added now.
-			same, _, err := records.Query(ctx, table.ID, db.QuerySLRecordsOptions{
-				Filter: []db.QuerySLRecordsFilter{{FieldUID: r.DateFieldUID, Operation: db.FilterOperationEqual, Value: t.UTC().Format(time.RFC3339)}},
-				Limit:  maxSameTimeRecords,
-			})
-			if err != nil {
-				return nil, now, false, errors.Wrap(err, "query records at the last time")
-			}
 			seen := make(map[string]bool, len(list))
 			for _, rec := range list {
 				seen[rec.UID] = true
 			}
-			for _, rec := range same {
-				if !seen[rec.UID] {
-					list = append(list, rec)
+			sameTime := []db.QuerySLRecordsFilter{{FieldUID: r.DateFieldUID, Operation: db.FilterOperationEqual, Value: t.UTC().Format(time.RFC3339Nano)}}
+			for page := 0; ; page += sameTimePageSize {
+				same, total, err := records.Query(ctx, table.ID, db.QuerySLRecordsOptions{Filter: sameTime, Limit: sameTimePageSize, Offset: page})
+				if err != nil {
+					return nil, now, false, errors.Wrap(err, "query records at the last time")
+				}
+				for _, rec := range same {
+					if !seen[rec.UID] {
+						seen[rec.UID] = true
+						list = append(list, rec)
+					}
+				}
+				if len(same) < sameTimePageSize || int64(page+sameTimePageSize) >= total {
+					break
 				}
 			}
 		}

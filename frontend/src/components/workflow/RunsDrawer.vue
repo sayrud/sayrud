@@ -85,22 +85,28 @@ const isBackground = (run: WorkflowRun) => run.trigger !== 'http' && (run.trigge
 const asyncJobs = (run: WorkflowRun) => run.jobs.filter((j) => j.flowID !== 'main')
 const mainJob = (run: WorkflowRun) => run.jobs.find((j) => j.flowID === 'main')
 
+// Only the latest request applies its result when the filters change in quick succession.
+let loadSeq = 0
+
 async function load(more = false) {
   if (!store.workflow) return
+  const seq = ++loadSeq
   loading.value = true
   try {
     const resp = await workflowsApi.runs(store.projectUID, store.workflow.uid, { ...query(), cursor: more ? cursor.value : undefined })
+    if (seq !== loadSeq) return
     runs.value = more ? [...runs.value, ...resp.runs] : resp.runs
     cursor.value = resp.nextCursor
-    // The detail pane follows the list: keep the selected run if it is still listed, otherwise show the newest one.
-    if (!more && !runs.value.some((r) => r.uid === detail.value?.uid)) {
-      if (runs.value[0]) void open(runs.value[0])
+    // The detail pane follows the list: refetch the selected run if it is still listed, otherwise show the newest one.
+    if (!more) {
+      const selected = runs.value.find((r) => r.uid === detail.value?.uid) ?? runs.value[0]
+      if (selected) void open(selected)
       else detail.value = null
     }
   } catch (e) {
-    Message.error(e instanceof Error ? e.message : String(e))
+    if (seq === loadSeq) Message.error(e instanceof Error ? e.message : String(e))
   } finally {
-    loading.value = false
+    if (seq === loadSeq) loading.value = false
   }
 }
 

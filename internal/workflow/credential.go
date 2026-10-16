@@ -226,7 +226,7 @@ var credentialTesters = map[string]func(ctx context.Context, values map[string]i
 		if err != nil {
 			return err
 		}
-		return SendSMTP(ctx, *server, Mail{To: []string{input["to"]}, Subject: msg.Subject, Content: msg.Content})
+		return SendSMTP(ctx, *server, Mail{To: []string{input["to"]}, Subject: msg.Subject, Content: msg.Content}, networkAllowlist(ctx, db.Settings))
 	},
 }
 

@@ -48,6 +48,8 @@ export const useWorkflowEditorStore = defineStore('workflowEditor', () => {
   let timer: ReturnType<typeof setTimeout> | undefined
   let applying = false
   let pending: Promise<void> | null = null
+  // Only the latest load applies its result when switching workflows in quick succession.
+  let loadSeq = 0
 
   function issuesOf(target: string) {
     return issues.value.filter((i) => i.target === target)
@@ -83,9 +85,11 @@ export const useWorkflowEditorStore = defineStore('workflowEditor', () => {
   }
 
   async function load(pid: string, workflowUID: string) {
+    const seq = ++loadSeq
     clearTimeout(timer)
     // Let the save of the previous workflow finish first, so that it does not overwrite the state of the loaded one.
     await pending?.catch(() => undefined)
+    if (seq !== loadSeq) return
     loading.value = true
     notFound.value = false
     projectUID.value = pid
@@ -97,6 +101,7 @@ export const useWorkflowEditorStore = defineStore('workflowEditor', () => {
       const modules = modulesLoaded() ? null : workflowsApi.modules(pid)
       const [p, list, data, defs] = await Promise.all([projectsApi.get(pid), tablesApi.list(pid), workflowsApi.get(pid, workflowUID), modules])
       if (defs) setModuleDefs(defs)
+      if (seq !== loadSeq) return
       project.value = p
       tables.value = list.tables.map((t) => ({ uid: t.uid, name: t.name }))
       apply(data)
@@ -104,10 +109,11 @@ export const useWorkflowEditorStore = defineStore('workflowEditor', () => {
       selection.value = data.draft.trigger.type ? null : { kind: 'trigger' }
       loadReferencedTables()
     } catch (e) {
+      if (seq !== loadSeq) return
       if (e instanceof ApiError && (e.status === 404 || e.status === 403)) notFound.value = true
       else throw e
     } finally {
-      loading.value = false
+      if (seq === loadSeq) loading.value = false
     }
   }
 

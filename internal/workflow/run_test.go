@@ -65,10 +65,19 @@ type fakeActions struct {
 	mails   []Mail
 	servers []SMTPServer
 	fail    int
+	// hang simulates a timeout while sending DATA, hangs counts the sends blocked until the context is done.
+	hang  bool
+	hangs int
 }
 
-func (f *fakeActions) SendEmail(_ context.Context, server SMTPServer, m Mail) error {
+func (f *fakeActions) SendEmail(ctx context.Context, server SMTPServer, m Mail) error {
 	f.mu.Lock()
+	if f.hang {
+		f.hangs++
+		f.mu.Unlock()
+		<-ctx.Done()
+		return &ActionError{Message: "send the message: i/o timeout", Uncertain: true}
+	}
 	defer f.mu.Unlock()
 	if f.fail > 0 {
 		f.fail--
@@ -350,6 +359,35 @@ func TestWorkerRetriesAndSucceeds(t *testing.T) {
 	var job db.WorkflowJob
 	require.NoError(t, f.db.Where("flow_id = ?", "notify").First(&job).Error)
 	assert.Equal(t, 2, job.Attempts)
+}
+
+func TestWorkerTimeoutFailsUncertainJob(t *testing.T) {
+	f := newLeadFixture(t)
+	f.actions.hang = true
+	timeout := jobTimeout
+	jobTimeout = 500 * time.Millisecond
+	t.Cleanup(func() { jobTimeout = timeout })
+
+	w, _ := f.call(t, `{"name":"Ann","email":"ann@example.com"}`, nil)
+	require.Equal(t, http.StatusCreated, w.Code)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	f.engine.Start(ctx)
+	defer func() {
+		cancel()
+		_ = f.engine.Shutdown(context.Background(), context.Background())
+	}()
+
+	require.Eventually(t, func() bool {
+		return f.count(t, &db.WorkflowJob{}, "flow_id = ? AND status = ?", "notify", db.WorkflowJobFailed) == 1
+	}, 15*time.Second, 100*time.Millisecond)
+	var job db.WorkflowJob
+	require.NoError(t, f.db.Where("flow_id = ?", "notify").First(&job).Error)
+	assert.True(t, job.Uncertain, "a timeout while sending keeps the uncertain outcome")
+	assert.Equal(t, 1, job.Attempts, "the timed out attempt is counted")
+	f.actions.mu.Lock()
+	defer f.actions.mu.Unlock()
+	assert.Equal(t, 1, f.actions.hangs, "the uncertain email is not sent again")
 }
 
 func TestFindReference(t *testing.T) {

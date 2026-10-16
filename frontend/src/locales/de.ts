@@ -1535,7 +1535,7 @@ const de: typeof zhCN = {
     },
     list: {
       copyEndpoint: 'Endpunkt kopieren',
-      deleteContent: 'Er reagiert nicht mehr auf Auslöser, der API-Endpunkt funktioniert sofort nicht mehr; laufende Aufträge werden beendet.',
+      deleteContent: 'Er reagiert nicht mehr auf Auslöser, der API-Endpunkt funktioniert sofort nicht mehr; laufende Aufträge werden noch abgeschlossen.',
       deleteTitle: '{name} löschen?',
     },
     node: {

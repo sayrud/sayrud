@@ -14,6 +14,7 @@ import (
 	"net/mail"
 	"net/netip"
 	"net/smtp"
+	"net/textproto"
 	"net/url"
 	"strconv"
 	"strings"
@@ -222,7 +223,51 @@ func (a *DefaultActions) settings() db.SettingsStore {
 }
 
 func (a *DefaultActions) SendEmail(ctx context.Context, server SMTPServer, m Mail) error {
-	return SendSMTP(ctx, server, m)
+	return SendSMTP(ctx, server, m, networkAllowlist(ctx, a.settings()))
+}
+
+// networkAllowlist returns the non-public networks allowed by the system settings; none are allowed if the settings can not be read.
+func networkAllowlist(ctx context.Context, settings db.SettingsStore) []netip.Prefix {
+	if settings == nil {
+		return nil
+	}
+	s, err := settings.GetSystem(ctx)
+	if err != nil {
+		return nil
+	}
+	networks, _ := db.ParseNetworkAllowlist(s.NetworkAllowlist)
+	return networks
+}
+
+// blockedAddressError means the address is neither public nor in the network allowlist.
+type blockedAddressError struct{ addr netip.Addr }
+
+func (e *blockedAddressError) Error() string {
+	return fmt.Sprintf("the address %s is not public and is not in the network allowlist", e.addr)
+}
+
+// guardedDialer only connects to public addresses and the given networks; Control checks the resolved IP of every connection to block DNS rebinding.
+func guardedDialer(networks []netip.Prefix) *net.Dialer {
+	return &net.Dialer{Timeout: 10 * time.Second, Control: func(_, address string, _ syscall.RawConn) error {
+		host, _, err := net.SplitHostPort(address)
+		if err != nil {
+			return err
+		}
+		addr, err := netip.ParseAddr(host)
+		if err != nil {
+			return err
+		}
+		addr = addr.Unmap()
+		if script.IsPublicAddr(addr) {
+			return nil
+		}
+		for _, prefix := range networks {
+			if prefix.Contains(addr) {
+				return nil
+			}
+		}
+		return &blockedAddressError{addr: addr}
+	}}
 }
 
 // SMTP encryption modes.
@@ -245,20 +290,24 @@ type SMTPServer struct {
 }
 
 // SendSMTP sends an email; failures before the content is submitted are retryable, while failures while awaiting confirmation after submission have an uncertain outcome.
-func SendSMTP(ctx context.Context, s SMTPServer, m Mail) error {
+func SendSMTP(ctx context.Context, s SMTPServer, m Mail, networks []netip.Prefix) error {
 	transient := func(format string, args ...interface{}) error {
 		return &ActionError{Message: fmt.Sprintf(format, args...), Transient: true}
 	}
 	address := net.JoinHostPort(s.Host, strconv.Itoa(s.Port))
-	dialer := &net.Dialer{Timeout: 10 * time.Second}
+	dialer := guardedDialer(networks)
 	var conn net.Conn
 	var err error
 	if s.Security == MailSecurityTLS {
-		conn, err = tls.DialWithDialer(dialer, "tcp", address, &tls.Config{ServerName: s.Host, MinVersion: tls.VersionTLS12})
+		conn, err = (&tls.Dialer{NetDialer: dialer, Config: &tls.Config{ServerName: s.Host, MinVersion: tls.VersionTLS12}}).DialContext(ctx, "tcp", address)
 	} else {
 		conn, err = dialer.DialContext(ctx, "tcp", address)
 	}
 	if err != nil {
+		var blocked *blockedAddressError
+		if errors.As(err, &blocked) {
+			return &ActionError{Message: fmt.Sprintf("connect to the SMTP server: %v", blocked)}
+		}
 		return transient("connect to the SMTP server: %v", err)
 	}
 	deadline := time.Now().Add(mailTimeout)
@@ -270,6 +319,11 @@ func SendSMTP(ctx context.Context, s SMTPServer, m Mail) error {
 	client, err := smtp.NewClient(conn, s.Host)
 	if err != nil {
 		_ = conn.Close()
+		// The response of a non-SMTP service is not echoed back.
+		var protoErr textproto.ProtocolError
+		if errors.As(err, &protoErr) {
+			return &ActionError{Message: "greet the SMTP server: the server did not respond with an SMTP greeting"}
+		}
 		return transient("greet the SMTP server: %v", err)
 	}
 	defer func() { _ = client.Close() }()
@@ -344,31 +398,7 @@ func (a *DefaultActions) Fetch(ctx context.Context, req HTTPRequest) (*HTTPResul
 	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" || u.User != nil {
 		return nil, &ActionError{Message: fmt.Sprintf("invalid URL %q", req.URL)}
 	}
-	var networks []netip.Prefix
-	if s, err := a.settings().GetSystem(ctx); err == nil {
-		networks, _ = db.ParseNetworkAllowlist(s.NetworkAllowlist)
-	}
-
-	dialer := &net.Dialer{Timeout: 10 * time.Second, Control: func(_, address string, _ syscall.RawConn) error {
-		host, _, err := net.SplitHostPort(address)
-		if err != nil {
-			return err
-		}
-		addr, err := netip.ParseAddr(host)
-		if err != nil {
-			return err
-		}
-		addr = addr.Unmap()
-		if script.IsPublicAddr(addr) {
-			return nil
-		}
-		for _, prefix := range networks {
-			if prefix.Contains(addr) {
-				return nil
-			}
-		}
-		return errors.Errorf("the address %s is not public and is not in the network allowlist", addr)
-	}}
+	dialer := guardedDialer(networkAllowlist(ctx, a.settings()))
 	client := &http.Client{
 		Timeout: req.Timeout,
 		Transport: &http.Transport{
@@ -413,6 +443,10 @@ func (a *DefaultActions) Fetch(ctx context.Context, req HTTPRequest) (*HTTPResul
 		var urlErr *url.Error
 		if errors.As(err, &urlErr) {
 			err = urlErr.Err
+		}
+		var blocked *blockedAddressError
+		if errors.As(err, &blocked) {
+			return nil, &ActionError{Message: fmt.Sprintf("request failed: %v", blocked)}
 		}
 		return nil, &ActionError{Message: fmt.Sprintf("request failed: %v", err), Transient: true}
 	}

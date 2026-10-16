@@ -65,18 +65,20 @@ function onKey(e: KeyboardEvent) {
 }
 
 let ro: ResizeObserver | undefined
+let listenTimer: ReturnType<typeof setTimeout> | undefined
 
 onMounted(() => {
   nextTick(place)
   ro = new ResizeObserver(place)
   if (el.value) ro.observe(el.value)
   // pointerdown rather than mousedown: mousedown never fires when a handler such as canvas panning cancels the pointerdown.
-  setTimeout(() => document.addEventListener('pointerdown', onPointerDown, true))
+  listenTimer = setTimeout(() => document.addEventListener('pointerdown', onPointerDown, true))
   document.addEventListener('keydown', onKey, true)
   window.addEventListener('resize', place)
 })
 
 onBeforeUnmount(() => {
+  clearTimeout(listenTimer)
   ro?.disconnect()
   document.removeEventListener('pointerdown', onPointerDown, true)
   document.removeEventListener('keydown', onKey, true)

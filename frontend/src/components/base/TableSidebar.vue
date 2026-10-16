@@ -144,14 +144,20 @@ function openWorkflowActions(e: MouseEvent, wf: WorkflowListItem) {
           hideCancel: false,
           okText: t('common.delete'),
           okButtonProps: { status: 'danger' },
-          onOk: async () => {
-            await workflowsApi.remove(project.uid, wf.uid)
+          onBeforeOk: async () => {
+            try {
+              await workflowsApi.remove(project.uid, wf.uid)
+            } catch (e) {
+              Message.error(e instanceof Error ? e.message : String(e))
+              return false
+            }
             workflows.remove(wf.uid)
             Message.success(t('common.deleted'))
             if (props.activeWorkflowUid === wf.uid) {
               const next = store.activeTableUID || store.tables[0]?.uid
               if (next) emit('select', next)
             }
+            return true
           },
         }),
     },
@@ -222,10 +228,16 @@ function openActions(e: MouseEvent, uid: string, name: string) {
           hideCancel: false,
           okText: t('common.delete'),
           okButtonProps: { status: 'danger' },
-          onOk: async () => {
-            await store.deleteTable(uid)
+          onBeforeOk: async () => {
+            try {
+              await store.deleteTable(uid)
+            } catch (e) {
+              Message.error(e instanceof Error ? e.message : String(e))
+              return false
+            }
             const next = store.tables[0]
             if (next) emit('select', next.uid)
+            return true
           },
         }),
     },

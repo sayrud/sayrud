@@ -20,7 +20,6 @@ const (
 	jobStaleAfter     = 60 * time.Second
 	jobLeaseInterval  = 15 * time.Second
 	jobCleanupTimeout = 5 * time.Second
-	jobTimeout        = 5 * time.Minute
 	// Runs and finished jobs older than runRetention are cleaned up.
 	runRetention    = 30 * 24 * time.Hour
 	retentionPeriod = time.Hour
@@ -28,6 +27,8 @@ const (
 
 // jobRetryDelays are the delays before the second and third attempts.
 var jobRetryDelays = []time.Duration{10 * time.Second, time.Minute}
+
+var jobTimeout = 5 * time.Minute
 
 var errLeaseLost = errors.New("the job lease is lost")
 
@@ -274,9 +275,13 @@ func (e *Engine) process(ctx context.Context, job *db.WorkflowJob) {
 		}
 		return
 	}
-	if ctx.Err() != nil || errors.Is(err, errLeaseLost) {
+	if errors.Is(ctx.Err(), context.Canceled) || errors.Is(err, errLeaseLost) {
 		// runJob releases the interrupted job so that another worker can claim it.
 		return
+	}
+	if ctx.Err() != nil {
+		// Exceeding jobTimeout counts as a failed attempt; the context has expired, so the outcome is saved without it.
+		ctx = context.WithoutCancel(ctx)
 	}
 
 	var stepErr *StepError

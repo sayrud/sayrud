@@ -32,7 +32,8 @@ const status = computed({
   get: () => config.value[props.field.key!] as number | undefined,
   set: (v) => {
     const n = Number(v)
-    config.value[props.field.key!] = Number.isInteger(n) ? n : v
+    // Only valid HTTP status codes are written: the draft stores an integer, and a string would make every autosave fail.
+    if (Number.isInteger(n) && n >= 100 && n <= 599) config.value[props.field.key!] = n
   },
 })
 const statusClass = computed(() => ((status.value ?? 200) >= 400 ? 'error' : 'ok'))
