@@ -1,0 +1,35 @@
+{
+  "type": "condition",
+  "order": 40,
+  "category": "logic",
+  "label": "workflow.step.condition",
+  "description": "workflow.step.conditionDesc",
+  "icon": "git-branch",
+  "color": "#ff8800",
+  "idBase": "check",
+  "flows": ["sync", "async", "background"],
+  "branches": true,
+  "defaults": { "match": "all", "conditions": [{ "left": { "kind": "var", "var": "" }, "op": "not_empty" }] },
+  "outputs": [],
+  "summary": { "template": "workflow.node.conditionSummary", "args": { "n": "count:conditions" } },
+  "sections": [
+    {
+      "title": "workflow.condition.title",
+      "description": "workflow.condition.help",
+      "extra": {
+        "key": "match",
+        "widget": "select",
+        "display": "radio",
+        "options": [
+          { "value": "all", "label": "workflow.condition.all" },
+          { "value": "any", "label": "workflow.condition.any" }
+        ]
+      },
+      "fields": [{ "key": "conditions", "widget": "conditions" }]
+    },
+    {
+      "title": "workflow.condition.branches",
+      "fields": [{ "widget": "branches" }]
+    }
+  ]
+}

@@ -44,7 +44,7 @@ func clusterTestDB(t *testing.T) *gorm.DB {
 		_ = sqlDB.Close()
 	})
 	require.NoError(t, gormDB.AutoMigrate(&db.User{}, &db.UserSession{}, &db.Project{}, &db.ProjectMember{}, &db.SLTable{}, &db.SLField{},
-		&db.SLRecord{}, &db.SLView{}, &db.SLChangeset{}, &db.SLShortcutJob{}, &db.File{}))
+		&db.SLRecord{}, &db.SLView{}, &db.SLChangeset{}, &db.SLShortcutJob{}, &db.File{}, &db.Workflow{}, &db.WorkflowRevision{}))
 	return gormDB
 }
 

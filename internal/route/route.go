@@ -18,6 +18,7 @@ import (
 	"github.com/wuhan005/sayrud/internal/observability/tracing"
 	"github.com/wuhan005/sayrud/internal/route/api"
 	"github.com/wuhan005/sayrud/internal/shortcut"
+	"github.com/wuhan005/sayrud/internal/workflow"
 )
 
 // Options contains the dependencies used by the application router.
@@ -44,10 +45,12 @@ func New(opts Options) *flamego.Flame {
 	)
 	hub := collab.NewHub(opts.DB)
 	engine := shortcut.NewEngine(opts.DB, hub, conf.Shortcut.Workers)
+	workflowEngine := workflow.NewEngine(opts.DB, hub, nil, conf.Shortcut.Workers)
+	hub.SetWorkflowHooks(workflowEngine)
 	if opts.Runtime != nil {
-		hub, engine = opts.Runtime.Hub, opts.Runtime.Engine
+		hub, engine, workflowEngine = opts.Runtime.Hub, opts.Runtime.Engine, opts.Runtime.Workflow
 	}
-	f.Map(hub, engine)
+	f.Map(hub, engine, workflowEngine)
 
 	canEdit := api.Project.RequireRole(db.ProjectRoleEditor)
 	canManage := api.Project.RequireRole(db.ProjectRoleManager)
@@ -192,6 +195,40 @@ func New(opts Options) *flamego.Flame {
 
 				f.Get("/ws", api.Collab.Serve)
 				f.Get("/field-shortcuts", api.Shortcut.List)
+
+				f.Group("/workflows", func() {
+					f.Combo("").
+						Get(api.Workflow.List).
+						Post(canManage, form.Bind(form.CreateWorkflow{}), api.Workflow.Create)
+					f.Group("/{workflowUID}", func() {
+						f.Combo("").
+							Get(api.Workflow.Get).
+							Put(canManage, form.Bind(form.SaveWorkflowDraft{}), api.Workflow.SaveDraft).
+							Delete(canManage, api.Workflow.Delete)
+						f.Put("/enabled", canManage, form.Bind(form.SetWorkflowEnabled{}), api.Workflow.SetEnabled)
+						f.Post("/publish", canManage, form.Bind(form.PublishWorkflow{}), api.Workflow.Publish)
+						f.Post("/debug", canManage, form.Bind(form.DebugWorkflow{}), api.Workflow.Debug)
+						f.Get("/revisions", api.Workflow.ListRevisions)
+						f.Post("/revisions/{version}/rollback", canManage, form.Bind(form.RollbackWorkflow{}), api.Workflow.Rollback)
+						f.Get("/runs", api.Workflow.ListRuns)
+						f.Get("/runs/{runUID}", api.Workflow.GetRun)
+						f.Post("/jobs/{jobID}/retry", canManage, api.Workflow.RetryJob)
+						f.Combo("/keys", canManage).
+							Get(api.Workflow.ListKeys).
+							Post(form.Bind(form.CreateWorkflowKey{}), api.Workflow.CreateKey)
+						f.Delete("/keys/{keyID}", canManage, api.Workflow.DeleteKey)
+					}, api.Workflow.Workflower)
+				}, canEdit)
+				f.Get("/workflow-modules", canEdit, api.Workflow.Modules)
+				f.Group("/credentials", func() {
+					f.Combo("").
+						Get(api.Credential.List).
+						Post(canManage, form.Bind(form.SaveCredential{}), api.Credential.Create)
+					f.Post("/test", canManage, form.Bind(form.TestCredential{}), api.Credential.Test)
+					f.Combo("/{credentialUID}", canManage, api.Credential.Credentialer).
+						Put(form.Bind(form.SaveCredential{}), api.Credential.Update).
+						Delete(api.Credential.Delete)
+				}, canEdit)
 				f.Get("/attachments/{fileUID}", api.Schemaless.Attachment)
 
 				f.Group("/tables", func() {
@@ -249,6 +286,11 @@ func New(opts Options) *flamego.Flame {
 				})
 			}, api.Project.Projecter)
 		}, api.Auth.Authenticator)
+	})
+
+	// The API-triggered workflows live under a separate prefix, so they never shadow /_, /- and the frontend pages.
+	f.Any("/api/{projectUID}/{path: **}", func(ctx appcontext.Context) {
+		workflowEngine.Serve(ctx.ResponseWriter(), ctx.Request().Request, ctx.Param("projectUID"), "/"+ctx.Param("path"), ctx.IP())
 	})
 
 	f.Group("/-", func() {

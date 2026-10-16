@@ -9,6 +9,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { ApiError } from '@/api/client'
 import { sharesApi } from '@/api/share'
 
+import WorkflowEditor from '@/components/workflow/WorkflowEditor.vue'
 import ShareDialog from '@/components/base/ShareDialog.vue'
 import TableSidebar from '@/components/base/TableSidebar.vue'
 import AppearanceIcon from '@/components/common/AppearanceIcon.vue'
@@ -27,6 +28,7 @@ import ViewToolbar from '@/components/toolbar/ViewToolbar.vue'
 import { keepRecordInView } from '@/composables/useViewData'
 import { useAuthStore } from '@/stores/auth'
 import { useBaseStore } from '@/stores/base'
+import { useProjectWorkflowsStore } from '@/stores/projectWorkflows'
 import { useSiteStore } from '@/stores/site'
 import type { Appearance } from '@/utils/appearance'
 
@@ -35,6 +37,7 @@ const { t } = useI18n()
 const route = useRoute()
 const router = useRouter()
 const store = useBaseStore()
+const workflows = useProjectWorkflowsStore()
 const auth = useAuthStore()
 const site = useSiteStore()
 
@@ -53,6 +56,7 @@ const unlocking = ref(false)
 const publicError = ref('')
 
 const projectUID = computed(() => String(route.params.projectUID ?? ''))
+const workflowUID = computed(() => String(route.params.workflowUID ?? ''))
 const shareToken = ref('')
 const publicPage = computed(() => store.isPublic || !!shareToken.value)
 const view = computed(() => store.activeView)
@@ -129,6 +133,11 @@ async function sync(reload = false) {
       }
     }
     if (store.isPublic && store.project) rememberShareToken(store.project.uid, shareToken.value)
+    // Workflows are only available to collaborators who can edit; opening a workflow does not switch tables.
+    if (workflowUID.value) {
+      if (store.isPublic || !store.canEdit) router.replace(pageLocation())
+      return
+    }
     const tableUID = requestedTable || store.sharedRootTableUID || store.tables[0]?.uid
     if (!tableUID) return
     if (!store.tables.some((t) => t.uid === tableUID)) {
@@ -157,7 +166,17 @@ async function sync(reload = false) {
   }
 }
 
-watch(() => [route.params.projectUID, route.params.shareToken, route.params.tableUID, route.params.viewUID], () => sync(), { immediate: true })
+watch(() => [route.params.projectUID, route.params.shareToken, route.params.tableUID, route.params.viewUID, route.params.workflowUID], () => sync(), { immediate: true })
+
+watch(
+  () => [store.project?.uid, store.canEdit, store.isPublic] as const,
+  ([uid, canEdit, isPublic]) => {
+    if (uid && canEdit && !isPublic) {
+      if (workflows.projectUID !== uid) void workflows.load(uid)
+    } else workflows.clear()
+  },
+  { immediate: true },
+)
 watch(() => store.sharedAccessChanged, () => { if (publicPage.value) void sync(true) })
 watch(() => store.sharedAccessError, (error) => {
   if (!publicPage.value || !error) return
@@ -218,6 +237,15 @@ function selectTable(uid: string) {
   router.push(pageLocation(uid))
 }
 
+function selectWorkflow(uid: string) {
+  router.push({ name: 'base-workflow', params: { projectUID: projectUID.value || store.project?.uid, workflowUID: uid } })
+}
+
+function onWorkflowMissing() {
+  workflows.remove(workflowUID.value)
+  router.replace(pageLocation())
+}
+
 function selectView(uid: string) {
   if (!uid) return
   router.replace(pageLocation(store.activeTableUID, uid))
@@ -251,7 +279,7 @@ function confirmName() {
 
 // Global undo / redo for the non-grid views, the grid view handles them in its own keydown handler and prevents the default.
 function onGlobalKey(e: KeyboardEvent) {
-  if (e.defaultPrevented) return
+  if (e.defaultPrevented || workflowUID.value) return
   const t = e.target as HTMLElement
   if (t.closest('input, textarea, [contenteditable], .arco-modal')) return
   const mod = e.metaKey || e.ctrlKey
@@ -265,6 +293,7 @@ onMounted(() => document.addEventListener('keydown', onGlobalKey))
 onBeforeUnmount(() => {
   document.removeEventListener('keydown', onGlobalKey)
   store.closeProject()
+  workflows.clear()
 })
 </script>
 
@@ -325,7 +354,7 @@ onBeforeUnmount(() => {
             {{ t('role.viewer') }}
           </a-tag>
         </a-tooltip>
-        <span v-if="store.project && (store.canEdit || syncState.cls !== 'saved')" class="sync-state" :class="syncState.cls" :title="syncState.text">
+        <span v-if="store.project && ((store.canEdit && !workflowUID) || syncState.cls !== 'saved')" class="sync-state" :class="syncState.cls" :title="syncState.text">
           <component :is="syncState.icon" :size="15" />
           <span class="sync-text">{{ syncState.text }}</span>
         </span>
@@ -375,8 +404,12 @@ onBeforeUnmount(() => {
     </div>
 
     <div v-else class="base-body">
-      <TableSidebar v-if="!sidebarCollapsed" v-model:width="sidebarWidth" @select="selectTable" @collapse="sidebarCollapsed = true" />
-      <main class="main">
+      <TableSidebar v-if="!sidebarCollapsed" v-model:width="sidebarWidth" :active-workflow-uid="workflowUID" @select="selectTable" @select-workflow="selectWorkflow" @collapse="sidebarCollapsed = true" />
+      <main v-if="workflowUID && store.project && store.canEdit && !publicPage" class="main">
+        <WorkflowEditor :project-uid="store.project.uid" :workflow-uid="workflowUID" :sidebar-collapsed="sidebarCollapsed" @expand-sidebar="sidebarCollapsed = false" @missing="onWorkflowMissing" />
+      </main>
+      <main v-else-if="workflowUID" class="main"><div class="loading"><a-spin :size="28" /></div></main>
+      <main v-else class="main">
         <div v-if="sidebarCollapsed || store.activeTableUID" class="main-head">
           <button v-if="sidebarCollapsed" class="icon-btn expand-side" :title="t('base.expandSidebar')" @click="sidebarCollapsed = false">
             <PanelLeftOpen :size="16" />
@@ -586,6 +619,8 @@ onBeforeUnmount(() => {
 .main-head {
   display: flex;
   align-items: center;
+  flex: none;
+  height: 48px;
   background: var(--bg-body);
   border-bottom: 1px solid var(--line-border);
 }

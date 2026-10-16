@@ -50,7 +50,7 @@ func Init() (*gorm.DB, error) {
 
 		&File{},
 
-		&Api{},
+		&Workflow{}, &WorkflowRevision{}, &WorkflowRun{}, &WorkflowJob{}, &WorkflowKey{}, &Credential{},
 	}
 
 	// Serialize startup DDL across replicas. A transaction releases the advisory
@@ -58,6 +58,9 @@ func Init() (*gorm.DB, error) {
 	if err := db.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Exec("SELECT pg_advisory_xact_lock(?)", int64(0x736179727564)).Error; err != nil {
 			return err
+		}
+		if err := dropLegacyApis(tx); err != nil {
+			return errors.Wrap(err, "drop legacy apis")
 		}
 
 		return tx.AutoMigrate(tables...)
@@ -100,5 +103,18 @@ func SetDatabaseStore(db *gorm.DB) {
 
 	Files = NewFilesStore(db)
 
-	Apis = NewApisStore(db)
+	Workflows = NewWorkflowsStore(db)
+	WorkflowRevisions = NewWorkflowRevisionsStore(db)
+	WorkflowRuns = NewWorkflowRunsStore(db)
+	WorkflowJobs = NewWorkflowJobsStore(db)
+	WorkflowKeys = NewWorkflowKeysStore(db)
+	Credentials = NewCredentialsStore(db)
+}
+
+// dropLegacyApis drops the legacy apis table designed by kind: it was never wired to the routes, and its unique index limits each project to a single API.
+func dropLegacyApis(tx *gorm.DB) error {
+	if !tx.Migrator().HasTable("apis") || !tx.Migrator().HasColumn("apis", "kind") {
+		return nil
+	}
+	return tx.Migrator().DropTable("apis")
 }

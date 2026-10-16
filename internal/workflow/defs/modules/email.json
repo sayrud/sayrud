@@ -1,0 +1,38 @@
+{
+  "type": "email",
+  "order": 60,
+  "category": "integration",
+  "label": "workflow.step.email",
+  "description": "workflow.step.emailDesc",
+  "icon": "mail",
+  "color": "#f14bab",
+  "idBase": "email",
+  "flows": ["async", "background"],
+  "action": true,
+  "defaults": {
+    "credential": "",
+    "to": { "kind": "var", "var": "" },
+    "subject": { "kind": "template", "template": "" },
+    "content": { "kind": "template", "template": "" }
+  },
+  "outputs": [
+    { "key": "to", "label": "workflow.vars.to", "kind": "array" },
+    { "key": "cc", "label": "workflow.email.cc", "kind": "array" },
+    { "key": "subject", "label": "workflow.vars.subject", "kind": "string" },
+    { "key": "messageID", "label": "workflow.vars.messageID", "kind": "string" }
+  ],
+  "summary": { "parts": ["value:to"], "fallback": "workflow.value.empty" },
+  "sections": [
+    {
+      "title": "workflow.email.title",
+      "description": "workflow.email.help",
+      "fields": [
+        { "key": "credential", "widget": "credential", "credentialType": "smtp", "label": "workflow.email.credential", "required": true },
+        { "key": "to", "widget": "value", "label": "workflow.email.to", "help": "workflow.email.toHelp", "required": true },
+        { "key": "cc", "widget": "value", "label": "workflow.email.cc", "placeholder": "workflow.email.optional" },
+        { "key": "subject", "widget": "value", "label": "workflow.email.subject", "required": true },
+        { "key": "content", "widget": "value", "label": "workflow.email.content", "multiline": true }
+      ]
+    }
+  ]
+}

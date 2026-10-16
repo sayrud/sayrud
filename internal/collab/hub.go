@@ -28,6 +28,7 @@ type Hub struct {
 	projects map[string]map[*Client]struct{}
 
 	shortcuts   ShortcutHooks
+	workflows   WorkflowHooks
 	cluster     *cluster
 	draining    bool
 	connections sync.WaitGroup
@@ -197,6 +198,7 @@ func (h *Hub) commit(ctx context.Context, project *db.Project, table *db.SLTable
 
 	var changesets []*Changeset
 	var change Change
+	queued := false
 	errSkipped := errors.New("skipped by the guard")
 	var duplicate *db.SLChangeset
 	if err := h.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
@@ -248,6 +250,9 @@ func (h *Hub) commit(ctx context.Context, project *db.Project, table *db.SLTable
 		if err != nil {
 			return err
 		}
+		if queued, err = h.recordsChanged(ctx, tx, project, table, Origin{}, a.events); err != nil {
+			return err
+		}
 
 		changeset, err := appendChangeset(ctx, tx, table, signature, clientID, applied)
 		if err != nil {
@@ -291,6 +296,7 @@ func (h *Hub) commit(ctx context.Context, project *db.Project, table *db.SLTable
 
 	h.NotifyChange(ctx, project, table, &change)
 	h.notifyOptionReferences(ctx, project, table, operations)
+	h.runsQueued(queued)
 
 	return true, nil
 }

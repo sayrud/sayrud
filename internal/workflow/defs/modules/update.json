@@ -1,0 +1,38 @@
+{
+  "type": "update",
+  "order": 30,
+  "category": "data",
+  "label": "workflow.step.update",
+  "description": "workflow.step.updateDesc",
+  "icon": "pencil-line",
+  "color": "#0e9ca4",
+  "idBase": "update",
+  "flows": ["sync", "async", "background"],
+  "tableKey": "tableUID",
+  "defaults": { "fields": [], "recordUID": { "kind": "var", "var": "" } },
+  "outputs": [{ "key": "record", "label": "workflow.vars.record", "kind": "record" }],
+  "summary": {
+    "template": "workflow.node.writeSummary",
+    "args": { "table": "table:tableUID", "n": "count:fields" },
+    "requires": "tableUID",
+    "fallback": "workflow.node.noTable"
+  },
+  "sections": [
+    {
+      "title": "workflow.query.table",
+      "fields": [{ "key": "tableUID", "widget": "table", "required": true, "placeholder": "workflow.query.selectTable", "resets": ["fields"] }]
+    },
+    {
+      "title": "workflow.write.recordUID",
+      "description": "workflow.write.recordUIDHelp",
+      "showIf": "tableUID",
+      "fields": [{ "key": "recordUID", "widget": "value", "required": true }]
+    },
+    {
+      "title": "workflow.write.mapping",
+      "description": "workflow.write.mappingHelp",
+      "showIf": "tableUID",
+      "fields": [{ "key": "fields", "widget": "fieldMapping" }]
+    }
+  ]
+}

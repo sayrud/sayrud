@@ -1,0 +1,29 @@
+{
+  "type": "response",
+  "order": 50,
+  "category": "logic",
+  "label": "workflow.step.response",
+  "description": "workflow.step.responseDesc",
+  "icon": "reply",
+  "color": "#7f3bf5",
+  "idBase": "respond",
+  "flows": ["sync"],
+  "terminal": true,
+  "defaults": {
+    "status": 200,
+    "body": { "type": "object", "fields": [{ "key": "ok", "value": { "type": "value", "value": { "kind": "const", "const": true } } }] }
+  },
+  "outputs": [],
+  "summary": { "parts": ["raw:status", "i18n:workflow.node.json"], "separator": " · " },
+  "sections": [
+    {
+      "title": "workflow.response.status",
+      "fields": [{ "key": "status", "widget": "status", "required": true, "min": 100, "max": 599 }]
+    },
+    {
+      "title": "workflow.response.body",
+      "description": "workflow.response.bodyHelp",
+      "fields": [{ "key": "body", "widget": "body", "display": "response" }]
+    }
+  ]
+}

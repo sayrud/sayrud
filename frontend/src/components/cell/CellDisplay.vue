@@ -73,10 +73,10 @@ const isNumeric = computed(
           v-if="attachmentControls && store.canEdit"
           type="text"
           size="small"
-          class="attachment-add"
+          class="attachment-add cell-control"
           :title="t('cell.addLocalFiles')"
           :aria-label="t('cell.addLocalFiles')"
-          @mousedown.stop.prevent
+          @mousedown.prevent
           @click.stop="emit('open')"
         >
           <template #icon><Plus :size="16" /></template>
@@ -87,12 +87,13 @@ const isNumeric = computed(
           type="secondary"
           size="small"
           class="attachment-thumb"
+          :class="{ 'cell-control': attachmentControls }"
           :href="attachmentControls ? undefined : file.url"
           :title="file.name"
           :aria-label="file.name"
           :target="attachmentControls ? undefined : '_blank'"
           :rel="attachmentControls ? undefined : 'noopener noreferrer'"
-          @mousedown="attachmentControls && ($event.stopPropagation(), $event.preventDefault())"
+          @mousedown="attachmentControls && $event.preventDefault()"
           @click.stop="attachmentControls && emit('open')"
         >
           <a-image v-if="isAttachmentImage(file)" :src="file.url" :alt="file.name" width="100%" height="100%" fit="cover" :preview="false" :show-loader="false" loading="lazy" />
@@ -103,10 +104,10 @@ const isNumeric = computed(
         v-if="attachmentControls && (attachments.length || store.canEdit)"
         type="text"
         size="mini"
-        class="attachment-arrow"
+        class="attachment-arrow cell-control"
         :title="field.label"
         :aria-label="field.label"
-        @mousedown.stop.prevent
+        @mousedown.prevent
         @click.stop="emit('open')"
       >
         <template #icon><ChevronDown :size="14" /></template>

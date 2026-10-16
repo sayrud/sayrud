@@ -1,0 +1,32 @@
+{
+  "type": "create",
+  "order": 20,
+  "category": "data",
+  "label": "workflow.step.create",
+  "description": "workflow.step.createDesc",
+  "icon": "file-plus",
+  "color": "#14a37f",
+  "idBase": "create",
+  "flows": ["sync", "async", "background"],
+  "tableKey": "tableUID",
+  "defaults": { "fields": [] },
+  "outputs": [{ "key": "record", "label": "workflow.vars.record", "kind": "record" }],
+  "summary": {
+    "template": "workflow.node.writeSummary",
+    "args": { "table": "table:tableUID", "n": "count:fields" },
+    "requires": "tableUID",
+    "fallback": "workflow.node.noTable"
+  },
+  "sections": [
+    {
+      "title": "workflow.query.table",
+      "fields": [{ "key": "tableUID", "widget": "table", "required": true, "placeholder": "workflow.query.selectTable", "resets": ["fields"] }]
+    },
+    {
+      "title": "workflow.write.mapping",
+      "description": "workflow.write.mappingHelp",
+      "showIf": "tableUID",
+      "fields": [{ "key": "fields", "widget": "fieldMapping" }]
+    }
+  ]
+}

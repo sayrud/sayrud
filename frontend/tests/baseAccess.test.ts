@@ -71,13 +71,13 @@ test('normal table URLs preserve member permissions and open public shares with 
       },
     } })
     const route = vue.reactive({
-      params: { projectUID: options.legacy ? undefined : 'project', tableUID: 'table', viewUID: 'view', shareToken: options.legacy ? 'token' : undefined },
+      params: { projectUID: options.legacy ? undefined : 'project', tableUID: 'table', viewUID: 'view', shareToken: options.legacy ? 'token' : undefined, workflowUID: undefined as string | undefined },
       fullPath: '/base/project/table/view',
     })
     const auth = { user: user === 'guest' ? null : { id: 1 }, ensureLoaded: async () => auth.user }
     const store = vue.reactive({
       project: null as { uid: string; role: string } | null,
-      isPublic: false, accessDenied: null as string | null, sharedRootTableUID: '',
+      isPublic: false, canEdit: false, accessDenied: null as string | null, sharedRootTableUID: '',
       tables: [] as { uid: string }[], activeViewUID: '', loadingProject: false,
       closeProject: () => {
         store.project = null
@@ -92,6 +92,7 @@ test('normal table URLs preserve member permissions and open public shares with 
           throw new ApiError(options.privateError ?? 403)
         }
         store.project = { uid: project, role: 'editor' }
+        store.canEdit = true
         store.tables = [{ uid: 'table' }]
         store.isPublic = false
       },
@@ -100,6 +101,7 @@ test('normal table URLs preserve member permissions and open public shares with 
         store.isPublic = true
         if (!unlocked || token === 'child-token') throw new ApiError(401, 'Password required')
         store.project = { uid: 'project', role: 'viewer' }
+        store.canEdit = false
         store.tables = [{ uid: 'table' }, ...(options.includeChildren ? [{ uid: 'child' }] : [])]
         store.accessDenied = null
         store.sharedRootTableUID = 'table'
@@ -120,6 +122,7 @@ test('normal table URLs preserve member permissions and open public shares with 
       '@/stores/base': { useBaseStore: () => store },
       '@/stores/auth': { useAuthStore: () => auth },
       '@/stores/site': { useSiteStore: () => ({ ensureLoaded: () => {} }) },
+      '@/stores/projectWorkflows': { useProjectWorkflowsStore: () => ({ projectUID: '', load: async () => {}, clear: () => {}, remove: () => {} }) },
       '@/composables/useViewData': {},
       '@/api/share': { sharesApi: {
         resolve: async (project: string, table?: string, preferred?: string) => {
@@ -153,6 +156,18 @@ test('normal table URLs preserve member permissions and open public shares with 
   assert.equal(member.bindings.publicPage.value, false)
   assert.equal(member.bindings.passwordRequired.value, false)
   assert.deepEqual(member.redirects, [])
+
+  // Opening a workflow only loads the project and does not switch tables.
+  const workflowPage = fixture('member')
+  workflowPage.route.params.workflowUID = 'wflX'
+  await workflowPage.bindings.sync()
+  assert.deepEqual(workflowPage.calls, ['member:project'])
+  assert.deepEqual(workflowPage.redirects, [])
+
+  const publicWorkflow = fixture('guest')
+  publicWorkflow.route.params.workflowUID = 'wflX'
+  await publicWorkflow.bindings.sync()
+  assert.deepEqual(publicWorkflow.redirects, [{ name: 'base', params: { projectUID: 'project', tableUID: undefined, viewUID: undefined } }])
 
   for (const user of ['guest', 'stranger'] as const) {
     const publicPage = fixture(user)

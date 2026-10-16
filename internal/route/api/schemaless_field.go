@@ -283,6 +283,9 @@ func (schemalessRoute) UpdateField(ctx context.Context, hub *collab.Hub, project
 			if !fieldType.Check() {
 				return db.ErrUnexpectedType
 			}
+			if err := checkWorkflowReference(ctx, db.NewWorkflowsStore(tx), project, field.UID, "field::used_by_workflow"); err != nil {
+				return err
+			}
 			metadata := f.Metadata
 			if metadata == nil {
 				metadata = map[string]interface{}{}
@@ -306,6 +309,9 @@ func (schemalessRoute) UpdateField(ctx context.Context, hub *collab.Hub, project
 	}); err != nil {
 		if statusCode, msg, ok := fieldErrorResponse(err); ok {
 			return ctx.ApiError(statusCode, msg)
+		}
+		if isLocalized(err) {
+			return ctx.ApiErrorFrom(http.StatusBadRequest, err)
 		}
 		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to update sl field")
 		return ctx.ApiServerError()
@@ -358,6 +364,9 @@ func (schemalessRoute) UpdateFieldPosition(ctx context.Context, hub *collab.Hub,
 // @Router /projects/{projectUID}/tables/{tableUID}/fields/{fieldUID} [delete]
 func (schemalessRoute) DeleteField(ctx context.Context, hub *collab.Hub, project *db.Project, table *db.SLTable, field *db.SLField) error {
 	if err := hub.Mutate(ctx.Request().Context(), project, table, func(tx *gorm.DB) error {
+		if err := checkWorkflowReference(ctx, db.NewWorkflowsStore(tx), project, field.UID, "field::used_by_workflow"); err != nil {
+			return err
+		}
 		if err := db.NewSLFieldsStore(tx).DeleteByID(ctx.Request().Context(), field.ID); err != nil {
 			return errors.Wrap(err, "delete field")
 		}
@@ -366,6 +375,9 @@ func (schemalessRoute) DeleteField(ctx context.Context, hub *collab.Hub, project
 		}
 		return db.NewSLRecordsStore(tx).RemoveFieldData(ctx.Request().Context(), table.ID, field.UID)
 	}, func() collab.DirtyScope { return collab.DirtyScope{Fields: true, AllRecords: true} }); err != nil {
+		if isLocalized(err) {
+			return ctx.ApiErrorFrom(http.StatusBadRequest, err)
+		}
 		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to delete sl field")
 		return ctx.ApiServerError()
 	}

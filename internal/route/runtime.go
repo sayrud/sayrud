@@ -12,12 +12,15 @@ import (
 	"github.com/wuhan005/sayrud/internal/collab"
 	"github.com/wuhan005/sayrud/internal/conf"
 	"github.com/wuhan005/sayrud/internal/shortcut"
+	"github.com/wuhan005/sayrud/internal/workflow"
 )
 
 // Runtime owns the components which must outlive HTTP requests during draining.
 type Runtime struct {
-	Hub      *collab.Hub
-	Engine   *shortcut.Engine
+	Hub    *collab.Hub
+	Engine *shortcut.Engine
+	// Workflow handles the API requests and the record and schedule triggers of workflows, and runs the jobs in the background.
+	Workflow *workflow.Engine
 	db       *gorm.DB
 	redis    *redis.Client
 	draining atomic.Bool
@@ -32,7 +35,11 @@ func NewRuntime(ctx context.Context, gormDB *gorm.DB, client *redis.Client) (*Ru
 	engine := shortcut.NewEngine(gormDB, hub, conf.Shortcut.Workers)
 	engine.Start(ctx)
 
-	return &Runtime{Hub: hub, Engine: engine, db: gormDB, redis: client}, nil
+	workflowEngine := workflow.NewEngine(gormDB, hub, client, conf.Shortcut.Workers)
+	hub.SetWorkflowHooks(workflowEngine)
+	workflowEngine.Start(ctx)
+
+	return &Runtime{Hub: hub, Engine: engine, Workflow: workflowEngine, db: gormDB, redis: client}, nil
 }
 
 func (r *Runtime) Ready(ctx context.Context) error {
@@ -64,6 +71,7 @@ func (r *Runtime) Ready(ctx context.Context) error {
 func (r *Runtime) BeginDrain() {
 	r.draining.Store(true)
 	r.Engine.Stop()
+	r.Workflow.Stop()
 	r.Hub.BeginDrain()
 }
 
@@ -73,6 +81,7 @@ func (r *Runtime) Shutdown(grace, cleanup context.Context) error {
 	r.BeginDrain()
 	_ = r.Hub.Shutdown(grace)
 	workerErr := r.Engine.Shutdown(grace, cleanup)
+	workflowWorkerErr := r.Workflow.Shutdown(grace, cleanup)
 
 	// Workers may have committed new follow-up tasks while draining.
 	socketCleanupErr := r.Hub.Shutdown(cleanup)
@@ -80,7 +89,7 @@ func (r *Runtime) Shutdown(grace, cleanup context.Context) error {
 	r.Hub.CancelBackground()
 	r.Hub.StopCluster()
 
-	for _, err := range []error{workerErr, socketCleanupErr, backgroundErr} {
+	for _, err := range []error{workerErr, workflowWorkerErr, socketCleanupErr, backgroundErr} {
 		if err != nil {
 			return err
 		}

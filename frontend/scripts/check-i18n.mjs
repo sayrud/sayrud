@@ -78,14 +78,42 @@ const LITERAL_ALLOWLIST = {
   ],
 }
 
+// The DSL of workflow modules and credential types lives in the backend; its text fields hold i18n keys translated at runtime by dslText().
+const DSL_DIR = join(ROOT, 'internal/workflow/defs')
+const DSL_TEXT_PROPERTIES = new Set(['label', 'description', 'help', 'placeholder', 'prefix', 'suffix', 'title', 'template', 'fallback', 'action', 'success'])
+
+function dslKeys(dir = DSL_DIR) {
+  const keys = []
+  const visit = (node, file, prop) => {
+    if (Array.isArray(node)) return node.forEach((item) => visit(item, file, prop))
+    if (node && typeof node === 'object') return Object.entries(node).forEach(([k, v]) => visit(v, file, k))
+    if (typeof node !== 'string') return
+    if (DSL_TEXT_PROPERTIES.has(prop) && /^[a-z][\w-]*(\.[\w-]+)+$/.test(node)) keys.push({ file, key: node })
+    if (node.startsWith('i18n:')) keys.push({ file, key: node.slice(5) })
+  }
+  for (const entry of readdirSync(dir, { withFileTypes: true, recursive: true })) {
+    if (!entry.isFile() || !entry.name.endsWith('.json')) continue
+    const file = join(entry.parentPath ?? entry.path, entry.name)
+    visit(JSON.parse(readFileSync(file, 'utf8')), file)
+  }
+  return keys
+}
+
 export async function audit(
   sources,
   keys = leaves(zhCN),
   dynamicKeys = DYNAMIC_KEYS,
+  extraKeys = [],
 ) {
   const defined = new Set(keys)
   const roots = new Set(keys.map((key) => key.split('.')[0]))
   const used = new Set()
+  const diagnostics = []
+  // Strings outside the known key roots (e.g. the placeholder smtp.example.com) are shown as is.
+  for (const { file, key } of extraKeys.filter(({ key }) => roots.has(key.split('.')[0]))) {
+    used.add(key)
+    if (!defined.has(key)) diagnostics.push({ file: relative(ROOT, file), line: 1, column: 1, message: `Undefined translation key: ${key}` })
+  }
   const checker = new ESLint({
     cwd: FRONTEND,
     overrideConfigFile: true,
@@ -205,7 +233,6 @@ export async function audit(
       },
     ],
   })
-  const diagnostics = []
   const seen = new Set()
   for (const { filename, code } of sources) {
     const [result] = await checker.lintText(code, { filePath: filename })
@@ -235,7 +262,7 @@ function sourceFiles(dir) {
 if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])) {
   const { diagnostics, unused } = await audit(sourceFiles(join(FRONTEND, 'src')).map((filename) => ({
     filename, code: readFileSync(filename, 'utf8'),
-  })))
+  })), undefined, undefined, dslKeys())
   for (const { file, line, column, message } of diagnostics) console.error(`${file}:${line}:${column}: ${message}`)
   for (const key of unused) console.error(`frontend/src/locales/zh-CN.ts: Unused translation key: ${key}`)
   console.log(`Frontend i18n: ${diagnostics.length} source issue(s), ${unused.length} unused key(s).`)

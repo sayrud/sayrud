@@ -47,7 +47,7 @@ function place() {
   pos.value = { left, top }
 }
 
-function onMouseDown(e: MouseEvent) {
+function onPointerDown(e: PointerEvent) {
   if (!props.closeOnOutside) return
   const target = e.target as Node
   if (el.value?.contains(target)) return
@@ -65,19 +65,22 @@ function onKey(e: KeyboardEvent) {
 }
 
 let ro: ResizeObserver | undefined
+let listenTimer: ReturnType<typeof setTimeout> | undefined
 
 onMounted(() => {
   nextTick(place)
   ro = new ResizeObserver(place)
   if (el.value) ro.observe(el.value)
-  setTimeout(() => document.addEventListener('mousedown', onMouseDown, true))
+  // pointerdown rather than mousedown: mousedown never fires when a handler such as canvas panning cancels the pointerdown.
+  listenTimer = setTimeout(() => document.addEventListener('pointerdown', onPointerDown, true))
   document.addEventListener('keydown', onKey, true)
   window.addEventListener('resize', place)
 })
 
 onBeforeUnmount(() => {
+  clearTimeout(listenTimer)
   ro?.disconnect()
-  document.removeEventListener('mousedown', onMouseDown, true)
+  document.removeEventListener('pointerdown', onPointerDown, true)
   document.removeEventListener('keydown', onKey, true)
   window.removeEventListener('resize', place)
 })

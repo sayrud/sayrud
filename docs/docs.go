@@ -2638,6 +2638,304 @@ const docTemplate = `{
                 }
             }
         },
+        "/projects/{projectUID}/credentials": {
+            "get": {
+                "description": "The values of the secret fields are not returned. Filter by type with the type query.",
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "List the credentials of a project",
+                "operationId": "listCredentials",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Project UID",
+                        "name": "projectUID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Credential type",
+                        "name": "type",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/Credential"
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Permission denied",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "404": {
+                        "description": "Project not found",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "The fields are defined by the DSL of the credential type, the secret fields are encrypted by auth.secret_key.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "Create a credential in a project",
+                "operationId": "createCredential",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Project UID",
+                        "name": "projectUID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Credential",
+                        "name": "data",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/SaveCredential"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/Credential"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid credential",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "403": {
+                        "description": "Permission denied",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "404": {
+                        "description": "Project not found",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/projects/{projectUID}/credentials/test": {
+            "post": {
+                "description": "Run the test action of the credential type (e.g. send a test email) with the unsaved values; the saved secrets of credentialUID are used for the fields not given.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "Test a credential",
+                "operationId": "testCredential",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Project UID",
+                        "name": "projectUID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Credential and the test input",
+                        "name": "data",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/TestCredential"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "description": "Invalid credential or the test failed",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "403": {
+                        "description": "Permission denied",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "404": {
+                        "description": "Project or credential not found",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/projects/{projectUID}/credentials/{credentialUID}": {
+            "put": {
+                "description": "Takes effect immediately for the workflows that reference it. The empty secret fields keep the saved values.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "Update a credential",
+                "operationId": "updateCredential",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Project UID",
+                        "name": "projectUID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Credential UID",
+                        "name": "credentialUID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Credential",
+                        "name": "data",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/SaveCredential"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/Credential"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid credential or the saved secrets can not be decrypted",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "403": {
+                        "description": "Permission denied",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "404": {
+                        "description": "Project or credential not found",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "A credential referenced by a published workflow can not be deleted.",
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "Delete a credential",
+                "operationId": "deleteCredential",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Project UID",
+                        "name": "projectUID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Credential UID",
+                        "name": "credentialUID",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "403": {
+                        "description": "Permission denied",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "404": {
+                        "description": "Project or credential not found",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "409": {
+                        "description": "Used by a published workflow",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
         "/projects/{projectUID}/field-shortcuts": {
             "get": {
                 "description": "List the enabled custom shortcuts, with the forms to configure them.",
@@ -4804,6 +5102,1036 @@ const docTemplate = `{
                 }
             }
         },
+        "/projects/{projectUID}/workflow-modules": {
+            "get": {
+                "description": "Return the JSON DSL definitions the editor renders the nodes and the configuration forms with.",
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "List the step modules and credential types",
+                "operationId": "listWorkflowModules",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Project UID",
+                        "name": "projectUID",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/WorkflowModules"
+                        }
+                    },
+                    "403": {
+                        "description": "Permission denied",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "404": {
+                        "description": "Project not found",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/projects/{projectUID}/workflows": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "List workflows",
+                "operationId": "listWorkflows",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Project UID",
+                        "name": "projectUID",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/WorkflowListItem"
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Permission denied",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "404": {
+                        "description": "Project not found",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Create a workflow with the trigger, an empty trigger creates a blank workflow whose trigger is chosen later.\nThe API trigger starts from a blank template, or the draft which creates or queries the records of a table.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "Create a workflow",
+                "operationId": "createWorkflow",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Project UID",
+                        "name": "projectUID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Workflow to create",
+                        "name": "data",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/CreateWorkflow"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/Workflow"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid trigger, template or table",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "403": {
+                        "description": "Permission denied",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "404": {
+                        "description": "Project not found",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/projects/{projectUID}/workflows/{workflowUID}": {
+            "get": {
+                "description": "Return the workflow with its draft and the issues to fix before publishing.",
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "Get a workflow",
+                "operationId": "getWorkflow",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Project UID",
+                        "name": "projectUID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Workflow UID",
+                        "name": "workflowUID",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/Workflow"
+                        }
+                    },
+                    "403": {
+                        "description": "Permission denied",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "404": {
+                        "description": "Project or workflow not found",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "Save the draft based on draftVersion, it responds 409 if others saved the draft since. The settings unrelated to the trigger are dropped.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "Save the draft of a workflow",
+                "operationId": "saveWorkflowDraft",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Project UID",
+                        "name": "projectUID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Workflow UID",
+                        "name": "workflowUID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Draft",
+                        "name": "data",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/SaveWorkflowDraft"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/SaveWorkflowDraftResp"
+                        }
+                    },
+                    "400": {
+                        "description": "Draft too large",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "403": {
+                        "description": "Permission denied",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "404": {
+                        "description": "Project or workflow not found",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "409": {
+                        "description": "Draft saved by others",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "Delete a workflow",
+                "operationId": "deleteWorkflow",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Project UID",
+                        "name": "projectUID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Workflow UID",
+                        "name": "workflowUID",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "403": {
+                        "description": "Permission denied",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "404": {
+                        "description": "Project or workflow not found",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/projects/{projectUID}/workflows/{workflowUID}/debug": {
+            "post": {
+                "description": "Run the draft. The API trigger runs with the request; the other triggers run with the record (the latest one if not specified) or the current time.\ndry_run rolls back the writes and skips the asynchronous flows and external actions, live runs them for real and is recorded as a debug run.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "Debug a workflow",
+                "operationId": "debugWorkflow",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Project UID",
+                        "name": "projectUID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Workflow UID",
+                        "name": "workflowUID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Request",
+                        "name": "data",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/DebugWorkflow"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/DebugWorkflowResp"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request body or no record to debug with",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "403": {
+                        "description": "Permission denied",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "404": {
+                        "description": "Project or workflow not found",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/projects/{projectUID}/workflows/{workflowUID}/enabled": {
+            "put": {
+                "description": "A disabled workflow ignores its triggers. The schedule restarts from now when it is enabled again, the missed times are skipped.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "Enable or disable a workflow",
+                "operationId": "setWorkflowEnabled",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Project UID",
+                        "name": "projectUID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Workflow UID",
+                        "name": "workflowUID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Enabled",
+                        "name": "data",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/SetWorkflowEnabled"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "403": {
+                        "description": "Permission denied",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "404": {
+                        "description": "Project or workflow not found",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/projects/{projectUID}/workflows/{workflowUID}/jobs/{jobID}/retry": {
+            "post": {
+                "description": "Run the failed job again, the steps which succeeded are not run again.",
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "Retry a failed background job",
+                "operationId": "retryWorkflowJob",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Project UID",
+                        "name": "projectUID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Workflow UID",
+                        "name": "workflowUID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Job ID",
+                        "name": "jobID",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "403": {
+                        "description": "Permission denied",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "404": {
+                        "description": "Project, workflow or failed job not found",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/projects/{projectUID}/workflows/{workflowUID}/keys": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "List the API keys of a workflow",
+                "operationId": "listWorkflowKeys",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Project UID",
+                        "name": "projectUID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Workflow UID",
+                        "name": "workflowUID",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/WorkflowKey"
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Permission denied",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "404": {
+                        "description": "Project or workflow not found",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "The secret is only returned once.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "Create an API key of a workflow",
+                "operationId": "createWorkflowKey",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Project UID",
+                        "name": "projectUID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Workflow UID",
+                        "name": "workflowUID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Key",
+                        "name": "data",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/CreateWorkflowKey"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/CreateWorkflowKeyResp"
+                        }
+                    },
+                    "403": {
+                        "description": "Permission denied",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "404": {
+                        "description": "Project or workflow not found",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/projects/{projectUID}/workflows/{workflowUID}/keys/{keyID}": {
+            "delete": {
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "Delete an API key of a workflow",
+                "operationId": "deleteWorkflowKey",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Project UID",
+                        "name": "projectUID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Workflow UID",
+                        "name": "workflowUID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Key ID",
+                        "name": "keyID",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "403": {
+                        "description": "Permission denied",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "404": {
+                        "description": "Project or workflow not found",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/projects/{projectUID}/workflows/{workflowUID}/publish": {
+            "post": {
+                "description": "Freeze the draft as a new immutable version which handles the triggers. Nothing is published if issues are returned.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "Publish a workflow",
+                "operationId": "publishWorkflow",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Project UID",
+                        "name": "projectUID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Workflow UID",
+                        "name": "workflowUID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Draft version",
+                        "name": "data",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/PublishWorkflow"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/PublishWorkflowResp"
+                        }
+                    },
+                    "403": {
+                        "description": "Permission denied",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "404": {
+                        "description": "Project or workflow not found",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "409": {
+                        "description": "Draft changed or route conflict",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/projects/{projectUID}/workflows/{workflowUID}/revisions": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "List the published versions of a workflow",
+                "operationId": "listWorkflowRevisions",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Project UID",
+                        "name": "projectUID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Workflow UID",
+                        "name": "workflowUID",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/WorkflowRevision"
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Permission denied",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "404": {
+                        "description": "Project or workflow not found",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/projects/{projectUID}/workflows/{workflowUID}/revisions/{version}/rollback": {
+            "post": {
+                "description": "Republish the spec of the version as a new version, the draft is overwritten by it.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "Roll back a workflow to a published version",
+                "operationId": "rollbackWorkflow",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Project UID",
+                        "name": "projectUID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Workflow UID",
+                        "name": "workflowUID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Version to roll back to",
+                        "name": "version",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Draft version",
+                        "name": "data",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/RollbackWorkflow"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/PublishWorkflowResp"
+                        }
+                    },
+                    "400": {
+                        "description": "The version references deleted tables, fields or credentials",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "403": {
+                        "description": "Permission denied",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "404": {
+                        "description": "Project, workflow or version not found",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "409": {
+                        "description": "Draft changed or route conflict",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/projects/{projectUID}/workflows/{workflowUID}/runs": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "List the runs of a workflow",
+                "operationId": "listWorkflowRuns",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Project UID",
+                        "name": "projectUID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Workflow UID",
+                        "name": "workflowUID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter by the comma-separated statuses: queued, running, succeeded, failed, rejected",
+                        "name": "status",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Return the finished runs taking at least the milliseconds",
+                        "name": "minDuration",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Return the finished runs taking less than the milliseconds",
+                        "name": "maxDuration",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Return the runs created at or after the RFC 3339 time",
+                        "name": "from",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Return the runs created before the RFC 3339 time",
+                        "name": "to",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Return the runs older than the cursor",
+                        "name": "cursor",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/ListWorkflowRunsResp"
+                        }
+                    },
+                    "403": {
+                        "description": "Permission denied",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "404": {
+                        "description": "Project or workflow not found",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/projects/{projectUID}/workflows/{workflowUID}/runs/{runUID}": {
+            "get": {
+                "description": "Return the request or the trigger data, the response, the step trace and the background jobs of the run.",
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "Get a run of a workflow",
+                "operationId": "getWorkflowRun",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Project UID",
+                        "name": "projectUID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Workflow UID",
+                        "name": "workflowUID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Run UID",
+                        "name": "runUID",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/WorkflowRun"
+                        }
+                    },
+                    "403": {
+                        "description": "Permission denied",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "404": {
+                        "description": "Project, workflow or run not found",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
         "/projects/{projectUID}/ws": {
             "get": {
                 "description": "Upgrade to WebSocket to submit changesets and receive the changes of the subscribed tables and the online members.\nMessages are JSON ` + "`" + `{type, reqId, data}` + "`" + `. Client: SUBSCRIBE, UNSUBSCRIBE, USER_CHANGES, PRESENCE, PING.\nServer: HELLO, SUBSCRIBED, ACCEPT_COMMIT, REJECT_COMMIT, NEW_CHANGES, MEMBERS, TABLES_CHANGED, PROJECT_CHANGED, PERMISSION_CHANGED, ERROR, PONG.\nThe changesets of the viewers are rejected.",
@@ -6206,6 +7534,230 @@ const docTemplate = `{
                 }
             }
         },
+        "CreateWorkflow": {
+            "type": "object",
+            "required": [
+                "description",
+                "name",
+                "template",
+                "triggerType"
+            ],
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "tableUID": {
+                    "description": "TableUID is the table used by the API template, or the table watched by the record and date triggers.",
+                    "type": "string"
+                },
+                "template": {
+                    "description": "Template is the template of the API trigger: blank, create or query, the latter two generate the default spec from the table of TableUID.",
+                    "type": "string",
+                    "enum": [
+                        "blank",
+                        "create",
+                        "query"
+                    ]
+                },
+                "timezone": {
+                    "description": "Timezone is the creator's time zone, e.g. Asia/Shanghai, used by the formulas and the schedule trigger.",
+                    "type": "string"
+                },
+                "triggerType": {
+                    "description": "TriggerType is the trigger type, an empty value creates a blank workflow without a trigger type chosen yet.",
+                    "type": "string",
+                    "enum": [
+                        "",
+                        "api",
+                        "record_created",
+                        "record_updated",
+                        "record_matched",
+                        "record_deleted",
+                        "date_reached",
+                        "schedule"
+                    ]
+                }
+            }
+        },
+        "CreateWorkflowKey": {
+            "type": "object",
+            "required": [
+                "name"
+            ],
+            "properties": {
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "CreateWorkflowKeyResp": {
+            "type": "object",
+            "required": [
+                "key",
+                "secret"
+            ],
+            "properties": {
+                "key": {
+                    "$ref": "#/definitions/WorkflowKey"
+                },
+                "secret": {
+                    "type": "string"
+                }
+            }
+        },
+        "Credential": {
+            "type": "object",
+            "required": [
+                "createdAt",
+                "data",
+                "name",
+                "secrets",
+                "type",
+                "uid",
+                "updatedAt"
+            ],
+            "properties": {
+                "createdAt": {
+                    "type": "string"
+                },
+                "data": {
+                    "type": "object",
+                    "additionalProperties": true
+                },
+                "name": {
+                    "type": "string"
+                },
+                "secrets": {
+                    "description": "Secrets lists the saved secret fields.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "type": {
+                    "type": "string"
+                },
+                "uid": {
+                    "type": "string"
+                },
+                "updatedAt": {
+                    "type": "string"
+                }
+            }
+        },
+        "DebugWorkflow": {
+            "type": "object",
+            "required": [
+                "mode"
+            ],
+            "properties": {
+                "body": {
+                    "description": "Body is the JSON request body, empty means no request body is sent.",
+                    "type": "object"
+                },
+                "draft": {
+                    "description": "Draft debugs the saved draft if empty.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/workflow.Spec"
+                        }
+                    ]
+                },
+                "headers": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "mode": {
+                    "description": "Mode is dry_run (rolls back the writes, without running the async flows and external actions) or live (runs for real).",
+                    "type": "string",
+                    "enum": [
+                        "dry_run",
+                        "live"
+                    ]
+                },
+                "query": {
+                    "description": "Query, Headers and Body are the request when debugging the API trigger.",
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "recordUID": {
+                    "description": "RecordUID is the record used as the triggering record when debugging the record and date triggers, the latest record is used if empty.",
+                    "type": "string"
+                }
+            }
+        },
+        "DebugWorkflowResp": {
+            "type": "object",
+            "required": [
+                "durationMs",
+                "errors",
+                "input",
+                "issues",
+                "jobs",
+                "response",
+                "runUID",
+                "status",
+                "trace"
+            ],
+            "properties": {
+                "durationMs": {
+                    "type": "integer"
+                },
+                "errors": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/WorkflowParamError"
+                    }
+                },
+                "input": {
+                    "type": "object"
+                },
+                "issues": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/WorkflowIssue"
+                    }
+                },
+                "jobs": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/WorkflowPlannedJob"
+                    }
+                },
+                "response": {
+                    "$ref": "#/definitions/WorkflowResponse"
+                },
+                "runUID": {
+                    "type": "string"
+                },
+                "status": {
+                    "enum": [
+                        "queued",
+                        "succeeded",
+                        "failed",
+                        "rejected"
+                    ],
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/db.WorkflowRunStatus"
+                        }
+                    ]
+                },
+                "trace": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/WorkflowTraceStep"
+                    }
+                }
+            }
+        },
         "DeleteAccount": {
             "type": "object",
             "properties": {
@@ -6561,6 +8113,25 @@ const docTemplate = `{
                 }
             }
         },
+        "ListWorkflowRunsResp": {
+            "type": "object",
+            "required": [
+                "nextCursor",
+                "runs"
+            ],
+            "properties": {
+                "nextCursor": {
+                    "description": "NextCursor is passed as cursor to get the earlier runs, 0 means there are no more.",
+                    "type": "integer"
+                },
+                "runs": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/WorkflowRun"
+                    }
+                }
+            }
+        },
         "Operation": {
             "type": "object",
             "required": [
@@ -6789,6 +8360,35 @@ const docTemplate = `{
                 }
             }
         },
+        "PublishWorkflow": {
+            "type": "object",
+            "required": [
+                "draftVersion"
+            ],
+            "properties": {
+                "draftVersion": {
+                    "description": "DraftVersion is the draft version to publish, 409 is returned if the draft has changed.",
+                    "type": "integer"
+                }
+            }
+        },
+        "PublishWorkflowResp": {
+            "type": "object",
+            "required": [
+                "issues"
+            ],
+            "properties": {
+                "issues": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/WorkflowIssue"
+                    }
+                },
+                "workflow": {
+                    "$ref": "#/definitions/Workflow"
+                }
+            }
+        },
         "QueryRecords": {
             "type": "object",
             "properties": {
@@ -6913,6 +8513,18 @@ const docTemplate = `{
             "properties": {
                 "token": {
                     "type": "string"
+                }
+            }
+        },
+        "RollbackWorkflow": {
+            "type": "object",
+            "required": [
+                "draftVersion"
+            ],
+            "properties": {
+                "draftVersion": {
+                    "description": "DraftVersion is the current draft version which the rollback overwrites, 409 is returned if the draft has changed.",
+                    "type": "integer"
                 }
             }
         },
@@ -7121,6 +8733,41 @@ const docTemplate = `{
                 }
             }
         },
+        "SaveCredential": {
+            "type": "object",
+            "required": [
+                "data",
+                "name",
+                "type"
+            ],
+            "properties": {
+                "clearSecrets": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "data": {
+                    "description": "Data holds the non-secret fields of the credential type DSL.",
+                    "type": "object",
+                    "additionalProperties": true
+                },
+                "name": {
+                    "type": "string"
+                },
+                "secrets": {
+                    "description": "Secrets holds the secret fields, empty ones keep the saved values; the fields in ClearSecrets are cleared.",
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "type": {
+                    "description": "Type is the credential type, only used on creation.",
+                    "type": "string"
+                }
+            }
+        },
         "SaveFieldShortcut": {
             "type": "object",
             "required": [
@@ -7225,6 +8872,52 @@ const docTemplate = `{
                 }
             }
         },
+        "SaveWorkflowDraft": {
+            "type": "object",
+            "required": [
+                "description",
+                "draft",
+                "draftVersion",
+                "name"
+            ],
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "draft": {
+                    "$ref": "#/definitions/workflow.Spec"
+                },
+                "draftVersion": {
+                    "description": "DraftVersion is the draft version the edit is based on, 409 is returned if someone else has saved it.",
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "SaveWorkflowDraftResp": {
+            "type": "object",
+            "required": [
+                "draftVersion",
+                "issues",
+                "updatedAt"
+            ],
+            "properties": {
+                "draftVersion": {
+                    "type": "integer"
+                },
+                "issues": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/WorkflowIssue"
+                    }
+                },
+                "updatedAt": {
+                    "type": "string"
+                }
+            }
+        },
         "SetAuthProviderPositions": {
             "type": "object",
             "required": [
@@ -7236,6 +8929,17 @@ const docTemplate = `{
                     "items": {
                         "type": "integer"
                     }
+                }
+            }
+        },
+        "SetWorkflowEnabled": {
+            "type": "object",
+            "required": [
+                "enabled"
+            ],
+            "properties": {
+                "enabled": {
+                    "type": "boolean"
                 }
             }
         },
@@ -7662,6 +9366,46 @@ const docTemplate = `{
                 },
                 "username": {
                     "description": "Username is the LDAP user to search, optional.",
+                    "type": "string"
+                }
+            }
+        },
+        "TestCredential": {
+            "type": "object",
+            "required": [
+                "data",
+                "input",
+                "type"
+            ],
+            "properties": {
+                "clearSecrets": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "credentialUID": {
+                    "description": "CredentialUID provides the saved secrets for the fields not given.",
+                    "type": "string"
+                },
+                "data": {
+                    "type": "object",
+                    "additionalProperties": true
+                },
+                "input": {
+                    "description": "Input holds the values of test.fields in the credential type DSL, e.g. the recipient of the test email.",
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "secrets": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "type": {
                     "type": "string"
                 }
             }
@@ -8213,6 +9957,1364 @@ const docTemplate = `{
                         "gallery",
                         "form"
                     ]
+                }
+            }
+        },
+        "Workflow": {
+            "type": "object",
+            "required": [
+                "asyncCount",
+                "createdAt",
+                "description",
+                "draft",
+                "draftVersion",
+                "enabled",
+                "hasUnpublishedChanges",
+                "issues",
+                "method",
+                "name",
+                "path",
+                "publishedAt",
+                "publishedMethod",
+                "publishedPath",
+                "publishedTriggerType",
+                "publishedVersion",
+                "stepCount",
+                "triggerType",
+                "uid",
+                "updatedAt"
+            ],
+            "properties": {
+                "asyncCount": {
+                    "type": "integer"
+                },
+                "createdAt": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "draft": {
+                    "$ref": "#/definitions/workflow.Spec"
+                },
+                "draftVersion": {
+                    "type": "integer"
+                },
+                "enabled": {
+                    "type": "boolean"
+                },
+                "hasUnpublishedChanges": {
+                    "description": "HasUnpublishedChanges indicates the draft has been modified since the latest publishing.",
+                    "type": "boolean"
+                },
+                "issues": {
+                    "description": "Issues are the issues in the draft that must be fixed before publishing.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/WorkflowIssue"
+                    }
+                },
+                "method": {
+                    "description": "Method and Path are the entry of the API trigger in the draft, empty for other triggers.",
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "path": {
+                    "type": "string"
+                },
+                "publishedAt": {
+                    "type": "string"
+                },
+                "publishedMethod": {
+                    "description": "PublishedMethod and PublishedPath are the API entry being served, empty if unpublished or for other triggers.",
+                    "type": "string"
+                },
+                "publishedPath": {
+                    "type": "string"
+                },
+                "publishedTriggerType": {
+                    "type": "string"
+                },
+                "publishedVersion": {
+                    "type": "integer"
+                },
+                "stepCount": {
+                    "type": "integer"
+                },
+                "triggerType": {
+                    "description": "TriggerType is the trigger type of the draft, PublishedTriggerType is the trigger type of the published revision, empty if unpublished.",
+                    "type": "string",
+                    "enum": [
+                        "",
+                        "api",
+                        "record_created",
+                        "record_updated",
+                        "record_matched",
+                        "record_deleted",
+                        "date_reached",
+                        "schedule"
+                    ]
+                },
+                "uid": {
+                    "type": "string"
+                },
+                "updatedAt": {
+                    "type": "string"
+                }
+            }
+        },
+        "WorkflowAPITrigger": {
+            "type": "object",
+            "required": [
+                "auth",
+                "method",
+                "params",
+                "path",
+                "rateLimit"
+            ],
+            "properties": {
+                "auth": {
+                    "$ref": "#/definitions/WorkflowAuth"
+                },
+                "method": {
+                    "description": "Method is GET, POST, PUT, PATCH or DELETE.",
+                    "type": "string"
+                },
+                "params": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/WorkflowParam"
+                    }
+                },
+                "path": {
+                    "description": "Path is a static path relative to the project, e.g. /leads.",
+                    "type": "string"
+                },
+                "rateLimit": {
+                    "$ref": "#/definitions/WorkflowRateLimit"
+                }
+            }
+        },
+        "WorkflowAsyncFlow": {
+            "type": "object",
+            "required": [
+                "event",
+                "id",
+                "steps"
+            ],
+            "properties": {
+                "event": {
+                    "type": "string",
+                    "enum": [
+                        "request_received",
+                        "succeeded"
+                    ]
+                },
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "steps": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/WorkflowStep"
+                    }
+                }
+            }
+        },
+        "WorkflowAuth": {
+            "type": "object",
+            "required": [
+                "type"
+            ],
+            "properties": {
+                "type": {
+                    "description": "Type is none or api_key; the key is passed via X-API-Key or Authorization: Bearer.",
+                    "type": "string",
+                    "enum": [
+                        "none",
+                        "api_key"
+                    ]
+                }
+            }
+        },
+        "WorkflowCredentialTestDef": {
+            "type": "object",
+            "required": [
+                "action",
+                "fields",
+                "success"
+            ],
+            "properties": {
+                "action": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "fields": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/WorkflowFieldDef"
+                    }
+                },
+                "success": {
+                    "type": "string"
+                }
+            }
+        },
+        "WorkflowCredentialTypeDef": {
+            "type": "object",
+            "required": [
+                "icon",
+                "label",
+                "sections",
+                "summary",
+                "type"
+            ],
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "icon": {
+                    "type": "string"
+                },
+                "label": {
+                    "type": "string"
+                },
+                "sections": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/WorkflowSectionDef"
+                    }
+                },
+                "summary": {
+                    "description": "Summary are the non-secret fields that tell credentials apart in lists.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "test": {
+                    "$ref": "#/definitions/WorkflowCredentialTestDef"
+                },
+                "type": {
+                    "type": "string"
+                }
+            }
+        },
+        "WorkflowFieldDef": {
+            "type": "object",
+            "required": [
+                "widget"
+            ],
+            "properties": {
+                "credentialType": {
+                    "description": "CredentialType is the credential type a credential widget selects.",
+                    "type": "string"
+                },
+                "default": {
+                    "type": "object"
+                },
+                "display": {
+                    "description": "Display is the presentation of the widget, e.g. radio for select, response / optional for body.",
+                    "type": "string"
+                },
+                "help": {
+                    "type": "string"
+                },
+                "key": {
+                    "description": "Key is the property name in the config object, empty for display-only widgets such as branches.",
+                    "type": "string"
+                },
+                "label": {
+                    "type": "string"
+                },
+                "max": {
+                    "type": "number"
+                },
+                "maxLength": {
+                    "type": "integer"
+                },
+                "min": {
+                    "type": "number"
+                },
+                "multiline": {
+                    "type": "boolean"
+                },
+                "options": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/WorkflowOptionDef"
+                    }
+                },
+                "placeholder": {
+                    "type": "string"
+                },
+                "prefix": {
+                    "type": "string"
+                },
+                "required": {
+                    "type": "boolean"
+                },
+                "resets": {
+                    "description": "Resets are the fields cleared when this field changes, e.g. the filters when the table changes.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "secret": {
+                    "description": "Secret marks a credential field that is stored encrypted and never returned to the frontend.",
+                    "type": "boolean"
+                },
+                "showIf": {
+                    "description": "ShowIf is another field of the same config; this field is hidden while that one is empty.",
+                    "type": "string"
+                },
+                "suffix": {
+                    "type": "string"
+                },
+                "widget": {
+                    "description": "Widget is value, number, select, text, email, password, credential, table, filters, sort, fieldMapping, conditions, headers, body, status or branches.",
+                    "type": "string"
+                }
+            }
+        },
+        "WorkflowFilter": {
+            "type": "object",
+            "required": [
+                "fieldUID",
+                "op"
+            ],
+            "properties": {
+                "fieldUID": {
+                    "type": "string"
+                },
+                "op": {
+                    "type": "string",
+                    "enum": [
+                        "eq",
+                        "neq",
+                        "gt",
+                        "gte",
+                        "lt",
+                        "lte",
+                        "like",
+                        "in",
+                        "nin",
+                        "empty",
+                        "not_empty"
+                    ]
+                },
+                "value": {
+                    "$ref": "#/definitions/WorkflowValue"
+                }
+            }
+        },
+        "WorkflowIssue": {
+            "type": "object",
+            "required": [
+                "code",
+                "target"
+            ],
+            "properties": {
+                "args": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "code": {
+                    "type": "string"
+                },
+                "target": {
+                    "type": "string"
+                }
+            }
+        },
+        "WorkflowJob": {
+            "type": "object",
+            "required": [
+                "attempts",
+                "createdAt",
+                "error",
+                "event",
+                "finishedAt",
+                "flowID",
+                "id",
+                "status",
+                "trace",
+                "uncertain"
+            ],
+            "properties": {
+                "attempts": {
+                    "type": "integer"
+                },
+                "createdAt": {
+                    "type": "string"
+                },
+                "error": {
+                    "type": "string"
+                },
+                "event": {
+                    "description": "Event is the triggering event of the async flow, request_received or succeeded, or the trigger type for the main flow.",
+                    "type": "string"
+                },
+                "finishedAt": {
+                    "type": "string"
+                },
+                "flowID": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "status": {
+                    "type": "string",
+                    "enum": [
+                        "pending",
+                        "running",
+                        "succeeded",
+                        "failed"
+                    ]
+                },
+                "trace": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/WorkflowTraceStep"
+                    }
+                },
+                "uncertain": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "WorkflowKey": {
+            "type": "object",
+            "required": [
+                "createdAt",
+                "id",
+                "lastUsedAt",
+                "name",
+                "prefix"
+            ],
+            "properties": {
+                "createdAt": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "lastUsedAt": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "prefix": {
+                    "type": "string"
+                }
+            }
+        },
+        "WorkflowListItem": {
+            "type": "object",
+            "required": [
+                "asyncCount",
+                "createdAt",
+                "description",
+                "enabled",
+                "hasUnpublishedChanges",
+                "method",
+                "name",
+                "path",
+                "publishedAt",
+                "publishedMethod",
+                "publishedPath",
+                "publishedTriggerType",
+                "publishedVersion",
+                "stepCount",
+                "triggerType",
+                "uid",
+                "updatedAt"
+            ],
+            "properties": {
+                "asyncCount": {
+                    "type": "integer"
+                },
+                "createdAt": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "enabled": {
+                    "type": "boolean"
+                },
+                "hasUnpublishedChanges": {
+                    "description": "HasUnpublishedChanges indicates the draft has been modified since the latest publishing.",
+                    "type": "boolean"
+                },
+                "method": {
+                    "description": "Method and Path are the entry of the API trigger in the draft, empty for other triggers.",
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "path": {
+                    "type": "string"
+                },
+                "publishedAt": {
+                    "type": "string"
+                },
+                "publishedMethod": {
+                    "description": "PublishedMethod and PublishedPath are the API entry being served, empty if unpublished or for other triggers.",
+                    "type": "string"
+                },
+                "publishedPath": {
+                    "type": "string"
+                },
+                "publishedTriggerType": {
+                    "type": "string"
+                },
+                "publishedVersion": {
+                    "type": "integer"
+                },
+                "stepCount": {
+                    "type": "integer"
+                },
+                "triggerType": {
+                    "description": "TriggerType is the trigger type of the draft, PublishedTriggerType is the trigger type of the published revision, empty if unpublished.",
+                    "type": "string",
+                    "enum": [
+                        "",
+                        "api",
+                        "record_created",
+                        "record_updated",
+                        "record_matched",
+                        "record_deleted",
+                        "date_reached",
+                        "schedule"
+                    ]
+                },
+                "uid": {
+                    "type": "string"
+                },
+                "updatedAt": {
+                    "type": "string"
+                }
+            }
+        },
+        "WorkflowModuleDef": {
+            "type": "object",
+            "required": [
+                "category",
+                "color",
+                "defaults",
+                "description",
+                "flows",
+                "icon",
+                "idBase",
+                "label",
+                "order",
+                "outputs",
+                "sections",
+                "type"
+            ],
+            "properties": {
+                "action": {
+                    "description": "Action marks external side effects; simulated debugging only computes the arguments.",
+                    "type": "boolean"
+                },
+                "branches": {
+                    "description": "Branches marks modules with then / else branches.",
+                    "type": "boolean"
+                },
+                "category": {
+                    "description": "Category groups the module in the node picker, one of ModuleCategories.",
+                    "type": "string",
+                    "enum": [
+                        "data",
+                        "logic",
+                        "integration"
+                    ]
+                },
+                "color": {
+                    "type": "string"
+                },
+                "defaults": {
+                    "type": "object"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "flows": {
+                    "description": "Flows are the allowed flows: sync (the API sync flow), async (API async flows) and background (the main flow of other triggers).",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "icon": {
+                    "type": "string"
+                },
+                "idBase": {
+                    "description": "IDBase is the prefix of new step IDs, e.g. query, query2.",
+                    "type": "string"
+                },
+                "label": {
+                    "type": "string"
+                },
+                "order": {
+                    "type": "integer"
+                },
+                "outputs": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/WorkflowOutputDef"
+                    }
+                },
+                "sections": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/WorkflowSectionDef"
+                    }
+                },
+                "summary": {
+                    "$ref": "#/definitions/WorkflowSummaryDef"
+                },
+                "tableKey": {
+                    "description": "TableKey is the config field referencing a table.",
+                    "type": "string"
+                },
+                "terminal": {
+                    "description": "Terminal marks modules that return the response and end the sync flow.",
+                    "type": "boolean"
+                },
+                "type": {
+                    "type": "string"
+                }
+            }
+        },
+        "WorkflowModules": {
+            "type": "object",
+            "required": [
+                "credentialTypes",
+                "modules",
+                "secretsReady"
+            ],
+            "properties": {
+                "credentialTypes": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/WorkflowCredentialTypeDef"
+                    }
+                },
+                "modules": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/WorkflowModuleDef"
+                    }
+                },
+                "secretsReady": {
+                    "description": "SecretsReady is false if auth.secret_key is not configured, in which case secret fields can not be saved.",
+                    "type": "boolean"
+                }
+            }
+        },
+        "WorkflowOptionDef": {
+            "type": "object",
+            "required": [
+                "value"
+            ],
+            "properties": {
+                "label": {
+                    "type": "string"
+                },
+                "patch": {
+                    "type": "object"
+                },
+                "value": {
+                    "type": "object"
+                }
+            }
+        },
+        "WorkflowOutputDef": {
+            "type": "object",
+            "required": [
+                "key",
+                "kind",
+                "label"
+            ],
+            "properties": {
+                "items": {
+                    "description": "Items is the element type of an array, record for table records.",
+                    "type": "string"
+                },
+                "key": {
+                    "type": "string"
+                },
+                "kind": {
+                    "description": "Kind is string, number, boolean, object, array or record; record expands the fields of the table given by TableKey.",
+                    "type": "string"
+                },
+                "label": {
+                    "type": "string"
+                }
+            }
+        },
+        "WorkflowParam": {
+            "type": "object",
+            "required": [
+                "id",
+                "key",
+                "required",
+                "source",
+                "type"
+            ],
+            "properties": {
+                "default": {
+                    "description": "Default is filled in only when the parameter is missing and must match the type.",
+                    "type": "object"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "format": {
+                    "type": "string",
+                    "enum": [
+                        "email",
+                        "url",
+                        "phone"
+                    ]
+                },
+                "id": {
+                    "description": "ID is the stable identifier of the parameter; renaming the parameter does not change it.",
+                    "type": "string"
+                },
+                "itemType": {
+                    "description": "ItemType is the array element type, string or number.",
+                    "type": "string",
+                    "enum": [
+                        "string",
+                        "number"
+                    ]
+                },
+                "key": {
+                    "description": "Key is the parameter's name in its source, e.g. a JSON property name or a query parameter name.",
+                    "type": "string"
+                },
+                "max": {
+                    "type": "number"
+                },
+                "maxItems": {
+                    "type": "integer"
+                },
+                "maxLength": {
+                    "type": "integer"
+                },
+                "min": {
+                    "type": "number"
+                },
+                "minLength": {
+                    "type": "integer"
+                },
+                "options": {
+                    "description": "Options are the allowed enum values; when non-empty, they also constrain the elements of string arrays.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "pattern": {
+                    "description": "Pattern is the regular expression a string must match.",
+                    "type": "string"
+                },
+                "required": {
+                    "type": "boolean"
+                },
+                "source": {
+                    "type": "string",
+                    "enum": [
+                        "query",
+                        "header",
+                        "body"
+                    ]
+                },
+                "type": {
+                    "type": "string",
+                    "enum": [
+                        "string",
+                        "number",
+                        "integer",
+                        "boolean",
+                        "date",
+                        "datetime",
+                        "enum",
+                        "array"
+                    ]
+                }
+            }
+        },
+        "WorkflowParamError": {
+            "type": "object",
+            "required": [
+                "code",
+                "message",
+                "param",
+                "path"
+            ],
+            "properties": {
+                "code": {
+                    "type": "string"
+                },
+                "message": {
+                    "type": "string"
+                },
+                "param": {
+                    "type": "string"
+                },
+                "path": {
+                    "type": "string"
+                }
+            }
+        },
+        "WorkflowPlannedJob": {
+            "type": "object",
+            "required": [
+                "event",
+                "flowID",
+                "name",
+                "queued"
+            ],
+            "properties": {
+                "event": {
+                    "type": "string"
+                },
+                "flowID": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "queued": {
+                    "description": "Queued is false for a dry run, which only lists the flows that would be triggered.",
+                    "type": "boolean"
+                }
+            }
+        },
+        "WorkflowRateLimit": {
+            "type": "object",
+            "required": [
+                "enabled",
+                "limit",
+                "window"
+            ],
+            "properties": {
+                "enabled": {
+                    "type": "boolean"
+                },
+                "limit": {
+                    "description": "Limit is the maximum number of requests allowed per window.",
+                    "type": "integer"
+                },
+                "window": {
+                    "description": "Window is the window length in seconds.",
+                    "type": "integer"
+                }
+            }
+        },
+        "WorkflowRecordTrigger": {
+            "type": "object",
+            "required": [
+                "tableUID"
+            ],
+            "properties": {
+                "dateFieldUID": {
+                    "description": "DateFieldUID is the date field for date_reached, and Offset is the offset in minutes from the field's time; negative means earlier.",
+                    "type": "string"
+                },
+                "fields": {
+                    "description": "Fields are the field UIDs watched by record_updated; empty means any field.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "filters": {
+                    "description": "Filters are the conditions a record must satisfy and may only use constant values; record_matched requires at least one condition, and Match is all or any.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/WorkflowFilter"
+                    }
+                },
+                "match": {
+                    "type": "string",
+                    "enum": [
+                        "all",
+                        "any"
+                    ]
+                },
+                "offset": {
+                    "type": "integer"
+                },
+                "tableUID": {
+                    "type": "string"
+                }
+            }
+        },
+        "WorkflowResponse": {
+            "type": "object",
+            "required": [
+                "body",
+                "headers",
+                "status"
+            ],
+            "properties": {
+                "body": {
+                    "type": "object"
+                },
+                "headers": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "status": {
+                    "type": "integer"
+                }
+            }
+        },
+        "WorkflowRevision": {
+            "type": "object",
+            "required": [
+                "createdAt",
+                "createdBy",
+                "method",
+                "path",
+                "restoredFrom",
+                "triggerType",
+                "version"
+            ],
+            "properties": {
+                "createdAt": {
+                    "type": "string"
+                },
+                "createdBy": {
+                    "$ref": "#/definitions/UserBrief"
+                },
+                "method": {
+                    "type": "string"
+                },
+                "path": {
+                    "type": "string"
+                },
+                "restoredFrom": {
+                    "description": "RestoredFrom is the version this revision rolls back to, 0 if published from the draft.",
+                    "type": "integer"
+                },
+                "triggerType": {
+                    "type": "string"
+                },
+                "version": {
+                    "type": "integer"
+                }
+            }
+        },
+        "WorkflowRun": {
+            "type": "object",
+            "required": [
+                "createdAt",
+                "durationMs",
+                "ip",
+                "jobs",
+                "status",
+                "statusCode",
+                "trigger",
+                "uid",
+                "version"
+            ],
+            "properties": {
+                "createdAt": {
+                    "type": "string"
+                },
+                "durationMs": {
+                    "type": "integer"
+                },
+                "error": {
+                    "type": "object"
+                },
+                "event": {
+                    "type": "object"
+                },
+                "ip": {
+                    "type": "string"
+                },
+                "jobs": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/WorkflowJob"
+                    }
+                },
+                "request": {
+                    "description": "Request, Event, Response, Trace and Error are only returned in the detail, Event is the trigger data of a background trigger.",
+                    "type": "object"
+                },
+                "response": {
+                    "type": "object"
+                },
+                "status": {
+                    "type": "string",
+                    "enum": [
+                        "queued",
+                        "running",
+                        "succeeded",
+                        "failed",
+                        "rejected"
+                    ]
+                },
+                "statusCode": {
+                    "type": "integer"
+                },
+                "trace": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/WorkflowTraceStep"
+                    }
+                },
+                "trigger": {
+                    "description": "Trigger is the source of the run: http, debug, or the trigger type of a background trigger.",
+                    "type": "string"
+                },
+                "uid": {
+                    "type": "string"
+                },
+                "version": {
+                    "type": "integer"
+                }
+            }
+        },
+        "WorkflowScheduleTrigger": {
+            "type": "object",
+            "required": [
+                "repeat",
+                "start",
+                "timezone"
+            ],
+            "properties": {
+                "interval": {
+                    "description": "Interval is the interval for minutes and hours; a minute interval is at least 5.",
+                    "type": "integer"
+                },
+                "repeat": {
+                    "type": "string",
+                    "enum": [
+                        "none",
+                        "minutes",
+                        "hours",
+                        "daily",
+                        "workdays",
+                        "weekly",
+                        "monthly"
+                    ]
+                },
+                "start": {
+                    "description": "Start is the local time of the first run, formatted as 2006-01-02T15:04.",
+                    "type": "string"
+                },
+                "timezone": {
+                    "type": "string"
+                },
+                "weekdays": {
+                    "description": "Weekdays are the days of the week for weekly runs; 0 is Sunday.",
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                }
+            }
+        },
+        "WorkflowSectionDef": {
+            "type": "object",
+            "required": [
+                "fields"
+            ],
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "extra": {
+                    "description": "Extra is a compact field shown on the right of the section title.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/WorkflowFieldDef"
+                        }
+                    ]
+                },
+                "fields": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/WorkflowFieldDef"
+                    }
+                },
+                "showIf": {
+                    "type": "string"
+                },
+                "title": {
+                    "type": "string"
+                }
+            }
+        },
+        "WorkflowStep": {
+            "type": "object",
+            "required": [
+                "config",
+                "id",
+                "type"
+            ],
+            "properties": {
+                "config": {
+                    "description": "Config is the module configuration defined by the DSL of the type (see ModuleDef), decoded as the matching *XxxConfig.",
+                    "type": "object"
+                },
+                "else": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/WorkflowStep"
+                    }
+                },
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "then": {
+                    "description": "Then and Else are the branches of a branching module (condition).",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/WorkflowStep"
+                    }
+                },
+                "type": {
+                    "type": "string",
+                    "enum": [
+                        "query",
+                        "create",
+                        "update",
+                        "condition",
+                        "response",
+                        "email",
+                        "http"
+                    ]
+                }
+            }
+        },
+        "WorkflowSummaryDef": {
+            "type": "object",
+            "properties": {
+                "args": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "fallback": {
+                    "type": "string"
+                },
+                "parts": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "requires": {
+                    "description": "Fallback is shown while the Requires field is empty.",
+                    "type": "string"
+                },
+                "separator": {
+                    "type": "string"
+                },
+                "template": {
+                    "type": "string"
+                }
+            }
+        },
+        "WorkflowTraceStep": {
+            "type": "object",
+            "required": [
+                "durationMs",
+                "status",
+                "stepID",
+                "type"
+            ],
+            "properties": {
+                "branch": {
+                    "description": "Branch is the branch a condition node entered, then or else.",
+                    "type": "string"
+                },
+                "durationMs": {
+                    "type": "integer"
+                },
+                "error": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "output": {
+                    "description": "Output is the truncated step output.",
+                    "type": "object"
+                },
+                "reused": {
+                    "description": "Reused means an async retry reused the output of the previous successful attempt.",
+                    "type": "boolean"
+                },
+                "status": {
+                    "type": "string",
+                    "enum": [
+                        "succeeded",
+                        "failed",
+                        "skipped",
+                        "planned"
+                    ]
+                },
+                "stepID": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string"
+                }
+            }
+        },
+        "WorkflowTrigger": {
+            "type": "object",
+            "required": [
+                "type"
+            ],
+            "properties": {
+                "api": {
+                    "description": "API is the request endpoint, authentication and parameters of an api trigger.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/WorkflowAPITrigger"
+                        }
+                    ]
+                },
+                "name": {
+                    "description": "Name is the display name of the trigger node; when empty, the trigger type's name is shown.",
+                    "type": "string"
+                },
+                "record": {
+                    "description": "Record is the table watched by record triggers and date_reached.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/WorkflowRecordTrigger"
+                        }
+                    ]
+                },
+                "schedule": {
+                    "description": "Schedule is the execution time of a schedule trigger.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/WorkflowScheduleTrigger"
+                        }
+                    ]
+                },
+                "type": {
+                    "type": "string",
+                    "enum": [
+                        "",
+                        "api",
+                        "record_created",
+                        "record_updated",
+                        "record_matched",
+                        "record_deleted",
+                        "date_reached",
+                        "schedule"
+                    ]
+                }
+            }
+        },
+        "WorkflowValue": {
+            "type": "object",
+            "required": [
+                "kind"
+            ],
+            "properties": {
+                "const": {
+                    "type": "object"
+                },
+                "formula": {
+                    "type": "string"
+                },
+                "kind": {
+                    "type": "string",
+                    "enum": [
+                        "const",
+                        "var",
+                        "template",
+                        "formula"
+                    ]
+                },
+                "template": {
+                    "type": "string"
+                },
+                "var": {
+                    "type": "string"
+                }
+            }
+        },
+        "db.WorkflowRunStatus": {
+            "type": "string",
+            "enum": [
+                "queued",
+                "running",
+                "succeeded",
+                "failed",
+                "rejected"
+            ],
+            "x-enum-varnames": [
+                "WorkflowRunQueued",
+                "WorkflowRunRunning",
+                "WorkflowRunSucceeded",
+                "WorkflowRunFailed",
+                "WorkflowRunRejected"
+            ]
+        },
+        "workflow.Spec": {
+            "type": "object",
+            "required": [
+                "async",
+                "steps",
+                "trigger"
+            ],
+            "properties": {
+                "async": {
+                    "description": "Async holds the flows an API trigger runs in the background after request events; empty for other triggers.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/WorkflowAsyncFlow"
+                    }
+                },
+                "steps": {
+                    "description": "Steps is the main flow: executed synchronously to build the response for API triggers, and in the background for other triggers.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/WorkflowStep"
+                    }
+                },
+                "timezone": {
+                    "description": "Timezone is the IANA time zone in which formulas handle dates, e.g. Asia/Shanghai; UTC is used when it is empty or invalid.",
+                    "type": "string"
+                },
+                "trigger": {
+                    "$ref": "#/definitions/WorkflowTrigger"
                 }
             }
         }

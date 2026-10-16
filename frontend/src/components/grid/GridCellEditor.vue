@@ -119,7 +119,6 @@ function onDate(_v: unknown, date?: Date) {
     v-if="isTextual"
     class="text-editor"
     :style="{ left: rect.left + 'px', top: rect.top + 'px', width: rect.width + 'px', minHeight: rect.height + 'px' }"
-    @mousedown.stop
   >
     <textarea
       v-if="field.type === 'text'"

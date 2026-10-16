@@ -206,7 +206,7 @@ function onEnter(e: KeyboardEvent, i: number) {
         :style="rowStyle(o.uid, i)"
         @transitionend="onTransitionEnd($event, o.uid)"
       >
-        <span class="grip" @pointerdown.prevent="startDrag($event, o.uid, i)">
+        <span class="grip" @pointerdown="startDrag($event, o.uid, i)" @mousedown.prevent>
           <GripVertical :size="14" />
         </span>
         <button type="button" class="color-dot" :aria-label="t('appearance.chooseColor')" :style="{ background: tagColor(o.color, themeStore.theme).bg }" @click="openPalette($event, o.uid)" />
