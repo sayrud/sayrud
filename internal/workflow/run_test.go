@@ -23,13 +23,6 @@ import (
 	"github.com/wuhan005/sayrud/internal/db"
 )
 
-func mustTime(t *testing.T, s string) time.Time {
-	t.Helper()
-	v, err := time.Parse(time.RFC3339, s)
-	require.NoError(t, err)
-	return v
-}
-
 func newTestDB(t *testing.T) *gorm.DB {
 	t.Helper()
 	if os.Getenv("PGHOST") == "" {

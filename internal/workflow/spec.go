@@ -315,11 +315,11 @@ func (s *Spec) Normalize() {
 		s.Async = []AsyncFlow{}
 	}
 	t := &s.Trigger
-	switch {
-	case t.Type == "":
+	switch t.Type {
+	case "":
 		t.API, t.Record, t.Schedule = nil, nil, nil
 		s.Async = []AsyncFlow{}
-	case t.Type == TriggerAPI:
+	case TriggerAPI:
 		if t.API == nil {
 			t.API = &APITrigger{Method: "POST", Auth: Auth{Type: AuthNone}, RateLimit: RateLimit{Limit: 60, Window: 60}}
 		}
@@ -327,7 +327,7 @@ func (s *Spec) Normalize() {
 			t.API.Params = []Param{}
 		}
 		t.Record, t.Schedule = nil, nil
-	case t.Type == TriggerSchedule:
+	case TriggerSchedule:
 		if t.Schedule == nil {
 			t.Schedule = &ScheduleTrigger{Repeat: RepeatDaily}
 		}

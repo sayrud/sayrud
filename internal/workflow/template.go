@@ -24,11 +24,6 @@ func NewID(prefix string) string {
 	return prefix + strings.ToLower(randstr.String(8))
 }
 
-func constValue(v interface{}) Value {
-	raw, _ := json.Marshal(v)
-	return Value{Kind: ValueConst, Const: raw}
-}
-
 func varValue(path string) *Value {
 	return &Value{Kind: ValueVar, Var: path}
 }
