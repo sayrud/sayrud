@@ -186,6 +186,10 @@ func TestCommitAccessErrors(t *testing.T) {
 			project, table, user := testProject(t, gormDB, hub)
 			before, err := db.NewSLTablesStore(gormDB).GetByID(context.Background(), table.ID)
 			require.NoError(t, err)
+			// Registering gorm callbacks is not concurrency-safe; wait for background queries started by testProject's commit.
+			waitCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			require.NoError(t, hub.WaitBackground(waitCtx))
 			require.NoError(t, gormDB.Callback().Query().Before("gorm:query").Register("test:access_error", func(tx *gorm.DB) {
 				if tx.Statement.Table == "user_sessions" {
 					_ = tx.AddError(tc.err)
