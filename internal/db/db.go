@@ -50,7 +50,7 @@ func Init() (*gorm.DB, error) {
 
 		&File{},
 
-		&Workflow{}, &WorkflowRevision{}, &WorkflowRun{}, &WorkflowJob{}, &WorkflowKey{}, &Credential{},
+		&Workflow{}, &WorkflowRevision{}, &WorkflowRun{}, &WorkflowJob{}, &WorkflowKey{}, &Credential{}, &WorkflowPlugin{},
 	}
 
 	// Serialize startup DDL across replicas. A transaction releases the advisory
@@ -113,6 +113,7 @@ func SetDatabaseStore(db *gorm.DB) {
 	WorkflowJobs = NewWorkflowJobsStore(db)
 	WorkflowKeys = NewWorkflowKeysStore(db)
 	Credentials = NewCredentialsStore(db)
+	WorkflowPlugins = NewWorkflowPluginsStore(db)
 }
 
 // dropLegacyApis drops the legacy apis table designed by kind: it was never wired to the routes, and its unique index limits each project to a single API.

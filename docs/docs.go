@@ -1424,6 +1424,332 @@ const docTemplate = `{
                 }
             }
         },
+        "/admin/workflow-plugins": {
+            "get": {
+                "description": "Requires the admin. The built-in nodes are listed too, their texts are frontend i18n keys.",
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "List the workflow node plugins",
+                "operationId": "listAdminWorkflowPlugins",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/ListWorkflowPluginsResp"
+                        }
+                    },
+                    "403": {
+                        "description": "Not an admin",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Requires the admin. A plugin with the same manifest id is replaced and keeps its enabled state; the workflows use the new version right away.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "Install or upgrade a workflow node plugin",
+                "operationId": "installAdminWorkflowPlugin",
+                "parameters": [
+                    {
+                        "description": "Source",
+                        "name": "data",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/InstallWorkflowPlugin"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/WorkflowPlugin"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid plugin",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "403": {
+                        "description": "Not an admin",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/workflow-plugins/inspect": {
+            "post": {
+                "description": "Requires the admin. Compile the source, or download it from the URL first, and validate the manifest without installing.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "Check a workflow node plugin before installing",
+                "operationId": "inspectAdminWorkflowPlugin",
+                "parameters": [
+                    {
+                        "description": "Source or URL",
+                        "name": "data",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/InspectWorkflowPlugin"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/InspectWorkflowPluginResp"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid plugin",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "403": {
+                        "description": "Not an admin",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/workflow-plugins/test": {
+            "post": {
+                "description": "Requires the admin. Run execute of the unsaved source or of the installed plugin with the config as is, and return the result and the logs. Requests are sent for real.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "Test a workflow node plugin",
+                "operationId": "testAdminWorkflowPlugin",
+                "parameters": [
+                    {
+                        "description": "Plugin and config",
+                        "name": "data",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/TestWorkflowPlugin"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/TestWorkflowPluginResp"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid plugin",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "403": {
+                        "description": "Not an admin",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "404": {
+                        "description": "Plugin not found",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/workflow-plugins/{pluginID}": {
+            "get": {
+                "description": "Requires the admin.",
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "Get a workflow node plugin with its source",
+                "operationId": "getAdminWorkflowPlugin",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Plugin ID",
+                        "name": "pluginID",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/WorkflowPlugin"
+                        }
+                    },
+                    "403": {
+                        "description": "Not an admin",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "404": {
+                        "description": "Plugin not found",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Requires the admin. The workflows using the node keep their steps, which fail until the plugin is installed again.",
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "Uninstall a workflow node plugin",
+                "operationId": "uninstallAdminWorkflowPlugin",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Plugin ID",
+                        "name": "pluginID",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "403": {
+                        "description": "Not an admin",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "404": {
+                        "description": "Plugin not found",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/workflow-plugins/{pluginID}/enabled": {
+            "put": {
+                "description": "Requires the admin. A disabled node can not be added, published or executed, its steps are kept.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "Enable or disable a workflow node plugin",
+                "operationId": "setAdminWorkflowPluginEnabled",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Plugin ID",
+                        "name": "pluginID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Enabled",
+                        "name": "data",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/SetWorkflowPluginEnabled"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/WorkflowPlugin"
+                        }
+                    },
+                    "403": {
+                        "description": "Not an admin",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "404": {
+                        "description": "Plugin not found",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
         "/auth/account": {
             "delete": {
                 "description": "The projects owned by the user must be deleted or transferred first, and the last admin can not be deleted. Users without a password confirm with their email instead.",
@@ -5316,7 +5642,7 @@ const docTemplate = `{
         },
         "/projects/{projectUID}/workflow-modules": {
             "get": {
-                "description": "Return the JSON DSL definitions the editor renders the nodes and the configuration forms with.",
+                "description": "Return the JSON DSL definitions the editor renders the nodes and the configuration forms with. The texts of the installed plugins are in the language of the request.",
                 "produces": [
                     "application/json"
                 ],
@@ -8290,6 +8616,91 @@ const docTemplate = `{
                 }
             }
         },
+        "InspectWorkflowPlugin": {
+            "type": "object",
+            "properties": {
+                "language": {
+                    "description": "Language of Source, javascript by default.",
+                    "type": "string",
+                    "enum": [
+                        "javascript",
+                        "typescript"
+                    ]
+                },
+                "source": {
+                    "type": "string"
+                },
+                "url": {
+                    "description": "URL is an http or https address of the source.",
+                    "type": "string"
+                }
+            }
+        },
+        "InspectWorkflowPluginResp": {
+            "type": "object",
+            "required": [
+                "hasPreview",
+                "language",
+                "plugin",
+                "source"
+            ],
+            "properties": {
+                "hasPreview": {
+                    "description": "HasPreview reports whether the plugin exports preview for simulated debugging.",
+                    "type": "boolean"
+                },
+                "installed": {
+                    "description": "Installed is the plugin of the same id that would be replaced, nil if it is not installed.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/WorkflowPlugin"
+                        }
+                    ]
+                },
+                "language": {
+                    "type": "string",
+                    "enum": [
+                        "javascript",
+                        "typescript"
+                    ]
+                },
+                "plugin": {
+                    "description": "Plugin is the plugin as it would be installed.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/WorkflowPlugin"
+                        }
+                    ]
+                },
+                "source": {
+                    "description": "Source is the checked source, downloaded when inspecting a URL.",
+                    "type": "string"
+                }
+            }
+        },
+        "InstallWorkflowPlugin": {
+            "type": "object",
+            "required": [
+                "source"
+            ],
+            "properties": {
+                "language": {
+                    "description": "Language of Source, javascript by default.",
+                    "type": "string",
+                    "enum": [
+                        "javascript",
+                        "typescript"
+                    ]
+                },
+                "source": {
+                    "type": "string"
+                },
+                "sourceURL": {
+                    "description": "SourceURL is the address the source was downloaded from, kept for reference.",
+                    "type": "string"
+                }
+            }
+        },
         "LDAPSignIn": {
             "type": "object",
             "required": [
@@ -8480,6 +8891,28 @@ const docTemplate = `{
                 },
                 "total": {
                     "type": "integer"
+                }
+            }
+        },
+        "ListWorkflowPluginsResp": {
+            "type": "object",
+            "required": [
+                "builtins",
+                "plugins"
+            ],
+            "properties": {
+                "builtins": {
+                    "description": "Builtins are the built-in nodes, whose texts are frontend i18n keys.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/WorkflowModuleDef"
+                    }
+                },
+                "plugins": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/WorkflowPlugin"
+                    }
                 }
             }
         },
@@ -9305,6 +9738,17 @@ const docTemplate = `{
                 }
             }
         },
+        "SetWorkflowPluginEnabled": {
+            "type": "object",
+            "required": [
+                "enabled"
+            ],
+            "properties": {
+                "enabled": {
+                    "type": "boolean"
+                }
+            }
+        },
         "SharedProject": {
             "type": "object",
             "required": [
@@ -9891,6 +10335,64 @@ const docTemplate = `{
                 },
                 "value": {
                     "description": "Value is the value returned by execute, before converting to the cell value.",
+                    "type": "object"
+                }
+            }
+        },
+        "TestWorkflowPlugin": {
+            "type": "object",
+            "required": [
+                "config"
+            ],
+            "properties": {
+                "config": {
+                    "description": "Config is passed to execute as is, so credential fields hold the credential values.",
+                    "type": "object",
+                    "additionalProperties": true
+                },
+                "language": {
+                    "type": "string",
+                    "enum": [
+                        "javascript",
+                        "typescript"
+                    ]
+                },
+                "pluginID": {
+                    "type": "string"
+                },
+                "source": {
+                    "type": "string"
+                }
+            }
+        },
+        "TestWorkflowPluginResp": {
+            "type": "object",
+            "required": [
+                "durationMs",
+                "fetches",
+                "logs"
+            ],
+            "properties": {
+                "durationMs": {
+                    "type": "integer"
+                },
+                "error": {
+                    "description": "Error is the reason of the failure, empty if succeeded.",
+                    "type": "string"
+                },
+                "fetches": {
+                    "description": "Fetches is the number of the requests made by ctx.fetch.",
+                    "type": "integer"
+                },
+                "logs": {
+                    "description": "Logs are the lines printed by console and ctx.log.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "value": {
+                    "description": "Value is the value returned by the hook.",
                     "type": "object"
                 }
             }
@@ -10997,6 +11499,14 @@ const docTemplate = `{
                         "$ref": "#/definitions/WorkflowOutputDef"
                     }
                 },
+                "plugin": {
+                    "description": "Plugin is the installed plugin implementing the module, nil for built-in modules; texts of plugin modules are plain text rather than i18n keys.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/WorkflowModulePlugin"
+                        }
+                    ]
+                },
                 "sections": {
                     "type": "array",
                     "items": {
@@ -11015,6 +11525,32 @@ const docTemplate = `{
                     "type": "boolean"
                 },
                 "type": {
+                    "type": "string"
+                }
+            }
+        },
+        "WorkflowModulePlugin": {
+            "type": "object",
+            "required": [
+                "enabled",
+                "id",
+                "version"
+            ],
+            "properties": {
+                "author": {
+                    "type": "string"
+                },
+                "enabled": {
+                    "description": "Enabled is false when the admin disabled the plugin: its steps are kept but can not be added, published or executed.",
+                    "type": "boolean"
+                },
+                "homepage": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "version": {
                     "type": "string"
                 }
             }
@@ -11223,6 +11759,91 @@ const docTemplate = `{
                 "queued": {
                     "description": "Queued is false for a dry run, which only lists the flows that would be triggered.",
                     "type": "boolean"
+                }
+            }
+        },
+        "WorkflowPlugin": {
+            "type": "object",
+            "required": [
+                "checksum",
+                "createdAt",
+                "domains",
+                "enabled",
+                "id",
+                "language",
+                "module",
+                "sourceURL",
+                "timeout",
+                "updatedAt",
+                "usedBy",
+                "version"
+            ],
+            "properties": {
+                "checksum": {
+                    "type": "string"
+                },
+                "createdAt": {
+                    "type": "string"
+                },
+                "credential": {
+                    "description": "Credential is the credential type defined by the plugin, nil if there is none.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/WorkflowCredentialTypeDef"
+                        }
+                    ]
+                },
+                "domains": {
+                    "description": "Domains are the hosts the node can fetch, including their subdomains; * allows any public host.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "enabled": {
+                    "type": "boolean"
+                },
+                "id": {
+                    "description": "ID is the id of the manifest; the steps of the node have the type plugin:\u003cid\u003e.",
+                    "type": "string"
+                },
+                "language": {
+                    "description": "Language is the source language, javascript or typescript.",
+                    "type": "string",
+                    "enum": [
+                        "javascript",
+                        "typescript"
+                    ]
+                },
+                "module": {
+                    "description": "Module is the node DSL rendered by the workflow editor.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/WorkflowModuleDef"
+                        }
+                    ]
+                },
+                "source": {
+                    "description": "Source is the source code, only returned when getting a single plugin.",
+                    "type": "string"
+                },
+                "sourceURL": {
+                    "description": "SourceURL is the address the source was downloaded from, empty if uploaded or written by hand.",
+                    "type": "string"
+                },
+                "timeout": {
+                    "description": "Timeout is the time limit of a call in seconds.",
+                    "type": "integer"
+                },
+                "updatedAt": {
+                    "type": "string"
+                },
+                "usedBy": {
+                    "description": "UsedBy is the number of workflows whose draft or published revision uses the node.",
+                    "type": "integer"
+                },
+                "version": {
+                    "type": "string"
                 }
             }
         },
@@ -11520,16 +12141,8 @@ const docTemplate = `{
                     }
                 },
                 "type": {
-                    "type": "string",
-                    "enum": [
-                        "query",
-                        "create",
-                        "update",
-                        "condition",
-                        "response",
-                        "email",
-                        "http"
-                    ]
+                    "description": "Type is a built-in module (query, create, update, condition, response, email, http) or an installed plugin (plugin:\u003cid\u003e).",
+                    "type": "string"
                 }
             }
         },
@@ -11581,6 +12194,13 @@ const docTemplate = `{
                 },
                 "error": {
                     "type": "string"
+                },
+                "logs": {
+                    "description": "Logs are the lines printed by a plugin node.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 },
                 "name": {
                     "type": "string"

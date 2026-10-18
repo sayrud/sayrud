@@ -556,6 +556,34 @@ export interface ImportUpload {
   uid: string;
 }
 
+export interface InspectWorkflowPlugin {
+  /** Language of Source, javascript by default. */
+  language?: "javascript" | "typescript";
+  source?: string;
+  /** URL is an http or https address of the source. */
+  url?: string;
+}
+
+export interface InspectWorkflowPluginResp {
+  /** HasPreview reports whether the plugin exports preview for simulated debugging. */
+  hasPreview: boolean;
+  /** Installed is the plugin of the same id that would be replaced, nil if it is not installed. */
+  installed?: WorkflowPlugin;
+  language: "javascript" | "typescript";
+  /** Plugin is the plugin as it would be installed. */
+  plugin: WorkflowPlugin;
+  /** Source is the checked source, downloaded when inspecting a URL. */
+  source: string;
+}
+
+export interface InstallWorkflowPlugin {
+  /** Language of Source, javascript by default. */
+  language?: "javascript" | "typescript";
+  source: string;
+  /** SourceURL is the address the source was downloaded from, kept for reference. */
+  sourceURL?: string;
+}
+
 export interface LDAPSignIn {
   password: string;
   username: string;
@@ -612,6 +640,12 @@ export interface ListRecordsResp {
 export interface ListTablesResp {
   tables: TableListItem[];
   total: number;
+}
+
+export interface ListWorkflowPluginsResp {
+  /** Builtins are the built-in nodes, whose texts are frontend i18n keys. */
+  builtins: WorkflowModuleDef[];
+  plugins: WorkflowPlugin[];
 }
 
 export interface ListWorkflowRunsResp {
@@ -882,6 +916,10 @@ export interface SetWorkflowEnabled {
   enabled: boolean;
 }
 
+export interface SetWorkflowPluginEnabled {
+  enabled: boolean;
+}
+
 export interface SharedProject {
   includeChildren: boolean;
   project: Project;
@@ -1090,6 +1128,26 @@ export interface TestFieldShortcutResp {
   /** Logs are the lines printed by console and context.log, with the credential values redacted. */
   logs: string[];
   /** Value is the value returned by execute, before converting to the cell value. */
+  value?: object;
+}
+
+export interface TestWorkflowPlugin {
+  /** Config is passed to execute as is, so credential fields hold the credential values. */
+  config: Record<string, any>;
+  language?: "javascript" | "typescript";
+  pluginID?: string;
+  source?: string;
+}
+
+export interface TestWorkflowPluginResp {
+  durationMs: number;
+  /** Error is the reason of the failure, empty if succeeded. */
+  error?: string;
+  /** Fetches is the number of the requests made by ctx.fetch. */
+  fetches: number;
+  /** Logs are the lines printed by console and ctx.log. */
+  logs: string[];
+  /** Value is the value returned by the hook. */
   value?: object;
 }
 
@@ -1473,6 +1531,8 @@ export interface WorkflowModuleDef {
   label: string;
   order: number;
   outputs: WorkflowOutputDef[];
+  /** Plugin is the installed plugin implementing the module, nil for built-in modules; texts of plugin modules are plain text rather than i18n keys. */
+  plugin?: WorkflowModulePlugin;
   sections: WorkflowSectionDef[];
   summary?: WorkflowSummaryDef;
   /** TableKey is the config field referencing a table. */
@@ -1480,6 +1540,15 @@ export interface WorkflowModuleDef {
   /** Terminal marks modules that return the response and end the sync flow. */
   terminal?: boolean;
   type: string;
+}
+
+export interface WorkflowModulePlugin {
+  author?: string;
+  /** Enabled is false when the admin disabled the plugin: its steps are kept but can not be added, published or executed. */
+  enabled: boolean;
+  homepage?: string;
+  id: string;
+  version: string;
 }
 
 export interface WorkflowModules {
@@ -1550,6 +1619,32 @@ export interface WorkflowPlannedJob {
   name: string;
   /** Queued is false for a dry run, which only lists the flows that would be triggered. */
   queued: boolean;
+}
+
+export interface WorkflowPlugin {
+  checksum: string;
+  createdAt: string;
+  /** Credential is the credential type defined by the plugin, nil if there is none. */
+  credential?: WorkflowCredentialTypeDef;
+  /** Domains are the hosts the node can fetch, including their subdomains; * allows any public host. */
+  domains: string[];
+  enabled: boolean;
+  /** ID is the id of the manifest; the steps of the node have the type plugin:<id>. */
+  id: string;
+  /** Language is the source language, javascript or typescript. */
+  language: "javascript" | "typescript";
+  /** Module is the node DSL rendered by the workflow editor. */
+  module: WorkflowModuleDef;
+  /** Source is the source code, only returned when getting a single plugin. */
+  source?: string;
+  /** SourceURL is the address the source was downloaded from, empty if uploaded or written by hand. */
+  sourceURL: string;
+  /** Timeout is the time limit of a call in seconds. */
+  timeout: number;
+  updatedAt: string;
+  /** UsedBy is the number of workflows whose draft or published revision uses the node. */
+  usedBy: number;
+  version: string;
 }
 
 export interface WorkflowRateLimit {
@@ -1643,14 +1738,8 @@ export interface WorkflowStep {
   name?: string;
   /** Then and Else are the branches of a branching module (condition). */
   then?: WorkflowStep[];
-  type:
-    | "query"
-    | "create"
-    | "update"
-    | "condition"
-    | "response"
-    | "email"
-    | "http";
+  /** Type is a built-in module (query, create, update, condition, response, email, http) or an installed plugin (plugin:<id>). */
+  type: string;
 }
 
 export interface WorkflowSummaryDef {
@@ -1668,6 +1757,8 @@ export interface WorkflowTraceStep {
   branch?: string;
   durationMs: number;
   error?: string;
+  /** Logs are the lines printed by a plugin node. */
+  logs?: string[];
   name?: string;
   /** Output is the truncated step output. */
   output?: object;
@@ -1773,6 +1864,20 @@ export type ResetAdminUserPasswordData = any;
 export type RevokeAdminUserSessionsData = any;
 
 export type SetAdminUserStatusData = any;
+
+export type ListAdminWorkflowPluginsData = ListWorkflowPluginsResp;
+
+export type InstallAdminWorkflowPluginData = WorkflowPlugin;
+
+export type InspectAdminWorkflowPluginData = InspectWorkflowPluginResp;
+
+export type TestAdminWorkflowPluginData = TestWorkflowPluginResp;
+
+export type GetAdminWorkflowPluginData = WorkflowPlugin;
+
+export type UninstallAdminWorkflowPluginData = any;
+
+export type SetAdminWorkflowPluginEnabledData = WorkflowPlugin;
 
 export type DeleteAccountData = any;
 
@@ -2719,6 +2824,134 @@ export class Api<
         method: "PUT",
         body: data,
         type: ContentType.Json,
+        ...params,
+      }),
+
+    /**
+     * @description Requires the admin. The built-in nodes are listed too, their texts are frontend i18n keys.
+     *
+     * @name ListAdminWorkflowPlugins
+     * @summary List the workflow node plugins
+     * @request GET:/admin/workflow-plugins
+     */
+    listAdminWorkflowPlugins: (params: RequestParams = {}) =>
+      this.request<ListAdminWorkflowPluginsData, string>({
+        path: `/admin/workflow-plugins`,
+        method: "GET",
+        format: "json",
+        ...params,
+      }),
+
+    /**
+     * @description Requires the admin. A plugin with the same manifest id is replaced and keeps its enabled state; the workflows use the new version right away.
+     *
+     * @name InstallAdminWorkflowPlugin
+     * @summary Install or upgrade a workflow node plugin
+     * @request POST:/admin/workflow-plugins
+     */
+    installAdminWorkflowPlugin: (
+      data: InstallWorkflowPlugin,
+      params: RequestParams = {},
+    ) =>
+      this.request<InstallAdminWorkflowPluginData, string>({
+        path: `/admin/workflow-plugins`,
+        method: "POST",
+        body: data,
+        type: ContentType.Json,
+        format: "json",
+        ...params,
+      }),
+
+    /**
+     * @description Requires the admin. Compile the source, or download it from the URL first, and validate the manifest without installing.
+     *
+     * @name InspectAdminWorkflowPlugin
+     * @summary Check a workflow node plugin before installing
+     * @request POST:/admin/workflow-plugins/inspect
+     */
+    inspectAdminWorkflowPlugin: (
+      data: InspectWorkflowPlugin,
+      params: RequestParams = {},
+    ) =>
+      this.request<InspectAdminWorkflowPluginData, string>({
+        path: `/admin/workflow-plugins/inspect`,
+        method: "POST",
+        body: data,
+        type: ContentType.Json,
+        format: "json",
+        ...params,
+      }),
+
+    /**
+     * @description Requires the admin. Run execute of the unsaved source or of the installed plugin with the config as is, and return the result and the logs. Requests are sent for real.
+     *
+     * @name TestAdminWorkflowPlugin
+     * @summary Test a workflow node plugin
+     * @request POST:/admin/workflow-plugins/test
+     */
+    testAdminWorkflowPlugin: (
+      data: TestWorkflowPlugin,
+      params: RequestParams = {},
+    ) =>
+      this.request<TestAdminWorkflowPluginData, string>({
+        path: `/admin/workflow-plugins/test`,
+        method: "POST",
+        body: data,
+        type: ContentType.Json,
+        format: "json",
+        ...params,
+      }),
+
+    /**
+     * @description Requires the admin.
+     *
+     * @name GetAdminWorkflowPlugin
+     * @summary Get a workflow node plugin with its source
+     * @request GET:/admin/workflow-plugins/{pluginID}
+     */
+    getAdminWorkflowPlugin: (pluginId: string, params: RequestParams = {}) =>
+      this.request<GetAdminWorkflowPluginData, string>({
+        path: `/admin/workflow-plugins/${pluginId}`,
+        method: "GET",
+        format: "json",
+        ...params,
+      }),
+
+    /**
+     * @description Requires the admin. The workflows using the node keep their steps, which fail until the plugin is installed again.
+     *
+     * @name UninstallAdminWorkflowPlugin
+     * @summary Uninstall a workflow node plugin
+     * @request DELETE:/admin/workflow-plugins/{pluginID}
+     */
+    uninstallAdminWorkflowPlugin: (
+      pluginId: string,
+      params: RequestParams = {},
+    ) =>
+      this.request<UninstallAdminWorkflowPluginData, string>({
+        path: `/admin/workflow-plugins/${pluginId}`,
+        method: "DELETE",
+        ...params,
+      }),
+
+    /**
+     * @description Requires the admin. A disabled node can not be added, published or executed, its steps are kept.
+     *
+     * @name SetAdminWorkflowPluginEnabled
+     * @summary Enable or disable a workflow node plugin
+     * @request PUT:/admin/workflow-plugins/{pluginID}/enabled
+     */
+    setAdminWorkflowPluginEnabled: (
+      pluginId: string,
+      data: SetWorkflowPluginEnabled,
+      params: RequestParams = {},
+    ) =>
+      this.request<SetAdminWorkflowPluginEnabledData, string>({
+        path: `/admin/workflow-plugins/${pluginId}/enabled`,
+        method: "PUT",
+        body: data,
+        type: ContentType.Json,
+        format: "json",
         ...params,
       }),
   };
@@ -4111,7 +4344,7 @@ export class Api<
       }),
 
     /**
-     * @description Return the JSON DSL definitions the editor renders the nodes and the configuration forms with.
+     * @description Return the JSON DSL definitions the editor renders the nodes and the configuration forms with. The texts of the installed plugins are in the language of the request.
      *
      * @name ListWorkflowModules
      * @summary List the step modules and credential types

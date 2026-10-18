@@ -14,7 +14,7 @@ import { useThemeStore } from '@/stores/theme'
 
 const props = withDefaults(
   defineProps<{
-    language?: 'javascript' | 'json'
+    language?: 'javascript' | 'typescript' | 'json'
     /** Fixed height overrides minHeight and maxHeight. */
     height?: string
     minHeight?: string
@@ -127,7 +127,7 @@ onMounted(() => {
         ),
         syntaxHighlighting(highlightStyle),
         EditorState.tabSize.of(2),
-        props.language === 'json' ? [json(), linter(jsonParseLinter(), { delay: 300 })] : javascript(),
+        props.language === 'json' ? [json(), linter(jsonParseLinter(), { delay: 300 })] : javascript({ typescript: props.language === 'typescript' }),
         EditorState.readOnly.of(props.readonly),
         EditorView.editable.of(!props.readonly),
         themeSlot.of(editorTheme(themeStore.theme === 'dark')),

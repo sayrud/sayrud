@@ -38,6 +38,8 @@ type TraceStep struct {
 	// Output is the truncated step output.
 	Output json.RawMessage `json:"output,omitempty" swaggertype:"object"`
 	Error  string          `json:"error,omitempty"`
+	// Logs are the lines printed by a plugin node.
+	Logs []string `json:"logs,omitempty"`
 	// Reused means an async retry reused the output of the previous successful attempt.
 	Reused bool `json:"reused,omitempty"`
 } // @name WorkflowTraceStep
@@ -126,6 +128,8 @@ type execution struct {
 	persist func(tx *gorm.DB, stepID string, output interface{}) error
 
 	response *Response
+	// logs are the lines printed by the running plugin step, moved into its trace.
+	logs []string
 }
 
 func (x *execution) addTrace(step *Step, status string, start time.Time, output interface{}, err error) {
@@ -136,6 +140,7 @@ func (x *execution) addTrace(step *Step, status string, start time.Time, output 
 	if err != nil {
 		t.Error = publicError(err)
 	}
+	t.Logs, x.logs = x.logs, nil
 	x.trace = append(x.trace, t)
 }
 
@@ -260,6 +265,9 @@ func (x *execution) runStep(step *Step) (bool, error) {
 	}
 
 	impl, ok := moduleImpls[step.Type]
+	if !ok {
+		impl, ok = pluginImpl(step.Type)
+	}
 	if !ok || impl.exec == nil {
 		err := &StepError{StepID: step.ID, Code: ErrCodeConfig, Status: http.StatusInternalServerError, Err: errors.Newf("unsupported step type %q", step.Type)}
 		x.addTrace(step, TraceFailed, start, nil, err)

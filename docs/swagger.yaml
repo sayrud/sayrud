@@ -1126,6 +1126,66 @@ definitions:
     - sheets
     - uid
     type: object
+  InspectWorkflowPlugin:
+    properties:
+      language:
+        description: Language of Source, javascript by default.
+        enum:
+        - javascript
+        - typescript
+        type: string
+      source:
+        type: string
+      url:
+        description: URL is an http or https address of the source.
+        type: string
+    type: object
+  InspectWorkflowPluginResp:
+    properties:
+      hasPreview:
+        description: HasPreview reports whether the plugin exports preview for simulated
+          debugging.
+        type: boolean
+      installed:
+        allOf:
+        - $ref: '#/definitions/WorkflowPlugin'
+        description: Installed is the plugin of the same id that would be replaced,
+          nil if it is not installed.
+      language:
+        enum:
+        - javascript
+        - typescript
+        type: string
+      plugin:
+        allOf:
+        - $ref: '#/definitions/WorkflowPlugin'
+        description: Plugin is the plugin as it would be installed.
+      source:
+        description: Source is the checked source, downloaded when inspecting a URL.
+        type: string
+    required:
+    - hasPreview
+    - language
+    - plugin
+    - source
+    type: object
+  InstallWorkflowPlugin:
+    properties:
+      language:
+        description: Language of Source, javascript by default.
+        enum:
+        - javascript
+        - typescript
+        type: string
+      source:
+        type: string
+      sourceURL:
+        description: SourceURL is the address the source was downloaded from, kept
+          for reference.
+        type: string
+    required:
+    - source
+    type: object
   LDAPSignIn:
     properties:
       password:
@@ -1259,6 +1319,22 @@ definitions:
     required:
     - tables
     - total
+    type: object
+  ListWorkflowPluginsResp:
+    properties:
+      builtins:
+        description: Builtins are the built-in nodes, whose texts are frontend i18n
+          keys.
+        items:
+          $ref: '#/definitions/WorkflowModuleDef'
+        type: array
+      plugins:
+        items:
+          $ref: '#/definitions/WorkflowPlugin'
+        type: array
+    required:
+    - builtins
+    - plugins
     type: object
   ListWorkflowRunsResp:
     properties:
@@ -1875,6 +1951,13 @@ definitions:
     required:
     - enabled
     type: object
+  SetWorkflowPluginEnabled:
+    properties:
+      enabled:
+        type: boolean
+    required:
+    - enabled
+    type: object
   SharedProject:
     properties:
       includeChildren:
@@ -2322,6 +2405,48 @@ definitions:
         type: object
     required:
     - durationMs
+    - logs
+    type: object
+  TestWorkflowPlugin:
+    properties:
+      config:
+        additionalProperties: true
+        description: Config is passed to execute as is, so credential fields hold
+          the credential values.
+        type: object
+      language:
+        enum:
+        - javascript
+        - typescript
+        type: string
+      pluginID:
+        type: string
+      source:
+        type: string
+    required:
+    - config
+    type: object
+  TestWorkflowPluginResp:
+    properties:
+      durationMs:
+        type: integer
+      error:
+        description: Error is the reason of the failure, empty if succeeded.
+        type: string
+      fetches:
+        description: Fetches is the number of the requests made by ctx.fetch.
+        type: integer
+      logs:
+        description: Logs are the lines printed by console and ctx.log.
+        items:
+          type: string
+        type: array
+      value:
+        description: Value is the value returned by the hook.
+        type: object
+    required:
+    - durationMs
+    - fetches
     - logs
     type: object
   TransferProjectOwner:
@@ -3143,6 +3268,12 @@ definitions:
         items:
           $ref: '#/definitions/WorkflowOutputDef'
         type: array
+      plugin:
+        allOf:
+        - $ref: '#/definitions/WorkflowModulePlugin'
+        description: Plugin is the installed plugin implementing the module, nil for
+          built-in modules; texts of plugin modules are plain text rather than i18n
+          keys.
       sections:
         items:
           $ref: '#/definitions/WorkflowSectionDef'
@@ -3171,6 +3302,25 @@ definitions:
     - outputs
     - sections
     - type
+    type: object
+  WorkflowModulePlugin:
+    properties:
+      author:
+        type: string
+      enabled:
+        description: 'Enabled is false when the admin disabled the plugin: its steps
+          are kept but can not be added, published or executed.'
+        type: boolean
+      homepage:
+        type: string
+      id:
+        type: string
+      version:
+        type: string
+    required:
+    - enabled
+    - id
+    - version
     type: object
   WorkflowModules:
     properties:
@@ -3326,6 +3476,72 @@ definitions:
     - flowID
     - name
     - queued
+    type: object
+  WorkflowPlugin:
+    properties:
+      checksum:
+        type: string
+      createdAt:
+        type: string
+      credential:
+        allOf:
+        - $ref: '#/definitions/WorkflowCredentialTypeDef'
+        description: Credential is the credential type defined by the plugin, nil
+          if there is none.
+      domains:
+        description: Domains are the hosts the node can fetch, including their subdomains;
+          * allows any public host.
+        items:
+          type: string
+        type: array
+      enabled:
+        type: boolean
+      id:
+        description: ID is the id of the manifest; the steps of the node have the
+          type plugin:<id>.
+        type: string
+      language:
+        description: Language is the source language, javascript or typescript.
+        enum:
+        - javascript
+        - typescript
+        type: string
+      module:
+        allOf:
+        - $ref: '#/definitions/WorkflowModuleDef'
+        description: Module is the node DSL rendered by the workflow editor.
+      source:
+        description: Source is the source code, only returned when getting a single
+          plugin.
+        type: string
+      sourceURL:
+        description: SourceURL is the address the source was downloaded from, empty
+          if uploaded or written by hand.
+        type: string
+      timeout:
+        description: Timeout is the time limit of a call in seconds.
+        type: integer
+      updatedAt:
+        type: string
+      usedBy:
+        description: UsedBy is the number of workflows whose draft or published revision
+          uses the node.
+        type: integer
+      version:
+        type: string
+    required:
+    - checksum
+    - createdAt
+    - domains
+    - enabled
+    - id
+    - language
+    - module
+    - sourceURL
+    - timeout
+    - updatedAt
+    - usedBy
+    - version
     type: object
   WorkflowRateLimit:
     properties:
@@ -3540,14 +3756,8 @@ definitions:
           $ref: '#/definitions/WorkflowStep'
         type: array
       type:
-        enum:
-        - query
-        - create
-        - update
-        - condition
-        - response
-        - email
-        - http
+        description: Type is a built-in module (query, create, update, condition,
+          response, email, http) or an installed plugin (plugin:<id>).
         type: string
     required:
     - config
@@ -3583,6 +3793,11 @@ definitions:
         type: integer
       error:
         type: string
+      logs:
+        description: Logs are the lines printed by a plugin node.
+        items:
+          type: string
+        type: array
       name:
         type: string
       output:
@@ -4696,6 +4911,230 @@ paths:
           schema:
             type: string
       summary: Disable or enable a user
+  /admin/workflow-plugins:
+    get:
+      description: Requires the admin. The built-in nodes are listed too, their texts
+        are frontend i18n keys.
+      operationId: listAdminWorkflowPlugins
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/ListWorkflowPluginsResp'
+        "403":
+          description: Not an admin
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      summary: List the workflow node plugins
+    post:
+      consumes:
+      - application/json
+      description: Requires the admin. A plugin with the same manifest id is replaced
+        and keeps its enabled state; the workflows use the new version right away.
+      operationId: installAdminWorkflowPlugin
+      parameters:
+      - description: Source
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/InstallWorkflowPlugin'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/WorkflowPlugin'
+        "400":
+          description: Invalid plugin
+          schema:
+            type: string
+        "403":
+          description: Not an admin
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      summary: Install or upgrade a workflow node plugin
+  /admin/workflow-plugins/{pluginID}:
+    delete:
+      description: Requires the admin. The workflows using the node keep their steps,
+        which fail until the plugin is installed again.
+      operationId: uninstallAdminWorkflowPlugin
+      parameters:
+      - description: Plugin ID
+        in: path
+        name: pluginID
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "403":
+          description: Not an admin
+          schema:
+            type: string
+        "404":
+          description: Plugin not found
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      summary: Uninstall a workflow node plugin
+    get:
+      description: Requires the admin.
+      operationId: getAdminWorkflowPlugin
+      parameters:
+      - description: Plugin ID
+        in: path
+        name: pluginID
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/WorkflowPlugin'
+        "403":
+          description: Not an admin
+          schema:
+            type: string
+        "404":
+          description: Plugin not found
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      summary: Get a workflow node plugin with its source
+  /admin/workflow-plugins/{pluginID}/enabled:
+    put:
+      consumes:
+      - application/json
+      description: Requires the admin. A disabled node can not be added, published
+        or executed, its steps are kept.
+      operationId: setAdminWorkflowPluginEnabled
+      parameters:
+      - description: Plugin ID
+        in: path
+        name: pluginID
+        required: true
+        type: string
+      - description: Enabled
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/SetWorkflowPluginEnabled'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/WorkflowPlugin'
+        "403":
+          description: Not an admin
+          schema:
+            type: string
+        "404":
+          description: Plugin not found
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      summary: Enable or disable a workflow node plugin
+  /admin/workflow-plugins/inspect:
+    post:
+      consumes:
+      - application/json
+      description: Requires the admin. Compile the source, or download it from the
+        URL first, and validate the manifest without installing.
+      operationId: inspectAdminWorkflowPlugin
+      parameters:
+      - description: Source or URL
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/InspectWorkflowPlugin'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/InspectWorkflowPluginResp'
+        "400":
+          description: Invalid plugin
+          schema:
+            type: string
+        "403":
+          description: Not an admin
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      summary: Check a workflow node plugin before installing
+  /admin/workflow-plugins/test:
+    post:
+      consumes:
+      - application/json
+      description: Requires the admin. Run execute of the unsaved source or of the
+        installed plugin with the config as is, and return the result and the logs.
+        Requests are sent for real.
+      operationId: testAdminWorkflowPlugin
+      parameters:
+      - description: Plugin and config
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/TestWorkflowPlugin'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/TestWorkflowPluginResp'
+        "400":
+          description: Invalid plugin
+          schema:
+            type: string
+        "403":
+          description: Not an admin
+          schema:
+            type: string
+        "404":
+          description: Plugin not found
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      summary: Test a workflow node plugin
   /auth/account:
     delete:
       consumes:
@@ -7349,7 +7788,8 @@ paths:
   /projects/{projectUID}/workflow-modules:
     get:
       description: Return the JSON DSL definitions the editor renders the nodes and
-        the configuration forms with.
+        the configuration forms with. The texts of the installed plugins are in the
+        language of the request.
       operationId: listWorkflowModules
       parameters:
       - description: Project UID

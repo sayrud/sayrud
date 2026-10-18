@@ -109,7 +109,19 @@ type ModuleDef struct {
 	Outputs  []OutputDef     `json:"outputs"`
 	Summary  *SummaryDef     `json:"summary,omitempty"`
 	Sections []SectionDef    `json:"sections"`
+	// Plugin is the installed plugin implementing the module, nil for built-in modules; texts of plugin modules are plain text rather than i18n keys.
+	Plugin *ModulePlugin `json:"plugin,omitempty"`
 } // @name WorkflowModuleDef
+
+// ModulePlugin describes the installed plugin of a module.
+type ModulePlugin struct {
+	ID       string `json:"id"`
+	Version  string `json:"version"`
+	Author   string `json:"author,omitempty"`
+	Homepage string `json:"homepage,omitempty"`
+	// Enabled is false when the admin disabled the plugin: its steps are kept but can not be added, published or executed.
+	Enabled bool `json:"enabled"`
+} // @name WorkflowModulePlugin
 
 // CredentialTestDef describes the test action of a credential type and its extra input.
 type CredentialTestDef struct {
@@ -211,19 +223,20 @@ func loadDefs() error {
 	return nil
 }
 
-// Modules returns the definitions of all step modules in display order.
+// Modules returns the definitions of the built-in step modules in display order.
 func Modules() []*ModuleDef {
 	return moduleList
 }
 
-// CredentialTypes returns the definitions of all credential types.
-func CredentialTypes() []*CredentialTypeDef {
-	return credentialList
-}
-
-// CredentialType returns the definition of a credential type, or nil if it does not exist.
+// CredentialType returns the definition of a built-in or plugin credential type in English, or nil if it does not exist.
 func CredentialType(t string) *CredentialTypeDef {
-	return credentialDefs[t]
+	if def := credentialDefs[t]; def != nil {
+		return def
+	}
+	if p := plugins.get(t); p != nil {
+		return p.manifest.CredentialTypeDef("en")
+	}
+	return nil
 }
 
 // moduleImpl is the backend implementation of a module; generic field checks come from the DSL, check only covers what the DSL can not express.

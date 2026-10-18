@@ -169,6 +169,19 @@ func New(opts Options) *flamego.Flame {
 					Put(form.Bind(form.SaveFieldShortcut{}), api.Admin.UpdateFieldShortcut).
 					Delete(api.Admin.DeleteFieldShortcut)
 			})
+			f.Group("/workflow-plugins", func() {
+				f.Combo("").
+					Get(api.Admin.ListWorkflowPlugins).
+					Post(form.Bind(form.InstallWorkflowPlugin{}), api.Admin.InstallWorkflowPlugin)
+				f.Post("/inspect", form.Bind(form.InspectWorkflowPlugin{}), api.Admin.InspectWorkflowPlugin)
+				f.Post("/test", form.Bind(form.TestWorkflowPlugin{}), api.Admin.TestWorkflowPlugin)
+				f.Group("/{pluginID}", func() {
+					f.Combo("").
+						Get(api.Admin.GetWorkflowPlugin).
+						Delete(api.Admin.UninstallWorkflowPlugin)
+					f.Put("/enabled", form.Bind(form.SetWorkflowPluginEnabled{}), api.Admin.SetWorkflowPluginEnabled)
+				}, api.Admin.WorkflowPluginer)
+			})
 		}, api.Auth.Authenticator, api.Admin.RequireAdmin)
 
 		f.Group("/projects", func() {

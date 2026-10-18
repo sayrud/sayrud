@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { CircleCheck, CircleDashed, CircleX, GitBranch } from '@lucide/vue'
+import { CircleCheck, CircleDashed, CircleX, GitBranch, ScrollText } from '@lucide/vue'
 import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 
@@ -45,6 +45,10 @@ function locate(s: WorkflowTraceStep) {
       </div>
       <div v-if="s.error" class="trace-error">{{ s.error }}</div>
       <pre v-if="expanded === s.stepID && s.output !== undefined" class="trace-output">{{ JSON.stringify(s.output, null, 2) }}</pre>
+      <template v-if="expanded === s.stepID && s.logs?.length">
+        <div class="trace-logs-title"><ScrollText :size="12" />{{ t('workflow.debug.logs') }}</div>
+        <pre class="trace-output trace-logs">{{ s.logs.join('\n') }}</pre>
+      </template>
     </div>
     <div v-if="!trace.length" class="trace-empty">{{ t('workflow.debug.noTrace') }}</div>
   </div>
@@ -115,6 +119,17 @@ function locate(s: WorkflowTraceStep) {
   font-size: 12px;
   white-space: pre-wrap;
   word-break: break-all;
+}
+.trace-logs-title {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin: 0 8px 4px 31px;
+  font-size: 12px;
+  color: var(--text-caption);
+}
+.trace-logs {
+  color: var(--text-body);
 }
 .trace-empty {
   padding: 16px 0;

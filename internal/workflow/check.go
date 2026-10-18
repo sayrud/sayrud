@@ -97,6 +97,34 @@ type checker struct {
 	inputKeys map[string]bool
 	// credentials caches whether a credential UID is usable.
 	credentials map[string]bool
+	// lang is the language of the plugin texts in the issue args, English when empty.
+	lang       string
+	pluginDefs map[string]*ModuleDef
+}
+
+type languageKey struct{}
+
+// WithLanguage makes Check describe the fields of plugin nodes in the language; built-in fields are i18n keys either way.
+func WithLanguage(ctx context.Context, lang string) context.Context {
+	return context.WithValue(ctx, languageKey{}, lang)
+}
+
+// moduleDef returns the module DSL with the plugin texts in the language of the check.
+func (c *checker) moduleDef(stepType string) *ModuleDef {
+	def := moduleDef(stepType)
+	if def == nil || def.Plugin == nil || c.lang == "" {
+		return def
+	}
+	if localized, ok := c.pluginDefs[stepType]; ok {
+		return localized
+	}
+	p := plugins.get(stepType)
+	if p == nil {
+		return def
+	}
+	localized := p.manifest.ModuleDef(c.lang, p.order, p.enabled)
+	c.pluginDefs[stepType] = localized
+	return localized
 }
 
 func (c *checker) add(code, target string, args ...string) {
@@ -133,10 +161,12 @@ func (c *checker) table(uid string) (*tableInfo, error) {
 
 // Check returns the issues that must be fixed before publishing, or an empty list if there are none.
 func Check(ctx context.Context, gormDB *gorm.DB, project *db.Project, spec *Spec) ([]Issue, error) {
+	SyncPlugins(ctx, false)
 	c := &checker{
 		ctx: ctx, db: gormDB, project: project, spec: spec, tables: map[string]*tableInfo{}, stepIDs: map[string]*Step{},
-		inputKeys: map[string]bool{}, credentials: map[string]bool{},
+		inputKeys: map[string]bool{}, credentials: map[string]bool{}, pluginDefs: map[string]*ModuleDef{},
 	}
+	c.lang, _ = ctx.Value(languageKey{}).(string)
 	if err := c.checkTrigger(); err != nil {
 		return nil, err
 	}
@@ -411,7 +441,7 @@ func (c *checker) checkSequence(steps []Step, scope *flowScope, kind int) (bool,
 			return false, err
 		}
 		terminated := false
-		def := moduleDefs[step.Type]
+		def := moduleDef(step.Type)
 		switch {
 		case def == nil:
 		case def.Terminal:
@@ -441,10 +471,17 @@ func (c *checker) checkSequence(steps []Step, scope *flowScope, kind int) (bool,
 
 func (c *checker) checkStep(step *Step, scope *flowScope, kind int) error {
 	target := "step:" + step.ID
-	def, impl := moduleDefs[step.Type], moduleImpls[step.Type]
+	def, impl := c.moduleDef(step.Type), moduleImpls[step.Type]
 	if def == nil {
-		c.add("step.invalid_type", target)
+		if IsPluginType(step.Type) {
+			c.add("step.plugin_missing", target, "plugin", strings.TrimPrefix(step.Type, PluginTypePrefix))
+		} else {
+			c.add("step.invalid_type", target)
+		}
 		return nil
+	}
+	if def.Plugin != nil && !def.Plugin.Enabled {
+		c.add("step.plugin_disabled", target, "plugin", def.Label)
 	}
 	if !contains(def.Flows, flowName(kind)) {
 		switch {
@@ -727,7 +764,7 @@ func (c *checker) checkValue(v *Value, scope *flowScope, target string) {
 
 // hasOutput reports whether the module DSL declares the output.
 func hasOutput(stepType, key string) bool {
-	if def := moduleDefs[stepType]; def != nil {
+	if def := moduleDef(stepType); def != nil {
 		for _, o := range def.Outputs {
 			if o.Key == key {
 				return true

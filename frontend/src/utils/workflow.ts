@@ -822,6 +822,8 @@ const ISSUE_MESSAGES: Record<string, (args: Record<string, string>) => string> =
   'step.invalid_id': () => t('workflow.issue.invalidStep'),
   'step.duplicate_id': () => t('workflow.issue.invalidStep'),
   'step.invalid_type': () => t('workflow.issue.invalidStep'),
+  'step.plugin_missing': (a) => t('workflow.issue.pluginMissing', a),
+  'step.plugin_disabled': (a) => t('workflow.issue.pluginDisabled', a),
   'flow.too_many_steps': (a) => t('workflow.issue.tooManySteps', a),
   'flow.missing_response': () => t('workflow.issue.missingResponse'),
   'step.unreachable': () => t('workflow.issue.unreachable'),

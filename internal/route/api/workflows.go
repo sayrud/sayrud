@@ -49,7 +49,7 @@ func toWorkflow(ctx context.Context, engine *workflow.Engine, project *db.Projec
 	if err != nil {
 		spec, _ = workflow.ParseSpec(nil)
 	}
-	issues, err := workflow.Check(ctx.Request().Context(), engine.DB(), project, spec)
+	issues, err := workflow.Check(workflow.WithLanguage(ctx.Request().Context(), requestLang(ctx)), engine.DB(), project, spec)
 	if err != nil {
 		return nil, err
 	}
@@ -238,7 +238,7 @@ func (workflowRoute) SaveDraft(ctx context.Context, engine *workflow.Engine, use
 		logrus.WithContext(rctx).WithError(err).Error("Failed to save workflow draft")
 		return ctx.ApiServerError()
 	}
-	issues, err := workflow.Check(rctx, engine.DB(), project, &spec)
+	issues, err := workflow.Check(workflow.WithLanguage(rctx, requestLang(ctx)), engine.DB(), project, &spec)
 	if err != nil {
 		logrus.WithContext(rctx).WithError(err).Error("Failed to check workflow")
 		return ctx.ApiServerError()
@@ -323,7 +323,7 @@ func (workflowRoute) Publish(ctx context.Context, engine *workflow.Engine, user 
 	if err != nil {
 		return ctx.ApiError(http.StatusBadRequest, "workflow::invalid_draft")
 	}
-	issues, err := workflow.Check(rctx, engine.DB(), project, spec)
+	issues, err := workflow.Check(workflow.WithLanguage(rctx, requestLang(ctx)), engine.DB(), project, spec)
 	if err != nil {
 		logrus.WithContext(rctx).WithError(err).Error("Failed to check workflow")
 		return ctx.ApiServerError()
@@ -403,7 +403,7 @@ func (workflowRoute) Rollback(ctx context.Context, engine *workflow.Engine, user
 		return ctx.ApiError(http.StatusBadRequest, "workflow::invalid_draft")
 	}
 	// The tables, fields or credentials referenced by the version may have been deleted since.
-	issues, err := workflow.Check(rctx, engine.DB(), project, spec)
+	issues, err := workflow.Check(workflow.WithLanguage(rctx, requestLang(ctx)), engine.DB(), project, spec)
 	if err != nil {
 		logrus.WithContext(rctx).WithError(err).Error("Failed to check workflow")
 		return ctx.ApiServerError()
@@ -441,7 +441,7 @@ func (workflowRoute) Debug(ctx context.Context, engine *workflow.Engine, user *d
 	} else {
 		spec.Normalize()
 	}
-	issues, err := workflow.Check(rctx, engine.DB(), project, spec)
+	issues, err := workflow.Check(workflow.WithLanguage(rctx, requestLang(ctx)), engine.DB(), project, spec)
 	if err != nil {
 		logrus.WithContext(rctx).WithError(err).Error("Failed to check workflow")
 		return ctx.ApiServerError()

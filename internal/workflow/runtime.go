@@ -223,6 +223,7 @@ func marshalJSON(v interface{}) []byte {
 
 // Run saves the run and the request received event, validates the parameters, then runs the synchronous flow and saves the result and the succeeded event in a single transaction.
 func (e *Engine) Run(ctx context.Context, in RunInput) (*RunResult, error) {
+	SyncPlugins(ctx, false)
 	start := time.Now()
 	result := &RunResult{Trace: []TraceStep{}, Errors: []ParamError{}, Jobs: []PlannedJob{}}
 	runInfo := map[string]interface{}{"time": dbutil.Now().UTC().Format(time.RFC3339), "trigger": string(in.Trigger), "timezone": in.Spec.FormulaTimezone()}
