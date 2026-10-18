@@ -12154,6 +12154,10 @@ const docTemplate = `{
                 "showIf": {
                     "type": "string"
                 },
+                "showIfValue": {
+                    "description": "ShowIfValue limits a credential section to this value of ShowIf.",
+                    "type": "string"
+                },
                 "title": {
                     "type": "string"
                 }

@@ -128,3 +128,117 @@ func TestProjectCredentialDetailsAndEditing(t *testing.T) {
 	require.NoError(t, err)
 	require.Empty(t, secrets)
 }
+
+func TestCloudCredentialSecrets(t *testing.T) {
+	sso.SetKey(make([]byte, 32))
+	t.Cleanup(func() { sso.SetKey(nil) })
+
+	for _, tt := range []struct {
+		provider string
+		data     map[string]interface{}
+		key      string
+		value    string
+	}{
+		{"tencentcloud", map[string]interface{}{"secretId": "tencent-id"}, "secretKey", "tencent-secret"},
+		{"aliyun", map[string]interface{}{"accessKeyId": "aliyun-id"}, "accessKeySecret", "aliyun-secret"},
+		{"volcengine", map[string]interface{}{"accessKeyId": "volcengine-id"}, "secretAccessKey", "volcengine-secret"},
+		{"huaweicloud", map[string]interface{}{"accessKeyId": "huawei-id"}, "secretAccessKey", "huawei-secret"},
+		{"aws", map[string]interface{}{"accessKeyId": "aws-id"}, "secretAccessKey", "aws-secret"},
+		{"azure", map[string]interface{}{"tenantId": "tenant-id", "clientId": "client-id"}, "clientSecret", "azure-secret"},
+		{"gcp", map[string]interface{}{}, "serviceAccountJson", `{"type":"service_account","project_id":"demo","client_email":"bot@demo.iam.gserviceaccount.com","private_key":"private-key-material\n"}`},
+	} {
+		t.Run(tt.provider, func(t *testing.T) {
+			def := workflow.CredentialType("cloud")
+			require.NotNil(t, def)
+			require.Contains(t, workflow.CredentialTypesIn("en"), def)
+			require.Nil(t, workflow.CredentialType(tt.provider), "providers share the cloud credential type")
+
+			tt.data["provider"] = tt.provider
+			input := form.SaveCredential{Type: "cloud", Name: "Cloud", Data: tt.data, Secrets: map[string]string{tt.key: tt.value}}
+			input.Data[tt.key] = tt.value // A secret submitted as plain data must still be discarded.
+
+			raw, sealed, err := prepareCredential(def, input, nil, nil)
+			require.NoError(t, err)
+			require.NotContains(t, string(raw), tt.value)
+			require.NotContains(t, sealed, tt.value)
+
+			opened, err := workflow.OpenSecrets(sealed)
+			require.NoError(t, err)
+			require.Equal(t, map[string]string{tt.key: tt.value}, opened)
+			require.Equal(t, tt.value, workflow.CredentialValues(raw, opened)[tt.key])
+
+			response := toCredential(&db.Credential{Type: "cloud", Data: raw, Sealed: sealed})
+			require.Equal(t, []string{tt.key}, response.Secrets)
+			body, err := json.Marshal(response)
+			require.NoError(t, err)
+			require.NotContains(t, string(body), tt.value)
+			require.NotContains(t, string(body), "private-key-material")
+
+			input.Secrets[tt.key] = ""
+			_, _, err = prepareCredential(def, input, nil, nil)
+			require.Error(t, err, "a required secret cannot be supplied in plain data")
+
+			_, kept, err := prepareCredential(def, input, opened, raw)
+			require.NoError(t, err)
+			opened, err = workflow.OpenSecrets(kept)
+			require.NoError(t, err)
+			require.Equal(t, tt.value, opened[tt.key], "blank edits preserve saved secrets")
+
+			input.ClearSecrets = []string{tt.key}
+			_, _, err = prepareCredential(def, input, opened, raw)
+			require.Error(t, err, "required cloud secrets cannot be cleared")
+
+			input.Secrets[tt.key] = strings.ReplaceAll(tt.value, "secret", "replacement")
+			input.Secrets[tt.key] = strings.ReplaceAll(input.Secrets[tt.key], "private-key-material", "rotated-private-key-material")
+			_, replaced, err := prepareCredential(def, input, opened, raw)
+			require.NoError(t, err)
+			opened, err = workflow.OpenSecrets(replaced)
+			require.NoError(t, err)
+			require.Equal(t, input.Secrets[tt.key], opened[tt.key])
+		})
+	}
+}
+
+func TestCloudCredentialSwitchProviderAPI(t *testing.T) {
+	previous := db.Credentials
+	t.Cleanup(func() { db.Credentials = previous; sso.SetKey(nil) })
+
+	sso.SetKey(make([]byte, 32))
+	sealed, err := workflow.SealSecrets(map[string]string{"secretAccessKey": "saved-aws-secret"})
+	require.NoError(t, err)
+
+	c := &db.Credential{Model: dbutil.Model{ID: 1}, UID: "cloud", ProjectID: 1, Type: "cloud", Name: "Cloud", Data: datatypes.JSON(`{"provider":"aws","accessKeyId":"aws-id"}`), Sealed: sealed}
+	db.Credentials = &projectCredentialsStore{items: map[string]*db.Credential{"cloud": c}}
+
+	router := flamego.New()
+	router.Use(i18n.Middleware(), context.Contexter(nil))
+	router.Map(&db.User{Model: dbutil.Model{ID: 7}}, c)
+	router.Put("/cloud", form.Bind(form.SaveCredential{}), Credential.Update)
+
+	request := func(body string) *httptest.ResponseRecorder {
+		t.Helper()
+
+		req := httptest.NewRequest(http.MethodPut, "/cloud", strings.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+
+		response := httptest.NewRecorder()
+		router.ServeHTTP(response, req)
+
+		require.NotContains(t, response.Body.String(), "saved-aws-secret")
+		require.NotContains(t, response.Body.String(), "new-volcengine-secret")
+
+		return response
+	}
+
+	response := request(`{"name":"Cloud","data":{"provider":"volcengine","accessKeyId":"volcengine-id"}}`)
+	require.Equal(t, http.StatusBadRequest, response.Code, response.Body.String())
+	require.Equal(t, sealed, c.Sealed, "a rejected provider switch leaves the saved credential intact")
+
+	response = request(`{"name":"Cloud","data":{"provider":"volcengine","accessKeyId":"volcengine-id"},"secrets":{"secretAccessKey":"new-volcengine-secret"}}`)
+	require.Equal(t, http.StatusOK, response.Code, response.Body.String())
+
+	secrets, err := workflow.OpenSecrets(c.Sealed)
+	require.NoError(t, err)
+	require.Equal(t, map[string]string{"secretAccessKey": "new-volcengine-secret"}, secrets)
+	require.JSONEq(t, `{"provider":"volcengine","accessKeyId":"volcengine-id"}`, string(c.Data))
+}

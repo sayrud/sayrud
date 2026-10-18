@@ -97,11 +97,12 @@ func (credentialRoute) Get(ctx context.Context, c *db.Credential) error {
 }
 
 // prepareCredential validates the submitted credential and seals its secrets; current are the saved secrets, empty on creation. Validation failures are *i18n.Error.
-func prepareCredential(def *workflow.CredentialTypeDef, f form.SaveCredential, current map[string]string) ([]byte, string, error) {
-	data, secrets, err := workflow.PrepareCredential(def, workflow.CredentialInput{Data: f.Data, Secrets: f.Secrets, ClearSecrets: f.ClearSecrets}, current)
+func prepareCredential(def *workflow.CredentialTypeDef, f form.SaveCredential, current map[string]string, currentData []byte) ([]byte, string, error) {
+	data, secrets, err := workflow.PrepareCredential(def, workflow.CredentialInput{Data: f.Data, Secrets: f.Secrets, ClearSecrets: f.ClearSecrets, CurrentData: currentData}, current)
 	if err != nil {
 		return nil, "", err
 	}
+
 	changed := false
 	for _, v := range f.Secrets {
 		changed = changed || v != ""
@@ -109,11 +110,14 @@ func prepareCredential(def *workflow.CredentialTypeDef, f form.SaveCredential, c
 	if changed && !sso.SecretsReady() {
 		return nil, "", i18n.Errorf("credential::secret_key_required")
 	}
+
 	sealed, err := workflow.SealSecrets(secrets)
 	if err != nil {
 		return nil, "", errors.Wrap(err, "seal credential secrets")
 	}
+
 	raw, _ := json.Marshal(data)
+
 	return raw, sealed, nil
 }
 
@@ -146,10 +150,12 @@ func (credentialRoute) Create(ctx context.Context, user *db.User, project *db.Pr
 	if def == nil {
 		return ctx.ApiError(http.StatusBadRequest, "credential::invalid_type")
 	}
-	data, sealed, err := prepareCredential(def, f, nil)
+
+	data, sealed, err := prepareCredential(def, f, nil, nil)
 	if err != nil {
 		return respondCredentialError(ctx, err)
 	}
+
 	c, err := db.Credentials.Create(ctx.Request().Context(), db.CreateCredentialOptions{
 		ProjectID: project.ID, Type: def.Type, Name: strings.TrimSpace(f.Name), Data: data, Sealed: sealed, UserID: user.ID,
 	})
@@ -181,14 +187,17 @@ func (credentialRoute) Update(ctx context.Context, user *db.User, c *db.Credenti
 	if def == nil {
 		return ctx.ApiError(http.StatusBadRequest, "credential::invalid_type")
 	}
+
 	current, err := workflow.OpenSecrets(c.Sealed)
 	if err != nil {
 		return ctx.ApiError(http.StatusBadRequest, "credential::secret_key_required")
 	}
-	data, sealed, err := prepareCredential(def, f, current)
+
+	data, sealed, err := prepareCredential(def, f, current, c.Data)
 	if err != nil {
 		return respondCredentialError(ctx, err)
 	}
+
 	name := strings.TrimSpace(f.Name)
 	if err := db.Credentials.Update(ctx.Request().Context(), c.ID, db.UpdateCredentialOptions{Name: name, Data: data, Sealed: sealed, UserID: user.ID}); err != nil {
 		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to update credential")
@@ -248,6 +257,8 @@ func (credentialRoute) Test(ctx context.Context, project *db.Project, f form.Tes
 		return ctx.ApiError(http.StatusBadRequest, "credential::invalid_type")
 	}
 	current := map[string]string{}
+	var currentData []byte
+
 	if f.CredentialUID != "" {
 		saved, err := db.Credentials.GetByUID(c, f.CredentialUID)
 		if err != nil || saved.ProjectID != project.ID || saved.Type != def.Type {
@@ -257,14 +268,19 @@ func (credentialRoute) Test(ctx context.Context, project *db.Project, f form.Tes
 			logrus.WithContext(c).WithError(err).Error("Failed to get credential")
 			return ctx.ApiServerError()
 		}
+
 		if current, err = workflow.OpenSecrets(saved.Sealed); err != nil {
 			return ctx.ApiError(http.StatusBadRequest, "credential::secret_key_required")
 		}
+
+		currentData = saved.Data
 	}
-	data, secrets, err := workflow.PrepareCredential(def, workflow.CredentialInput{Data: f.Data, Secrets: f.Secrets, ClearSecrets: f.ClearSecrets}, current)
+
+	data, secrets, err := workflow.PrepareCredential(def, workflow.CredentialInput{Data: f.Data, Secrets: f.Secrets, ClearSecrets: f.ClearSecrets, CurrentData: currentData}, current)
 	if err != nil {
 		return ctx.ApiErrorFrom(http.StatusBadRequest, err)
 	}
+
 	raw, _ := json.Marshal(data)
 	err = workflow.TestCredential(c, def, workflow.CredentialValues(raw, secrets), f.Input, workflow.CredentialTestMessage{
 		Subject: ctx.Tr("credential::test_subject"), Content: ctx.Tr("credential::test_content"),

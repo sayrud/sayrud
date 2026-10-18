@@ -161,3 +161,105 @@ test('the shared credential form preserves saved secrets, validates clearing and
   assert.equal(dialog.saving.value, false)
   assert.deepEqual(events, [['saved', credential(1)]])
 })
+
+test('one cloud credential form selects the provider and only submits its authentication fields', async (t) => {
+  const def: CredentialTypeDef = JSON.parse(readFileSync(new URL('../../internal/workflow/defs/credentials/cloud.json', import.meta.url), 'utf8'))
+  const providerField = def.sections[0]!.fields[0]!
+  const secretKeys: Record<string, string> = {
+    tencentcloud: 'secretKey', aliyun: 'accessKeySecret', volcengine: 'secretAccessKey',
+    huaweicloud: 'secretAccessKey',
+    aws: 'secretAccessKey', azure: 'clientSecret', gcp: 'serviceAccountJson',
+  }
+
+  assert.equal(def.type, 'cloud')
+  assert.deepEqual(providerField.options?.map((option) => option.value), Object.keys(secretKeys))
+
+  for (const [provider, secretKey] of Object.entries(secretKeys)) {
+    await t.test(provider, (t) => {
+      const scope = vue.effectScope()
+      t.after(() => scope.stop())
+
+      const dialog = scope.run(() => setup<{
+        draft: { name: string; data: Record<string, unknown>; secrets: Record<string, string> }
+        fields: vue.ComputedRef<FieldDef[]>; incomplete: vue.ComputedRef<boolean>
+        selectOption: (field: FieldDef, value: unknown) => void
+        body: () => SaveCredentialRequest
+      }>('../src/components/workflow/module/CredentialDialog.vue', { projectUid: 'project', type: 'cloud', credential: null }, {
+        vue: { ...vue, useModel: () => vue.ref(true) },
+        '@arco-design/web-vue': { Message: {}, Modal: {} },
+        'vue-i18n': { useI18n: () => ({ t: (key: string) => key }) },
+        '@/utils/modules': { credentialTypeDef: () => def, dslText: (text: string) => text ?? '', secretsReady: () => true, isBlank: (value: unknown) => value === undefined || value === null || value === '' },
+        '@/api/workflow': { credentialsApi: {} },
+      }))!
+
+      assert.equal(dialog.incomplete.value, true)
+      assert.deepEqual(dialog.fields.value.map((field) => field.key), ['provider'])
+
+      dialog.selectOption(providerField, provider)
+      for (const field of dialog.fields.value) {
+        if (!field.secret && field.required && field.key !== 'provider') dialog.draft.data[field.key!] = 'cloud-id'
+      }
+
+      assert.equal(dialog.incomplete.value, true, 'the selected provider requires its own secret')
+
+      const value = provider === 'gcp' ? '{\n  "type": "service_account",\n  "private_key": "key\\nmaterial"\n}' : 'cloud-secret'
+      dialog.draft.secrets[secretKey] = value
+      dialog.draft.secrets.inactiveSecret = 'discard'
+      dialog.draft.data.inactiveField = 'discard'
+
+      assert.equal(dialog.incomplete.value, false)
+      assert.equal(dialog.body().type, 'cloud')
+      assert.equal(dialog.body().data.provider, provider)
+      assert.deepEqual(dialog.body().secrets, { [secretKey]: value })
+      assert.equal(secretKey in dialog.body().data, false)
+      assert.equal('inactiveField' in dialog.body().data, false)
+      assert.equal(def.test, undefined)
+
+      if (provider === 'gcp') {
+        const field = dialog.fields.value.find((field) => field.key === secretKey)!
+        assert.equal(field.multiline, true)
+        assert.ok(field.maxLength! > 255)
+      }
+    })
+  }
+})
+
+test('editing a cloud credential preserves its provider and requires fresh secrets when switching', (t) => {
+  const def: CredentialTypeDef = JSON.parse(readFileSync(new URL('../../internal/workflow/defs/credentials/cloud.json', import.meta.url), 'utf8'))
+  const saved: Credential = { ...credential(1), type: 'cloud', data: { provider: 'aws', accessKeyId: 'saved-id' }, secrets: ['secretAccessKey'] }
+  const scope = vue.effectScope()
+  t.after(() => scope.stop())
+
+  const dialog = scope.run(() => setup<{
+    draft: { data: Record<string, unknown>; secrets: Record<string, string> }
+    fields: vue.ComputedRef<FieldDef[]>; incomplete: vue.ComputedRef<boolean>
+    selectOption: (field: FieldDef, value: unknown) => void; body: () => SaveCredentialRequest
+  }>('../src/components/workflow/module/CredentialDialog.vue', { projectUid: 'project', type: 'cloud', credential: saved }, {
+    vue: { ...vue, useModel: () => vue.ref(true) },
+    '@arco-design/web-vue': { Message: {}, Modal: {} },
+    'vue-i18n': { useI18n: () => ({ t: (key: string) => key }) },
+    '@/utils/modules': { credentialTypeDef: () => def, dslText: (text: string) => text ?? '', secretsReady: () => true, isBlank: (value: unknown) => value === undefined || value === null || value === '' },
+    '@/api/workflow': { credentialsApi: {} },
+  }))!
+
+  assert.equal(dialog.draft.data.provider, 'aws')
+  assert.equal(dialog.incomplete.value, false)
+  assert.deepEqual(dialog.body().secrets, {})
+
+  dialog.draft.secrets.secretAccessKey = 'unsaved-aws-secret'
+  dialog.selectOption(def.sections[0]!.fields[0]!, 'volcengine')
+
+  assert.deepEqual(dialog.draft.data, { provider: 'volcengine' })
+  assert.deepEqual(dialog.draft.secrets, {})
+
+  dialog.draft.data.accessKeyId = 'volcengine-id'
+  assert.equal(dialog.incomplete.value, true, 'the saved AWS secret cannot be reused for Volcengine')
+
+  dialog.draft.secrets.secretAccessKey = 'volcengine-secret'
+  assert.equal(dialog.incomplete.value, false)
+
+  dialog.selectOption(def.sections[0]!.fields[0]!, 'azure')
+  assert.deepEqual(dialog.fields.value.map((field) => field.key), ['provider', 'tenantId', 'clientId', 'clientSecret', 'subscriptionId'])
+  assert.deepEqual(dialog.body().secrets, {})
+  assert.equal(dialog.incomplete.value, true)
+})

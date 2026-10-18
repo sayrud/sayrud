@@ -3,7 +3,12 @@ import { IconRobot } from '@arco-design/web-vue/es/icon'
 import { KeyRound, Network, Plug, ShieldCheck } from '@lucide/vue'
 import { computed, type Component } from 'vue'
 
+import aliyun from '@/assets/providers/aliyun.svg'
+import awsDark from '@/assets/providers/aws-dark.svg'
+import aws from '@/assets/providers/aws.svg'
+import azure from '@/assets/providers/azure.svg'
 import deepseek from '@/assets/providers/deepseek-color.svg'
+import gcp from '@/assets/providers/gcp.svg'
 import gemini from '@/assets/providers/gemini-color.svg'
 import gitea from '@/assets/providers/gitea.svg'
 import githubDark from '@/assets/providers/github-dark.svg'
@@ -12,6 +17,7 @@ import gitlab from '@/assets/providers/gitlab.svg'
 import gogs from '@/assets/providers/gogs.svg'
 import google from '@/assets/providers/google.svg'
 import groq from '@/assets/providers/groq.svg'
+import huaweicloud from '@/assets/providers/huaweicloud.svg'
 import keycloak from '@/assets/providers/keycloak.svg'
 import kimi from '@/assets/providers/kimi.svg'
 import lmstudio from '@/assets/providers/lmstudio.svg'
@@ -22,7 +28,9 @@ import openai from '@/assets/providers/openai.svg'
 import openrouter from '@/assets/providers/openrouter.svg'
 import qwen from '@/assets/providers/qwen-color.svg'
 import siliconflow from '@/assets/providers/siliconcloud-color.svg'
+import tencentcloud from '@/assets/providers/tencentcloud.svg'
 import tokenhub from '@/assets/providers/tokenhub.svg'
+import volcengine from '@/assets/providers/volcengine.svg'
 import windows from '@/assets/providers/windows.svg'
 import zhipu from '@/assets/providers/zhipu-color.svg'
 import { useThemeStore } from '@/stores/theme'
@@ -32,6 +40,14 @@ const props = withDefaults(defineProps<{ icon: string; size?: number }>(), { siz
 const themeStore = useThemeStore()
 
 const BRANDS: Record<string, { light: string; dark?: string; mask?: boolean }> = {
+  tencentcloud: { light: tencentcloud },
+  aliyun: { light: aliyun },
+  volcengine: { light: volcengine },
+  huaweicloud: { light: huaweicloud },
+  aws: { light: aws, dark: awsDark },
+  azure: { light: azure },
+  gcp: { light: gcp },
+
   github: { light: github, dark: githubDark },
   gitlab: { light: gitlab },
   gogs: { light: gogs },

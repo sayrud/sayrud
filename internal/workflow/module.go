@@ -55,6 +55,10 @@ type SectionDef struct {
 	Title       string `json:"title,omitempty"`
 	Description string `json:"description,omitempty"`
 	ShowIf      string `json:"showIf,omitempty"`
+
+	// ShowIfValue limits a credential section to this value of ShowIf.
+	ShowIfValue string `json:"showIfValue,omitempty"`
+
 	// Extra is a compact field shown on the right of the section title.
 	Extra  *FieldDef  `json:"extra,omitempty"`
 	Fields []FieldDef `json:"fields"`
@@ -149,6 +153,19 @@ func (d *CredentialTypeDef) Fields() []FieldDef {
 	for _, s := range d.Sections {
 		out = append(out, s.Fields...)
 	}
+	return out
+}
+
+// FieldsFor returns the credential fields shown for the submitted data.
+func (d *CredentialTypeDef) FieldsFor(data map[string]interface{}) []FieldDef {
+	var out []FieldDef
+
+	for _, s := range d.Sections {
+		if s.ShowIfValue == "" || data[s.ShowIf] == s.ShowIfValue {
+			out = append(out, s.Fields...)
+		}
+	}
+
 	return out
 }
 

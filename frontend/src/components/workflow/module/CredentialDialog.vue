@@ -4,6 +4,7 @@ import { computed, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import { credentialsApi, type SaveCredentialRequest } from '@/api/workflow'
+import ProviderIcon from '@/components/common/ProviderIcon.vue'
 import type { Credential, FieldDef, OptionDef } from '@/types/workflow'
 import { credentialTypeDef, dslText, isBlank, secretsReady } from '@/utils/modules'
 
@@ -14,7 +15,8 @@ const emit = defineEmits<{ saved: [credential: Credential]; deleted: [uid: strin
 const { t } = useI18n()
 
 const def = computed(() => credentialTypeDef(props.type))
-const fields = computed(() => def.value?.sections.flatMap((s) => s.fields) ?? [])
+const sections = computed(() => def.value?.sections.filter((s) => !s.showIfValue || draft.data[s.showIf!] === s.showIfValue) ?? [])
+const fields = computed(() => sections.value.flatMap((s) => s.fields))
 
 const draft = reactive({
   name: '',
@@ -31,12 +33,16 @@ const testResult = ref<{ ok: true } | { error: string } | null>(null)
 function reset() {
   const c = props.credential
   const data: Record<string, unknown> = {}
-  for (const f of fields.value) {
+
+  for (const f of def.value?.sections.flatMap((s) => s.fields) ?? []) {
     if (f.secret || !f.key) continue
     data[f.key] = c ? c.data[f.key] : f.default
   }
+
   Object.assign(draft, { name: c?.name ?? dslText(def.value?.label), data, secrets: {}, clearSecrets: [] })
+
   for (const k of Object.keys(testInput)) delete testInput[k]
+
   testResult.value = null
 }
 
@@ -44,7 +50,8 @@ watch(() => [visible.value, props.projectUid, props.type, props.credential?.uid]
   if (visible.value) reset()
 }, { immediate: true })
 
-const saved = (f: FieldDef) => !!props.credential?.secrets.includes(f.key!) && !draft.clearSecrets.includes(f.key!)
+const hasSavedSecret = (f: FieldDef) => !!props.credential?.secrets.includes(f.key!) && (props.type !== 'cloud' || props.credential.data.provider === draft.data.provider)
+const saved = (f: FieldDef) => hasSavedSecret(f) && !draft.clearSecrets.includes(f.key!)
 
 function toggleClear(f: FieldDef) {
   const i = draft.clearSecrets.indexOf(f.key!)
@@ -59,11 +66,18 @@ const textOf = (f: FieldDef) => (draft.data[f.key!] as string | undefined) ?? ''
 const optionLabel = (o: OptionDef) => (o.label ? dslText(o.label) : String(o.value))
 
 function selectOption(f: FieldDef, v: unknown) {
+  if (props.type === 'cloud' && f.key === 'provider' && v !== draft.data.provider) {
+    Object.assign(draft, { data: { provider: v }, secrets: {}, clearSecrets: [] })
+    return
+  }
+
   const prev = f.options?.find((o) => o.value === draft.data[f.key!])
   const next = f.options?.find((o) => o.value === v)
+
   for (const [k, patched] of Object.entries(next?.patch ?? {})) {
     if (isBlank(draft.data[k]) || draft.data[k] === prev?.patch?.[k]) draft.data[k] = patched
   }
+
   draft.data[f.key!] = v
 }
 
@@ -71,11 +85,12 @@ function selectOption(f: FieldDef, v: unknown) {
 const incomplete = computed(() => !draft.name.trim() || fields.value.some((f) => f.required && (f.secret ? !draft.secrets[f.key!] && !saved(f) : isBlank(draft.data[f.key!]))))
 
 function body(): SaveCredentialRequest {
-  const secrets = Object.fromEntries(Object.entries(draft.secrets).filter(([, v]) => v))
+  const secrets = Object.fromEntries(Object.entries(draft.secrets).filter(([k, v]) => v && fields.value.some((f) => f.secret && f.key === k)))
+
   return {
     type: props.type,
     name: draft.name.trim(),
-    data: Object.fromEntries(Object.entries(draft.data).map(([k, v]) => [k, typeof v === 'string' ? v.trim() : v])),
+    data: Object.fromEntries(Object.entries(draft.data).filter(([k]) => fields.value.some((f) => !f.secret && f.key === k)).map(([k, v]) => [k, typeof v === 'string' ? v.trim() : v])),
     secrets,
     clearSecrets: draft.clearSecrets.filter((k) => !secrets[k]),
   }
@@ -153,22 +168,38 @@ function remove() {
     unmount-on-close
   >
     <a-alert v-if="!secretsReady() && fields.some((f) => f.secret)" type="warning" class="alert">{{ t('workflow.credential.secretsMissing') }}</a-alert>
+    <div v-if="def?.description" class="text-desc alert">{{ dslText(def.description) }}</div>
     <a-form v-if="def" layout="vertical" :model="draft" :disabled="busy" class="form">
       <a-form-item :label="t('workflow.credential.name')" required>
         <a-input v-model="draft.name" :max-length="64" :placeholder="t('workflow.credential.namePlaceholder')" />
       </a-form-item>
 
-      <template v-for="(section, i) in def.sections" :key="i">
+      <template v-for="(section, i) in sections" :key="section.showIfValue || i">
         <div v-if="section.title" class="group-title">{{ dslText(section.title) }}</div>
+        <div v-if="section.description" class="text-desc alert">{{ dslText(section.description) }}</div>
         <div class="grid">
-          <a-form-item v-for="f in section.fields" :key="f.key" :label="dslText(f.label)" :extra="dslText(f.help) || undefined" :required="f.required" :class="{ wide: f.widget === 'select' }">
+          <a-form-item v-for="f in section.fields" :key="f.key" :label="dslText(f.label)" :extra="dslText(f.help) || undefined" :required="f.required" :class="{ wide: f.widget === 'select' || f.multiline }">
+            <div v-if="f.secret && f.multiline" class="multiline-secret">
+              <a-textarea
+                v-model="draft.secrets[f.key!]"
+                :auto-size="{ minRows: 6, maxRows: 12 }"
+                :max-length="f.maxLength"
+                :placeholder="saved(f) ? t('workflow.credential.secretKeep') : dslText(f.placeholder) || undefined"
+                autocomplete="off"
+                spellcheck="false"
+              />
+              <a-link v-if="hasSavedSecret(f) && !draft.secrets[f.key!]" :status="draft.clearSecrets.includes(f.key!) ? 'normal' : 'danger'" @click="toggleClear(f)">
+                {{ draft.clearSecrets.includes(f.key!) ? t('workflow.credential.keepSecret') : t('workflow.credential.clearSecret') }}
+              </a-link>
+            </div>
             <a-input-password
-              v-if="f.secret"
+              v-else-if="f.secret"
               v-model="draft.secrets[f.key!]"
+              :max-length="f.maxLength"
               autocomplete="new-password"
               :placeholder="saved(f) ? t('workflow.credential.secretKeep') : dslText(f.placeholder) || undefined"
             >
-              <template v-if="credential?.secrets.includes(f.key!) && !draft.secrets[f.key!]" #append>
+              <template v-if="hasSavedSecret(f) && !draft.secrets[f.key!]" #append>
                 <a-link :status="draft.clearSecrets.includes(f.key!) ? 'normal' : 'danger'" @click="toggleClear(f)">
                   {{ draft.clearSecrets.includes(f.key!) ? t('workflow.credential.keepSecret') : t('workflow.credential.clearSecret') }}
                 </a-link>
@@ -179,7 +210,13 @@ function remove() {
               <a-radio v-for="o in f.options" :key="String(o.value)" :value="o.value">{{ optionLabel(o) }}</a-radio>
             </a-radio-group>
             <a-select v-else-if="f.widget === 'select'" :model-value="choiceOf(f) as string" @change="(v) => selectOption(f, v)">
-              <a-option v-for="o in f.options" :key="String(o.value)" :value="o.value">{{ optionLabel(o) }}</a-option>
+              <template v-if="type === 'cloud' && f.key === 'provider'" #label="{ data }">
+                <span class="provider-label"><ProviderIcon :icon="String(data.value)" :size="18" />{{ data.label }}</span>
+              </template>
+              <a-option v-for="o in f.options" :key="String(o.value)" :value="o.value" :label="optionLabel(o)">
+                <span v-if="type === 'cloud' && f.key === 'provider'" class="provider-label"><ProviderIcon :icon="String(o.value)" :size="18" />{{ optionLabel(o) }}</span>
+                <template v-else>{{ optionLabel(o) }}</template>
+              </a-option>
             </a-select>
             <a-input v-else :model-value="textOf(f)" @update:model-value="(v) => (draft.data[f.key!] = v)" :max-length="f.maxLength" :placeholder="dslText(f.placeholder) || undefined" autocomplete="off" />
           </a-form-item>
@@ -233,6 +270,17 @@ function remove() {
 .grid .wide {
   grid-column: 1 / -1;
 }
+
+.multiline-secret {
+  width: 100%;
+}
+
+.provider-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .test-row {
   display: flex;
   gap: 8px;

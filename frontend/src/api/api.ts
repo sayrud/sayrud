@@ -1727,6 +1727,8 @@ export interface WorkflowSectionDef {
   extra?: WorkflowFieldDef;
   fields: WorkflowFieldDef[];
   showIf?: string;
+  /** ShowIfValue limits a credential section to this value of ShowIf. */
+  showIfValue?: string;
   title?: string;
 }
 

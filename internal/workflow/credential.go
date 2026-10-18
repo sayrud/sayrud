@@ -22,6 +22,9 @@ type CredentialInput struct {
 	Data         map[string]interface{}
 	Secrets      map[string]string
 	ClearSecrets []string
+
+	// CurrentData is the saved public data, used to avoid reusing secrets after changing cloud providers.
+	CurrentData []byte
 }
 
 // PrepareCredential validates and splits the fields by the credential type DSL, returning the plain data and the merged secrets; current are the saved secrets, empty on creation.
@@ -29,17 +32,36 @@ type CredentialInput struct {
 func PrepareCredential(def *CredentialTypeDef, in CredentialInput, current map[string]string) (map[string]interface{}, map[string]string, error) {
 	data := map[string]interface{}{}
 	secrets := map[string]string{}
+
+	if def.Type == "cloud" && len(in.CurrentData) > 0 {
+		var saved struct {
+			Provider string `json:"provider"`
+		}
+
+		if err := json.Unmarshal(in.CurrentData, &saved); err != nil {
+			return nil, nil, i18n.Errorf("credential::invalid_field", "provider")
+		}
+
+		if saved.Provider != in.Data["provider"] {
+			current = nil
+		}
+	}
+
 	for k, v := range current {
 		secrets[k] = v
 	}
+
 	for _, k := range in.ClearSecrets {
 		delete(secrets, k)
 	}
-	for _, f := range def.Fields() {
+
+	fields := def.FieldsFor(in.Data)
+	for _, f := range fields {
 		if f.Secret {
 			if v := in.Secrets[f.Key]; v != "" {
 				secrets[f.Key] = v
 			}
+
 			v := secrets[f.Key]
 			if f.Required && v == "" {
 				return nil, nil, i18n.Errorf("credential::field_required", f.Key)
@@ -47,14 +69,17 @@ func PrepareCredential(def *CredentialTypeDef, in CredentialInput, current map[s
 			if max := maxLength(f); utf8.RuneCountInString(v) > max {
 				return nil, nil, i18n.Errorf("credential::too_long", f.Key, max)
 			}
+
 			continue
 		}
+
 		v, ok := in.Data[f.Key]
 		if !ok || v == nil {
 			if len(f.Default) > 0 {
 				_ = json.Unmarshal(f.Default, &v)
 			}
 		}
+
 		v, err := normalizeCredentialValue(f, v)
 		if err != nil {
 			return nil, nil, err
@@ -63,11 +88,27 @@ func PrepareCredential(def *CredentialTypeDef, in CredentialInput, current map[s
 			data[f.Key] = v
 		}
 	}
+
 	for k := range secrets {
-		if !isSecretField(def, k) {
+		if !isSecretField(fields, k) {
 			delete(secrets, k)
 		}
 	}
+
+	if def.Type == "cloud" && data["provider"] == "gcp" {
+		var account struct {
+			Type        string `json:"type"`
+			ProjectID   string `json:"project_id"`
+			ClientEmail string `json:"client_email"`
+			PrivateKey  string `json:"private_key"`
+		}
+
+		if err := json.Unmarshal([]byte(secrets["serviceAccountJson"]), &account); err != nil || account.Type != "service_account" ||
+			strings.TrimSpace(account.ProjectID) == "" || strings.TrimSpace(account.ClientEmail) == "" || strings.TrimSpace(account.PrivateKey) == "" {
+			return nil, nil, i18n.Errorf("credential::invalid_field", "serviceAccountJson")
+		}
+	}
+
 	return data, secrets, nil
 }
 
@@ -78,12 +119,13 @@ func maxLength(f FieldDef) int {
 	return defaultCredentialMaxLength
 }
 
-func isSecretField(def *CredentialTypeDef, key string) bool {
-	for _, f := range def.Fields() {
+func isSecretField(fields []FieldDef, key string) bool {
+	for _, f := range fields {
 		if f.Key == key {
 			return f.Secret
 		}
 	}
+
 	return false
 }
 

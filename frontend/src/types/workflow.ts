@@ -131,6 +131,7 @@ export interface SectionDef {
   title?: string
   description?: string
   showIf?: string
+  showIfValue?: string
   extra?: FieldDef
   fields: FieldDef[]
 }

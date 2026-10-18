@@ -165,7 +165,7 @@ function remove(c: Credential) {
 }
 
 const detailDef = computed(() => selected.value ? credentialTypeDef(selected.value.type) : undefined)
-const detailFields = computed<FieldDef[]>(() => detailDef.value?.sections.flatMap((section) => section.fields) ?? [
+const detailFields = computed<FieldDef[]>(() => detailDef.value?.sections.filter((s) => !s.showIfValue || selected.value?.data[s.showIf!] === s.showIfValue).flatMap((section) => section.fields) ?? [
   ...Object.keys(selected.value?.data ?? {}).map((key) => ({ key, label: key, widget: 'text' as const })),
   ...(selected.value?.secrets ?? []).map((key) => ({ key, label: key, widget: 'text' as const, secret: true })),
 ])
