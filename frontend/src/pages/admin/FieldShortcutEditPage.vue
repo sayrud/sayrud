@@ -609,11 +609,12 @@ const format = (v: unknown) => (v === undefined ? 'undefined' : JSON.stringify(v
                 </template>
                 <div class="pane">
                   <div class="source-toolbar">
-                    <a-radio-group v-model="draft.language" type="button" size="small" :aria-label="t('pluginAdmin.language')">
-                      <a-radio value="javascript">{{ LANGUAGE_NAMES.javascript }}</a-radio>
-                      <a-radio value="typescript">{{ LANGUAGE_NAMES.typescript }}</a-radio>
-                    </a-radio-group>
-                    <a-space :size="4">
+                    <span class="text-desc source-hint">{{ t('pluginAdmin.sourceEditHint') }}</span>
+                    <a-space wrap :size="4">
+                      <a-radio-group v-model="draft.language" type="button" size="small" :aria-label="t('pluginAdmin.language')">
+                        <a-radio value="javascript">{{ LANGUAGE_NAMES.javascript }}</a-radio>
+                        <a-radio value="typescript">{{ LANGUAGE_NAMES.typescript }}</a-radio>
+                      </a-radio-group>
                       <a-button size="small" @click="copySource">
                         <template #icon><Copy :size="14" /></template>
                         {{ t('pluginAdmin.copy') }}
@@ -624,7 +625,6 @@ const format = (v: unknown) => (v === undefined ? 'undefined' : JSON.stringify(v
                       </a-button>
                     </a-space>
                   </div>
-                  <p class="text-desc source-hint">{{ t('shortcutAdmin.sourceEditHint') }}</p>
                   <CodeEditor
                     :key="draft.language"
                     v-model="draft.code"
@@ -720,13 +720,13 @@ const format = (v: unknown) => (v === undefined ? 'undefined' : JSON.stringify(v
 }
 .source-toolbar {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
   margin-bottom: 12px;
 }
 .source-hint {
-  margin: 0 0 12px;
   font-size: 12.5px;
 }
 
@@ -1014,9 +1014,6 @@ const format = (v: unknown) => (v === undefined ? 'undefined' : JSON.stringify(v
   }
   .pane {
     padding: 16px;
-  }
-  .source-toolbar {
-    flex-wrap: wrap;
   }
 }
 </style>
