@@ -144,7 +144,7 @@ type RunInput struct {
 	Raw        RawInput
 	Trigger    db.WorkflowRunTrigger
 	UserID     int64
-	// DryRun runs the synchronous flow in a rolled-back transaction without saving the run or creating async jobs.
+	// DryRun previews external actions and rolls back writes without saving the run or creating async jobs.
 	DryRun bool
 }
 
@@ -223,6 +223,7 @@ func marshalJSON(v interface{}) []byte {
 
 // Run saves the run and the request received event, validates the parameters, then runs the synchronous flow and saves the result and the succeeded event in a single transaction.
 func (e *Engine) Run(ctx context.Context, in RunInput) (*RunResult, error) {
+	SyncPlugins(ctx, false)
 	start := time.Now()
 	result := &RunResult{Trace: []TraceStep{}, Errors: []ParamError{}, Jobs: []PlannedJob{}}
 	runInfo := map[string]interface{}{"time": dbutil.Now().UTC().Format(time.RFC3339), "trigger": string(in.Trigger), "timezone": in.Spec.FormulaTimezone()}
@@ -311,7 +312,12 @@ func (e *Engine) Run(ctx context.Context, in RunInput) (*RunResult, error) {
 	var resp *Response
 	origin := collab.Origin{WorkflowID: in.Workflow.ID, Depth: apiDepth}
 	err := e.hub.Batch(ctx, in.Project, tables, collab.BatchOptions{DryRun: in.DryRun, Origin: origin}, func(b *collab.Batch) error {
-		x := &execution{ctx: ctx, db: e.db, hub: e.hub, project: in.Project, scope: scope, tables: map[string]*tableInfo{}, batch: b, origin: origin}
+		// External plugin calls are awaited within the transaction; their effects cannot be rolled back, so this batch must not be retried.
+		x := &execution{ctx: ctx, db: e.db, hub: e.hub, project: in.Project, scope: scope, tables: map[string]*tableInfo{}, batch: b, origin: origin, preview: in.DryRun}
+		if !in.DryRun {
+			x.actions = e.actions
+		}
+
 		stop, err := x.runSteps(in.Spec.Steps)
 		result.Trace = x.trace
 		if err != nil {

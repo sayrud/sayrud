@@ -80,6 +80,22 @@ func (credentialRoute) List(ctx context.Context, project *db.Project) error {
 	return ctx.ApiSuccess(out)
 }
 
+// GetCredential
+// @Summary Get a project credential
+// @Description Returns the non-secret fields and the names of saved secret fields. Secret values are never returned.
+// @Produce json
+// @Param projectUID path string true "Project UID"
+// @Param credentialUID path string true "Credential UID"
+// @Success 200 {object} dto.Credential
+// @Failure 403 {string} string "Permission denied"
+// @Failure 404 {string} string "Project or credential not found"
+// @Failure 500 {string} string "Internal server error"
+// @ID getCredential
+// @Router /projects/{projectUID}/credentials/{credentialUID} [get]
+func (credentialRoute) Get(ctx context.Context, c *db.Credential) error {
+	return ctx.ApiSuccess(toCredential(c))
+}
+
 // prepareCredential validates the submitted credential and seals its secrets; current are the saved secrets, empty on creation. Validation failures are *i18n.Error.
 func prepareCredential(def *workflow.CredentialTypeDef, f form.SaveCredential, current map[string]string) ([]byte, string, error) {
 	data, secrets, err := workflow.PrepareCredential(def, workflow.CredentialInput{Data: f.Data, Secrets: f.Secrets, ClearSecrets: f.ClearSecrets}, current)
@@ -125,6 +141,7 @@ func respondCredentialError(ctx context.Context, err error) error {
 // @ID createCredential
 // @Router /projects/{projectUID}/credentials [post]
 func (credentialRoute) Create(ctx context.Context, user *db.User, project *db.Project, f form.SaveCredential) error {
+	workflow.SyncPlugins(ctx.Request().Context(), false)
 	def := workflow.CredentialType(f.Type)
 	if def == nil {
 		return ctx.ApiError(http.StatusBadRequest, "credential::invalid_type")
@@ -159,6 +176,7 @@ func (credentialRoute) Create(ctx context.Context, user *db.User, project *db.Pr
 // @ID updateCredential
 // @Router /projects/{projectUID}/credentials/{credentialUID} [put]
 func (credentialRoute) Update(ctx context.Context, user *db.User, c *db.Credential, f form.SaveCredential) error {
+	workflow.SyncPlugins(ctx.Request().Context(), false)
 	def := workflow.CredentialType(c.Type)
 	if def == nil {
 		return ctx.ApiError(http.StatusBadRequest, "credential::invalid_type")
@@ -223,6 +241,7 @@ func (credentialRoute) Delete(ctx context.Context, project *db.Project, c *db.Cr
 // @ID testCredential
 // @Router /projects/{projectUID}/credentials/test [post]
 func (credentialRoute) Test(ctx context.Context, project *db.Project, f form.TestCredential) error {
+	workflow.SyncPlugins(ctx.Request().Context(), false)
 	c := ctx.Request().Context()
 	def := workflow.CredentialType(f.Type)
 	if def == nil {
@@ -269,7 +288,7 @@ func (credentialRoute) Test(ctx context.Context, project *db.Project, f form.Tes
 
 // ListWorkflowModules
 // @Summary List the step modules and credential types
-// @Description Return the JSON DSL definitions the editor renders the nodes and the configuration forms with.
+// @Description Return the JSON DSL definitions the editor renders the nodes and the configuration forms with. The texts of the installed plugins are in the language of the request.
 // @Produce json
 // @Param projectUID path string true "Project UID"
 // @Success 200 {object} dto.WorkflowModules
@@ -278,5 +297,7 @@ func (credentialRoute) Test(ctx context.Context, project *db.Project, f form.Tes
 // @ID listWorkflowModules
 // @Router /projects/{projectUID}/workflow-modules [get]
 func (workflowRoute) Modules(ctx context.Context) error {
-	return ctx.ApiSuccess(dto.WorkflowModules{Modules: workflow.Modules(), CredentialTypes: workflow.CredentialTypes(), SecretsReady: sso.SecretsReady()})
+	workflow.SyncPlugins(ctx.Request().Context(), false)
+	lang := requestLang(ctx)
+	return ctx.ApiSuccess(dto.WorkflowModules{Modules: workflow.ModulesIn(lang), CredentialTypes: workflow.CredentialTypesIn(lang), SecretsReady: sso.SecretsReady()})
 }

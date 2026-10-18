@@ -4,16 +4,14 @@ import { computed, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import { credentialsApi, type SaveCredentialRequest } from '@/api/workflow'
-import { useWorkflowEditorStore } from '@/stores/workflowEditor'
 import type { Credential, FieldDef, OptionDef } from '@/types/workflow'
 import { credentialTypeDef, dslText, isBlank, secretsReady } from '@/utils/modules'
 
 /** Dialog rendered from the credential type DSL that creates a credential, or edits credential if given. */
 const visible = defineModel<boolean>('visible', { required: true })
-const props = defineProps<{ type: string; credential: Credential | null }>()
+const props = defineProps<{ projectUid: string; type: string; credential: Credential | null }>()
 const emit = defineEmits<{ saved: [credential: Credential]; deleted: [uid: string] }>()
 const { t } = useI18n()
-const store = useWorkflowEditorStore()
 
 const def = computed(() => credentialTypeDef(props.type))
 const fields = computed(() => def.value?.sections.flatMap((s) => s.fields) ?? [])
@@ -26,6 +24,8 @@ const draft = reactive({
 })
 const testInput = reactive<Record<string, string>>({})
 const testing = ref(false)
+const saving = ref(false)
+const busy = computed(() => saving.value || testing.value)
 const testResult = ref<{ ok: true } | { error: string } | null>(null)
 
 function reset() {
@@ -40,9 +40,9 @@ function reset() {
   testResult.value = null
 }
 
-watch(visible, (v) => {
-  if (v) reset()
-})
+watch(() => [visible.value, props.projectUid, props.type, props.credential?.uid], () => {
+  if (visible.value) reset()
+}, { immediate: true })
 
 const saved = (f: FieldDef) => !!props.credential?.secrets.includes(f.key!) && !draft.clearSecrets.includes(f.key!)
 
@@ -82,27 +82,32 @@ function body(): SaveCredentialRequest {
 }
 
 async function save() {
+  if (busy.value || incomplete.value || !def.value) return false
+  saving.value = true
+
   try {
     const c = props.credential
-      ? await credentialsApi.update(store.projectUID, props.credential.uid, body())
-      : await credentialsApi.create(store.projectUID, body())
-    store.upsertCredential(c)
+      ? await credentialsApi.update(props.projectUid, props.credential.uid, body())
+      : await credentialsApi.create(props.projectUid, body())
     emit('saved', c)
     Message.success(t('common.saved'))
     return true
   } catch (e) {
     Message.error(e instanceof Error ? e.message : String(e))
     return false
+  } finally {
+    saving.value = false
   }
 }
 
 const testReady = computed(() => !!def.value?.test && def.value.test.fields.every((f) => !f.required || !!testInput[f.key!]?.trim()))
 
 async function test() {
+  if (busy.value || incomplete.value || !testReady.value) return
   testing.value = true
   testResult.value = null
   try {
-    await credentialsApi.test(store.projectUID, { ...body(), credentialUID: props.credential?.uid, input: { ...testInput } })
+    await credentialsApi.test(props.projectUid, { ...body(), credentialUID: props.credential?.uid, input: { ...testInput } })
     testResult.value = { ok: true }
   } catch (e) {
     testResult.value = { error: e instanceof Error ? e.message : String(e) }
@@ -120,14 +125,16 @@ function remove() {
     hideCancel: false,
     okText: t('common.delete'),
     okButtonProps: { status: 'danger' },
-    onOk: async () => {
+    onBeforeOk: async () => {
       try {
-        await credentialsApi.remove(store.projectUID, c.uid)
-        store.removeCredential(c.uid)
+        await credentialsApi.remove(props.projectUid, c.uid)
         emit('deleted', c.uid)
         visible.value = false
+        Message.success(t('common.deleted'))
+        return true
       } catch (e) {
         Message.error(e instanceof Error ? e.message : String(e))
+        return false
       }
     },
   })
@@ -139,11 +146,14 @@ function remove() {
     v-model:visible="visible"
     :title="credential ? t('workflow.credential.editTitle', { type: dslText(def?.label) }) : t('workflow.credential.createTitle', { type: dslText(def?.label) })"
     :width="560"
+    :body-style="{ maxHeight: 'calc(100vh - 160px)', overflowY: 'auto' }"
+    :mask-closable="!busy"
+    :esc-to-close="!busy"
+    :closable="!busy"
     unmount-on-close
   >
-    <p class="desc">{{ t('workflow.credential.shared') }}</p>
     <a-alert v-if="!secretsReady() && fields.some((f) => f.secret)" type="warning" class="alert">{{ t('workflow.credential.secretsMissing') }}</a-alert>
-    <a-form v-if="def" layout="vertical" :model="draft" class="form">
+    <a-form v-if="def" layout="vertical" :model="draft" :disabled="busy" class="form">
       <a-form-item :label="t('workflow.credential.name')" required>
         <a-input v-model="draft.name" :max-length="64" :placeholder="t('workflow.credential.namePlaceholder')" />
       </a-form-item>
@@ -193,20 +203,16 @@ function remove() {
 
     <template #footer>
       <div class="footer">
-        <a-button v-if="credential" status="danger" type="text" @click="remove">{{ t('common.delete') }}</a-button>
+        <a-button v-if="credential" status="danger" type="text" :disabled="busy" @click="remove">{{ t('common.delete') }}</a-button>
         <span class="spacer" />
-        <a-button @click="visible = false">{{ t('common.cancel') }}</a-button>
-        <a-button type="primary" :disabled="incomplete" @click="save().then((ok) => ok && (visible = false))">{{ t('common.save') }}</a-button>
+        <a-button :disabled="busy" @click="visible = false">{{ t('common.cancel') }}</a-button>
+        <a-button type="primary" :loading="saving" :disabled="incomplete || testing || !def" @click="save().then((ok) => ok && (visible = false))">{{ t('common.save') }}</a-button>
       </div>
     </template>
   </a-modal>
 </template>
 
 <style scoped>
-.desc {
-  margin: 0 0 12px;
-  color: var(--text-caption);
-}
 .alert {
   margin-bottom: 12px;
 }
@@ -239,5 +245,10 @@ function remove() {
 }
 .spacer {
   flex: 1;
+}
+@media (max-width: 480px) {
+  .grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 </style>

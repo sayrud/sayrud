@@ -26,7 +26,7 @@ func TestBundledFrontend(t *testing.T) {
 	}
 
 	for _, path := range []string{
-		"/", "/base/project/table/view", "/share/token/table/view", "/login", "/register",
+		"/", "/base/project/table/view", "/base/project/credentials", "/share/token/table/view", "/login", "/register",
 		"/settings", "/settings/devices", "/admin", "/admin/users",
 	} {
 		page := request(http.MethodGet, path)

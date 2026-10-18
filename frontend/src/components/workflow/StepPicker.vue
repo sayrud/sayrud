@@ -1,14 +1,22 @@
 <script setup lang="ts">
-import { Search } from '@lucide/vue'
+import { Puzzle, Search, SquareArrowOutUpRight } from '@lucide/vue'
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useRouter } from 'vue-router'
 
+import { useAuthStore } from '@/stores/auth'
 import type { ModuleCategory, StepType } from '@/types/workflow'
-import { MODULE_CATEGORIES, stepCategory, stepMeta } from '@/utils/modules'
+import { MODULE_CATEGORIES, moduleDef, stepCategory, stepMeta } from '@/utils/modules'
 
 const props = defineProps<{ types: StepType[] }>()
 const emit = defineEmits<{ select: [type: StepType]; close: [] }>()
 const { t } = useI18n()
+const auth = useAuthStore()
+const router = useRouter()
+
+/** Admins manage the installed nodes in the admin console, opened in a new tab to keep the draft. */
+const manageHref = computed(() => (auth.user?.isAdmin ? router.resolve({ name: 'admin-workflow-plugins' }).href : ''))
+const isPlugin = (type: StepType) => !!moduleDef(type)?.plugin
 
 const CATEGORY_LABELS: Record<ModuleCategory, () => string> = {
   data: () => t('workflow.picker.data'),
@@ -117,11 +125,20 @@ onMounted(() => void nextTick(() => input.value?.focus()))
                 <template v-else>{{ p.text }}</template>
               </template>
             </span>
+            <a-tooltip v-if="isPlugin(type)" :content="t('workflow.picker.pluginTip')" :mouse-enter-delay="300">
+              <Puzzle :size="12" class="option-plugin" />
+            </a-tooltip>
           </div>
         </a-tooltip>
       </div>
       <div v-if="!flat.length" class="empty">{{ t('workflow.picker.empty') }}</div>
     </div>
+
+    <a v-if="manageHref" :href="manageHref" target="_blank" rel="noopener" class="manage">
+      <Puzzle :size="14" />
+      <span>{{ t('workflow.picker.manage') }}</span>
+      <SquareArrowOutUpRight :size="12" class="manage-external" />
+    </a>
   </div>
 </template>
 
@@ -214,6 +231,34 @@ onMounted(() => void nextTick(() => input.value?.focus()))
   padding: 0;
   background: transparent;
   color: var(--color-primary);
+}
+.option-plugin {
+  flex: none;
+  margin-left: auto;
+  color: var(--text-placeholder);
+}
+.manage {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+  height: 38px;
+  padding: 0 16px;
+  border-top: 1px solid var(--line-border);
+  color: var(--text-caption);
+  font-size: 13px;
+  text-decoration: none;
+  transition:
+    color 0.15s,
+    background-color 0.15s;
+}
+.manage:hover {
+  background: var(--fill-hover);
+  color: var(--color-primary);
+}
+.manage-external {
+  margin-left: auto;
+  opacity: 0.6;
 }
 .empty {
   padding: 32px 0;

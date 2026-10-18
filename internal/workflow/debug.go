@@ -85,12 +85,13 @@ type DebugInput struct {
 	Spec     *Spec
 	Trigger  map[string]interface{}
 	UserID   int64
-	// DryRun runs the main flow in a rolled-back transaction and only previews emails and HTTP requests; otherwise a real background run is enqueued.
+	// DryRun runs the main flow in a rolled-back transaction and only previews external actions; otherwise a real background run is enqueued.
 	DryRun bool
 }
 
 // Debug debugs the draft of a workflow that is not triggered by an API.
 func (e *Engine) Debug(ctx context.Context, in DebugInput) (*RunResult, error) {
+	SyncPlugins(ctx, false)
 	start := time.Now()
 	result := &RunResult{Trace: []TraceStep{}, Errors: []ParamError{}, Jobs: []PlannedJob{}, Input: in.Trigger}
 	if !in.DryRun {

@@ -34,6 +34,11 @@ const router = createRouter({
       meta: { public: true },
     },
     {
+      path: '/base/:projectUID/credentials',
+      name: 'base-credentials',
+      component: () => import('@/pages/BasePage.vue'),
+    },
+    {
       path: '/base/:projectUID/:tableUID?/:viewUID?',
       name: 'base',
       component: () => import('@/pages/BasePage.vue'),
@@ -94,6 +99,23 @@ const router = createRouter({
           name: 'admin-field-shortcut-edit',
           component: () => import('@/pages/admin/FieldShortcutEditPage.vue'),
           meta: { nav: 'admin-field-shortcuts', wide: true },
+        },
+        {
+          path: 'workflow-plugins',
+          name: 'admin-workflow-plugins',
+          component: () => import('@/pages/admin/WorkflowPluginsPage.vue'),
+        },
+        {
+          path: 'workflow-plugins/builtin/:type',
+          name: 'admin-workflow-builtin',
+          component: () => import('@/pages/admin/WorkflowPluginPage.vue'),
+          meta: { nav: 'admin-workflow-plugins', wide: true },
+        },
+        {
+          path: 'workflow-plugins/:pluginID',
+          name: 'admin-workflow-plugin',
+          component: () => import('@/pages/admin/WorkflowPluginPage.vue'),
+          meta: { nav: 'admin-workflow-plugins', wide: true },
         },
       ],
     },

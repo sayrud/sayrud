@@ -38,6 +38,8 @@ type TraceStep struct {
 	// Output is the truncated step output.
 	Output json.RawMessage `json:"output,omitempty" swaggertype:"object"`
 	Error  string          `json:"error,omitempty"`
+	// Logs are the lines printed by a plugin node.
+	Logs []string `json:"logs,omitempty"`
 	// Reused means an async retry reused the output of the previous successful attempt.
 	Reused bool `json:"reused,omitempty"`
 } // @name WorkflowTraceStep
@@ -95,7 +97,7 @@ func traceOutput(v interface{}) json.RawMessage {
 	return raw
 }
 
-// Actions performs async actions with external side effects.
+// Actions performs operations with external side effects.
 type Actions interface {
 	// SendEmail sends with the SMTP server resolved from the credential referenced by the step.
 	SendEmail(ctx context.Context, server SMTPServer, mail Mail) error
@@ -116,9 +118,9 @@ type execution struct {
 	batch *collab.Batch
 	// origin is the source of the flow's writes, used to trigger other workflows.
 	origin collab.Origin
-	// actions is nil when external actions must not run, e.g. in sync flows or simulated debugging.
+	// actions is nil when external actions must not run, e.g. in simulated debugging.
 	actions Actions
-	// preview marks simulated debugging of a background flow: external actions only compute their parameters and are not executed.
+	// preview marks simulated debugging: external actions only compute their parameters and are not executed.
 	preview bool
 	// done holds the outputs of steps already completed in an async retry, keyed by step ID.
 	done map[string]json.RawMessage
@@ -126,6 +128,8 @@ type execution struct {
 	persist func(tx *gorm.DB, stepID string, output interface{}) error
 
 	response *Response
+	// logs are the lines printed by the running plugin step, moved into its trace.
+	logs []string
 }
 
 func (x *execution) addTrace(step *Step, status string, start time.Time, output interface{}, err error) {
@@ -136,6 +140,7 @@ func (x *execution) addTrace(step *Step, status string, start time.Time, output 
 	if err != nil {
 		t.Error = publicError(err)
 	}
+	t.Logs, x.logs = x.logs, nil
 	x.trace = append(x.trace, t)
 }
 
@@ -260,6 +265,9 @@ func (x *execution) runStep(step *Step) (bool, error) {
 	}
 
 	impl, ok := moduleImpls[step.Type]
+	if !ok {
+		impl, ok = pluginImpl(step.Type)
+	}
 	if !ok || impl.exec == nil {
 		err := &StepError{StepID: step.ID, Code: ErrCodeConfig, Status: http.StatusInternalServerError, Err: errors.Newf("unsupported step type %q", step.Type)}
 		x.addTrace(step, TraceFailed, start, nil, err)

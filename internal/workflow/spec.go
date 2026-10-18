@@ -190,8 +190,9 @@ const (
 
 // Step is a node in a flow, its output is referenced as steps.<id>.
 type Step struct {
-	ID   string `json:"id"`
-	Type string `json:"type" enums:"query,create,update,condition,response,email,http"`
+	ID string `json:"id"`
+	// Type is a built-in module (query, create, update, condition, response, email, http) or an installed plugin (plugin:<id>).
+	Type string `json:"type"`
 	Name string `json:"name,omitempty"`
 	// Config is the module configuration defined by the DSL of the type (see ModuleDef), decoded as the matching *XxxConfig.
 	Config interface{} `json:"config" swaggertype:"object"`
@@ -341,7 +342,7 @@ func (s *Spec) Normalize() {
 		s.Async = []AsyncFlow{}
 	}
 	s.AllSteps(func(step *Step) {
-		def := moduleDefs[step.Type]
+		def := moduleDef(step.Type)
 		if def == nil {
 			return
 		}
@@ -349,7 +350,11 @@ func (s *Spec) Normalize() {
 			step.Then, step.Else = nil, nil
 		}
 		if step.Config == nil {
-			step.Config = moduleImpls[step.Type].newConfig()
+			if impl, ok := moduleImpls[step.Type]; ok {
+				step.Config = impl.newConfig()
+			} else {
+				step.Config = json.RawMessage(`{}`)
+			}
 		}
 	})
 }

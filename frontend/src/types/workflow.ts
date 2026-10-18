@@ -174,6 +174,17 @@ export interface ModuleDef {
   outputs: OutputDef[]
   summary?: SummaryDef
   sections: SectionDef[]
+  /** Installed plugin implementing the module; its texts are plain text rather than i18n keys. */
+  plugin?: ModulePlugin
+}
+
+export interface ModulePlugin {
+  id: string
+  version: string
+  author?: string
+  homepage?: string
+  /** Disabled plugins keep their steps but can not be added, published or executed. */
+  enabled: boolean
 }
 
 export interface CredentialTypeDef {
@@ -311,6 +322,8 @@ export interface WorkflowTraceStep {
   output?: unknown
   error?: string
   reused?: boolean
+  /** Lines printed by a plugin node. */
+  logs?: string[]
 }
 
 export interface WorkflowResponse {

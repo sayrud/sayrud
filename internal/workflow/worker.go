@@ -35,6 +35,7 @@ var errLeaseLost = errors.New("the job lease is lost")
 // Start starts the background workers, which run until claiming stops; Shutdown drains or cancels the running jobs.
 func (e *Engine) Start(ctx context.Context) {
 	e.startOnce.Do(func() {
+		SyncPlugins(ctx, true)
 		claims, stopClaims := context.WithCancel(ctx)
 		execution, cancelExecution := context.WithCancel(context.WithoutCancel(ctx))
 
@@ -201,6 +202,7 @@ func (e *Engine) releaseJob(job *db.WorkflowJob) {
 }
 
 func (e *Engine) process(ctx context.Context, job *db.WorkflowJob) {
+	SyncPlugins(ctx, false)
 	log := logrus.WithContext(ctx).WithFields(logrus.Fields{"jobID": job.ID, "workflowID": job.WorkflowID})
 	start := time.Now()
 	var payload jobPayload

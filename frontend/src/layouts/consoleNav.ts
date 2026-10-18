@@ -5,6 +5,7 @@ import {
   LogIn,
   MonitorSmartphone,
   Palette,
+  Puzzle,
   ShieldCheck,
   Sparkles,
   Table2,
@@ -79,6 +80,7 @@ export const ADMIN_NAV: NavGroup[] = [
     items: [
       navItem('admin-projects', Table2, () => t('consoleNav.projects')),
       navItem('admin-field-shortcuts', Zap, () => t('consoleNav.fieldShortcuts')),
+      navItem('admin-workflow-plugins', Puzzle, () => t('consoleNav.workflowPlugins')),
     ],
   },
   {

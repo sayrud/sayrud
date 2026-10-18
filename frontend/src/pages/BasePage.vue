@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { Message } from '@arco-design/web-vue'
 import { IconLock } from '@arco-design/web-vue/es/icon'
-import { CloudCheck, CloudOff, Eye, House, LoaderCircle, PanelLeftOpen, Share2 } from '@lucide/vue'
+import { CloudCheck, CloudOff, Eye, House, KeyRound, LoaderCircle, PanelLeftOpen, Share2 } from '@lucide/vue'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
@@ -10,6 +10,7 @@ import { ApiError } from '@/api/client'
 import { sharesApi } from '@/api/share'
 
 import WorkflowEditor from '@/components/workflow/WorkflowEditor.vue'
+import ProjectCredentialsPage from '@/components/base/ProjectCredentialsPage.vue'
 import ShareDialog from '@/components/base/ShareDialog.vue'
 import TableSidebar from '@/components/base/TableSidebar.vue'
 import AppearanceIcon from '@/components/common/AppearanceIcon.vue'
@@ -57,6 +58,8 @@ const publicError = ref('')
 
 const projectUID = computed(() => String(route.params.projectUID ?? ''))
 const workflowUID = computed(() => String(route.params.workflowUID ?? ''))
+const credentialsPage = computed(() => route.name === 'base-credentials')
+const projectPage = computed(() => !!workflowUID.value || credentialsPage.value)
 const shareToken = ref('')
 const publicPage = computed(() => store.isPublic || !!shareToken.value)
 const view = computed(() => store.activeView)
@@ -133,8 +136,8 @@ async function sync(reload = false) {
       }
     }
     if (store.isPublic && store.project) rememberShareToken(store.project.uid, shareToken.value)
-    // Workflows are only available to collaborators who can edit; opening a workflow does not switch tables.
-    if (workflowUID.value) {
+    // Project tools are private and do not switch the active table.
+    if (projectPage.value) {
       if (store.isPublic || !store.canEdit) router.replace(pageLocation())
       return
     }
@@ -166,7 +169,7 @@ async function sync(reload = false) {
   }
 }
 
-watch(() => [route.params.projectUID, route.params.shareToken, route.params.tableUID, route.params.viewUID, route.params.workflowUID], () => sync(), { immediate: true })
+watch(() => [route.name, route.params.projectUID, route.params.shareToken, route.params.tableUID, route.params.viewUID, route.params.workflowUID], () => sync(), { immediate: true })
 
 watch(
   () => [store.project?.uid, store.canEdit, store.isPublic] as const,
@@ -279,7 +282,7 @@ function confirmName() {
 
 // Global undo / redo for the non-grid views, the grid view handles them in its own keydown handler and prevents the default.
 function onGlobalKey(e: KeyboardEvent) {
-  if (e.defaultPrevented || workflowUID.value) return
+  if (e.defaultPrevented || projectPage.value) return
   const t = e.target as HTMLElement
   if (t.closest('input, textarea, [contenteditable], .arco-modal')) return
   const mod = e.metaKey || e.ctrlKey
@@ -354,7 +357,7 @@ onBeforeUnmount(() => {
             {{ t('role.viewer') }}
           </a-tag>
         </a-tooltip>
-        <span v-if="store.project && ((store.canEdit && !workflowUID) || syncState.cls !== 'saved')" class="sync-state" :class="syncState.cls" :title="syncState.text">
+        <span v-if="store.project && ((store.canEdit && !projectPage) || syncState.cls !== 'saved')" class="sync-state" :class="syncState.cls" :title="syncState.text">
           <component :is="syncState.icon" :size="15" />
           <span class="sync-text">{{ syncState.text }}</span>
         </span>
@@ -367,6 +370,18 @@ onBeforeUnmount(() => {
           </a-tooltip>
           <a-avatar v-if="otherMembers.length > 5" :size="28" class="member more">+{{ otherMembers.length - 5 }}</a-avatar>
         </div>
+        <a-button
+          v-if="store.canEdit && !publicPage"
+          type="text"
+          size="small"
+          class="credential-trigger"
+          :aria-label="t('credentialPage.title')"
+          :aria-current="credentialsPage ? 'page' : undefined"
+          @click="router.push({ name: 'base-credentials', params: { projectUID: store.project?.uid } })"
+        >
+          <template #icon><KeyRound :size="14" /></template>
+          <span class="credential-text">{{ t('credentialPage.title') }}</span>
+        </a-button>
         <a-button v-if="!publicPage" size="small" type="primary" :disabled="!store.project" @click="shareVisible = true">
           <template #icon><Share2 :size="14" /></template>{{ t('share.share') }}
         </a-button>
@@ -404,11 +419,14 @@ onBeforeUnmount(() => {
     </div>
 
     <div v-else class="base-body">
-      <TableSidebar v-if="!sidebarCollapsed" v-model:width="sidebarWidth" :active-workflow-uid="workflowUID" @select="selectTable" @select-workflow="selectWorkflow" @collapse="sidebarCollapsed = true" />
-      <main v-if="workflowUID && store.project && store.canEdit && !publicPage" class="main">
+      <TableSidebar v-if="!sidebarCollapsed" v-model:width="sidebarWidth" :active-workflow-uid="workflowUID" :credentials-active="credentialsPage" @select="selectTable" @select-workflow="selectWorkflow" @collapse="sidebarCollapsed = true" />
+      <main v-if="credentialsPage && store.project && store.canEdit && !publicPage" class="main">
+        <ProjectCredentialsPage :key="store.project.uid" :project-uid="store.project.uid" :can-manage="store.canManage" :sidebar-collapsed="sidebarCollapsed" @expand-sidebar="sidebarCollapsed = false" />
+      </main>
+      <main v-else-if="workflowUID && store.project && store.canEdit && !publicPage" class="main">
         <WorkflowEditor :project-uid="store.project.uid" :workflow-uid="workflowUID" :sidebar-collapsed="sidebarCollapsed" @expand-sidebar="sidebarCollapsed = false" @missing="onWorkflowMissing" />
       </main>
-      <main v-else-if="workflowUID" class="main"><div class="loading"><a-spin :size="28" /></div></main>
+      <main v-else-if="projectPage" class="main"><div class="loading"><a-spin :size="28" /></div></main>
       <main v-else class="main">
         <div v-if="sidebarCollapsed || store.activeTableUID" class="main-head">
           <button v-if="sidebarCollapsed" class="icon-btn expand-side" :title="t('base.expandSidebar')" @click="sidebarCollapsed = false">
@@ -490,7 +508,8 @@ onBeforeUnmount(() => {
     padding: 0 12px 0 8px;
   }
   .sync-text,
-  .members {
+  .members,
+  .credential-text {
     display: none;
   }
 }
@@ -594,6 +613,12 @@ onBeforeUnmount(() => {
 .members {
   display: flex;
   align-items: center;
+}
+.credential-trigger.arco-btn {
+  color: var(--text-caption);
+}
+.credential-trigger.arco-btn:hover {
+  color: var(--text-title);
 }
 .member {
   margin-left: -6px;
