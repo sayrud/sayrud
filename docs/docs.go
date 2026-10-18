@@ -11985,7 +11985,6 @@ const docTemplate = `{
                 "sourceURL",
                 "timeout",
                 "updatedAt",
-                "usedBy",
                 "version"
             ],
             "properties": {
@@ -12047,10 +12046,6 @@ const docTemplate = `{
                 },
                 "updatedAt": {
                     "type": "string"
-                },
-                "usedBy": {
-                    "description": "UsedBy is the number of workflows whose draft or published revision uses the node.",
-                    "type": "integer"
                 },
                 "version": {
                     "type": "string"

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Message, Modal, type TableColumnData } from '@arco-design/web-vue'
-import { Download, Sparkles, Zap } from '@lucide/vue'
+import { CircleArrowUp, Download, Ellipsis, Sparkles, Trash2, Zap } from '@lucide/vue'
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
@@ -21,6 +21,7 @@ const shortcuts = ref<AdminFieldShortcut[]>([])
 const loading = ref(true)
 const toggling = ref('')
 const installVisible = ref(false)
+const upgradeTarget = ref<AdminFieldShortcut | null>(null)
 const keyword = ref('')
 const pagination = reactive({ current: 1, pageSize: 20, total: 0 })
 
@@ -80,6 +81,21 @@ function edit(s: AdminFieldShortcut) {
   router.push({ name: 'admin-field-shortcut-edit', params: { shortcutUID: s.uid } })
 }
 
+function openInstall() {
+  upgradeTarget.value = null
+  installVisible.value = true
+}
+
+function openUpgrade(s: AdminFieldShortcut) {
+  upgradeTarget.value = s
+  installVisible.value = true
+}
+
+function onInstalled(s: AdminFieldShortcut) {
+  if (upgradeTarget.value) load()
+  else edit(s)
+}
+
 async function toggle(s: AdminFieldShortcut, enabled: boolean) {
   toggling.value = s.uid
 
@@ -106,12 +122,12 @@ async function toggle(s: AdminFieldShortcut, enabled: boolean) {
   }
 }
 
-function remove(s: AdminFieldShortcut) {
+function uninstall(s: AdminFieldShortcut) {
   Modal.confirm({
-    title: t('shortcutAdmin.deleteTitle', { name: s.name }),
+    title: t('shortcutAdmin.uninstallTitle', { name: s.name }),
     content: s.usedBy ? t('shortcutAdmin.deleteInUse', { n: s.usedBy }, s.usedBy) : t('shortcutAdmin.deleteContent'),
     okButtonProps: { status: 'danger' },
-    okText: t('common.delete'),
+    okText: t('pluginAdmin.uninstall'),
     onBeforeOk: async () => {
       try {
         await adminShortcutsApi.delete(s.uid)
@@ -120,7 +136,7 @@ function remove(s: AdminFieldShortcut) {
         return false
       }
       await load()
-      Message.success(t('common.deleted'))
+      Message.success(t('pluginAdmin.uninstalled'))
       return true
     },
   })
@@ -133,7 +149,7 @@ onMounted(load)
   <div>
     <PageHeader :title="t('shortcutAdmin.title')" :description="t('shortcutAdmin.pageDescription')">
       <template #extra>
-        <a-button type="primary" @click="installVisible = true">
+        <a-button type="primary" @click="openInstall">
           <template #icon><Download :size="16" /></template>
           {{ t('shortcutAdmin.install') }}
         </a-button>
@@ -189,10 +205,24 @@ onMounted(load)
           </span>
         </template>
         <template #actions="{ record }">
-          <div class="actions" @click.stop>
-            <a-button type="text" size="small" @click="edit(record as AdminFieldShortcut)">{{ t('common.edit') }}</a-button>
-            <a-button type="text" size="small" status="danger" @click="remove(record as AdminFieldShortcut)">{{ t('common.delete') }}</a-button>
-          </div>
+          <a-space :size="4" @click.stop>
+            <a-button type="text" size="small" @click="edit(record as AdminFieldShortcut)">{{ t('pluginAdmin.details') }}</a-button>
+            <a-dropdown trigger="click" position="br">
+              <a-button type="text" size="small" :aria-label="t('common.more')">
+                <template #icon><Ellipsis :size="16" /></template>
+              </a-button>
+              <template #content>
+                <a-doption @click="openUpgrade(record as AdminFieldShortcut)">
+                  <template #icon><CircleArrowUp :size="15" /></template>
+                  {{ t('pluginAdmin.upgrade') }}
+                </a-doption>
+                <a-doption class="danger-option" @click="uninstall(record as AdminFieldShortcut)">
+                  <template #icon><Trash2 :size="15" /></template>
+                  {{ t('pluginAdmin.uninstall') }}
+                </a-doption>
+              </template>
+            </a-dropdown>
+          </a-space>
         </template>
         <template #empty>
           <a-empty :description="t('shortcutAdmin.noMatch')">
@@ -205,7 +235,7 @@ onMounted(load)
         <StateIllustration name="feature-upgrade" :width="160" />
         <div class="empty-title">{{ t('shortcutAdmin.empty') }}</div>
         <div class="text-desc empty-desc">{{ t('shortcutAdmin.emptyDescription') }}</div>
-        <a-button type="primary" @click="installVisible = true">
+        <a-button type="primary" @click="openInstall">
           <template #icon><Download :size="16" /></template>
           {{ t('shortcutAdmin.install') }}
         </a-button>
@@ -231,7 +261,7 @@ onMounted(load)
       </div>
     </SettingsSection>
 
-    <FieldShortcutInstallModal v-model:visible="installVisible" @installed="edit" />
+    <FieldShortcutInstallModal v-model:visible="installVisible" :upgrade="upgradeTarget" @installed="onInstalled" />
   </div>
 </template>
 
@@ -288,11 +318,8 @@ onMounted(load)
 .status-on {
   color: var(--color-success);
 }
-.actions {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  white-space: nowrap;
+.danger-option {
+  color: var(--color-danger);
 }
 .empty {
   display: flex;

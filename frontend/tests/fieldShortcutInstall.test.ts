@@ -7,7 +7,7 @@ import ts from 'typescript'
 import * as vue from 'vue'
 import { compileScript, parse } from 'vue/compiler-sfc'
 
-import type { AdminFieldShortcut } from '../src/api/shortcut.ts'
+import type { AdminFieldShortcut, SaveFieldShortcut } from '../src/api/shortcut.ts'
 import * as workflowPlugin from '../src/utils/workflowPlugin.ts'
 
 interface InstallModal {
@@ -28,13 +28,15 @@ interface InstallModal {
 function loadModal(api: {
   inspect: (body: { source?: string; url?: string; language?: string }) => Promise<AdminFieldShortcut>
   install: (source: string, language: string) => Promise<AdminFieldShortcut>
-}) {
+  update?: (uid: string, body: SaveFieldShortcut) => Promise<AdminFieldShortcut>
+}, upgrade?: AdminFieldShortcut) {
   const source = readFileSync(new URL('../src/components/admin/FieldShortcutInstallModal.vue', import.meta.url), 'utf8')
   const script = compileScript(parse(source).descriptor, { id: 'field-shortcut-install-test' })
   const compiled = ts.transpileModule(script.content, { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText
   const module = { exports: {} as { default?: { setup: (...args: unknown[]) => unknown } } }
   const require = createRequire(import.meta.url)
   const visible = vue.ref(true)
+  const props = vue.reactive({ upgrade })
   const messages: string[] = []
   const events: unknown[][] = []
   const overrides: Record<string, unknown> = {
@@ -52,8 +54,8 @@ function loadModal(api: {
     id in overrides ? overrides[id] : id.endsWith('.vue') ? {} : require(id), module, module.exports)
 
   const scope = vue.effectScope()
-  const modal = scope.run(() => module.exports.default!.setup({}, { expose: () => {}, emit: (...args: unknown[]) => events.push(args) })) as InstallModal
-  return { modal, visible, messages, events, stop: () => scope.stop() }
+  const modal = scope.run(() => module.exports.default!.setup(props, { expose: () => {}, emit: (...args: unknown[]) => events.push(args) })) as InstallModal
+  return { modal, visible, props, messages, events, stop: () => scope.stop() }
 }
 
 test('shortcut installation reviews files, URLs and custom code and installs the exact reviewed source', async (t) => {
@@ -144,6 +146,77 @@ test('TypeScript files and custom code retain their reviewed language through in
     await modal.inspect()
     assert.deepEqual(inspected[1], { source: 'custom typed module', language: 'typescript' })
   }
+})
+
+test('upgrading replaces the selected shortcut with reviewed source and preserves its identity and enabled state', async (t) => {
+  const original = {
+    uid: 'fscAAAAAAA', name: 'Original', code: 'original source', language: 'javascript', enabled: false,
+    credentials: [{ key: 'api', type: 'bearer', hasValue: true }],
+  } as AdminFieldShortcut
+  const preview = {
+    name: 'Replacement', description: 'Updated description', resultType: 'text',
+    code: 'reviewed source', language: 'typescript', enabled: true,
+    formItems: [{ key: 'text', label: 'Text', component: 'input', required: true }],
+    domains: ['api.example.com'], credentials: [{ key: 'api', type: 'bearer', hasValue: false }],
+    timeoutSeconds: 60, aiEnabled: true,
+  } as AdminFieldShortcut
+  const updated = { ...preview, uid: original.uid, enabled: false, credentials: original.credentials }
+  const writes: { uid: string; body: SaveFieldShortcut }[] = []
+  const { modal, visible, props, messages, events, stop } = loadModal({
+    inspect: async () => preview,
+    install: async () => assert.fail('upgrading must not create another shortcut'),
+    update: async (uid, body) => { writes.push({ uid, body }); return updated },
+  }, original)
+  t.after(stop)
+
+  assert.equal(modal.code.value, original.code)
+  modal.source.value = 'code'
+  modal.code.value = 'uploaded source'
+  await modal.inspect()
+  modal.code.value = 'unreviewed changes'
+  await modal.install()
+
+  assert.deepEqual(writes, [{
+    uid: original.uid,
+    body: {
+      name: preview.name, description: preview.description, resultType: 'text',
+      code: preview.code, language: 'typescript', formItems: preview.formItems,
+      domains: preview.domains, credentials: [{ key: 'api', type: 'bearer', name: undefined }],
+      timeoutSeconds: 60, aiEnabled: true, enabled: false,
+    },
+  }])
+  assert.deepEqual(events, [['installed', updated]])
+  assert.equal(messages.at(-1), 'pluginAdmin.upgradeSuccess')
+  assert.equal(visible.value, false)
+  assert.equal(original.code, 'original source')
+
+  await vue.nextTick()
+  props.upgrade = undefined
+  visible.value = true
+  await vue.nextTick()
+  assert.equal(modal.language.value, 'javascript')
+  assert.match(modal.code.value, /export const manifest/)
+  assert.equal(modal.inspection.value, null)
+})
+
+test('a failed upgrade keeps the review open without creating or removing a shortcut', async (t) => {
+  const original = { uid: 'fscAAAAAAA', name: 'Original', enabled: true } as AdminFieldShortcut
+  const preview = { name: 'Replacement', code: 'module', language: 'javascript', credentials: [] } as unknown as AdminFieldShortcut
+  const { modal, visible, events, messages, stop } = loadModal({
+    inspect: async () => preview,
+    install: async () => assert.fail('upgrading must not create another shortcut'),
+    update: async () => { throw new Error('Upgrade failed') },
+  }, original)
+  t.after(stop)
+
+  modal.source.value = 'code'
+  await modal.inspect()
+  await modal.install()
+  assert.equal(modal.step.value, 2)
+  assert.deepEqual(modal.inspection.value, preview)
+  assert.equal(visible.value, true)
+  assert.deepEqual(events, [])
+  assert.equal(messages.at(-1), 'Upgrade failed')
 })
 
 test('shortcut installer reports invalid files and failed requests and ignores stale inspections', async (t) => {

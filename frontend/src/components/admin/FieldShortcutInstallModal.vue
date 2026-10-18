@@ -4,7 +4,7 @@ import { ArrowRight, CodeXml, FileCode2, Link2, Sparkles, Upload, X, Zap } from 
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
-import { adminShortcutsApi, type AdminFieldShortcut } from '@/api/shortcut'
+import { adminShortcutsApi, type AdminFieldShortcut, type SaveFieldShortcut } from '@/api/shortcut'
 import SHORTCUT_STARTER from '@/assets/templates/field-shortcut.js?raw'
 import CodeEditor from '@/components/common/CodeEditor.vue'
 import FieldTypeIcon from '@/components/field/FieldTypeIcon.vue'
@@ -13,6 +13,7 @@ import { attachmentSize } from '@/utils/attachments'
 import { fieldTypeInfo } from '@/utils/fieldTypes'
 import { LANGUAGE_NAMES, languageOf, type PluginLanguage } from '@/utils/workflowPlugin'
 
+const props = defineProps<{ upgrade?: AdminFieldShortcut | null }>()
 const visible = defineModel<boolean>('visible', { required: true })
 const emit = defineEmits<{ installed: [shortcut: AdminFieldShortcut] }>()
 const { t } = useI18n()
@@ -39,18 +40,27 @@ const canInspect = computed(() => {
 })
 
 let requestId = 0
-watch(visible, () => {
-  requestId++
-  step.value = 1
-  source.value = 'file'
-  file.value = null
-  url.value = ''
-  error.value = ''
-  inspection.value = null
-  reading.value = false
-  inspecting.value = false
-  installing.value = false
-})
+watch(
+  visible,
+  (open) => {
+    requestId++
+    step.value = 1
+    source.value = 'file'
+    file.value = null
+    url.value = ''
+    error.value = ''
+    inspection.value = null
+    reading.value = false
+    inspecting.value = false
+    installing.value = false
+
+    if (open) {
+      code.value = props.upgrade?.code ?? SHORTCUT_STARTER
+      language.value = props.upgrade?.language ?? 'javascript'
+    }
+  },
+  { immediate: true },
+)
 
 watch([source, url, code, language], () => (error.value = ''))
 
@@ -114,8 +124,24 @@ async function install() {
   installing.value = true
 
   try {
-    const shortcut = await adminShortcutsApi.install(inspection.value.code, inspection.value.language)
-    Message.success(t('pluginAdmin.installSuccess', { name: shortcut.name }))
+    const i = inspection.value
+    const upgrade = props.upgrade
+    const shortcut = upgrade
+      ? await adminShortcutsApi.update(upgrade.uid, {
+          name: i.name,
+          description: i.description,
+          resultType: i.resultType as SaveFieldShortcut['resultType'],
+          code: i.code,
+          language: i.language,
+          formItems: i.formItems,
+          domains: i.domains,
+          credentials: i.credentials.map((c) => ({ key: c.key, type: c.type, name: c.name })),
+          timeoutSeconds: i.timeoutSeconds,
+          aiEnabled: i.aiEnabled,
+          enabled: upgrade.enabled,
+        })
+      : await adminShortcutsApi.install(i.code, i.language)
+    Message.success(t(upgrade ? 'pluginAdmin.upgradeSuccess' : 'pluginAdmin.installSuccess', { name: shortcut.name }))
     emit('installed', shortcut)
     visible.value = false
   } catch (e) {
@@ -134,7 +160,7 @@ async function install() {
     :closable="!busy"
     :esc-to-close="!busy"
     unmount-on-close
-    :title="t('shortcutAdmin.installTitle')"
+    :title="upgrade ? t('pluginAdmin.upgradeTitle', { name: upgrade.name }) : t('shortcutAdmin.installTitle')"
   >
     <div v-if="step === 1" class="source-step">
       <a-radio-group v-model="source" type="button" size="large" :disabled="busy" class="source-options">
@@ -246,7 +272,7 @@ async function install() {
         </template>
         <template v-else>
           <a-button :disabled="installing" @click="step = 1">{{ t('pluginAdmin.back') }}</a-button>
-          <a-button type="primary" :loading="installing" @click="install">{{ t('pluginAdmin.confirmInstall') }}</a-button>
+          <a-button type="primary" :loading="installing" @click="install">{{ t(upgrade ? 'pluginAdmin.confirmUpgrade' : 'pluginAdmin.confirmInstall') }}</a-button>
         </template>
       </a-space>
     </template>

@@ -31,8 +31,6 @@ type WorkflowPluginsStore interface {
 	SetEnabled(ctx context.Context, pluginID string, enabled bool) error
 	// Delete uninstalls the plugin.
 	Delete(ctx context.Context, pluginID string) error
-	// CountUsage returns the number of workflows whose draft or published revision uses the step type.
-	CountUsage(ctx context.Context, stepType string) (int64, error)
 }
 
 func NewWorkflowPluginsStore(db *gorm.DB) WorkflowPluginsStore {
@@ -146,32 +144,4 @@ func (db *workflowPlugins) Delete(ctx context.Context, pluginID string) error {
 		return errors.Wrap(err, "delete")
 	}
 	return nil
-}
-
-func (db *workflowPlugins) CountUsage(ctx context.Context, stepType string) (int64, error) {
-	var count int64
-	err := db.WithContext(ctx).Model(&Workflow{}).
-		Joins("LEFT JOIN workflow_revisions ON workflow_revisions.id = workflows.published_revision_id").
-		Where(`EXISTS (
-			WITH RECURSIVE steps(value) AS (
-				SELECT value FROM jsonb_array_elements(
-					jsonb_path_query_array(workflows.draft, '$.steps[*]') ||
-					jsonb_path_query_array(workflows.draft, '$.async[*].steps[*]') ||
-					COALESCE(jsonb_path_query_array(workflow_revisions.spec, '$.steps[*]'), '[]'::jsonb) ||
-					COALESCE(jsonb_path_query_array(workflow_revisions.spec, '$.async[*].steps[*]'), '[]'::jsonb)
-				)
-				UNION ALL
-				SELECT branch.value FROM steps
-				CROSS JOIN LATERAL jsonb_array_elements(
-					jsonb_path_query_array(steps.value, '$.then[*]') ||
-					jsonb_path_query_array(steps.value, '$.else[*]')
-				) AS branch(value)
-			)
-			SELECT 1 FROM steps WHERE value ->> 'type' = ?
-		)`, stepType).
-		Count(&count).Error
-	if err != nil {
-		return 0, errors.Wrap(err, "count")
-	}
-	return count, nil
 }

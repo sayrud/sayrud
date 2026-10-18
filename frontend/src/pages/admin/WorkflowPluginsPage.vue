@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Message, Modal, type TableColumnData } from '@arco-design/web-vue'
-import { CircleArrowUp, Download, Ellipsis, Globe, KeyRound, Trash2, Workflow, Zap } from '@lucide/vue'
+import { CircleArrowUp, Download, Ellipsis, Globe, KeyRound, Trash2, Zap } from '@lucide/vue'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
@@ -38,8 +38,8 @@ const upgradeTarget = ref<WorkflowPlugin | null>(null)
 
 const columns = computed<TableColumnData[]>(() => [
   { title: t('pluginAdmin.fieldName'), slotName: 'name', width: 320 },
-  { title: t('pluginAdmin.category'), slotName: 'category', width: 140 },
-  ...(view.value === 'installed' ? [{ title: t('pluginAdmin.usage'), slotName: 'usage', width: 100 }] : []),
+  ...(view.value === 'installed' ? [{ title: t('pluginAdmin.version'), slotName: 'version', width: 100 }] : []),
+  { title: t('pluginAdmin.category'), slotName: 'category', width: view.value === 'installed' ? 240 : 140 },
   { title: t('pluginAdmin.colStatus'), slotName: 'status', width: 120 },
   { title: t('common.actions'), slotName: 'actions', width: 140, fixed: 'right' },
 ])
@@ -130,7 +130,7 @@ async function toggle(p: WorkflowPlugin, enabled: boolean) {
 function uninstall(p: WorkflowPlugin) {
   Modal.confirm({
     title: t('pluginAdmin.uninstallTitle', { name: p.module.label }),
-    content: p.usedBy ? t('pluginAdmin.uninstallInUse', { n: p.usedBy }, p.usedBy) : t('pluginAdmin.uninstallContent'),
+    content: t('pluginAdmin.uninstallContent'),
     okButtonProps: { status: 'danger' },
     okText: t('pluginAdmin.uninstall'),
     onBeforeOk: async () => {
@@ -188,7 +188,7 @@ onMounted(load)
           :loading="loading"
           row-key="id"
           :bordered="false"
-          :scroll="{ x: 820 }"
+          :scroll="{ x: 920 }"
           :pagination="false"
           class="table"
           @row-click="(record) => openPlugin(record as WorkflowPlugin)"
@@ -201,13 +201,11 @@ onMounted(load)
                 <div class="text-desc ellipsis desc" :title="dslText(record.module.description)">
                   {{ dslText(record.module.description) || t('pluginAdmin.noDescription') }}
                 </div>
-                <div class="text-desc ellipsis desc">
-                  {{ versionLabel(record.version) }}<template v-if="record.language === 'typescript'"> · {{ LANGUAGE_NAMES.typescript }}</template>
-                  <template v-if="record.module.plugin?.author"> · {{ record.module.plugin.author }}</template>
-                </div>
+                <div v-if="record.language === 'typescript'" class="text-desc desc">{{ LANGUAGE_NAMES.typescript }}</div>
               </div>
             </div>
           </template>
+          <template #version="{ record }">{{ versionLabel(record.version) }}</template>
           <template #category="{ record }">
             <a-space wrap :size="6">
               <span>{{ CATEGORY_LABELS[(record as WorkflowPlugin).module.category]() }}</span>
@@ -226,11 +224,6 @@ onMounted(load)
                 </a-tooltip>
               </a-space>
             </a-space>
-          </template>
-          <template #usage="{ record }">
-            <a-tooltip :content="record.usedBy ? t('pluginAdmin.usedBy', { n: record.usedBy }, record.usedBy) : t('pluginAdmin.notUsed')">
-              <a-space :size="4" class="usage" :class="{ active: record.usedBy }"><Workflow :size="13" />{{ record.usedBy }}</a-space>
-            </a-tooltip>
           </template>
           <template #status="{ record }">
             <a-space :size="8" class="status-cell" @click.stop>
@@ -394,15 +387,6 @@ onMounted(load)
 
 .desc {
   font-size: 12px;
-}
-
-.usage {
-  color: var(--text-placeholder);
-  font-variant-numeric: tabular-nums;
-}
-
-.usage.active {
-  color: var(--text-caption);
 }
 
 .status-cell {

@@ -1662,8 +1662,6 @@ export interface WorkflowPlugin {
   /** Timeout is the time limit of a call in seconds. */
   timeout: number;
   updatedAt: string;
-  /** UsedBy is the number of workflows whose draft or published revision uses the node. */
-  usedBy: number;
   version: string;
 }
 
