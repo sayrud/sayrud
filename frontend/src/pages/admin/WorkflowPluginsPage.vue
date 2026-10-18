@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { Message, Modal } from '@arco-design/web-vue'
-import { CircleArrowUp, Ellipsis, Eye, Globe, KeyRound, Plus, Search, Trash2, Workflow, Zap } from '@lucide/vue'
-import { computed, onMounted, ref } from 'vue'
+import { Message, Modal, type TableColumnData } from '@arco-design/web-vue'
+import { CircleArrowUp, Ellipsis, Globe, KeyRound, Plus, Trash2, Workflow, Zap } from '@lucide/vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 
@@ -10,6 +10,7 @@ import WorkflowPluginIcon from '@/components/admin/WorkflowPluginIcon.vue'
 import WorkflowPluginInstallModal from '@/components/admin/WorkflowPluginInstallModal.vue'
 import StateIllustration from '@/components/common/StateIllustration.vue'
 import PageHeader from '@/components/console/PageHeader.vue'
+import SettingsSection from '@/components/console/SettingsSection.vue'
 import type { ModuleCategory, ModuleDef } from '@/types/workflow'
 import { dslText } from '@/utils/modules'
 import { LANGUAGE_NAMES, versionLabel } from '@/utils/workflowPlugin'
@@ -29,11 +30,19 @@ const loading = ref(true)
 const toggling = ref('')
 const view = ref<'installed' | 'builtin'>('installed')
 const keyword = ref('')
+const pagination = reactive({ current: 1, pageSize: 20 })
 
 const installVisible = ref(false)
 const installWithCode = ref(false)
 const upgradeTarget = ref<WorkflowPlugin | null>(null)
 
+const columns = computed<TableColumnData[]>(() => [
+  { title: t('pluginAdmin.fieldName'), slotName: 'name', width: 320 },
+  { title: t('pluginAdmin.category'), slotName: 'category', width: 140 },
+  ...(view.value === 'installed' ? [{ title: t('pluginAdmin.usage'), slotName: 'usage', width: 100 }] : []),
+  { title: t('pluginAdmin.colStatus'), slotName: 'status', width: 120 },
+  { title: t('common.actions'), slotName: 'actions', width: 140, fixed: 'right' },
+])
 
 async function load() {
   loading.value = true
@@ -47,7 +56,6 @@ async function load() {
     loading.value = false
   }
 }
-onMounted(load)
 
 function matches(m: ModuleDef, extra = '') {
   const k = keyword.value.trim().toLowerCase()
@@ -57,7 +65,20 @@ function matches(m: ModuleDef, extra = '') {
 
 const shownPlugins = computed(() => plugins.value.filter((p) => matches(p.module, p.module.plugin?.author)))
 const shownBuiltins = computed(() => builtins.value.filter((m) => matches(m)))
-const enabledCount = computed(() => plugins.value.filter((p) => p.enabled).length)
+
+// The API returns the complete catalog; paginate each filtered list locally.
+const total = computed(() => view.value === 'installed' ? shownPlugins.value.length : shownBuiltins.value.length)
+const pageStart = computed(() => (pagination.current - 1) * pagination.pageSize)
+const pagedPlugins = computed(() => shownPlugins.value.slice(pageStart.value, pageStart.value + pagination.pageSize))
+const pagedBuiltins = computed(() => shownBuiltins.value.slice(pageStart.value, pageStart.value + pagination.pageSize))
+
+watch([view, keyword, () => pagination.pageSize], () => {
+  pagination.current = 1
+})
+
+watch(total, (count) => {
+  pagination.current = Math.min(pagination.current, Math.max(1, Math.ceil(count / pagination.pageSize)))
+})
 
 function openInstall(withCode = false) {
   upgradeTarget.value = null
@@ -96,6 +117,7 @@ function onUninstalled(id: string) {
 
 async function toggle(p: WorkflowPlugin, enabled: boolean) {
   toggling.value = p.id
+
   try {
     replace(await workflowPluginsApi.setEnabled(p.id, enabled))
   } catch (e) {
@@ -124,6 +146,8 @@ function uninstall(p: WorkflowPlugin) {
     },
   })
 }
+
+onMounted(load)
 </script>
 
 <template>
@@ -137,114 +161,124 @@ function uninstall(p: WorkflowPlugin) {
       </template>
     </PageHeader>
 
-    <div class="toolbar">
-      <a-radio-group v-model="view" type="button">
-        <a-radio value="installed">
-          {{ t('pluginAdmin.installed') }}
-          <span class="count">{{ plugins.length }}</span>
-        </a-radio>
-        <a-radio value="builtin">
-          {{ t('pluginAdmin.builtin') }}
-          <span class="count">{{ builtins.length }}</span>
-        </a-radio>
-      </a-radio-group>
-      <span v-if="view === 'installed' && plugins.length" class="text-desc summary">
-        {{ t('pluginAdmin.enabledSummary', { n: enabledCount, total: plugins.length }) }}
-      </span>
-      <a-input v-model="keyword" allow-clear :placeholder="t('pluginAdmin.search')" class="search">
-        <template #prefix><Search :size="15" /></template>
-      </a-input>
-    </div>
+    <SettingsSection flush>
+      <div class="toolbar">
+        <a-radio-group v-model="view" type="button">
+          <a-radio value="installed">
+            <a-space :size="6">
+              {{ t('pluginAdmin.installed') }}
+              <a-tag size="small">{{ plugins.length }}</a-tag>
+            </a-space>
+          </a-radio>
+          <a-radio value="builtin">
+            <a-space :size="6">
+              {{ t('pluginAdmin.builtin') }}
+              <a-tag size="small">{{ builtins.length }}</a-tag>
+            </a-space>
+          </a-radio>
+        </a-radio-group>
+        <a-input-search v-model="keyword" :placeholder="t('pluginAdmin.search')" allow-clear class="search" />
+      </div>
 
-    <a-spin :loading="loading" class="spin">
       <template v-if="view === 'installed'">
-        <div v-if="shownPlugins.length" class="grid">
-          <article
-            v-for="p in shownPlugins"
-            :key="p.id"
-            class="card"
-            :class="{ disabled: !p.enabled }"
-            tabindex="0"
-            @click="openPlugin(p)"
-            @keydown.enter.self="openPlugin(p)"
-          >
-            <div class="card-body">
-              <div class="card-head">
-                <WorkflowPluginIcon :icon="p.module.icon" :color="p.module.color" :muted="!p.enabled" />
-                <div class="card-title">
-                  <div class="name ellipsis">{{ p.module.label }}</div>
-                  <div class="meta ellipsis">
-                    {{ versionLabel(p.version) }}<template v-if="p.language === 'typescript'"> · {{ LANGUAGE_NAMES.typescript }}</template
-                    ><template v-if="p.module.plugin?.author"> · {{ p.module.plugin.author }}</template>
-                  </div>
+        <a-table
+          v-if="loading || plugins.length || keyword.trim()"
+          :columns="columns"
+          :data="pagedPlugins"
+          :loading="loading"
+          row-key="id"
+          :bordered="false"
+          :scroll="{ x: 820 }"
+          :pagination="false"
+          class="table"
+          @row-click="(record) => openPlugin(record as WorkflowPlugin)"
+        >
+          <template #name="{ record }">
+            <div class="name-cell">
+              <WorkflowPluginIcon :icon="record.module.icon" :color="record.module.color" :muted="!record.enabled" :size="32" />
+              <div class="name-text">
+                <div class="name ellipsis">{{ dslText(record.module.label) }}</div>
+                <div class="text-desc ellipsis desc" :title="dslText(record.module.description)">
+                  {{ dslText(record.module.description) || t('pluginAdmin.noDescription') }}
                 </div>
-                <span class="card-aside" @click.stop>
-                  <a-switch
-                    size="small"
-                    :model-value="p.enabled"
-                    :loading="toggling === p.id"
-                    :disabled="!!toggling && toggling !== p.id"
-                    :aria-label="t('pluginAdmin.enabledTag')"
-                    @change="(v) => toggle(p, !!v)"
-                  />
-                </span>
+                <div class="text-desc ellipsis desc">
+                  {{ versionLabel(record.version) }}<template v-if="record.language === 'typescript'"> · {{ LANGUAGE_NAMES.typescript }}</template>
+                  <template v-if="record.module.plugin?.author"> · {{ record.module.plugin.author }}</template>
+                </div>
               </div>
-              <p class="desc">{{ p.module.description || t('pluginAdmin.noDescription') }}</p>
             </div>
-            <div class="card-foot">
-              <div class="chips">
-                <span class="category">{{ CATEGORY_LABELS[p.module.category]() }}</span>
-                <a-tooltip v-if="p.module.action" :content="t('pluginAdmin.actionTag')">
-                  <span class="chip orange"><Zap :size="12" /></span>
+          </template>
+          <template #category="{ record }">
+            <a-space wrap :size="6">
+              <span>{{ CATEGORY_LABELS[(record as WorkflowPlugin).module.category]() }}</span>
+              <a-space v-if="record.module.action || record.domains.length || record.credential" wrap :size="6">
+                <a-tooltip v-if="record.module.action" :content="t('pluginAdmin.actionTag')">
+                  <a-tag size="small" color="orange" :aria-label="t('pluginAdmin.actionTag')"><Zap :size="12" /></a-tag>
                 </a-tooltip>
                 <a-tooltip
-                  v-if="p.domains.length"
-                  :content="p.domains.includes('*') ? t('pluginAdmin.anyHostTag') : t('pluginAdmin.hostsTag', { n: p.domains.length }, p.domains.length)"
+                  v-if="record.domains.length"
+                  :content="record.domains.includes('*') ? t('pluginAdmin.anyHostTag') : t('pluginAdmin.hostsTag', { n: record.domains.length }, record.domains.length)"
                 >
-                  <span class="chip blue"><Globe :size="12" /></span>
+                  <a-tag size="small" color="arcoblue" :aria-label="t('pluginAdmin.network')"><Globe :size="12" /></a-tag>
                 </a-tooltip>
-                <a-tooltip v-if="p.credential" :content="t('pluginAdmin.credentialTag')">
-                  <span class="chip purple"><KeyRound :size="12" /></span>
+                <a-tooltip v-if="record.credential" :content="t('pluginAdmin.credentialTag')">
+                  <a-tag size="small" color="purple" :aria-label="t('pluginAdmin.credentialTag')"><KeyRound :size="12" /></a-tag>
                 </a-tooltip>
-              </div>
-              <a-tooltip :content="p.usedBy ? t('pluginAdmin.usedBy', { n: p.usedBy }, p.usedBy) : t('pluginAdmin.notUsed')">
-                <span class="usage" :class="{ active: p.usedBy }"><Workflow :size="13" />{{ p.usedBy }}</span>
-              </a-tooltip>
-              <span class="more" @click.stop>
-                <a-dropdown trigger="click" position="br">
-                  <a-button type="text" size="mini" shape="circle" :aria-label="t('common.actions')">
-                    <template #icon><Ellipsis :size="15" /></template>
-                  </a-button>
-                  <template #content>
-                    <a-doption @click="openPlugin(p)">
-                      <template #icon><Eye :size="15" /></template>
-                      {{ t('pluginAdmin.details') }}
-                    </a-doption>
-                    <a-doption @click="openUpgrade(p)">
-                      <template #icon><CircleArrowUp :size="15" /></template>
-                      {{ t('pluginAdmin.upgrade') }}
-                    </a-doption>
-                    <a-doption class="danger-option" @click="uninstall(p)">
-                      <template #icon><Trash2 :size="15" /></template>
-                      {{ t('pluginAdmin.uninstall') }}
-                    </a-doption>
-                  </template>
-                </a-dropdown>
+              </a-space>
+            </a-space>
+          </template>
+          <template #usage="{ record }">
+            <a-tooltip :content="record.usedBy ? t('pluginAdmin.usedBy', { n: record.usedBy }, record.usedBy) : t('pluginAdmin.notUsed')">
+              <a-space :size="4" class="usage" :class="{ active: record.usedBy }"><Workflow :size="13" />{{ record.usedBy }}</a-space>
+            </a-tooltip>
+          </template>
+          <template #status="{ record }">
+            <a-space :size="8" class="status-cell" @click.stop>
+              <a-switch
+                :model-value="record.enabled"
+                size="small"
+                :loading="toggling === record.id"
+                :disabled="!!toggling && toggling !== record.id"
+                :aria-label="t('pluginAdmin.enabledTag')"
+                @change="(v) => toggle(record as WorkflowPlugin, !!v)"
+              />
+              <span :class="record.enabled ? 'status-on' : 'text-desc'">
+                {{ record.enabled ? t('pluginAdmin.enabledTag') : t('pluginAdmin.disabledTag') }}
               </span>
-            </div>
-          </article>
-        </div>
+            </a-space>
+          </template>
+          <template #actions="{ record }">
+            <a-space :size="4" @click.stop>
+              <a-button type="text" size="small" @click="openPlugin(record as WorkflowPlugin)">{{ t('pluginAdmin.details') }}</a-button>
+              <a-dropdown trigger="click" position="br">
+                <a-button type="text" size="small" :aria-label="t('common.more')">
+                  <template #icon><Ellipsis :size="16" /></template>
+                </a-button>
+                <template #content>
+                  <a-doption @click="openUpgrade(record as WorkflowPlugin)">
+                    <template #icon><CircleArrowUp :size="15" /></template>
+                    {{ t('pluginAdmin.upgrade') }}
+                  </a-doption>
+                  <a-doption class="danger-option" @click="uninstall(record as WorkflowPlugin)">
+                    <template #icon><Trash2 :size="15" /></template>
+                    {{ t('pluginAdmin.uninstall') }}
+                  </a-doption>
+                </template>
+              </a-dropdown>
+            </a-space>
+          </template>
+          <template #empty>
+            <a-empty :description="t('pluginAdmin.noMatch')">
+              <template #image><StateIllustration name="no-results" :width="140" /></template>
+            </a-empty>
+          </template>
+        </a-table>
 
-        <div v-else-if="!loading && keyword.trim() && plugins.length" class="empty">
-          <StateIllustration name="no-results" :width="140" />
-          <div class="text-desc">{{ t('pluginAdmin.noMatch') }}</div>
-        </div>
-
-        <div v-else-if="!loading" class="empty empty-card">
+        <div v-else class="empty">
           <StateIllustration name="feature-upgrade" :width="160" />
           <div class="empty-title">{{ t('pluginAdmin.empty') }}</div>
           <div class="text-desc empty-desc">{{ t('pluginAdmin.emptyDescription') }}</div>
-          <a-space>
+          <a-space wrap>
             <a-button type="primary" @click="openInstall()">
               <template #icon><Plus :size="16" /></template>
               {{ t('pluginAdmin.install') }}
@@ -254,36 +288,67 @@ function uninstall(p: WorkflowPlugin) {
         </div>
       </template>
 
-      <template v-else>
-        <div v-if="shownBuiltins.length" class="grid">
-          <article v-for="m in shownBuiltins" :key="m.type" class="card" tabindex="0" @click="openBuiltin(m)" @keydown.enter.self="openBuiltin(m)">
-            <div class="card-body">
-              <div class="card-head">
-                <WorkflowPluginIcon :icon="m.icon" :color="m.color" />
-                <div class="card-title">
-                  <div class="name ellipsis">{{ dslText(m.label) }}</div>
-                  <div class="meta ellipsis mono">{{ m.type }}</div>
-                </div>
-                <span class="card-aside builtin-badge">{{ t('pluginAdmin.builtinTag') }}</span>
-              </div>
-              <p class="desc">{{ dslText(m.description) }}</p>
+      <a-table
+        v-else
+        :columns="columns"
+        :data="pagedBuiltins"
+        :loading="loading"
+        row-key="type"
+        :bordered="false"
+        :scroll="{ x: 720 }"
+        :pagination="false"
+        class="table"
+        @row-click="(record) => openBuiltin(record as ModuleDef)"
+      >
+        <template #name="{ record }">
+          <div class="name-cell">
+            <WorkflowPluginIcon :icon="record.icon" :color="record.color" :size="32" />
+            <div class="name-text">
+              <div class="name ellipsis">{{ dslText(record.label) }}</div>
+              <div class="text-desc ellipsis desc" :title="dslText(record.description)">{{ dslText(record.description) }}</div>
             </div>
-            <div class="card-foot">
-              <div class="chips">
-                <span class="category">{{ CATEGORY_LABELS[m.category]() }}</span>
-                <a-tooltip v-if="m.action" :content="t('pluginAdmin.actionTag')">
-                  <span class="chip orange"><Zap :size="12" /></span>
-                </a-tooltip>
-              </div>
-            </div>
-          </article>
-        </div>
-        <div v-else-if="!loading" class="empty">
-          <StateIllustration name="no-results" :width="140" />
-          <div class="text-desc">{{ t('pluginAdmin.noMatch') }}</div>
-        </div>
-      </template>
-    </a-spin>
+          </div>
+        </template>
+        <template #category="{ record }">
+          <a-space wrap :size="6">
+            <span>{{ CATEGORY_LABELS[(record as ModuleDef).category]() }}</span>
+            <a-tooltip v-if="record.action" :content="t('pluginAdmin.actionTag')">
+              <a-tag size="small" color="orange" :aria-label="t('pluginAdmin.actionTag')"><Zap :size="12" /></a-tag>
+            </a-tooltip>
+          </a-space>
+        </template>
+        <template #status>
+          <a-tag size="small" color="arcoblue">{{ t('pluginAdmin.builtinTag') }}</a-tag>
+        </template>
+        <template #actions="{ record }">
+          <a-space :size="4" @click.stop>
+            <a-button type="text" size="small" @click="openBuiltin(record as ModuleDef)">{{ t('pluginAdmin.details') }}</a-button>
+          </a-space>
+        </template>
+        <template #empty>
+          <a-empty :description="t('pluginAdmin.noMatch')">
+            <template #image><StateIllustration name="no-results" :width="140" /></template>
+          </a-empty>
+        </template>
+      </a-table>
+
+      <div v-if="total > 0" class="pagination-footer">
+        <a-pagination
+          v-model:current="pagination.current"
+          v-model:page-size="pagination.pageSize"
+          :total="total"
+          :disabled="loading"
+          :page-size-options="[10, 20, 50, 100]"
+          show-total
+          show-page-size
+          :show-jumper="total > pagination.pageSize"
+        >
+          <template #total="{ total: count }">
+            {{ t('pluginAdmin.total', { n: count }, count) }}
+          </template>
+        </a-pagination>
+      </div>
+    </SettingsSection>
 
     <WorkflowPluginInstallModal v-model:visible="installVisible" :upgrade="upgradeTarget" :start-with-code="installWithCode" @installed="onInstalled" />
   </div>
@@ -295,186 +360,64 @@ function uninstall(p: WorkflowPlugin) {
   flex-wrap: wrap;
   align-items: center;
   gap: 12px;
-  margin-bottom: 16px;
+  padding: 16px 24px;
 }
-.count {
-  margin-left: 6px;
-  padding: 0 6px;
-  border-radius: 8px;
-  background: var(--fill-hover);
-  color: var(--text-caption);
-  font-size: 12px;
-}
-.summary {
-  font-size: 13px;
-}
+
 .search {
   width: 260px;
   margin-left: auto;
 }
-.spin {
-  display: block;
-  min-height: 200px;
-}
-.grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: 16px;
-}
-.card {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  overflow: hidden;
-  border: 1px solid var(--line-border);
-  border-radius: 12px;
-  background: var(--bg-body);
+
+.table :deep(.arco-table-tr) {
   cursor: pointer;
-  transition:
-    border-color 0.2s,
-    box-shadow 0.2s,
-    transform 0.2s;
 }
-.card:hover {
-  border-color: var(--line-border-strong);
-  box-shadow: var(--shadow-popover);
-  transform: translateY(-1px);
-}
-.card:focus-visible {
-  outline: 2px solid var(--color-primary);
-  outline-offset: 2px;
-}
-.card-body {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  gap: 12px;
-  padding: 16px;
-}
-.card-head {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  min-width: 0;
-}
-.card-title {
-  flex: 1;
-  min-width: 0;
-}
-.name {
-  font-size: 15px;
-  font-weight: 600;
-  line-height: 22px;
-  color: var(--text-title);
-}
-.card.disabled .name {
-  color: var(--text-caption);
-}
-.meta {
-  font-size: 12px;
-  line-height: 18px;
-  color: var(--text-placeholder);
-}
-.mono {
-  font-family: 'SF Mono', Menlo, Consolas, monospace;
-}
-.card-aside {
-  display: inline-flex;
-  flex: none;
-  align-self: flex-start;
-  align-items: center;
-  height: 22px;
-  cursor: default;
-}
-.builtin-badge {
-  padding: 0 8px;
-  border-radius: 11px;
-  background: var(--bg-primary-soft);
-  color: var(--color-primary);
-  font-size: 12px;
-  cursor: inherit;
-}
-.desc {
-  display: -webkit-box;
-  height: 40px;
-  margin: 0;
-  overflow: hidden;
-  color: var(--text-caption);
-  font-size: 13px;
-  line-height: 20px;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
-  -webkit-box-orient: vertical;
-}
-.card-foot {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  height: 44px;
-  padding: 0 10px 0 16px;
-  border-top: 1px solid var(--line-border);
+
+.table :deep(.arco-table-th) {
   background: var(--bg-base);
 }
-.chips {
+
+.name-cell {
   display: flex;
-  flex: 1;
   align-items: center;
-  gap: 6px;
+  gap: 12px;
   min-width: 0;
 }
-.category {
-  overflow: hidden;
-  padding: 0 8px;
-  border: 1px solid var(--line-border);
-  border-radius: 11px;
-  background: var(--bg-body);
-  color: var(--text-caption);
+
+.name-text {
+  min-width: 0;
+}
+
+.name {
+  font-weight: 500;
+  color: var(--text-title);
+}
+
+.desc {
   font-size: 12px;
-  line-height: 20px;
-  white-space: nowrap;
-  text-overflow: ellipsis;
 }
-.chip {
-  display: inline-flex;
-  flex: none;
-  align-items: center;
-  justify-content: center;
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-}
-.chip.orange {
-  background: rgba(var(--warning-6), 0.14);
-  color: var(--color-warning);
-}
-.chip.blue {
-  background: var(--bg-primary-soft);
-  color: var(--color-primary);
-}
-.chip.purple {
-  background: rgba(114, 46, 209, 0.12);
-  color: rgb(114, 46, 209);
-}
+
 .usage {
-  display: inline-flex;
-  flex: none;
-  align-items: center;
-  gap: 4px;
-  padding: 0 6px;
   color: var(--text-placeholder);
-  font-size: 12px;
   font-variant-numeric: tabular-nums;
 }
+
 .usage.active {
   color: var(--text-caption);
 }
-.more {
-  display: inline-flex;
-  flex: none;
+
+.status-cell {
+  cursor: default;
+  white-space: nowrap;
 }
+
+.status-on {
+  color: var(--color-success);
+}
+
 .danger-option {
   color: var(--color-danger);
 }
+
 .empty {
   display: flex;
   flex-direction: column;
@@ -483,22 +426,48 @@ function uninstall(p: WorkflowPlugin) {
   padding: 56px 24px;
   text-align: center;
 }
-.empty-card {
-  border: 1px dashed var(--line-border-strong);
-  border-radius: 10px;
-  background: var(--bg-body);
-}
+
 .empty-title {
   font-size: 15px;
   font-weight: 500;
   color: var(--text-title);
 }
+
 .empty-desc {
-  max-width: 460px;
+  max-width: 420px;
   margin-bottom: 12px;
-  line-height: 1.6;
 }
+
+.pagination-footer {
+  padding: 16px 24px;
+}
+
+.pagination-footer :deep(.arco-pagination) {
+  width: 100%;
+  flex-wrap: wrap;
+  row-gap: 12px;
+}
+
+.pagination-footer :deep(.arco-pagination-total) {
+  margin-right: auto;
+  color: var(--text-caption);
+}
+
+.pagination-footer :deep(.arco-pagination-list) {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
 @media (max-width: 768px) {
+  .toolbar,
+  .pagination-footer {
+    padding: 12px 16px;
+  }
+
+  .pagination-footer :deep(.arco-pagination-total) {
+    flex-basis: 100%;
+  }
+
   .search {
     width: 100%;
     margin-left: 0;

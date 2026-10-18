@@ -40,6 +40,12 @@ const bodyStyle = computed(() => (props.flush ? { padding: '0' } : { padding: '8
   border-color: var(--line-border);
   border-radius: 8px;
 }
+
+.settings-section.flush {
+  /* Clip table and list backgrounds to the card's rounded border. */
+  overflow: hidden;
+}
+
 .settings-section + .settings-section {
   margin-top: 16px;
 }

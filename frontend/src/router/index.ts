@@ -99,7 +99,6 @@ const router = createRouter({
           path: 'workflow-plugins',
           name: 'admin-workflow-plugins',
           component: () => import('@/pages/admin/WorkflowPluginsPage.vue'),
-          meta: { wide: true },
         },
         {
           path: 'workflow-plugins/builtin/:type',
