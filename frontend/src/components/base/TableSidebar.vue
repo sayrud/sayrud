@@ -17,7 +17,7 @@ import ImportDialog from './ImportDialog.vue'
 const { t } = useI18n()
 
 const width = defineModel<number>('width', { default: 240 })
-const props = defineProps<{ activeWorkflowUid?: string }>()
+const props = defineProps<{ activeWorkflowUid?: string; credentialsActive?: boolean }>()
 const emit = defineEmits<{ select: [tableUID: string]; selectWorkflow: [workflowUID: string]; collapse: [] }>()
 const store = useBaseStore()
 const workflows = useProjectWorkflowsStore()
@@ -277,7 +277,7 @@ function openActions(e: MouseEvent, uid: string, name: string) {
         v-for="table in tables"
         :key="table.uid"
         class="table-item"
-        :class="{ active: !activeWorkflowUid && table.uid === store.activeTableUID, editable: store.canEdit }"
+        :class="{ active: !activeWorkflowUid && !credentialsActive && table.uid === store.activeTableUID, editable: store.canEdit }"
         @click="emit('select', table.uid)"
         @dblclick="startRename(table.uid, table.name)"
         @contextmenu="openActions($event, table.uid, table.name)"

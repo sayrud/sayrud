@@ -3140,6 +3140,56 @@ const docTemplate = `{
             }
         },
         "/projects/{projectUID}/credentials/{credentialUID}": {
+            "get": {
+                "description": "Returns the non-secret fields and the names of saved secret fields. Secret values are never returned.",
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "Get a project credential",
+                "operationId": "getCredential",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Project UID",
+                        "name": "projectUID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Credential UID",
+                        "name": "credentialUID",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/Credential"
+                        }
+                    },
+                    "403": {
+                        "description": "Permission denied",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "404": {
+                        "description": "Project or credential not found",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            },
             "put": {
                 "description": "Takes effect immediately for the workflows that reference it. The empty secret fields keep the saved values.",
                 "consumes": [

@@ -2,6 +2,8 @@ import type zhCN from './zh-CN'
 
 const zhTW: typeof zhCN = {
   common: {
+    close: '關閉',
+    retry: '重試',
     language: '語言',
     save: '儲存',
     cancel: '取消',
@@ -1489,6 +1491,29 @@ const zhTW: typeof zhCN = {
     logs: '日誌',
     testEmpty: '填寫設定後點擊執行，結果與日誌會顯示在這裡',
   },
+  credentialPage: {
+    title: '專案憑據',
+    description: '集中管理工作流程共用的信箱、權杖及第三方服務憑據',
+    readonly: '你可以查看憑據資訊；新增、修改和刪除需要專案管理員或擁有者權限。',
+    type: '憑據類型',
+    updatedAt: '更新時間',
+    createdAt: '建立時間',
+    allTypes: '全部類型',
+    search: '搜尋名稱、類型或設定資訊',
+    projectShared: '在目前專案中共用',
+    view: '查看',
+    details: '憑據詳情',
+    typeUnavailable: '此憑據類型暫時無法使用，請先恢復對應的節點外掛。現有設定仍會保留。',
+    configuration: '設定資訊',
+    secretSaved: '已儲存',
+    secretEmpty: '未設定',
+    secretHint: '密碼和權杖不會以明文顯示',
+    loadFailed: '無法載入憑據',
+    noMatch: '找不到符合的憑據',
+    empty: '尚無專案憑據',
+    emptyDescription: '建立憑據後，可在專案中的多個工作流程重複使用。',
+    total: '共 {n} 個',
+  },
   workflow: {
     async: {
       atLeastOnce: '非同步流程至少執行一次：失敗時自動重試，已成功的步驟不會重複執行；郵件等外部動作在結果不確定時不會自動重試。',
@@ -1538,7 +1563,6 @@ const zhTW: typeof zhCN = {
       secretKeep: '留空則保持不變',
       secretsMissing: '未設定 auth.secret_key，無法儲存密碼等密鑰欄位',
       select: '選擇憑證',
-      shared: '憑證在專案內共用，修改後引用它的所有工作流程立即生效，無需重新發布。',
       smtp: {
         description: '透過 SMTP 伺服器傳送郵件',
         fromAddress: '寄件者位址',

@@ -1945,6 +1945,8 @@ export type CreateCredentialData = Credential;
 
 export type TestCredentialData = any;
 
+export type GetCredentialData = Credential;
+
 export type UpdateCredentialData = Credential;
 
 export type DeleteCredentialData = any;
@@ -3494,6 +3496,25 @@ export class Api<
         method: "POST",
         body: data,
         type: ContentType.Json,
+        ...params,
+      }),
+
+    /**
+     * @description Returns the non-secret fields and the names of saved secret fields. Secret values are never returned.
+     *
+     * @name GetCredential
+     * @summary Get a project credential
+     * @request GET:/projects/{projectUID}/credentials/{credentialUID}
+     */
+    getCredential: (
+      projectUid: string,
+      credentialUid: string,
+      params: RequestParams = {},
+    ) =>
+      this.request<GetCredentialData, string>({
+        path: `/projects/${projectUid}/credentials/${credentialUid}`,
+        method: "GET",
+        format: "json",
         ...params,
       }),
 

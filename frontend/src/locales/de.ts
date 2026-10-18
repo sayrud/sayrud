@@ -2,6 +2,8 @@ import type zhCN from './zh-CN'
 
 const de: typeof zhCN = {
   common: {
+    close: 'Schließen',
+    retry: 'Erneut versuchen',
     language: 'Sprache',
     save: 'Speichern',
     cancel: 'Abbrechen',
@@ -1489,6 +1491,29 @@ const de: typeof zhCN = {
     logs: 'Protokolle',
     testEmpty: 'Konfiguration ausfüllen und ausführen; Ergebnis und Protokolle erscheinen hier',
   },
+  credentialPage: {
+    title: 'Projekt-Zugangsdaten',
+    description: 'Gemeinsame E-Mail-Konten, Tokens und Dienst-Zugangsdaten für Workflows verwalten',
+    readonly: 'Sie können Zugangsdaten ansehen. Zum Erstellen, Bearbeiten und Löschen sind Projektmanager- oder Eigentümerrechte nötig.',
+    type: 'Zugangsdaten-Typ',
+    updatedAt: 'Aktualisiert',
+    createdAt: 'Erstellt',
+    allTypes: 'Alle Typen',
+    search: 'Name, Typ oder Konfiguration suchen',
+    projectShared: 'In diesem Projekt geteilt',
+    view: 'Ansehen',
+    details: 'Zugangsdaten-Details',
+    typeUnavailable: 'Dieser Zugangsdaten-Typ ist nicht verfügbar. Stellen Sie sein Knoten-Plugin zum Bearbeiten wieder her. Die gespeicherte Konfiguration bleibt erhalten.',
+    configuration: 'Konfiguration',
+    secretSaved: 'Gespeichert',
+    secretEmpty: 'Nicht gesetzt',
+    secretHint: 'Passwörter und Tokens werden nicht im Klartext angezeigt.',
+    loadFailed: 'Zugangsdaten konnten nicht geladen werden',
+    noMatch: 'Keine passenden Zugangsdaten',
+    empty: 'Noch keine Projekt-Zugangsdaten',
+    emptyDescription: 'Erstellen Sie Zugangsdaten zur Wiederverwendung in den Workflows dieses Projekts.',
+    total: '{n} insgesamt',
+  },
   workflow: {
     async: {
       atLeastOnce: 'Asynchrone Abläufe laufen mindestens einmal: Fehler werden automatisch wiederholt, erfolgreiche Schritte nicht erneut ausgeführt; externe Aktionen mit ungewissem Ergebnis werden nicht automatisch wiederholt.',
@@ -1538,7 +1563,6 @@ const de: typeof zhCN = {
       secretKeep: 'Leer lassen, um den gespeicherten Wert zu behalten',
       secretsMissing: 'auth.secret_key ist nicht konfiguriert, geheime Felder wie Passwörter können nicht gespeichert werden',
       select: 'Zugangsdaten auswählen',
-      shared: 'Zugangsdaten werden im Projekt geteilt. Änderungen gelten sofort für alle Workflows, die sie verwenden – ohne erneute Veröffentlichung.',
       smtp: {
         description: 'E-Mails über einen SMTP-Server senden',
         fromAddress: 'Absenderadresse',

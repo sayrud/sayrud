@@ -36,6 +36,9 @@ test('the normal base route reaches public access while other private pages stil
   assert.equal(await guard(base), true)
   assert.deepEqual(await guard({ fullPath: '/settings/security', meta: {}, query: {}, matched: [] }),
     { name: 'login', query: { redirect: '/settings/security' } })
+  const credentials = { ...routes.find((route) => route.name === 'base-credentials')!, meta: {}, fullPath: '/base/project/credentials', query: {}, matched: [] }
+  assert.notEqual(credentials.meta?.public, true)
+  assert.deepEqual(await guard(credentials), { name: 'login', query: { redirect: '/base/project/credentials' } })
 })
 
 test('normal table URLs preserve member permissions and open public shares with the existing password gate', async (t) => {
@@ -71,6 +74,7 @@ test('normal table URLs preserve member permissions and open public shares with 
       },
     } })
     const route = vue.reactive({
+      name: 'base',
       params: { projectUID: options.legacy ? undefined : 'project', tableUID: 'table', viewUID: 'view', shareToken: options.legacy ? 'token' : undefined, workflowUID: undefined as string | undefined },
       fullPath: '/base/project/table/view',
     })
@@ -163,6 +167,12 @@ test('normal table URLs preserve member permissions and open public shares with 
   await workflowPage.bindings.sync()
   assert.deepEqual(workflowPage.calls, ['member:project'])
   assert.deepEqual(workflowPage.redirects, [])
+
+  const credentialsPage = fixture('member')
+  credentialsPage.route.name = 'base-credentials'
+  await credentialsPage.bindings.sync()
+  assert.deepEqual(credentialsPage.calls, ['member:project'])
+  assert.deepEqual(credentialsPage.redirects, [])
 
   const publicWorkflow = fixture('guest')
   publicWorkflow.route.params.workflowUID = 'wflX'

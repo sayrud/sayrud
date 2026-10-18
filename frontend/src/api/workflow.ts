@@ -110,6 +110,7 @@ export const workflowsApi = {
 
 export const credentialsApi = {
   list: async (projectUID: string) => (await client.projects.listCredentials(projectUID)).data as unknown as Credential[],
+  get: async (projectUID: string, credentialUID: string) => (await client.projects.getCredential(projectUID, credentialUID)).data as unknown as Credential,
   create: async (projectUID: string, body: SaveCredentialRequest) => (await client.projects.createCredential(projectUID, body)).data as unknown as Credential,
   update: async (projectUID: string, credentialUID: string, body: SaveCredentialRequest) =>
     (await client.projects.updateCredential(projectUID, credentialUID, body)).data as unknown as Credential,

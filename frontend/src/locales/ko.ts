@@ -2,6 +2,8 @@ import type zhCN from './zh-CN'
 
 const ko: typeof zhCN = {
   common: {
+    close: '닫기',
+    retry: '다시 시도',
     language: '언어',
     save: '저장',
     cancel: '취소',
@@ -1489,6 +1491,29 @@ const ko: typeof zhCN = {
     logs: '로그',
     testEmpty: '설정을 입력하고 실행하면 결과와 로그가 여기에 표시됩니다',
   },
+  credentialPage: {
+    title: '프로젝트 자격 증명',
+    description: '워크플로에서 공유하는 이메일 계정, 토큰 및 외부 서비스 자격 증명을 관리합니다',
+    readonly: '자격 증명을 볼 수 있습니다. 생성, 수정 및 삭제하려면 프로젝트 관리자 또는 소유자 권한이 필요합니다.',
+    type: '자격 증명 유형',
+    updatedAt: '수정 시간',
+    createdAt: '생성 시간',
+    allTypes: '모든 유형',
+    search: '이름, 유형 또는 설정 검색',
+    projectShared: '이 프로젝트에서 공유',
+    view: '보기',
+    details: '자격 증명 상세',
+    typeUnavailable: '이 자격 증명 유형을 사용할 수 없습니다. 수정하려면 해당 노드 플러그인을 복원하세요. 저장된 설정은 유지됩니다.',
+    configuration: '설정',
+    secretSaved: '저장됨',
+    secretEmpty: '설정되지 않음',
+    secretHint: '비밀번호와 토큰은 평문으로 표시되지 않습니다.',
+    loadFailed: '자격 증명을 불러올 수 없습니다',
+    noMatch: '일치하는 자격 증명이 없습니다',
+    empty: '프로젝트 자격 증명이 없습니다',
+    emptyDescription: '자격 증명을 생성하면 이 프로젝트의 여러 워크플로에서 재사용할 수 있습니다.',
+    total: '총 {n}개',
+  },
   workflow: {
     async: {
       atLeastOnce: '비동기 흐름은 최소 한 번 실행됩니다. 실패하면 자동으로 재시도하며 성공한 단계는 다시 실행하지 않습니다. 결과가 불확실한 외부 작업은 자동 재시도하지 않습니다.',
@@ -1538,7 +1563,6 @@ const ko: typeof zhCN = {
       secretKeep: '비워 두면 저장된 값을 유지합니다',
       secretsMissing: 'auth.secret_key 가 설정되지 않아 비밀번호 등 비밀 값을 저장할 수 없습니다',
       select: '자격 증명 선택',
-      shared: '자격 증명은 프로젝트 안에서 공유됩니다. 변경 사항은 이를 사용하는 모든 워크플로에 다시 게시하지 않아도 즉시 적용됩니다.',
       smtp: {
         description: 'SMTP 서버로 메일을 보냅니다',
         fromAddress: '보내는 주소',

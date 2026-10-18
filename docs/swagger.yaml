@@ -6074,6 +6074,41 @@ paths:
           schema:
             type: string
       summary: Delete a credential
+    get:
+      description: Returns the non-secret fields and the names of saved secret fields.
+        Secret values are never returned.
+      operationId: getCredential
+      parameters:
+      - description: Project UID
+        in: path
+        name: projectUID
+        required: true
+        type: string
+      - description: Credential UID
+        in: path
+        name: credentialUID
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/Credential'
+        "403":
+          description: Permission denied
+          schema:
+            type: string
+        "404":
+          description: Project or credential not found
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      summary: Get a project credential
     put:
       consumes:
       - application/json

@@ -34,6 +34,11 @@ const router = createRouter({
       meta: { public: true },
     },
     {
+      path: '/base/:projectUID/credentials',
+      name: 'base-credentials',
+      component: () => import('@/pages/BasePage.vue'),
+    },
+    {
       path: '/base/:projectUID/:tableUID?/:viewUID?',
       name: 'base',
       component: () => import('@/pages/BasePage.vue'),

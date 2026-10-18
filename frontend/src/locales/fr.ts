@@ -2,6 +2,8 @@ import type zhCN from './zh-CN'
 
 const fr: typeof zhCN = {
   common: {
+    close: 'Fermer',
+    retry: 'Réessayer',
     language: 'Langue',
     save: 'Enregistrer',
     cancel: 'Annuler',
@@ -1489,6 +1491,29 @@ const fr: typeof zhCN = {
     logs: 'Journaux',
     testEmpty: 'Renseignez la configuration et lancez ; le résultat et les journaux s\'affichent ici',
   },
+  credentialPage: {
+    title: 'Identifiants du projet',
+    description: 'Gérez les comptes e-mail, jetons et identifiants de services partagés par vos flux',
+    readonly: 'Vous pouvez consulter les identifiants. Leur création, modification et suppression exigent un rôle de gestionnaire ou de propriétaire du projet.',
+    type: 'Type d’identifiant',
+    updatedAt: 'Mise à jour',
+    createdAt: 'Création',
+    allTypes: 'Tous les types',
+    search: 'Rechercher par nom, type ou configuration',
+    projectShared: 'Partagé dans ce projet',
+    view: 'Voir',
+    details: 'Détails de l’identifiant',
+    typeUnavailable: 'Ce type d’identifiant est indisponible. Restaurez son plugin de nœud pour le modifier ; la configuration enregistrée est conservée.',
+    configuration: 'Configuration',
+    secretSaved: 'Enregistré',
+    secretEmpty: 'Non défini',
+    secretHint: 'Les mots de passe et jetons ne sont pas affichés en clair.',
+    loadFailed: 'Impossible de charger les identifiants',
+    noMatch: 'Aucun identifiant correspondant',
+    empty: 'Aucun identifiant de projet',
+    emptyDescription: 'Créez un identifiant pour le réutiliser dans les flux de ce projet.',
+    total: '{n} au total',
+  },
   workflow: {
     async: {
       atLeastOnce: 'Les flux asynchrones s’exécutent au moins une fois : les échecs sont relancés automatiquement et les étapes réussies ne sont pas rejouées ; les actions externes au résultat incertain ne sont pas relancées automatiquement.',
@@ -1538,7 +1563,6 @@ const fr: typeof zhCN = {
       secretKeep: 'Laisser vide pour conserver la valeur enregistrée',
       secretsMissing: 'auth.secret_key n’est pas configuré, les champs secrets comme les mots de passe ne peuvent pas être enregistrés',
       select: 'Choisir un identifiant',
-      shared: 'Les identifiants sont partagés dans le projet. Les modifications s’appliquent immédiatement à tous les workflows qui l’utilisent, sans republier.',
       smtp: {
         description: 'Envoie des e-mails via un serveur SMTP',
         fromAddress: 'Adresse de l’expéditeur',

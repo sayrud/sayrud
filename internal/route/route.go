@@ -238,9 +238,12 @@ func New(opts Options) *flamego.Flame {
 						Get(api.Credential.List).
 						Post(canManage, form.Bind(form.SaveCredential{}), api.Credential.Create)
 					f.Post("/test", canManage, form.Bind(form.TestCredential{}), api.Credential.Test)
-					f.Combo("/{credentialUID}", canManage, api.Credential.Credentialer).
-						Put(form.Bind(form.SaveCredential{}), api.Credential.Update).
-						Delete(api.Credential.Delete)
+					f.Group("/{credentialUID}", func() {
+						f.Get("", api.Credential.Get)
+						f.Combo("", canManage).
+							Put(form.Bind(form.SaveCredential{}), api.Credential.Update).
+							Delete(api.Credential.Delete)
+					}, api.Credential.Credentialer)
 				}, canEdit)
 				f.Get("/attachments/{fileUID}", api.Schemaless.Attachment)
 

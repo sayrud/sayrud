@@ -2,6 +2,8 @@ import type zhCN from './zh-CN'
 
 const es: typeof zhCN = {
   common: {
+    close: 'Cerrar',
+    retry: 'Reintentar',
     language: 'Idioma',
     save: 'Guardar',
     cancel: 'Cancelar',
@@ -1489,6 +1491,29 @@ const es: typeof zhCN = {
     logs: 'Registros',
     testEmpty: 'Completa la configuración y ejecútala; el resultado y los registros aparecen aquí',
   },
+  credentialPage: {
+    title: 'Credenciales del proyecto',
+    description: 'Gestiona cuentas de correo, tokens y credenciales de servicios compartidas por los flujos',
+    readonly: 'Puedes ver las credenciales. Crear, editar y eliminar requiere permisos de administrador o propietario del proyecto.',
+    type: 'Tipo de credencial',
+    updatedAt: 'Actualización',
+    createdAt: 'Creación',
+    allTypes: 'Todos los tipos',
+    search: 'Buscar nombre, tipo o configuración',
+    projectShared: 'Compartida en este proyecto',
+    view: 'Ver',
+    details: 'Detalles de la credencial',
+    typeUnavailable: 'Este tipo de credencial no está disponible. Restaura su plugin de nodo para editarla; se conserva la configuración guardada.',
+    configuration: 'Configuración',
+    secretSaved: 'Guardado',
+    secretEmpty: 'Sin configurar',
+    secretHint: 'Las contraseñas y los tokens no se muestran en texto plano.',
+    loadFailed: 'No se pudieron cargar las credenciales',
+    noMatch: 'No hay credenciales coincidentes',
+    empty: 'Aún no hay credenciales del proyecto',
+    emptyDescription: 'Crea una credencial para reutilizarla en los flujos de este proyecto.',
+    total: '{n} en total',
+  },
   workflow: {
     async: {
       atLeastOnce: 'Los flujos asíncronos se ejecutan al menos una vez: los fallos se reintentan automáticamente y los pasos completados no se repiten; las acciones externas con resultado incierto no se reintentan automáticamente.',
@@ -1538,7 +1563,6 @@ const es: typeof zhCN = {
       secretKeep: 'Déjalo vacío para conservar el valor guardado',
       secretsMissing: 'auth.secret_key no está configurado; no se pueden guardar campos secretos como contraseñas',
       select: 'Selecciona una credencial',
-      shared: 'Las credenciales se comparten en el proyecto. Los cambios se aplican de inmediato a todos los flujos que la usan, sin volver a publicar.',
       smtp: {
         description: 'Envía correos mediante un servidor SMTP',
         fromAddress: 'Dirección del remitente',

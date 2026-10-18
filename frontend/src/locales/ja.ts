@@ -2,6 +2,8 @@ import type zhCN from './zh-CN'
 
 const ja: typeof zhCN = {
   common: {
+    close: '閉じる',
+    retry: '再試行',
     language: '言語',
     save: '保存',
     cancel: 'キャンセル',
@@ -1489,6 +1491,29 @@ const ja: typeof zhCN = {
     logs: 'ログ',
     testEmpty: '設定を入力して実行すると、結果とログがここに表示されます',
   },
+  credentialPage: {
+    title: 'プロジェクト認証情報',
+    description: 'ワークフローで共有するメールアカウント、トークン、外部サービスの認証情報を管理',
+    readonly: '認証情報を閲覧できます。作成、編集、削除にはプロジェクト管理者または所有者の権限が必要です。',
+    type: '認証情報の種類',
+    updatedAt: '更新日時',
+    createdAt: '作成日時',
+    allTypes: 'すべての種類',
+    search: '名前、種類、設定で検索',
+    projectShared: 'このプロジェクトで共有',
+    view: '表示',
+    details: '認証情報の詳細',
+    typeUnavailable: 'この認証情報の種類は利用できません。編集するには対応するノードプラグインを復元してください。保存済みの設定は保持されます。',
+    configuration: '設定',
+    secretSaved: '保存済み',
+    secretEmpty: '未設定',
+    secretHint: 'パスワードとトークンは平文で表示されません。',
+    loadFailed: '認証情報を読み込めませんでした',
+    noMatch: '一致する認証情報がありません',
+    empty: 'プロジェクト認証情報はまだありません',
+    emptyDescription: '認証情報を作成すると、プロジェクト内の複数のワークフローで再利用できます。',
+    total: '合計 {n} 件',
+  },
   workflow: {
     async: {
       atLeastOnce: '非同期フローは少なくとも 1 回実行されます。失敗時は自動で再試行され、成功した手順は再実行されません。結果が不確定な外部アクションは自動再試行されません。',
@@ -1538,7 +1563,6 @@ const ja: typeof zhCN = {
       secretKeep: '空欄のままなら保存済みの値を保持します',
       secretsMissing: 'auth.secret_key が未設定のため、パスワードなどのシークレットを保存できません',
       select: '認証情報を選択',
-      shared: '認証情報はプロジェクト内で共有されます。変更は使用中のすべてのワークフローに即座に反映され、再公開は不要です。',
       smtp: {
         description: 'SMTP サーバーでメールを送信します',
         fromAddress: '送信元アドレス',

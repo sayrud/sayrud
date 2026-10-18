@@ -2,6 +2,8 @@ import type zhCN from './zh-CN'
 
 const en: typeof zhCN = {
   common: {
+    close: 'Close',
+    retry: 'Retry',
     language: 'Language',
     save: 'Save',
     cancel: 'Cancel',
@@ -1489,6 +1491,29 @@ const en: typeof zhCN = {
     logs: 'Logs',
     testEmpty: 'Fill in the config and run; the result and logs appear here',
   },
+  credentialPage: {
+    title: 'Project credentials',
+    description: 'Manage email accounts, tokens and service credentials shared by your workflows',
+    readonly: 'You can view credentials. Creating, editing and deleting requires project manager or owner access.',
+    type: 'Credential type',
+    updatedAt: 'Updated',
+    createdAt: 'Created',
+    allTypes: 'All types',
+    search: 'Search name, type or configuration',
+    projectShared: 'Shared in this project',
+    view: 'View',
+    details: 'Credential details',
+    typeUnavailable: 'This credential type is unavailable. Restore its node plugin to edit it; the saved configuration is preserved.',
+    configuration: 'Configuration',
+    secretSaved: 'Saved',
+    secretEmpty: 'Not set',
+    secretHint: 'Passwords and tokens are never displayed in plain text.',
+    loadFailed: 'Could not load credentials',
+    noMatch: 'No matching credentials',
+    empty: 'No project credentials yet',
+    emptyDescription: 'Create a credential to reuse it across workflows in this project.',
+    total: '{n} total',
+  },
   workflow: {
     async: {
       atLeastOnce: 'Asynchronous flows run at least once: failures are retried automatically and the steps that succeeded are not run again; external actions with uncertain results are not retried automatically.',
@@ -1538,7 +1563,6 @@ const en: typeof zhCN = {
       secretKeep: 'Leave empty to keep the saved one',
       secretsMissing: 'auth.secret_key is not configured, secret fields such as passwords can not be saved',
       select: 'Select a credential',
-      shared: 'Credentials are shared in the project. Changes apply to every workflow using it immediately, without publishing.',
       smtp: {
         description: 'Send emails through an SMTP server',
         fromAddress: 'Sender address',

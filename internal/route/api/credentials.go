@@ -80,6 +80,22 @@ func (credentialRoute) List(ctx context.Context, project *db.Project) error {
 	return ctx.ApiSuccess(out)
 }
 
+// GetCredential
+// @Summary Get a project credential
+// @Description Returns the non-secret fields and the names of saved secret fields. Secret values are never returned.
+// @Produce json
+// @Param projectUID path string true "Project UID"
+// @Param credentialUID path string true "Credential UID"
+// @Success 200 {object} dto.Credential
+// @Failure 403 {string} string "Permission denied"
+// @Failure 404 {string} string "Project or credential not found"
+// @Failure 500 {string} string "Internal server error"
+// @ID getCredential
+// @Router /projects/{projectUID}/credentials/{credentialUID} [get]
+func (credentialRoute) Get(ctx context.Context, c *db.Credential) error {
+	return ctx.ApiSuccess(toCredential(c))
+}
+
 // prepareCredential validates the submitted credential and seals its secrets; current are the saved secrets, empty on creation. Validation failures are *i18n.Error.
 func prepareCredential(def *workflow.CredentialTypeDef, f form.SaveCredential, current map[string]string) ([]byte, string, error) {
 	data, secrets, err := workflow.PrepareCredential(def, workflow.CredentialInput{Data: f.Data, Secrets: f.Secrets, ClearSecrets: f.ClearSecrets}, current)

@@ -2,6 +2,8 @@ import type zhCN from './zh-CN'
 
 const ptBR: typeof zhCN = {
   common: {
+    close: 'Fechar',
+    retry: 'Tentar novamente',
     language: 'Idioma',
     save: 'Salvar',
     cancel: 'Cancelar',
@@ -1489,6 +1491,29 @@ const ptBR: typeof zhCN = {
     logs: 'Logs',
     testEmpty: 'Preencha a configuração e execute; o resultado e os logs aparecem aqui',
   },
+  credentialPage: {
+    title: 'Credenciais do projeto',
+    description: 'Gerencie contas de e-mail, tokens e credenciais de serviços compartilhadas pelos fluxos',
+    readonly: 'Você pode ver as credenciais. Criar, editar e excluir exige acesso de gerente ou proprietário do projeto.',
+    type: 'Tipo de credencial',
+    updatedAt: 'Atualização',
+    createdAt: 'Criação',
+    allTypes: 'Todos os tipos',
+    search: 'Buscar nome, tipo ou configuração',
+    projectShared: 'Compartilhada neste projeto',
+    view: 'Ver',
+    details: 'Detalhes da credencial',
+    typeUnavailable: 'Este tipo de credencial está indisponível. Restaure seu plugin de nó para editá-la; a configuração salva é preservada.',
+    configuration: 'Configuração',
+    secretSaved: 'Salvo',
+    secretEmpty: 'Não definido',
+    secretHint: 'Senhas e tokens não são exibidos em texto aberto.',
+    loadFailed: 'Não foi possível carregar as credenciais',
+    noMatch: 'Nenhuma credencial correspondente',
+    empty: 'Nenhuma credencial de projeto',
+    emptyDescription: 'Crie uma credencial para reutilizá-la nos fluxos deste projeto.',
+    total: '{n} no total',
+  },
   workflow: {
     async: {
       atLeastOnce: 'Os fluxos assíncronos são executados pelo menos uma vez: falhas são repetidas automaticamente e etapas concluídas não são executadas de novo; ações externas com resultado incerto não são repetidas automaticamente.',
@@ -1538,7 +1563,6 @@ const ptBR: typeof zhCN = {
       secretKeep: 'Deixe vazio para manter o valor salvo',
       secretsMissing: 'auth.secret_key não está configurado; campos secretos como senhas não podem ser salvos',
       select: 'Selecione uma credencial',
-      shared: 'As credenciais são compartilhadas no projeto. As alterações valem na hora para todos os fluxos que a usam, sem publicar de novo.',
       smtp: {
         description: 'Envia e-mails por um servidor SMTP',
         fromAddress: 'Endereço do remetente',

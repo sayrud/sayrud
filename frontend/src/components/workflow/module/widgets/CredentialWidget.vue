@@ -69,7 +69,6 @@ onMounted(async () => {
         <a-button :aria-label="t('workflow.credential.edit')" @click="open(current)"><template #icon><Pencil :size="14" /></template></a-button>
       </a-tooltip>
     </div>
-    <div v-if="current && summary(current)" class="hint">{{ summary(current) }}</div>
     <div v-if="missing" class="missing">{{ t('workflow.credential.missing') }}</div>
     <a-button v-if="store.canManage" type="text" size="small" class="create" @click="open(null)">
       <template #icon><Plus :size="13" /></template>
@@ -78,10 +77,11 @@ onMounted(async () => {
     <CredentialDialog
       v-if="store.canManage && field.credentialType"
       v-model:visible="dialogOpen"
+      :project-uid="store.projectUID"
       :type="field.credentialType"
       :credential="editing"
-      @saved="(c) => select(c.uid)"
-      @deleted="(uid) => uid === selected && select(undefined)"
+      @saved="(c) => { store.upsertCredential(c); select(c.uid) }"
+      @deleted="(uid) => { store.removeCredential(uid); if (uid === selected) select(undefined) }"
     />
   </div>
 </template>
@@ -110,11 +110,6 @@ onMounted(async () => {
 }
 .empty {
   padding: 10px 12px;
-  font-size: 12px;
-  color: var(--text-placeholder);
-}
-.hint {
-  margin-top: 4px;
   font-size: 12px;
   color: var(--text-placeholder);
 }

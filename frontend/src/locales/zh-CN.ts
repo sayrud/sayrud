@@ -1,5 +1,7 @@
 export default {
   common: {
+    close: '关闭',
+    retry: '重试',
     language: '语言',
     save: '保存',
     cancel: '取消',
@@ -1487,6 +1489,29 @@ export default {
     logs: '日志',
     testEmpty: '填写配置后点击运行，结果和日志会显示在这里',
   },
+  credentialPage: {
+    title: '项目凭据',
+    description: '集中管理工作流共享使用的邮箱、令牌及第三方服务凭据',
+    readonly: '你可以查看凭据信息；新建、修改和删除需要项目管理员或所有者权限。',
+    type: '凭据类型',
+    updatedAt: '更新时间',
+    createdAt: '创建时间',
+    allTypes: '全部类型',
+    search: '搜索名称、类型或配置信息',
+    projectShared: '在当前项目中共享',
+    view: '查看',
+    details: '凭据详情',
+    typeUnavailable: '该凭据类型暂不可用，请先恢复对应的节点插件。现有配置仍会保留。',
+    configuration: '配置信息',
+    secretSaved: '已保存',
+    secretEmpty: '未设置',
+    secretHint: '密码和令牌不会明文显示',
+    loadFailed: '凭据加载失败',
+    noMatch: '没有找到匹配的凭据',
+    empty: '还没有项目凭据',
+    emptyDescription: '创建凭据后，可在项目中的多个工作流里重复使用。',
+    total: '共 {n} 个',
+  },
   workflow: {
     async: {
       atLeastOnce: '异步流程至少执行一次：失败时自动重试，已成功的步骤不会重复执行；邮件等外部动作在结果不确定时不会自动重试。',
@@ -1536,7 +1561,6 @@ export default {
       secretKeep: '留空则保持不变',
       secretsMissing: '未配置 auth.secret_key，无法保存密码等密钥字段',
       select: '选择凭据',
-      shared: '凭据在项目内共享，修改后引用它的所有工作流立即生效，无需重新发布。',
       smtp: {
         description: '通过 SMTP 服务器发送邮件',
         fromAddress: '发件人地址',
