@@ -146,8 +146,9 @@ func RunCustom(ctx context.Context, custom *db.CustomFieldShortcut, secrets map[
 	}
 
 	result, err := script.Run(ctx, script.Options{
-		Code:   custom.Code,
-		Params: params,
+		Code:     custom.Code,
+		Language: custom.Language,
+		Params:   params,
 		Context: map[string]interface{}{
 			"projectUID": env.ProjectUID,
 			"tableUID":   env.TableUID,

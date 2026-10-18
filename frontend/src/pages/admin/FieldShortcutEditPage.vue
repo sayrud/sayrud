@@ -25,6 +25,8 @@ import type { FieldType } from '@/types/bitable'
 import { fieldTypeInfo } from '@/utils/fieldTypes'
 import { formItemIssueKey, formItemIssueName, loadFormItems, validateFormItems } from '@/utils/shortcutFormItems'
 import { sampleShortcutParams, shortcutStarter, SHORTCUT_HOST_TYPES } from '@/utils/shortcut'
+import { hasShortcutManifest, updateShortcutManifest } from '@/utils/shortcutManifest'
+import { LANGUAGE_NAMES, type PluginLanguage } from '@/utils/workflowPlugin'
 
 const { t } = useI18n()
 const route = useRoute()
@@ -45,6 +47,7 @@ interface Draft {
   description: string
   resultType: FieldType
   code: string
+  language: PluginLanguage
   formItems: string
   domains: string[]
   credentials: CredentialDraft[]
@@ -61,6 +64,7 @@ function toDraft(s: AdminFieldShortcut | null): Draft {
     description: s?.description ?? '',
     resultType: (s?.resultType ?? starter.resultType) as FieldType,
     code: s?.code ?? starter.code,
+    language: s?.language ?? 'javascript',
     formItems: JSON.stringify(s?.formItems ?? starter.formItems, null, 2),
     domains: [...(s?.domains ?? [])],
     credentials: (s?.credentials ?? []).map((c) => ({ key: c.key, type: c.type as CredentialType, name: c.name ?? '', value: '', hasValue: c.hasValue })),
@@ -79,6 +83,12 @@ const saving = ref(false)
 const draft = reactive<Draft>(toDraft(null))
 const baseline = ref(JSON.stringify(draft))
 const dirty = computed(() => JSON.stringify(draft) !== baseline.value)
+const syncing = ref(false)
+const syncError = ref('')
+const formItemsRevision = ref(0)
+let syncedCode = draft.code
+let syncedLanguage = draft.language
+const manifestBacked = ref(false)
 
 const params = ref(sampleShortcutParams(JSON.parse(draft.formItems) as ShortcutFormItem[]))
 const testing = ref(false)
@@ -98,6 +108,15 @@ const aiStatus = computed(() => {
 
 function reset(s: AdminFieldShortcut | null) {
   Object.assign(draft, toDraft(s))
+  syncedCode = draft.code
+  syncedLanguage = draft.language
+  syncError.value = ''
+  try {
+    manifestBacked.value = hasShortcutManifest(draft.code, draft.language)
+  } catch {
+    manifestBacked.value = false
+  }
+  formItemsRevision.value++
   baseline.value = JSON.stringify(draft)
   params.value = sampleShortcutParams(JSON.parse(draft.formItems) as ShortcutFormItem[])
   testResult.value = null
@@ -131,8 +150,110 @@ type Tab = (typeof TABS)[number]
 // Keep the active tab in the query so it survives a refresh.
 const tab = computed<Tab>({
   get: () => (TABS.includes(route.query.tab as Tab) ? (route.query.tab as Tab) : 'basic'),
-  set: (value) => router.replace({ query: { ...route.query, tab: value === 'basic' ? undefined : value } }),
+  set: (value) => { void switchTab(value) },
 })
+
+function manifestFields() {
+  return {
+    name: draft.name,
+    description: draft.description,
+    resultType: draft.resultType,
+    formItems: JSON.parse(draft.formItems) as ShortcutFormItem[],
+    domains: draft.domains,
+    credentials: draft.credentials.map((c) => ({ key: c.key, type: c.type, ...(c.type === 'bearer' ? {} : { name: c.name }) })),
+    timeoutSeconds: draft.timeoutSeconds,
+    aiEnabled: draft.aiEnabled,
+  }
+}
+
+function syncToCode(): boolean {
+  try {
+    // shortcut: Legacy scripts keep separate settings; migrate them explicitly before enabling manifest synchronization.
+    if (!manifestBacked.value) return true
+    if (!loadFormItems(draft.formItems).ok) {
+      syncError.value = t('shortcutAdmin.invalidFormItems')
+      return false
+    }
+
+    draft.code = updateShortcutManifest(draft.code, manifestFields(), draft.language)
+    syncError.value = ''
+    return true
+  } catch {
+    syncError.value = t('shortcutAdmin.manifestSyncError')
+    return false
+  }
+}
+
+async function syncFromCode(): Promise<boolean> {
+  if (draft.code === syncedCode && draft.language === syncedLanguage) {
+    syncError.value = ''
+    return true
+  }
+
+  const source = draft.code
+  const language = draft.language
+  try {
+    if (!manifestBacked.value && !hasShortcutManifest(source, language)) {
+      syncedCode = source
+      syncedLanguage = language
+      syncError.value = ''
+      return true
+    }
+
+    syncing.value = true
+    const result = await adminShortcutsApi.inspect({ source, language })
+    if (draft.code !== source || draft.language !== language) {
+      syncError.value = t('shortcutAdmin.manifestSourceChanged')
+      return false
+    }
+
+    const credentials = result.credentials.map((c) => {
+      const previous = draft.credentials.find((entry) => entry.key === c.key)
+
+      return { key: c.key, type: c.type as CredentialType, name: c.name ?? '', value: previous?.value ?? '', hasValue: previous?.hasValue ?? false }
+    })
+    Object.assign(draft, {
+      name: result.name,
+      description: result.description,
+      resultType: result.resultType,
+      formItems: JSON.stringify(result.formItems, null, 2),
+      domains: [...result.domains],
+      credentials,
+      timeoutSeconds: result.timeoutSeconds,
+      aiEnabled: result.aiEnabled,
+    })
+    formItemsRevision.value++
+    manifestBacked.value = true
+    syncedCode = source
+    syncedLanguage = language
+    syncError.value = ''
+    return true
+  } catch (e) {
+    syncError.value = e instanceof Error && e.message !== 'syntax' && e.message !== 'manifest'
+      ? e.message : t('shortcutAdmin.manifestSyncError')
+    return false
+  } finally {
+    syncing.value = false
+  }
+}
+
+async function switchTab(value: Tab) {
+  if (syncing.value || value === tab.value) return
+  if (tab.value === 'code' && !await syncFromCode()) return
+  if (value === 'code' && !syncToCode()) return
+
+  await router.replace({ query: { ...route.query, tab: value === 'basic' ? undefined : value } })
+}
+
+async function prepareBody(): Promise<SaveFieldShortcut | null> {
+  if (!await syncFromCode()) return null
+  if (!body() || !syncToCode()) return null
+  if (!await syncFromCode() || !syncToCode()) return null
+
+  syncedCode = draft.code
+  syncedLanguage = draft.language
+  return body()
+}
 
 const isNew = computed(() => !uid.value)
 const title = computed(() => {
@@ -185,6 +306,7 @@ function body(): SaveFieldShortcut | null {
     description: draft.description,
     resultType: draft.resultType as SaveFieldShortcut['resultType'],
     code: draft.code,
+    language: draft.language,
     formItems: JSON.parse(draft.formItems) as ShortcutFormItem[],
     domains: draft.domains,
     credentials: draft.credentials.map((c) => ({ key: c.key, type: c.type, name: c.type === 'bearer' ? undefined : c.name, value: c.value || undefined })),
@@ -204,15 +326,17 @@ function fillSampleParams() {
 }
 
 async function test() {
-  if (testing.value) return
-  const b = body()
-  if (!b) return
-  if (paramsInvalid.value) {
-    Message.warning(t('shortcutAdmin.invalidParams'))
-    return
-  }
+  if (testing.value || saving.value || syncing.value) return
+
   testing.value = true
   try {
+    const b = await prepareBody()
+    if (!b) return
+    if (paramsInvalid.value) {
+      Message.warning(t('shortcutAdmin.invalidParams'))
+      return
+    }
+
     testResult.value = await adminShortcutsApi.test(b, JSON.parse(params.value || '{}') as Record<string, unknown>, shortcut.value?.uid)
   } catch (e) {
     Message.error(e instanceof Error ? e.message : String(e))
@@ -222,11 +346,13 @@ async function test() {
 }
 
 async function save() {
-  if (saving.value) return
-  const b = body()
-  if (!b) return
+  if (saving.value || testing.value || syncing.value) return
+
   saving.value = true
   try {
+    const b = await prepareBody()
+    if (!b) return
+
     const created = !shortcut.value
     const saved = shortcut.value ? await adminShortcutsApi.update(shortcut.value.uid, b) : await adminShortcutsApi.create(b)
     shortcut.value = saved
@@ -246,6 +372,7 @@ async function save() {
 }
 
 function discard() {
+  if (syncing.value) return
   reset(shortcut.value)
 }
 
@@ -334,7 +461,7 @@ const format = (v: unknown) => (v === undefined ? 'undefined' : JSON.stringify(v
       </template>
     </a-result>
 
-    <a-spin v-else :loading="loading" class="spin">
+    <a-spin v-else :loading="loading || syncing" class="spin">
       <PageHeader :title="title" :description="isNew ? t('shortcutAdmin.createDescription') : undefined" class="editor-header">
         <template #extra>
           <a-tooltip :content="t('shortcutAdmin.enabledDescription')">
@@ -349,6 +476,8 @@ const format = (v: unknown) => (v === undefined ? 'undefined' : JSON.stringify(v
           </a-button>
         </template>
       </PageHeader>
+
+      <a-alert v-if="syncError" type="error" class="sync-error">{{ syncError }}</a-alert>
 
       <div class="workspace">
         <div class="main">
@@ -406,17 +535,24 @@ const format = (v: unknown) => (v === undefined ? 'undefined' : JSON.stringify(v
                   </span>
                 </template>
                 <div class="pane">
-                  <ShortcutFormItemsEditor :key="baseline" v-model="draft.formItems" />
+                  <ShortcutFormItemsEditor :key="`${baseline}:${formItemsRevision}`" v-model="draft.formItems" />
                 </div>
               </a-tab-pane>
 
               <a-tab-pane key="code" :title="t('shortcutAdmin.code')">
                 <div class="pane">
+                  <p v-if="manifestBacked" class="text-desc">{{ t('shortcutAdmin.manifestSyncHint') }}</p>
+                  <a-radio-group v-model="draft.language" type="button" size="small" :aria-label="t('pluginAdmin.language')" class="code-language">
+                    <a-radio value="javascript">{{ LANGUAGE_NAMES.javascript }}</a-radio>
+                    <a-radio value="typescript">{{ LANGUAGE_NAMES.typescript }}</a-radio>
+                  </a-radio-group>
                   <CodeEditor
+                    :key="draft.language"
                     v-model="draft.code"
-                    language="javascript"
+                    :language="draft.language"
                     height="clamp(420px, calc(100vh - 380px), 860px)"
                     :aria-label="t('shortcutAdmin.code')"
+                    :error="!!syncError"
                     @submit="test"
                   />
                 </div>
@@ -524,7 +660,7 @@ const format = (v: unknown) => (v === undefined ? 'undefined' : JSON.stringify(v
         </aside>
       </div>
 
-      <SaveBar :dirty="dirty || isNew" :saving="saving" @save="save" @reset="discard" />
+      <SaveBar :dirty="dirty || isNew" :saving="saving || syncing" @save="save" @reset="discard" />
     </a-spin>
   </div>
 </template>
@@ -541,6 +677,12 @@ const format = (v: unknown) => (v === undefined ? 'undefined' : JSON.stringify(v
 }
 .spin {
   display: block;
+}
+.sync-error {
+  margin-bottom: 16px;
+}
+.code-language {
+  margin-bottom: 12px;
 }
 
 .editor-header > :deep(.arco-space) {

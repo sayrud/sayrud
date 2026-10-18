@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Message, Modal, type TableColumnData } from '@arco-design/web-vue'
-import { CircleArrowUp, Ellipsis, Globe, KeyRound, Plus, Trash2, Workflow, Zap } from '@lucide/vue'
+import { CircleArrowUp, Download, Ellipsis, Globe, KeyRound, Trash2, Workflow, Zap } from '@lucide/vue'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
@@ -155,7 +155,7 @@ onMounted(load)
     <PageHeader :title="t('pluginAdmin.title')" :description="t('pluginAdmin.pageDescription')">
       <template #extra>
         <a-button type="primary" @click="openInstall()">
-          <template #icon><Plus :size="16" /></template>
+          <template #icon><Download :size="16" /></template>
           {{ t('pluginAdmin.install') }}
         </a-button>
       </template>
@@ -280,7 +280,7 @@ onMounted(load)
           <div class="text-desc empty-desc">{{ t('pluginAdmin.emptyDescription') }}</div>
           <a-space wrap>
             <a-button type="primary" @click="openInstall()">
-              <template #icon><Plus :size="16" /></template>
+              <template #icon><Download :size="16" /></template>
               {{ t('pluginAdmin.install') }}
             </a-button>
             <a-button @click="openInstall(true)">{{ t('pluginAdmin.startFromTemplate') }}</a-button>

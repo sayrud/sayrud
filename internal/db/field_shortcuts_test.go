@@ -74,3 +74,24 @@ func TestListAdminFieldShortcuts(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, all, len(shortcuts), "the member shortcut catalog still needs all shortcuts")
 }
+
+func TestFieldShortcutLanguage(t *testing.T) {
+	ctx := context.Background()
+	store := NewFieldShortcutsStore(newTestDB(t, &CustomFieldShortcut{}))
+	s := &CustomFieldShortcut{
+		Name: "Legacy", ResultType: TextFieldType, Code: "function execute() { return 1 }",
+		FormItems: datatypes.NewJSONType([]ShortcutFormItem{}), Domains: datatypes.NewJSONType([]string{}), Credentials: datatypes.NewJSONType([]ShortcutCredential{}),
+	}
+	require.NoError(t, store.Create(ctx, s))
+	got, err := store.GetByUID(ctx, s.UID)
+	require.NoError(t, err)
+	require.Equal(t, "javascript", got.Language)
+
+	got.Language = "typescript"
+	got.Code = "export function execute(): number { return 1 }"
+	require.NoError(t, store.Update(ctx, got))
+	got, err = store.GetByUID(ctx, s.UID)
+	require.NoError(t, err)
+	require.Equal(t, "typescript", got.Language)
+	require.Equal(t, "export function execute(): number { return 1 }", got.Code)
+}

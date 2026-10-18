@@ -519,6 +519,106 @@ const docTemplate = `{
                 }
             }
         },
+        "/admin/field-shortcuts/inspect": {
+            "post": {
+                "description": "Requires the admin. Download the source if a URL is given, then validate its exported manifest and execute function without running execute.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "Check a field shortcut before installing",
+                "operationId": "inspectAdminFieldShortcut",
+                "parameters": [
+                    {
+                        "description": "Source or URL",
+                        "name": "data",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/InspectFieldShortcut"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/AdminFieldShortcut"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid shortcut",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "403": {
+                        "description": "Not an admin",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/field-shortcuts/install": {
+            "post": {
+                "description": "Requires the admin. Revalidate the reviewed source and create a new shortcut. Credential values must be configured separately.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "Install a field shortcut from a JavaScript or TypeScript module",
+                "operationId": "installAdminFieldShortcut",
+                "parameters": [
+                    {
+                        "description": "Source",
+                        "name": "data",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/InstallFieldShortcut"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/AdminFieldShortcut"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid shortcut",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "403": {
+                        "description": "Not an admin",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
         "/admin/field-shortcuts/test": {
             "post": {
                 "description": "Requires the admin. Run the unsaved code with the parameters, and return the result and the logs.",
@@ -7470,6 +7570,7 @@ const docTemplate = `{
                 "domains",
                 "enabled",
                 "formItems",
+                "language",
                 "name",
                 "resultType",
                 "timeoutSeconds",
@@ -7518,6 +7619,14 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/ShortcutFormItem"
                     }
+                },
+                "language": {
+                    "description": "Language is the language of the saved source.",
+                    "type": "string",
+                    "enum": [
+                        "javascript",
+                        "typescript"
+                    ]
                 },
                 "name": {
                     "description": "Name is shown in the field editor.",
@@ -8670,6 +8779,26 @@ const docTemplate = `{
                 }
             }
         },
+        "InspectFieldShortcut": {
+            "type": "object",
+            "properties": {
+                "language": {
+                    "description": "Language of Source, javascript by default; URL extensions take precedence.",
+                    "type": "string",
+                    "enum": [
+                        "javascript",
+                        "typescript"
+                    ]
+                },
+                "source": {
+                    "type": "string"
+                },
+                "url": {
+                    "description": "URL is downloaded when Source is empty.",
+                    "type": "string"
+                }
+            }
+        },
         "InspectWorkflowPlugin": {
             "type": "object",
             "properties": {
@@ -8728,6 +8857,25 @@ const docTemplate = `{
                 },
                 "source": {
                     "description": "Source is the checked source, downloaded when inspecting a URL.",
+                    "type": "string"
+                }
+            }
+        },
+        "InstallFieldShortcut": {
+            "type": "object",
+            "required": [
+                "source"
+            ],
+            "properties": {
+                "language": {
+                    "description": "Language of Source, javascript by default.",
+                    "type": "string",
+                    "enum": [
+                        "javascript",
+                        "typescript"
+                    ]
+                },
+                "source": {
                     "type": "string"
                 }
             }
@@ -9668,6 +9816,14 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/ShortcutFormItem"
                     }
+                },
+                "language": {
+                    "description": "Language of Code, javascript by default.",
+                    "type": "string",
+                    "enum": [
+                        "javascript",
+                        "typescript"
+                    ]
                 },
                 "name": {
                     "description": "Name is shown in the field editor, at most 64 characters.",

@@ -164,6 +164,8 @@ func New(opts Options) *flamego.Flame {
 					Get(api.Admin.ListFieldShortcuts).
 					Post(form.Bind(form.SaveFieldShortcut{}), api.Admin.CreateFieldShortcut)
 				f.Post("/test", form.Bind(form.TestFieldShortcut{}), api.Admin.TestFieldShortcut)
+				f.Post("/inspect", form.Bind(form.InspectFieldShortcut{}), api.Admin.InspectFieldShortcut)
+				f.Post("/install", form.Bind(form.InstallFieldShortcut{}), api.Admin.InstallFieldShortcut)
 				f.Combo("/{shortcutUID}", api.Admin.FieldShortcuter).
 					Get(api.Admin.GetFieldShortcut).
 					Put(form.Bind(form.SaveFieldShortcut{}), api.Admin.UpdateFieldShortcut).

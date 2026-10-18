@@ -156,7 +156,11 @@ func buildCustomShortcut(f form.SaveFieldShortcut) (*db.CustomFieldShortcut, map
 	if len(f.Code) > maxShortcutCodeSize {
 		return nil, nil, i18n.Errorf("field_shortcut::code_too_long")
 	}
-	if err := script.Compile(f.Code); err != nil {
+	language, err := pluginLanguage(f.Language)
+	if err != nil {
+		return nil, nil, err
+	}
+	if err := script.Compile(f.Code, string(language)); err != nil {
 		return nil, nil, &i18n.Error{Key: "field_shortcut::compile_error", Args: []interface{}{err.Error()}}
 	}
 
@@ -223,6 +227,7 @@ func buildCustomShortcut(f form.SaveFieldShortcut) (*db.CustomFieldShortcut, map
 		Description:    strings.TrimSpace(f.Description),
 		ResultType:     resultType,
 		Code:           f.Code,
+		Language:       string(language),
 		AIEnabled:      f.AIEnabled,
 		FormItems:      datatypes.NewJSONType(formItems),
 		Domains:        datatypes.NewJSONType(lo.Uniq(domains)),

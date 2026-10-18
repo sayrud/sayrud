@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"testing"
 
@@ -8,7 +9,40 @@ import (
 
 	"github.com/wuhan005/sayrud/internal/db"
 	"github.com/wuhan005/sayrud/internal/form"
+	"github.com/wuhan005/sayrud/internal/shortcut"
 )
+
+func TestBuildCustomShortcutLanguage(t *testing.T) {
+	legacy, err := toAdminFieldShortcut(&db.CustomFieldShortcut{}, nil)
+	require.NoError(t, err)
+	require.Equal(t, "javascript", legacy.Language)
+
+	for _, language := range []string{"", "javascript", "typescript", "unknown"} {
+		f := form.SaveFieldShortcut{Name: "Typed", ResultType: "text", Language: language, Code: "function execute(params) { return params.text }"}
+		if language == "typescript" {
+			f.Code = "export function execute(params: {text: string}): string { return params.text.toUpperCase() }"
+		}
+		s, _, err := buildCustomShortcut(f)
+		if language == "unknown" {
+			require.Error(t, err)
+			continue
+		}
+		require.NoError(t, err)
+		want := language
+		if want == "" {
+			want = "javascript"
+		}
+		require.Equal(t, want, s.Language)
+		resp, err := toAdminFieldShortcut(s, nil)
+		require.NoError(t, err)
+		require.Equal(t, want, resp.Language)
+		if language == "typescript" {
+			result, err := shortcut.RunCustom(context.Background(), s, nil, map[string]interface{}{"text": "hello"}, shortcut.Env{})
+			require.NoError(t, err)
+			require.Equal(t, "HELLO", result.Value)
+		}
+	}
+}
 
 func TestBuildCustomShortcutAIEnabled(t *testing.T) {
 	for _, enabled := range []bool{true, false} {

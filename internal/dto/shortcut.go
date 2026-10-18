@@ -76,6 +76,8 @@ type AdminFieldShortcut struct {
 	ResultType string `json:"resultType"`
 	// Code defines `async function execute(params, context)` returning the cell value, with context.ai.complete using the global model when AIEnabled.
 	Code string `json:"code"`
+	// Language is the language of the saved source.
+	Language string `json:"language" enums:"javascript,typescript"`
 	// AIEnabled allows the script to call the globally configured AI model.
 	AIEnabled bool `json:"aiEnabled"`
 	// FormItems are the inputs configured in the field editor and passed to execute as the params.
@@ -125,6 +127,10 @@ func ToAdminFieldShortcut(s *db.CustomFieldShortcut, valueKeys map[string]bool, 
 	if domains == nil {
 		domains = []string{}
 	}
+	language := s.Language
+	if language == "" {
+		language = "javascript"
+	}
 
 	return &AdminFieldShortcut{
 		UID:            s.UID,
@@ -132,6 +138,7 @@ func ToAdminFieldShortcut(s *db.CustomFieldShortcut, valueKeys map[string]bool, 
 		Description:    s.Description,
 		ResultType:     string(s.ResultType),
 		Code:           s.Code,
+		Language:       language,
 		AIEnabled:      s.AIEnabled,
 		FormItems:      formItems,
 		Domains:        domains,

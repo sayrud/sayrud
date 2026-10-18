@@ -36,6 +36,8 @@ type SaveFieldShortcut struct {
 	ResultType string `json:"resultType" enums:"text,single_select,multi_select,datetime,number,checkbox"`
 	// Code defines `async function execute(params, context)`, with context.ai.complete using the global model when AIEnabled.
 	Code string `json:"code"`
+	// Language of Code, javascript by default.
+	Language string `json:"language,omitempty" enums:"javascript,typescript"`
 	// AIEnabled allows the script to call the globally configured AI model.
 	AIEnabled bool `json:"aiEnabled"`
 	// FormItems are the inputs configured in the field editor and passed to execute as the params.
@@ -49,6 +51,22 @@ type SaveFieldShortcut struct {
 	// Enabled reports whether the members can attach and execute the shortcut.
 	Enabled bool `json:"enabled"`
 } // @name SaveFieldShortcut
+
+// InspectFieldShortcut checks a single JavaScript or TypeScript module before installing it.
+type InspectFieldShortcut struct {
+	Source string `json:"source,omitempty"`
+	// Language of Source, javascript by default; URL extensions take precedence.
+	Language string `json:"language,omitempty" enums:"javascript,typescript"`
+	// URL is downloaded when Source is empty.
+	URL string `json:"url,omitempty"`
+} // @name InspectFieldShortcut
+
+// InstallFieldShortcut installs the exact source reviewed by the admin.
+type InstallFieldShortcut struct {
+	Source string `json:"source"`
+	// Language of Source, javascript by default.
+	Language string `json:"language,omitempty" enums:"javascript,typescript"`
+} // @name InstallFieldShortcut
 
 // SaveShortcutCredential is a credential of a custom shortcut.
 type SaveShortcutCredential struct {

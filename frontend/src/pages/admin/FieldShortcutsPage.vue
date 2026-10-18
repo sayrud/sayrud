@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { Message, Modal, type TableColumnData } from '@arco-design/web-vue'
-import { Plus, Sparkles, Zap } from '@lucide/vue'
+import { Download, Sparkles, Zap } from '@lucide/vue'
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 
 import { adminShortcutsApi, type AdminFieldShortcut } from '@/api/shortcut'
+import FieldShortcutInstallModal from '@/components/admin/FieldShortcutInstallModal.vue'
 import StateIllustration from '@/components/common/StateIllustration.vue'
 import PageHeader from '@/components/console/PageHeader.vue'
 import SettingsSection from '@/components/console/SettingsSection.vue'
@@ -19,6 +20,7 @@ const router = useRouter()
 const shortcuts = ref<AdminFieldShortcut[]>([])
 const loading = ref(true)
 const toggling = ref('')
+const installVisible = ref(false)
 const keyword = ref('')
 const pagination = reactive({ current: 1, pageSize: 20, total: 0 })
 
@@ -74,10 +76,6 @@ function onPageSizeChange(pageSize: number) {
   reload()
 }
 
-function create() {
-  router.push({ name: 'admin-field-shortcut-new' })
-}
-
 function edit(s: AdminFieldShortcut) {
   router.push({ name: 'admin-field-shortcut-edit', params: { shortcutUID: s.uid } })
 }
@@ -91,6 +89,7 @@ async function toggle(s: AdminFieldShortcut, enabled: boolean) {
       description: s.description,
       resultType: s.resultType as Parameters<typeof adminShortcutsApi.update>[1]['resultType'],
       code: s.code,
+      language: s.language,
       formItems: s.formItems,
       domains: s.domains,
       credentials: s.credentials.map((c) => ({ key: c.key, type: c.type, name: c.name })),
@@ -134,9 +133,9 @@ onMounted(load)
   <div>
     <PageHeader :title="t('shortcutAdmin.title')" :description="t('shortcutAdmin.pageDescription')">
       <template #extra>
-        <a-button type="primary" @click="create">
-          <template #icon><Plus :size="16" /></template>
-          {{ t('shortcutAdmin.add') }}
+        <a-button type="primary" @click="installVisible = true">
+          <template #icon><Download :size="16" /></template>
+          {{ t('shortcutAdmin.install') }}
         </a-button>
       </template>
     </PageHeader>
@@ -206,9 +205,9 @@ onMounted(load)
         <StateIllustration name="feature-upgrade" :width="160" />
         <div class="empty-title">{{ t('shortcutAdmin.empty') }}</div>
         <div class="text-desc empty-desc">{{ t('shortcutAdmin.emptyDescription') }}</div>
-        <a-button type="primary" @click="create">
-          <template #icon><Plus :size="16" /></template>
-          {{ t('shortcutAdmin.add') }}
+        <a-button type="primary" @click="installVisible = true">
+          <template #icon><Download :size="16" /></template>
+          {{ t('shortcutAdmin.install') }}
         </a-button>
       </div>
 
@@ -231,6 +230,8 @@ onMounted(load)
         </a-pagination>
       </div>
     </SettingsSection>
+
+    <FieldShortcutInstallModal v-model:visible="installVisible" @installed="edit" />
   </div>
 </template>
 

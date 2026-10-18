@@ -155,6 +155,8 @@ export interface AdminFieldShortcut {
   enabled: boolean;
   /** FormItems are the inputs configured in the field editor and passed to execute as the params. */
   formItems: ShortcutFormItem[];
+  /** Language is the language of the saved source. */
+  language: "javascript" | "typescript";
   /** Name is shown in the field editor. */
   name: string;
   /** ResultType is the type of the fields the shortcut can be attached to. */
@@ -557,6 +559,14 @@ export interface ImportUpload {
   uid: string;
 }
 
+export interface InspectFieldShortcut {
+  /** Language of Source, javascript by default; URL extensions take precedence. */
+  language?: "javascript" | "typescript";
+  source?: string;
+  /** URL is downloaded when Source is empty. */
+  url?: string;
+}
+
 export interface InspectWorkflowPlugin {
   /** Language of Source, javascript by default. */
   language?: "javascript" | "typescript";
@@ -574,6 +584,12 @@ export interface InspectWorkflowPluginResp {
   /** Plugin is the plugin as it would be installed. */
   plugin: WorkflowPlugin;
   /** Source is the checked source, downloaded when inspecting a URL. */
+  source: string;
+}
+
+export interface InstallFieldShortcut {
+  /** Language of Source, javascript by default. */
+  language?: "javascript" | "typescript";
   source: string;
 }
 
@@ -870,6 +886,8 @@ export interface SaveFieldShortcut {
   enabled: boolean;
   /** FormItems are the inputs configured in the field editor and passed to execute as the params. */
   formItems: ShortcutFormItem[];
+  /** Language of Code, javascript by default. */
+  language?: "javascript" | "typescript";
   /** Name is shown in the field editor, at most 64 characters. */
   name: string;
   /** ResultType is the type of the fields the shortcut can be attached to. */
@@ -1835,6 +1853,10 @@ export type ListAdminFieldShortcutsData = ListAdminFieldShortcutsResp;
 
 export type CreateAdminFieldShortcutData = AdminFieldShortcut;
 
+export type InspectAdminFieldShortcutData = AdminFieldShortcut;
+
+export type InstallAdminFieldShortcutData = AdminFieldShortcut;
+
 export type TestAdminFieldShortcutData = TestFieldShortcutResp;
 
 export type GetAdminFieldShortcutData = AdminFieldShortcut;
@@ -2484,6 +2506,46 @@ export class Api<
     ) =>
       this.request<CreateAdminFieldShortcutData, string>({
         path: `/admin/field-shortcuts`,
+        method: "POST",
+        body: data,
+        type: ContentType.Json,
+        format: "json",
+        ...params,
+      }),
+
+    /**
+     * @description Requires the admin. Download the source if a URL is given, then validate its exported manifest and execute function without running execute.
+     *
+     * @name InspectAdminFieldShortcut
+     * @summary Check a field shortcut before installing
+     * @request POST:/admin/field-shortcuts/inspect
+     */
+    inspectAdminFieldShortcut: (
+      data: InspectFieldShortcut,
+      params: RequestParams = {},
+    ) =>
+      this.request<InspectAdminFieldShortcutData, string>({
+        path: `/admin/field-shortcuts/inspect`,
+        method: "POST",
+        body: data,
+        type: ContentType.Json,
+        format: "json",
+        ...params,
+      }),
+
+    /**
+     * @description Requires the admin. Revalidate the reviewed source and create a new shortcut. Credential values must be configured separately.
+     *
+     * @name InstallAdminFieldShortcut
+     * @summary Install a field shortcut from a JavaScript or TypeScript module
+     * @request POST:/admin/field-shortcuts/install
+     */
+    installAdminFieldShortcut: (
+      data: InstallFieldShortcut,
+      params: RequestParams = {},
+    ) =>
+      this.request<InstallAdminFieldShortcutData, string>({
+        path: `/admin/field-shortcuts/install`,
         method: "POST",
         body: data,
         type: ContentType.Json,
