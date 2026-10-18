@@ -21,10 +21,11 @@ RUN go mod download
 
 COPY . .
 COPY --from=frontend /src/frontend/dist ./frontend/dist
+ARG BUILD_VERSION
 ARG BUILD_COMMIT
 RUN --mount=type=cache,target=/root/.cache/go-build \
     CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -mod=readonly -trimpath \
-    -ldflags="-s -w -X github.com/wuhan005/sayrud/internal/appconst.BuildCommit=$BUILD_COMMIT" \
+    -ldflags="-s -w -X github.com/wuhan005/sayrud/internal/appconst.BuildVersion=$BUILD_VERSION -X github.com/wuhan005/sayrud/internal/appconst.BuildCommit=$BUILD_COMMIT" \
     -o /out/sayrud-server ./cmd/sayrud-server
 
 FROM alpine:3.24

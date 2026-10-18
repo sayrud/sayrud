@@ -122,7 +122,7 @@ func (adminRoute) Overview(ctx context.Context) error {
 	if !ok {
 		return nil
 	}
-	resp.System = dto.AdminSystemInfo{BuildCommit: appconst.BuildCommit, GoVersion: runtime.Version(), Settings: settings}
+	resp.System = dto.AdminSystemInfo{BuildVersion: appconst.BuildVersion, BuildCommit: appconst.BuildCommit, GoVersion: runtime.Version(), Settings: settings}
 	return ctx.ApiSuccess(resp)
 }
 

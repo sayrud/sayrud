@@ -74,9 +74,10 @@ type AdminUserStats struct {
 } // @name AdminUserStats
 
 type AdminSystemInfo struct {
-	BuildCommit string             `json:"buildCommit"`
-	GoVersion   string             `json:"goVersion"`
-	Settings    *db.SystemSettings `json:"settings"`
+	BuildVersion string             `json:"buildVersion"`
+	BuildCommit  string             `json:"buildCommit"`
+	GoVersion    string             `json:"goVersion"`
+	Settings     *db.SystemSettings `json:"settings"`
 } // @name AdminSystemInfo
 
 // AdminOverview is the overview of the admin console.

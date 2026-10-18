@@ -4,4 +4,7 @@
 
 package appconst
 
-var BuildCommit string
+var (
+	BuildVersion string
+	BuildCommit  string
+)

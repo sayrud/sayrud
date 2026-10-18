@@ -375,12 +375,15 @@ definitions:
     properties:
       buildCommit:
         type: string
+      buildVersion:
+        type: string
       goVersion:
         type: string
       settings:
         $ref: '#/definitions/SystemSettings'
     required:
     - buildCommit
+    - buildVersion
     - goVersion
     - settings
     type: object

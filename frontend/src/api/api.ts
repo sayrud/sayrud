@@ -205,6 +205,7 @@ export interface AdminSetUserStatus {
 
 export interface AdminSystemInfo {
   buildCommit: string;
+  buildVersion: string;
   goVersion: string;
   settings: SystemSettings;
 }

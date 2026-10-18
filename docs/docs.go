@@ -7660,11 +7660,15 @@ const docTemplate = `{
             "type": "object",
             "required": [
                 "buildCommit",
+                "buildVersion",
                 "goVersion",
                 "settings"
             ],
             "properties": {
                 "buildCommit": {
+                    "type": "string"
+                },
+                "buildVersion": {
                     "type": "string"
                 },
                 "goVersion": {

@@ -179,7 +179,7 @@ onMounted(async () => {
                 t('admin.overview.days', { n: data.system.settings.sessionTTLDays }, data.system.settings.sessionTTLDays)
               }}</a-descriptions-item>
               <a-descriptions-item :label="t('admin.overview.version')">
-                {{ data.system.buildCommit ? data.system.buildCommit.slice(0, 7) : t('admin.overview.devBuild') }}
+                {{ data.system.buildVersion || data.system.buildCommit?.slice(0, 7) || t('admin.overview.devBuild') }}
               </a-descriptions-item>
               <a-descriptions-item label="Go">{{ data.system.goVersion }}</a-descriptions-item>
             </a-descriptions>

@@ -24,7 +24,7 @@ builds:
       - -mod=readonly
       - -trimpath
     ldflags:
-      - -s -w -X github.com/wuhan005/sayrud/internal/appconst.BuildCommit={{ .FullCommit }}
+      - -s -w -X github.com/wuhan005/sayrud/internal/appconst.BuildVersion={{ .Tag }} -X github.com/wuhan005/sayrud/internal/appconst.BuildCommit={{ .FullCommit }}
 
 archives:
   - formats: [tar.gz]
