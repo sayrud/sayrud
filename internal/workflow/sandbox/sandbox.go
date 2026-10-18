@@ -10,12 +10,12 @@ package sandbox
 import (
 	"context"
 	"encoding/json"
-	"strings"
 	"time"
-	"unicode/utf8"
 
 	"github.com/Calcium-Ion/moejs"
 	"github.com/cockroachdb/errors"
+
+	"github.com/wuhan005/sayrud/internal/jsruntime"
 )
 
 // Language is the source language of a plugin.
@@ -41,10 +41,6 @@ const (
 	// MaxSourceSize is the maximum size of a plugin source in bytes.
 	MaxSourceSize   = 512 << 10
 	maxManifestSize = 256 << 10
-	maxResultSize   = 1 << 20
-	maxLogs         = 200
-	maxLogLength    = 2000
-	memoryLimit     = 64 << 20
 	loadTimeout     = 2 * time.Second
 	defaultTimeout  = 10 * time.Second
 )
@@ -53,23 +49,15 @@ var (
 	ErrNoManifest     = errors.New("the module does not export a manifest object")
 	ErrNoExecute      = errors.New("the module does not export an execute function")
 	ErrImports        = errors.New("the module can not import other modules")
-	ErrTimeout        = errors.New("the plugin timed out")
-	ErrMemoryLimit    = errors.New("the plugin exceeded the memory limit")
-	ErrPendingPromise = errors.New("the promise returned by the plugin never settles")
-	ErrResultTooLarge = errors.New("the result of the plugin is too large")
+	ErrTimeout        = jsruntime.ErrTimeout
+	ErrMemoryLimit    = jsruntime.ErrMemoryLimit
+	ErrPendingPromise = jsruntime.ErrPendingPromise
+	ErrResultTooLarge = jsruntime.ErrResultTooLarge
 	ErrFetchDisabled  = errors.New("fetch is not available for this node")
 )
 
-// Error is an error thrown by the plugin or a syntax error; Message can be shown to the workflow author.
-type Error struct {
-	Message string
-	// Retryable is set when the plugin throws an object whose retryable property is true.
-	Retryable bool
-}
-
-func (e *Error) Error() string {
-	return e.Message
-}
+// Error is an error thrown by the plugin or a syntax error, with an optional retry hint.
+type Error = jsruntime.Error
 
 // Program is a compiled plugin module; it is immutable and can be run concurrently.
 type Program struct {
@@ -83,6 +71,7 @@ func Compile(ctx context.Context, name, source string, lang Language) (*Program,
 	if len(source) > MaxSourceSize {
 		return nil, &Error{Message: "the source is too large"}
 	}
+
 	var mod *moejs.Module
 	var err error
 	if lang == TypeScript {
@@ -93,6 +82,7 @@ func Compile(ctx context.Context, name, source string, lang Language) (*Program,
 	if err != nil {
 		return nil, &Error{Message: err.Error()}
 	}
+
 	if len(mod.Requests()) > 0 {
 		return nil, ErrImports
 	}
@@ -106,12 +96,13 @@ func Compile(ctx context.Context, name, source string, lang Language) (*Program,
 
 	runCtx, cancel := context.WithTimeout(ctx, loadTimeout)
 	defer cancel()
-	s := newState(runCtx, Call{})
-	rt, release, err := s.runtime(p)
+
+	s := &state{ctx: runCtx}
+	rt, err := s.runtime(p)
 	if err != nil {
 		return nil, err
 	}
-	defer release()
+	defer rt.Close()
 
 	for name, h := range p.hooks {
 		if ok, err := rt.Has(h); err != nil || !ok {
@@ -121,18 +112,22 @@ func Compile(ctx context.Context, name, source string, lang Language) (*Program,
 	if _, ok := p.hooks[HookExecute]; !ok {
 		return nil, ErrNoExecute
 	}
+
 	value, ok := rt.Export("manifest")
 	if !ok || !value.IsObject() {
 		return nil, ErrNoManifest
 	}
+
 	raw, err := rt.AppendJSON(nil, value)
 	if err != nil {
-		return nil, s.wrap(err)
+		return nil, rt.Wrap(err)
 	}
 	if len(raw) > maxManifestSize {
 		return nil, &Error{Message: "the manifest is too large"}
 	}
+
 	p.manifest = raw
+
 	return p, nil
 }
 
@@ -197,20 +192,27 @@ func (p *Program) Run(ctx context.Context, c Call) (*Result, error) {
 	if !ok {
 		return &Result{Logs: []string{}}, errors.Newf("the plugin does not export %s", c.Hook)
 	}
+
 	timeout := c.Timeout
 	if timeout <= 0 {
 		timeout = defaultTimeout
 	}
+
 	runCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
-	s := newState(runCtx, c)
+	s := &state{ctx: runCtx, opts: c}
 	value, err := s.call(p, hook)
-	result := &Result{Logs: s.logs, Fetches: s.fetches}
+	result := &Result{Logs: []string{}, Fetches: s.fetches}
+	if s.rt != nil {
+		result.Logs = s.rt.Logs
+	}
 	if err != nil {
 		return result, err
 	}
+
 	result.Value = value
+
 	return result, nil
 }
 
@@ -218,64 +220,48 @@ func (p *Program) Run(ctx context.Context, c Call) (*Result, error) {
 type state struct {
 	ctx     context.Context
 	opts    Call
-	rt      *moejs.Runtime
-	logs    []string
+	rt      *jsruntime.Runtime
 	fetches int
 }
 
-func newState(ctx context.Context, c Call) *state {
-	return &state{ctx: ctx, opts: c, logs: []string{}}
-}
-
-// runtime returns a new runtime with the module loaded; release stops the interrupt watcher.
-func (s *state) runtime(p *Program) (*moejs.Runtime, func(), error) {
+// runtime returns a fresh runtime with the module loaded.
+func (s *state) runtime(p *Program) (*jsruntime.Runtime, error) {
 	loc := s.opts.Location
 	if loc == nil {
 		loc = time.UTC
 	}
-	rt := moejs.NewRuntime(moejs.Options{DisableDynamicCode: true, MemoryLimit: memoryLimit, TimeZone: loc})
-	s.rt = rt
 
-	interrupted := make(chan struct{})
-	stop := context.AfterFunc(s.ctx, func() {
-		rt.Interrupt(context.Cause(s.ctx))
-		close(interrupted)
-	})
-	release := func() {
-		if !stop() {
-			<-interrupted
-		}
-	}
-
-	log := moejs.NativeFunc(s.log)
-	console := map[string]any{"log": log, "info": log, "warn": log, "error": log, "debug": log}
-	if err := rt.SetGlobal("console", console); err != nil {
-		release()
-		return nil, nil, errors.Wrap(err, "set console")
-	}
-	if err := rt.Load(p.mod); err != nil {
-		release()
-		return nil, nil, s.wrap(err)
-	}
-	return rt, release, nil
-}
-
-func (s *state) call(p *Program, hook moejs.Hook) (interface{}, error) {
-	rt, release, err := s.runtime(p)
+	rt, err := jsruntime.New(s.ctx, moejs.Options{DisableDynamicCode: true, TimeZone: loc})
 	if err != nil {
 		return nil, err
 	}
-	defer release()
+	s.rt = rt
+
+	if err := rt.Load(p.mod); err != nil {
+		rt.Close()
+		return nil, rt.Wrap(err)
+	}
+
+	return rt, nil
+}
+
+func (s *state) call(p *Program, hook moejs.Hook) (interface{}, error) {
+	rt, err := s.runtime(p)
+	if err != nil {
+		return nil, err
+	}
+	defer rt.Close()
 
 	var args []moejs.Value
 	for _, a := range s.opts.Args {
-		v, err := s.parse(a)
+		v, err := rt.Parse(a)
 		if err != nil {
 			return nil, errors.Wrap(err, "convert argument")
 		}
 		args = append(args, v)
 	}
-	ctxValue, err := s.contextValue()
+
+	ctxValue, err := rt.Context(s.opts.Context, map[string]any{"fetch": moejs.NativeFunc(s.fetch)})
 	if err != nil {
 		return nil, errors.Wrap(err, "build context")
 	}
@@ -283,103 +269,10 @@ func (s *state) call(p *Program, hook moejs.Hook) (interface{}, error) {
 
 	res, err := rt.Call(hook, args...)
 	if err != nil {
-		return nil, s.wrap(err)
+		return nil, rt.Wrap(err)
 	}
-	if state, result, ok := moejs.PromiseResult(res); ok {
-		switch state {
-		case moejs.PromiseFulfilled:
-			res = result
-		case moejs.PromiseRejected:
-			return nil, s.thrown(result)
-		default:
-			if s.ctx.Err() != nil {
-				return nil, s.ctxError()
-			}
-			return nil, ErrPendingPromise
-		}
-	}
-	return s.toGo(res)
-}
 
-// parse converts a Go value through JSON, so the plugin only sees plain objects.
-func (s *state) parse(v interface{}) (moejs.Value, error) {
-	raw, err := json.Marshal(v)
-	if err != nil {
-		return moejs.Undefined(), err
-	}
-	return s.rt.ParseJSON(raw)
-}
-
-func (s *state) contextValue() (moejs.Value, error) {
-	data := map[string]any{}
-	if s.opts.Context != nil {
-		raw, err := json.Marshal(s.opts.Context)
-		if err != nil {
-			return moejs.Undefined(), err
-		}
-		if err := json.Unmarshal(raw, &data); err != nil {
-			return moejs.Undefined(), err
-		}
-	}
-	data["log"] = moejs.NativeFunc(s.log)
-	data["fetch"] = moejs.NativeFunc(s.fetch)
-	return s.rt.FromGo(data)
-}
-
-func (s *state) toGo(v moejs.Value) (interface{}, error) {
-	if v.IsUndefined() || v.IsNull() {
-		return nil, nil
-	}
-	raw, err := s.rt.AppendJSON(nil, v)
-	if err != nil {
-		return nil, s.wrap(err)
-	}
-	if len(raw) > maxResultSize {
-		return nil, ErrResultTooLarge
-	}
-	var out interface{}
-	if err := json.Unmarshal(raw, &out); err != nil {
-		return nil, errors.Wrap(err, "decode result")
-	}
-	return out, nil
-}
-
-func (s *state) log(_ *moejs.Realm, _ moejs.Value, args []moejs.Value) (moejs.Value, error) {
-	if len(s.logs) >= maxLogs {
-		return moejs.Undefined(), nil
-	}
-	parts := make([]string, 0, len(args))
-	for _, a := range args {
-		parts = append(parts, s.describe(a))
-	}
-	line := strings.Join(parts, " ")
-	if utf8.RuneCountInString(line) > maxLogLength {
-		line = string([]rune(line)[:maxLogLength]) + "…"
-	}
-	s.logs = append(s.logs, line)
-	return moejs.Undefined(), nil
-}
-
-// describe returns the text of a value for the logs and the errors without running plugin code for errors.
-func (s *state) describe(v moejs.Value) string {
-	switch {
-	case v.IsUndefined():
-		return "undefined"
-	case v.IsString():
-		return v.String()
-	case v.IsObject():
-		exc := &moejs.Exception{Value: v}
-		if msg := exc.Message(); msg != "" {
-			if name := exc.Name(); name != "" {
-				return name + ": " + msg
-			}
-			return msg
-		}
-		if raw, err := s.rt.AppendJSON(nil, v); err == nil {
-			return string(raw)
-		}
-	}
-	return v.String()
+	return rt.Resolve(res)
 }
 
 func (s *state) fetch(_ *moejs.Realm, _ moejs.Value, args []moejs.Value) (moejs.Value, error) {
@@ -456,49 +349,4 @@ func (s *state) mustGet(v moejs.Value, key string) moejs.Value {
 		return moejs.Undefined()
 	}
 	return out
-}
-
-func (s *state) ctxError() error {
-	if errors.Is(s.ctx.Err(), context.DeadlineExceeded) {
-		return ErrTimeout
-	}
-	return s.ctx.Err()
-}
-
-// wrap converts the errors of the engine: interrupts become timeouts or the memory limit, throws become *Error unless they carry a host error.
-func (s *state) wrap(err error) error {
-	var interrupted *moejs.InterruptedError
-	if errors.As(err, &interrupted) {
-		if errors.Is(err, moejs.ErrMemoryLimit) {
-			return ErrMemoryLimit
-		}
-		if s.ctx.Err() != nil {
-			return s.ctxError()
-		}
-		return ErrTimeout
-	}
-	var exc *moejs.Exception
-	if errors.As(err, &exc) {
-		return s.thrown(exc.Value)
-	}
-	var syntaxErr *moejs.SyntaxError
-	if errors.As(err, &syntaxErr) {
-		return &Error{Message: syntaxErr.Error()}
-	}
-	return &Error{Message: err.Error()}
-}
-
-// thrown converts a thrown or rejected value; the Go error of a host function is returned as is.
-func (s *state) thrown(v moejs.Value) error {
-	exc := &moejs.Exception{Value: v}
-	if hostErr := exc.Unwrap(); hostErr != nil {
-		return hostErr
-	}
-	e := &Error{Message: s.describe(v)}
-	if v.IsObject() {
-		if retry := s.mustGet(v, "retryable"); retry.IsBool() && retry.AsBool() {
-			e.Retryable = true
-		}
-	}
-	return e
 }

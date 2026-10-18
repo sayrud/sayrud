@@ -3,65 +3,90 @@ package script
 import (
 	"strings"
 
-	"github.com/cockroachdb/errors"
-	"github.com/dop251/goja"
+	"github.com/Calcium-Ion/moejs"
 )
 
 // aiComplete blocks like fetch and can be awaited by the script.
-func (s *sandbox) aiComplete(call goja.FunctionCall) goja.Value {
+func (s *sandbox) aiComplete(r *moejs.Realm, _ moejs.Value, args []moejs.Value) (moejs.Value, error) {
 	s.aiCalls++
 	if s.aiCalls > maxRequests {
-		panic(s.vm.NewTypeError("ai.complete: at most %d requests are allowed in a run", maxRequests))
+		return moejs.Undefined(), r.TypeError("ai.complete: at most %d requests are allowed in a run", maxRequests)
 	}
+
 	if s.opts.AIComplete == nil {
-		panic(s.hostError(ErrAIDisabled))
+		return moejs.Undefined(), s.hostError(ErrAIDisabled)
 	}
 
-	request, ok := call.Argument(0).Export().(map[string]interface{})
-	if !ok || len(call.Arguments) != 1 {
-		panic(s.vm.NewTypeError("ai.complete: expected one object with prompt and optional system"))
+	value := moejs.Arg(args, 0)
+	if len(args) != 1 || !value.IsObject() || value.AsObject().ClassName() != "Object" || value.AsObject().IsCallable() {
+		return moejs.Undefined(), r.TypeError("ai.complete: expected one object with prompt and optional system")
 	}
-	for key := range request {
-		if key != "prompt" && key != "system" {
-			panic(s.vm.NewTypeError("ai.complete: unsupported option %q", key))
+
+	// Read each option once and preserve its JavaScript type; ToGo unwraps boxed strings.
+	keys, err := r.EnumerableOwnKeys(value.AsObject())
+	if err != nil {
+		return moejs.Undefined(), err
+	}
+	request := make(map[string]moejs.Value, len(keys))
+	for _, key := range keys {
+		name := key.GoString()
+		if name != "prompt" && name != "system" {
+			return moejs.Undefined(), r.TypeError("ai.complete: unsupported option %q", name)
 		}
+		option, err := s.vm.Get(value, name)
+		if err != nil {
+			return moejs.Undefined(), err
+		}
+		request[name] = option
 	}
 
-	prompt, ok := request["prompt"].(string)
-	if !ok || strings.TrimSpace(prompt) == "" {
-		panic(s.vm.NewTypeError("ai.complete: prompt must be a non-empty string"))
+	promptValue, present := request["prompt"]
+	if !present || !promptValue.IsString() || strings.TrimSpace(promptValue.String()) == "" {
+		return moejs.Undefined(), r.TypeError("ai.complete: prompt must be a non-empty string")
 	}
+	prompt := promptValue.String()
 
 	var system string
-	if raw, present := request["system"]; present {
-		var ok bool
-		system, ok = raw.(string)
-		if !ok {
-			panic(s.vm.NewTypeError("ai.complete: system must be a string"))
+	if value, present := request["system"]; present {
+		if !value.IsString() {
+			return moejs.Undefined(), r.TypeError("ai.complete: system must be a string")
 		}
+		system = value.String()
 	}
+
 	if len(prompt)+len(system) > maxRequestBody {
-		panic(s.vm.NewTypeError("ai.complete: the request body is too large"))
+		return moejs.Undefined(), r.TypeError("ai.complete: the request body is too large")
 	}
 
 	response, err := s.opts.AIComplete(s.ctx, prompt, system)
 	if s.ctx.Err() != nil {
-		panic(s.hostError(s.ctxError()))
+		return moejs.Undefined(), s.hostError(s.vm.ContextError())
 	}
 	if err != nil {
-		panic(s.hostError(err))
+		return moejs.Undefined(), s.hostError(err)
 	}
 
-	return s.vm.ToValue(response)
+	return moejs.String(response), nil
 }
 
-// Keep the original typed error in Go: GoError.value must only expose its safe message.
-func (s *sandbox) hostError(err error) *goja.Object {
-	object := s.vm.NewGoError(errors.New(err.Error()))
-	if s.hostErrors == nil {
-		s.hostErrors = make(map[*goja.Object]error)
+// Keep GoError.value available to old scripts without exposing the original Go error's fields.
+func (s *sandbox) hostError(err error) error {
+	value, ok := s.vm.ThrownValue(err)
+	if !ok {
+		return err
 	}
-	s.hostErrors[object] = err
+	safe, convertErr := s.vm.FromGo(map[string]any{})
+	if convertErr != nil {
+		return convertErr
+	}
 
-	return object
+	r := s.vm.Realm()
+	if setErr := value.AsObject().SetProp(r, r.KeyFromGoString("value"), safe); setErr != nil {
+		return setErr
+	}
+	if setErr := value.AsObject().SetProp(r, r.KeyFromGoString("name"), moejs.String("GoError")); setErr != nil {
+		return setErr
+	}
+
+	return &moejs.Exception{Value: value}
 }

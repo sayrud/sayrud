@@ -1,8 +1,8 @@
 // Package script runs the custom field shortcuts written in JavaScript.
 //
-// Every run uses a new goja runtime which has no module loader, file system or process access, and is interrupted on timeout.
+// Every run uses a new moejs runtime which has no module loader, file system or process access, and is interrupted on timeout.
 // context.fetch is limited to allowed domains and public or explicitly allowed addresses; context.ai uses the injected server-side model client.
-// goja is an interpreter in the server process rather than an isolation boundary, so the scripts must be published by trusted admins.
+// moejs is an interpreter in the server process rather than an isolation boundary, so the scripts must be published by trusted admins.
 package script
 
 import (
@@ -12,12 +12,12 @@ import (
 	"net/netip"
 	"strings"
 	"time"
-	"unicode/utf8"
 
+	"github.com/Calcium-Ion/moejs"
 	"github.com/cockroachdb/errors"
-	"github.com/dop251/goja"
 
 	"github.com/wuhan005/sayrud/internal/db"
+	"github.com/wuhan005/sayrud/internal/jsruntime"
 )
 
 // Credential is a secret the script refers to by key when fetching, the script can not read its value.
@@ -56,47 +56,35 @@ type Result struct {
 	Logs []string
 }
 
-const (
-	maxCallStackSize = 512
-	maxResultSize    = 1 << 20
-	maxLogs          = 200
-	maxLogLength     = 2000
-	scriptName       = "shortcut.js"
-)
+const scriptName = "shortcut.js"
 
 var (
 	ErrNoExecute      = errors.New("the script does not define the execute function")
-	ErrTimeout        = errors.New("the script timed out")
-	ErrPendingPromise = errors.New("the promise returned by execute never settles")
-	ErrResultTooLarge = errors.New("the result is too large")
+	ErrTimeout        = jsruntime.ErrTimeout
+	ErrMemoryLimit    = jsruntime.ErrMemoryLimit
+	ErrPendingPromise = jsruntime.ErrPendingPromise
+	ErrResultTooLarge = jsruntime.ErrResultTooLarge
 	ErrAIDisabled     = errors.New("AI is not enabled for this shortcut")
 )
 
 // Error is an error thrown by the script or a syntax error, Message is shown to the users.
-type Error struct {
-	Message string
-}
-
-func (e *Error) Error() string {
-	return e.Message
-}
+type Error = jsruntime.Error
 
 // Compile checks the syntax of the code.
 func Compile(code string) error {
-	if _, err := goja.Compile(scriptName, code, false); err != nil {
+	if _, err := moejs.CompileScript(scriptName, code); err != nil {
 		return &Error{Message: err.Error()}
 	}
+
 	return nil
 }
 
 type sandbox struct {
-	ctx        context.Context
-	vm         *goja.Runtime
-	opts       Options
-	logs       []string
-	fetcher    *fetcher
-	aiCalls    int
-	hostErrors map[*goja.Object]error
+	ctx     context.Context
+	vm      *jsruntime.Runtime
+	opts    Options
+	fetcher *fetcher
+	aiCalls int
 }
 
 // Run executes the script and returns the value returned or resolved by execute.
@@ -106,197 +94,72 @@ func Run(ctx context.Context, opts Options) (*Result, error) {
 	if timeout <= 0 {
 		timeout = 30 * time.Second
 	}
+
 	runCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
-	vm := goja.New()
-	vm.SetMaxCallStackSize(maxCallStackSize)
+	// Keep classic scripts' mutable builtins, dynamic code and local Date time zone.
+	vm, err := jsruntime.New(runCtx, moejs.Options{MutableIntrinsics: true})
+	if err != nil {
+		return nil, err
+	}
+	defer vm.Close()
+
 	s := &sandbox{ctx: runCtx, vm: vm, opts: opts}
 	s.fetcher = newFetcher(runCtx, opts.Domains, opts.Credentials, opts.Networks)
 	defer s.fetcher.client.CloseIdleConnections()
-	stop := context.AfterFunc(runCtx, func() { vm.Interrupt(runCtx.Err()) })
-	defer stop()
 
-	value, err := s.run()
-	result := &Result{Logs: s.redact(s.logs)}
+	value, err := s.execute()
+	result := &Result{}
+	if len(vm.Logs) > 0 {
+		result.Logs = s.redact(vm.Logs)
+	}
 	if err != nil {
 		return result, err
 	}
+
 	result.Value = value
+
 	return result, nil
 }
 
-func (s *sandbox) run() (value interface{}, err error) {
-	// The goja helpers called from Go panic with JavaScript exceptions.
-	defer func() {
-		if r := recover(); r != nil {
-			if e, ok := r.(error); ok {
-				err = s.wrap(e)
-				return
-			}
-			err = &Error{Message: fmt.Sprint(r)}
-		}
-	}()
-	return s.execute()
-}
-
 func (s *sandbox) execute() (interface{}, error) {
-	if err := s.setGlobals(); err != nil {
-		return nil, err
+	// Read execute in the same global scope without turning a classic script into a strict module.
+	program, err := moejs.CompileScript(scriptName, s.opts.Code+"\n;typeof execute === 'function' ? execute : undefined;")
+	if err != nil {
+		return nil, s.vm.Wrap(err)
 	}
-	if _, err := s.vm.RunScript(scriptName, s.opts.Code); err != nil {
-		return nil, s.wrap(err)
+	fn, err := s.vm.RunScript(program)
+	if err != nil {
+		return nil, s.vm.Wrap(err)
 	}
-	execute, ok := goja.AssertFunction(s.vm.Get("execute"))
-	if !ok {
+	if fn.IsUndefined() {
 		return nil, ErrNoExecute
 	}
 
-	params, err := s.fromGo(s.opts.Params)
+	params := s.opts.Params
+	if params == nil {
+		params = map[string]interface{}{}
+	}
+	arg, err := s.vm.Parse(params)
 	if err != nil {
 		return nil, errors.Wrap(err, "convert params")
 	}
-	contextObject, err := s.contextObject()
+	ctxValue, err := s.vm.Context(s.opts.Context, map[string]any{
+		"fetch": moejs.NativeFunc(s.fetch),
+		"ai":    map[string]any{"complete": moejs.NativeFunc(s.aiComplete)},
+	})
 	if err != nil {
 		return nil, errors.Wrap(err, "build context")
 	}
 
-	// Promise jobs run before the outermost call returns; fetch and AI calls block, so an async execute has settled by then.
-	value, err := execute(goja.Undefined(), params, contextObject)
+	// Fetch and AI calls block, so promise jobs have settled when the outermost call returns.
+	value, err := s.vm.CallFunction(fn, moejs.Undefined(), arg, ctxValue)
 	if err != nil {
-		return nil, s.wrap(err)
-	}
-	if promise, ok := value.Export().(*goja.Promise); ok {
-		switch promise.State() {
-		case goja.PromiseStateFulfilled:
-			value = promise.Result()
-		case goja.PromiseStateRejected:
-			return nil, s.valueError(promise.Result())
-		default:
-			if s.ctx.Err() != nil {
-				return nil, s.ctxError()
-			}
-			return nil, ErrPendingPromise
-		}
-	}
-	return s.toGo(value)
-}
-
-func (s *sandbox) setGlobals() error {
-	console := s.vm.NewObject()
-	for _, name := range []string{"log", "info", "warn", "error", "debug"} {
-		if err := console.Set(name, s.log); err != nil {
-			return errors.Wrap(err, "set console")
-		}
-	}
-	return errors.Wrap(s.vm.Set("console", console), "set console")
-}
-
-func (s *sandbox) contextObject() (goja.Value, error) {
-	value, err := s.fromGo(s.opts.Context)
-	if err != nil {
-		return nil, err
-	}
-	object := value.ToObject(s.vm)
-	if err := object.Set("fetch", s.fetch); err != nil {
-		return nil, err
-	}
-	if err := object.Set("log", s.log); err != nil {
-		return nil, err
+		return nil, s.vm.Wrap(err)
 	}
 
-	ai := s.vm.NewObject()
-	if err := ai.Set("complete", s.aiComplete); err != nil {
-		return nil, err
-	}
-	if err := object.Set("ai", ai); err != nil {
-		return nil, err
-	}
-
-	return object, nil
-}
-
-// fromGo converts the JSON-compatible Go values to a plain JavaScript object.
-func (s *sandbox) fromGo(v map[string]interface{}) (goja.Value, error) {
-	if v == nil {
-		v = map[string]interface{}{}
-	}
-	raw, err := json.Marshal(v)
-	if err != nil {
-		return nil, err
-	}
-	return s.parseJSON(string(raw))
-}
-
-func (s *sandbox) parseJSON(text string) (goja.Value, error) {
-	parse, ok := goja.AssertFunction(s.vm.Get("JSON").ToObject(s.vm).Get("parse"))
-	if !ok {
-		return nil, errors.New("JSON.parse is unavailable")
-	}
-	return parse(goja.Undefined(), s.vm.ToValue(text))
-}
-
-// toGo converts the JavaScript value through JSON, so the result only contains JSON types and numbers are float64.
-func (s *sandbox) toGo(v goja.Value) (interface{}, error) {
-	if v == nil || goja.IsUndefined(v) || goja.IsNull(v) {
-		return nil, nil
-	}
-	stringify, ok := goja.AssertFunction(s.vm.Get("JSON").ToObject(s.vm).Get("stringify"))
-	if !ok {
-		return nil, errors.New("JSON.stringify is unavailable")
-	}
-	text, err := stringify(goja.Undefined(), v)
-	if err != nil {
-		return nil, s.wrap(err)
-	}
-	if goja.IsUndefined(text) {
-		return nil, nil
-	}
-	if len(text.String()) > maxResultSize {
-		return nil, ErrResultTooLarge
-	}
-	var result interface{}
-	if err := json.Unmarshal([]byte(text.String()), &result); err != nil {
-		return nil, errors.Wrap(err, "decode result")
-	}
-	return result, nil
-}
-
-func (s *sandbox) log(call goja.FunctionCall) goja.Value {
-	if len(s.logs) >= maxLogs {
-		return goja.Undefined()
-	}
-	parts := make([]string, 0, len(call.Arguments))
-	for _, arg := range call.Arguments {
-		parts = append(parts, s.describe(arg))
-	}
-	line := strings.Join(parts, " ")
-	if utf8.RuneCountInString(line) > maxLogLength {
-		line = string([]rune(line)[:maxLogLength]) + "…"
-	}
-	s.logs = append(s.logs, line)
-	return goja.Undefined()
-}
-
-// describe returns the text of the value for the logs and the errors.
-func (s *sandbox) describe(v goja.Value) string {
-	if v == nil || goja.IsUndefined(v) {
-		return "undefined"
-	}
-	if object, ok := v.(*goja.Object); ok {
-		if message := object.Get("message"); message != nil && !goja.IsUndefined(message) {
-			if name := object.Get("name"); name != nil && !goja.IsUndefined(name) {
-				return name.String() + ": " + message.String()
-			}
-			return message.String()
-		}
-		if exported, err := s.toGo(v); err == nil {
-			if raw, err := json.Marshal(exported); err == nil {
-				return string(raw)
-			}
-		}
-	}
-	return v.String()
+	return s.vm.Resolve(value)
 }
 
 // redact hides the credential values printed by the script.
@@ -312,43 +175,18 @@ func (s *sandbox) redact(lines []string) []string {
 	return lines
 }
 
-func (s *sandbox) ctxError() error {
-	if errors.Is(s.ctx.Err(), context.DeadlineExceeded) {
-		return ErrTimeout
-	}
-	return s.ctx.Err()
-}
-
-func (s *sandbox) wrap(err error) error {
-	var interrupted *goja.InterruptedError
-	if errors.As(err, &interrupted) {
-		return s.ctxError()
-	}
-	var exception *goja.Exception
-	if errors.As(err, &exception) {
-		return s.valueError(exception.Value())
-	}
-	var stackOverflow *goja.StackOverflowError
-	if errors.As(err, &stackOverflow) {
-		return &Error{Message: "maximum call stack size exceeded"}
-	}
-	return &Error{Message: err.Error()}
-}
-
-func (s *sandbox) valueError(value goja.Value) error {
-	if object, ok := value.(*goja.Object); ok {
-		if err := s.hostErrors[object]; err != nil {
-			return err
-		}
-	}
-
-	return &Error{Message: s.describe(value)}
-}
-
 // fetch implements context.fetch(url, options, credentialKey), it blocks and returns the response, the script may await it.
-func (s *sandbox) fetch(call goja.FunctionCall) goja.Value {
-	request := fetchRequest{URL: call.Argument(0).String()}
-	if options, ok := call.Argument(1).Export().(map[string]interface{}); ok {
+func (s *sandbox) fetch(r *moejs.Realm, _ moejs.Value, args []moejs.Value) (moejs.Value, error) {
+	url, err := r.ToString(moejs.Arg(args, 0))
+	if err != nil {
+		return moejs.Undefined(), err
+	}
+	request := fetchRequest{URL: url.GoString()}
+	opts, err := s.vm.ToGo(moejs.Arg(args, 1))
+	if err != nil {
+		return moejs.Undefined(), err
+	}
+	if options, ok := opts.(map[string]interface{}); ok {
 		request.Method, _ = options["method"].(string)
 		if headers, ok := options["headers"].(map[string]interface{}); ok {
 			request.Headers = make(map[string]string, len(headers))
@@ -363,42 +201,39 @@ func (s *sandbox) fetch(call goja.FunctionCall) goja.Value {
 		default:
 			raw, err := json.Marshal(body)
 			if err != nil {
-				panic(s.vm.NewTypeError("fetch: the body can not be encoded as JSON"))
+				return moejs.Undefined(), r.TypeError("fetch: the body can not be encoded as JSON")
 			}
 			request.Body = string(raw)
 			request.JSONBody = true
 		}
 	}
-	if key := call.Argument(2); !goja.IsUndefined(key) && !goja.IsNull(key) {
-		request.CredentialKey = key.String()
+	if key := moejs.Arg(args, 2); !key.IsUndefined() && !key.IsNull() {
+		text, err := r.ToString(key)
+		if err != nil {
+			return moejs.Undefined(), err
+		}
+		request.CredentialKey = text.GoString()
 	}
 
 	response, err := s.fetcher.do(request)
+	if s.ctx.Err() != nil {
+		return moejs.Undefined(), s.hostError(s.vm.ContextError())
+	}
 	if err != nil {
-		panic(s.vm.NewGoError(err))
+		return moejs.Undefined(), s.hostError(err)
 	}
 
-	object := s.vm.NewObject()
-	headers := s.vm.NewObject()
-	for k, v := range response.Headers {
-		_ = headers.Set(k, v)
-	}
-	for k, v := range map[string]interface{}{
+	return s.vm.FromGo(map[string]any{
 		"status":     response.Status,
 		"statusText": response.StatusText,
 		"ok":         response.Status >= 200 && response.Status < 300,
 		"url":        response.URL,
-		"headers":    headers,
-		"text":       func() string { return response.Body },
-		"json": func() goja.Value {
-			value, err := s.parseJSON(response.Body)
-			if err != nil {
-				panic(err)
-			}
-			return value
-		},
-	} {
-		_ = object.Set(k, v)
-	}
-	return object
+		"headers":    response.Headers,
+		"text": moejs.NativeFunc(func(*moejs.Realm, moejs.Value, []moejs.Value) (moejs.Value, error) {
+			return moejs.String(response.Body), nil
+		}),
+		"json": moejs.NativeFunc(func(*moejs.Realm, moejs.Value, []moejs.Value) (moejs.Value, error) {
+			return s.vm.ParseJSONString(response.Body)
+		}),
+	})
 }

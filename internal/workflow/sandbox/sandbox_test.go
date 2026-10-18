@@ -3,6 +3,7 @@ package sandbox
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 
@@ -209,4 +210,31 @@ func TestTimezone(t *testing.T) {
 	result, err := p.Run(context.Background(), Call{Hook: HookExecute, Location: loc})
 	require.NoError(t, err)
 	assert.Equal(t, float64(8), result.Value)
+}
+
+func TestRunIsolationAndPermissions(t *testing.T) {
+	p := compile(t, `
+export const manifest = {};
+let calls = 0;
+export function execute(config, ctx) {
+  return [++calls, typeof ctx.ai, typeof require, typeof process, typeof fetch, typeof setTimeout, Object.isFrozen(Array.prototype)];
+}
+export function preview(config, ctx) { return {preview: ctx.preview, value: config.value} }
+`)
+	for i := 0; i < 8; i++ {
+		t.Run(fmt.Sprint(i), func(t *testing.T) {
+			t.Parallel()
+			result, err := p.Run(context.Background(), Call{Hook: HookExecute, Args: []interface{}{nil}})
+			require.NoError(t, err)
+			assert.Equal(t, []interface{}{float64(1), "undefined", "undefined", "undefined", "undefined", "undefined", true}, result.Value)
+		})
+	}
+
+	result, err := p.Run(context.Background(), Call{
+		Hook:    HookPreview,
+		Args:    []interface{}{map[string]interface{}{"value": "example"}},
+		Context: map[string]interface{}{"preview": true},
+	})
+	require.NoError(t, err)
+	assert.Equal(t, map[string]interface{}{"preview": true, "value": "example"}, result.Value)
 }

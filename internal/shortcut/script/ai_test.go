@@ -48,8 +48,10 @@ func TestAICompleteValidation(t *testing.T) {
 		``, `null`, `undefined`, `"hello"`, `[]`, `() => ({prompt: "hello"})`, `{}`,
 		`{prompt: ""}`, `{prompt: "  "}`, `{prompt: 1}`, `{prompt: null}`, `{prompt: new String("hello")}`,
 		`{prompt: "hello", system: null}`, `{prompt: "hello", system: 1}`,
+		`{prompt: "hello", system: new String("system")}`,
 		`{prompt: "hello", model: "other"}`, `{prompt: "hello", url: "https://other"}`,
 		`{prompt: "hello", apiKey: "key"}`, `{prompt: "hello", extra: true}`,
+		`Object.create({prompt: "hello"})`,
 		`{prompt: "hello"}, {system: "extra"}`,
 	} {
 		t.Run(argument, func(t *testing.T) {
@@ -80,6 +82,27 @@ func TestAICompleteValidation(t *testing.T) {
 		Code: `async function execute(p, context) { return await context.ai.complete({prompt: "hello"}) }`,
 	})
 	require.ErrorIs(t, err, ErrAIDisabled)
+}
+
+func TestAICompleteReadsOptionsOnce(t *testing.T) {
+	result, err := Run(context.Background(), Options{
+		Code: `function execute(p, context) {
+			let reads = 0;
+			const request = {
+				get prompt() { reads++; return "hello" },
+				get system() { reads++; return "system" }
+			};
+			const response = context.ai.complete(request);
+			return [response, reads];
+		}`,
+		AIComplete: func(_ context.Context, prompt, system string) (string, error) {
+			require.Equal(t, "hello", prompt)
+			require.Equal(t, "system", system)
+			return "response", nil
+		},
+	})
+	require.NoError(t, err)
+	require.Equal(t, []interface{}{"response", float64(2)}, result.Value)
 }
 
 func TestAICompleteCallLimit(t *testing.T) {

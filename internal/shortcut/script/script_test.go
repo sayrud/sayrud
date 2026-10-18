@@ -2,6 +2,7 @@ package script
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/netip"
@@ -38,6 +39,70 @@ func TestRunValues(t *testing.T) {
 			require.Equal(t, tc.want, result.Value)
 		})
 	}
+}
+
+func TestRunClassicScriptCompatibility(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		code string
+		want interface{}
+	}{
+		{name: "sloppy globals", code: `function execute() { legacy = 7; return this === globalThis && legacy === 7 }`, want: true},
+		{name: "strict script", code: `"use strict"; function execute() { return this === undefined }`, want: true},
+		{name: "lexical execute", code: `const execute = (p) => p.text.toUpperCase()`, want: "HELLO"},
+		{name: "trailing comment", code: "function execute() { return 7 } // legacy", want: float64(7)},
+		{name: "dynamic code", code: `function execute() { return eval("1 + 2") + new Function("return 4")() }`, want: float64(7)},
+		{name: "mutable builtins", code: `String.prototype.upper = function() { return this.toUpperCase() }; function execute(p) { return p.text.upper() }`, want: "HELLO"},
+		{name: "plain inputs", code: `function execute(p, ctx) { return Object.getPrototypeOf(p) === Object.prototype && Object.getPrototypeOf(ctx) === Object.prototype }`, want: true},
+		{name: "promise chain", code: `async function execute(p) { return await Promise.resolve(p.text).then(s => s.toUpperCase()) }`, want: "HELLO"},
+		{name: "json output", code: `function execute() { return {n: NaN, omitted: undefined, date: new Date(0), items: [undefined, 7]} }`, want: map[string]interface{}{"n": nil, "date": "1970-01-01T00:00:00.000Z", "items": []interface{}{nil, float64(7)}}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			require.NoError(t, Compile(tc.code))
+			result, err := Run(context.Background(), Options{Code: tc.code, Params: map[string]interface{}{"text": "hello"}})
+			require.NoError(t, err)
+			require.Equal(t, tc.want, result.Value)
+		})
+	}
+}
+
+func TestRunIsolation(t *testing.T) {
+	for i := 0; i < 8; i++ {
+		t.Run(fmt.Sprint(i), func(t *testing.T) {
+			t.Parallel()
+			result, err := Run(context.Background(), Options{Code: `
+function execute() {
+  const before = [typeof globalThis.secret, typeof Array.prototype.secret];
+  globalThis.secret = "private";
+  Array.prototype.secret = "private";
+  return before;
+}`})
+			require.NoError(t, err)
+			require.Equal(t, []interface{}{"undefined", "undefined"}, result.Value)
+		})
+	}
+}
+
+func TestRunLimits(t *testing.T) {
+	_, err := Run(context.Background(), Options{Code: `function execute() { return "x".repeat(2 << 20) }`})
+	require.ErrorIs(t, err, ErrResultTooLarge)
+
+	_, err = Run(context.Background(), Options{
+		Code:    `function execute() { try { const a = []; for (;;) a.push({n: a.length, items: [1, 2, 3]}) } catch (e) { return "caught" } }`,
+		Timeout: 10 * time.Second,
+	})
+	require.ErrorIs(t, err, ErrMemoryLimit)
+
+	_, err = Run(context.Background(), Options{Code: `for (;;) {}; function execute() {}`, Timeout: 50 * time.Millisecond})
+	require.ErrorIs(t, err, ErrTimeout)
+}
+
+func TestRunHostAPIs(t *testing.T) {
+	result, err := Run(context.Background(), Options{Code: `function execute(p, ctx) {
+  return [typeof require, typeof process, typeof fetch, typeof setTimeout, typeof ctx.fetch, typeof ctx.ai.complete, typeof ctx.plugin];
+}`})
+	require.NoError(t, err)
+	require.Equal(t, []interface{}{"undefined", "undefined", "undefined", "undefined", "function", "function", "undefined"}, result.Value)
 }
 
 func TestRunErrors(t *testing.T) {
