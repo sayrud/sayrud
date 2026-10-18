@@ -95,8 +95,8 @@ type checker struct {
 	stepIDs map[string]*Step
 	// inputKeys are the declared parameter names; input.<key> may only reference them.
 	inputKeys map[string]bool
-	// credentials caches whether a credential UID is usable.
-	credentials map[string]bool
+	// credentials caches whether a credential UID is usable for a type.
+	credentials map[[2]string]bool
 	// lang is the language of the plugin texts in the issue args, English when empty.
 	lang       string
 	pluginDefs map[string]*ModuleDef
@@ -164,7 +164,7 @@ func Check(ctx context.Context, gormDB *gorm.DB, project *db.Project, spec *Spec
 	SyncPlugins(ctx, false)
 	c := &checker{
 		ctx: ctx, db: gormDB, project: project, spec: spec, tables: map[string]*tableInfo{}, stepIDs: map[string]*Step{},
-		inputKeys: map[string]bool{}, credentials: map[string]bool{}, pluginDefs: map[string]*ModuleDef{},
+		inputKeys: map[string]bool{}, credentials: map[[2]string]bool{}, pluginDefs: map[string]*ModuleDef{},
 	}
 	c.lang, _ = ctx.Value(languageKey{}).(string)
 	if err := c.checkTrigger(); err != nil {
@@ -616,7 +616,8 @@ func (c *checker) checkField(f FieldDef, v json.RawMessage, label string, scope 
 
 // credentialExists reports whether the project has the credential of the type.
 func (c *checker) credentialExists(uid, credType string) (bool, error) {
-	if ok, cached := c.credentials[uid]; cached {
+	key := [2]string{uid, credType}
+	if ok, cached := c.credentials[key]; cached {
 		return ok, nil
 	}
 	cred, err := db.NewCredentialsStore(c.db).GetByUID(c.ctx, uid)
@@ -624,7 +625,7 @@ func (c *checker) credentialExists(uid, credType string) (bool, error) {
 		return false, err
 	}
 	ok := err == nil && cred.ProjectID == c.project.ID && (credType == "" || cred.Type == credType)
-	c.credentials[uid] = ok
+	c.credentials[key] = ok
 	return ok, nil
 }
 

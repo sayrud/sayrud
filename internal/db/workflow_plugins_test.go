@@ -36,6 +36,7 @@ func TestWorkflowPluginsStore(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, fingerprints, 2)
 	assert.Equal(t, "2.0.0", fingerprints[0].Checksum)
+	assert.Equal(t, "javascript", fingerprints[0].Language)
 	assert.False(t, fingerprints[0].Enabled)
 
 	saved, err := store.GetByPluginID(ctx, "greet")
@@ -57,4 +58,57 @@ func TestWorkflowPluginsStore(t *testing.T) {
 	assert.ErrorIs(t, err, ErrWorkflowPluginNotFound)
 	// The same plugin can be installed again.
 	require.NoError(t, store.Save(ctx, plugin("greet", "3.0.0")))
+}
+
+func TestWorkflowPluginUsageMatchesSteps(t *testing.T) {
+	ctx := context.Background()
+	gormDB := newTestDB(t, &Workflow{}, &WorkflowRevision{})
+	store, workflows := NewWorkflowPluginsStore(gormDB), NewWorkflowsStore(gormDB)
+	for _, tc := range []struct {
+		name      string
+		draft     string
+		published string
+		used      bool
+		deleted   bool
+	}{
+		{name: "main", draft: `{"steps":[{"type":"plugin:greet"}]}`, used: true},
+		{name: "async", draft: `{"async":[{"steps":[{"type":"plugin:greet"}]}]}`, used: true},
+		{name: "then", draft: `{"steps":[{"type":"condition","then":[{"type":"plugin:greet"}]}]}`, used: true},
+		{name: "else", draft: `{"steps":[{"type":"condition","else":[{"type":"plugin:greet"}]}]}`, used: true},
+		{name: "nested async", draft: `{"async":[{"steps":[{"type":"condition","then":[{"type":"condition","else":[{"type":"plugin:greet"}]}]}]}]}`, used: true},
+		{name: "duplicate steps", draft: `{"steps":[{"type":"plugin:greet"},{"type":"plugin:greet"}]}`, used: true},
+		{name: "constant", draft: `{"steps":[{"type":"response","config":{"value":"plugin:greet"}}]}`},
+		{name: "config type", draft: `{"steps":[{"type":"response","config":{"type":"plugin:greet","steps":[{"type":"plugin:greet"}]}}]}`},
+		{name: "similar type", draft: `{"steps":[{"type":"plugin:greeter"}]}`},
+		{name: "root type", draft: `{"type":"plugin:greet","steps":[]}`},
+		{name: "async type", draft: `{"async":[{"type":"plugin:greet","steps":[]}]}`},
+		{name: "empty", draft: `{}`},
+		{name: "null collections", draft: `{"steps":null,"async":null}`},
+		{name: "published", draft: `{}`, published: `{"steps":[{"type":"plugin:greet"}]}`, used: true},
+		{name: "published nested async", draft: `{}`, published: `{"async":[{"steps":[{"type":"condition","else":[{"type":"plugin:greet"}]}]}]}`, used: true},
+		{name: "both versions", draft: `{"steps":[{"type":"plugin:greet"}]}`, published: `{"steps":[{"type":"plugin:greet"}]}`, used: true},
+		{name: "published constant", draft: `{}`, published: `{"steps":[{"type":"response","config":{"value":"plugin:greet"}}]}`},
+		{name: "deleted", draft: `{"steps":[{"type":"plugin:greet"}]}`, deleted: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			w, err := workflows.Create(ctx, CreateWorkflowOptions{ProjectID: 1, Name: tc.name, Draft: []byte(tc.draft)})
+			require.NoError(t, err)
+			t.Cleanup(func() { require.NoError(t, workflows.DeleteByID(ctx, w.ID)) })
+			if tc.published != "" {
+				_, err = workflows.Publish(ctx, w.ID, PublishWorkflowOptions{DraftVersion: w.DraftVersion, Spec: []byte(tc.published)})
+				require.NoError(t, err)
+			}
+			if tc.deleted {
+				require.NoError(t, workflows.DeleteByID(ctx, w.ID))
+			}
+
+			count, err := store.CountUsage(ctx, "plugin:greet")
+			require.NoError(t, err)
+			want := int64(0)
+			if tc.used {
+				want = 1
+			}
+			assert.Equal(t, want, count)
+		})
+	}
 }

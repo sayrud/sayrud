@@ -65,6 +65,7 @@ type WorkflowPlugin struct {
 type WorkflowPluginFingerprint struct {
 	PluginID  string
 	Checksum  string
+	Language  string
 	Enabled   bool
 	UpdatedAt time.Time
 }
@@ -85,7 +86,7 @@ func (db *workflowPlugins) List(ctx context.Context) ([]*WorkflowPlugin, error) 
 
 func (db *workflowPlugins) Fingerprints(ctx context.Context) ([]*WorkflowPluginFingerprint, error) {
 	var list []*WorkflowPluginFingerprint
-	if err := db.WithContext(ctx).Model(&WorkflowPlugin{}).Select("plugin_id", "checksum", "enabled", "updated_at").Order("id ASC").Find(&list).Error; err != nil {
+	if err := db.WithContext(ctx).Model(&WorkflowPlugin{}).Select("plugin_id", "checksum", "language", "enabled", "updated_at").Order("id ASC").Find(&list).Error; err != nil {
 		return nil, errors.Wrap(err, "find")
 	}
 	return list, nil
@@ -148,12 +149,26 @@ func (db *workflowPlugins) Delete(ctx context.Context, pluginID string) error {
 }
 
 func (db *workflowPlugins) CountUsage(ctx context.Context, stepType string) (int64, error) {
-	// The quoted type matches the "type" values of the steps in the JSON text.
-	needle := `"` + stepType + `"`
 	var count int64
 	err := db.WithContext(ctx).Model(&Workflow{}).
 		Joins("LEFT JOIN workflow_revisions ON workflow_revisions.id = workflows.published_revision_id").
-		Where("strpos(workflows.draft::text, ?) > 0 OR strpos(workflow_revisions.spec::text, ?) > 0", needle, needle).
+		Where(`EXISTS (
+			WITH RECURSIVE steps(value) AS (
+				SELECT value FROM jsonb_array_elements(
+					jsonb_path_query_array(workflows.draft, '$.steps[*]') ||
+					jsonb_path_query_array(workflows.draft, '$.async[*].steps[*]') ||
+					COALESCE(jsonb_path_query_array(workflow_revisions.spec, '$.steps[*]'), '[]'::jsonb) ||
+					COALESCE(jsonb_path_query_array(workflow_revisions.spec, '$.async[*].steps[*]'), '[]'::jsonb)
+				)
+				UNION ALL
+				SELECT branch.value FROM steps
+				CROSS JOIN LATERAL jsonb_array_elements(
+					jsonb_path_query_array(steps.value, '$.then[*]') ||
+					jsonb_path_query_array(steps.value, '$.else[*]')
+				) AS branch(value)
+			)
+			SELECT 1 FROM steps WHERE value ->> 'type' = ?
+		)`, stepType).
 		Count(&count).Error
 	if err != nil {
 		return 0, errors.Wrap(err, "count")

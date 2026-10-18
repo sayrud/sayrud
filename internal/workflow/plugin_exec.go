@@ -24,8 +24,9 @@ const (
 )
 
 // PluginFetcher sends the requests of ctx.fetch in plugin nodes; Actions that do not implement it can not fetch.
+// Implementations must also enforce the allowed domains on redirects.
 type PluginFetcher interface {
-	PluginFetch(ctx context.Context, req sandbox.FetchRequest) (*sandbox.FetchResponse, error)
+	PluginFetch(ctx context.Context, req sandbox.FetchRequest, domains []string) (*sandbox.FetchResponse, error)
 }
 
 // pluginImpl returns the implementation of an installed plugin; action plugins only compute their config in simulated debugging unless they export preview.
@@ -233,14 +234,11 @@ func pluginFetch(fetcher PluginFetcher, domains []string) func(ctx context.Conte
 			return nil, &ActionError{Message: fmt.Sprintf("fetch: at most %d requests are allowed in a call", maxPluginFetches)}
 		}
 		u, err := url.Parse(req.URL)
-		if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
+		if err != nil {
 			return nil, &ActionError{Message: fmt.Sprintf("fetch: invalid URL %q", req.URL)}
 		}
-		if u.User != nil {
-			return nil, &ActionError{Message: "fetch: credentials in the URL are not allowed"}
-		}
-		if !PluginHostAllowed(u.Hostname(), domains) {
-			return nil, &ActionError{Message: fmt.Sprintf("fetch: the host %q is not allowed by the plugin permissions", u.Hostname())}
+		if err := checkPluginFetchURL(u, domains); err != nil {
+			return nil, err
 		}
 		if len(req.Body) > maxPluginFetchBody {
 			return nil, &ActionError{Message: "fetch: the request body is too large"}
@@ -249,8 +247,21 @@ func pluginFetch(fetcher PluginFetcher, domains []string) func(ctx context.Conte
 		if req.Method == "" {
 			req.Method = http.MethodGet
 		}
-		return fetcher.PluginFetch(ctx, req)
+		return fetcher.PluginFetch(ctx, req, domains)
 	}
+}
+
+func checkPluginFetchURL(u *url.URL, domains []string) error {
+	if (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
+		return &ActionError{Message: fmt.Sprintf("fetch: invalid URL %q", u.String())}
+	}
+	if u.User != nil {
+		return &ActionError{Message: "fetch: credentials in the URL are not allowed"}
+	}
+	if !PluginHostAllowed(u.Hostname(), domains) {
+		return &ActionError{Message: fmt.Sprintf("fetch: the host %q is not allowed by the plugin permissions", u.Hostname())}
+	}
+	return nil
 }
 
 // PluginHostAllowed reports whether a plugin with the allowed hosts can fetch the host; * allows any host.
@@ -263,8 +274,8 @@ func PluginHostAllowed(host string, domains []string) bool {
 	return script.HostAllowed(host, domains)
 }
 
-// PluginFetch sends a request of a plugin with a client that can not reach private networks; responses of any status are returned.
-func (a *DefaultActions) PluginFetch(ctx context.Context, req sandbox.FetchRequest) (*sandbox.FetchResponse, error) {
+// PluginFetch enforces the allowed domains and system network policy; responses of any status are returned.
+func (a *DefaultActions) PluginFetch(ctx context.Context, req sandbox.FetchRequest, domains []string) (*sandbox.FetchResponse, error) {
 	dialer := guardedDialer(networkAllowlist(ctx, a.settings()))
 	client := &http.Client{
 		Transport: &http.Transport{
@@ -277,7 +288,7 @@ func (a *DefaultActions) PluginFetch(ctx context.Context, req sandbox.FetchReque
 			if len(via) >= 5 {
 				return errors.New("too many redirects")
 			}
-			return nil
+			return checkPluginFetchURL(r.URL, domains)
 		},
 	}
 	defer client.CloseIdleConnections()
@@ -289,6 +300,9 @@ func (a *DefaultActions) PluginFetch(ctx context.Context, req sandbox.FetchReque
 	httpReq, err := http.NewRequestWithContext(ctx, req.Method, req.URL, body)
 	if err != nil {
 		return nil, &ActionError{Message: fmt.Sprintf("fetch: invalid request: %v", err)}
+	}
+	if err := checkPluginFetchURL(httpReq.URL, domains); err != nil {
+		return nil, err
 	}
 	httpReq.Header.Set("User-Agent", "Sayrud-Workflow/1.0")
 	for k, v := range req.Headers {
@@ -306,6 +320,10 @@ func (a *DefaultActions) PluginFetch(ctx context.Context, req sandbox.FetchReque
 		var urlErr *url.Error
 		if errors.As(err, &urlErr) {
 			err = urlErr.Err
+		}
+		var actionErr *ActionError
+		if errors.As(err, &actionErr) {
+			return nil, actionErr
 		}
 		var blocked *blockedAddressError
 		if errors.As(err, &blocked) {

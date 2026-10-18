@@ -356,6 +356,9 @@ func (s *Step) UnmarshalJSON(data []byte) error {
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return err
 	}
+	if len(raw.Config) == 0 || string(raw.Config) == "null" {
+		raw.Config = json.RawMessage(`{}`)
+	}
 	*s = Step{ID: raw.ID, Type: raw.Type, Name: raw.Name, Then: raw.Then, Else: raw.Else}
 	impl, ok := moduleImpls[raw.Type]
 	if !ok {
@@ -391,10 +394,13 @@ func rawConfig(step *Step) map[string]json.RawMessage {
 		return out
 	}
 	_ = json.Unmarshal(raw, &out)
+	if out == nil {
+		out = map[string]json.RawMessage{}
+	}
 	return out
 }
 
 func isEmptyJSON(raw json.RawMessage) bool {
 	s := string(raw)
-	return len(raw) == 0 || s == "null" || s == `""` || s == "0" || s == "[]" || s == "{}"
+	return len(raw) == 0 || s == "null" || s == `""` || s == "[]" || s == "{}"
 }

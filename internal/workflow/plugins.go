@@ -31,7 +31,7 @@ type installedPlugin struct {
 	code *pluginCode
 }
 
-// pluginCode compiles the source of a plugin on first use; it is shared by the versions of an installed plugin with the same source.
+// pluginCode compiles the source on first use; versions share it only when their source and language match.
 type pluginCode struct {
 	name     string
 	source   string
@@ -107,7 +107,7 @@ func (r *pluginRegistry) sync(ctx context.Context, store db.WorkflowPluginsStore
 	for i, fp := range fingerprints {
 		stepType, order := PluginType(fp.PluginID), pluginOrder+i
 		var entry *installedPlugin
-		if current := r.get(stepType); current != nil && current.checksum == fp.Checksum {
+		if current := r.get(stepType); current != nil && current.checksum == fp.Checksum && current.code.language == sandbox.Language(fp.Language) {
 			entry = current
 			if current.enabled != fp.Enabled || current.order != order {
 				entry = newInstalledPlugin(current.manifest, current.checksum, fp.Enabled, order, current.code)

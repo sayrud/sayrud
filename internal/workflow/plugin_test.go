@@ -245,7 +245,7 @@ type fakePluginFetcher struct {
 	fetch    func(context.Context, sandbox.FetchRequest) (*sandbox.FetchResponse, error)
 }
 
-func (f *fakePluginFetcher) PluginFetch(ctx context.Context, req sandbox.FetchRequest) (*sandbox.FetchResponse, error) {
+func (f *fakePluginFetcher) PluginFetch(ctx context.Context, req sandbox.FetchRequest, _ []string) (*sandbox.FetchResponse, error) {
 	f.requests = append(f.requests, req)
 	if f.fetch != nil {
 		return f.fetch(ctx, req)

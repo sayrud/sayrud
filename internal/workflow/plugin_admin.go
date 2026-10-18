@@ -39,7 +39,7 @@ func DownloadPluginSource(ctx context.Context, rawURL string) (string, sandbox.L
 	}
 	ctx, cancel := context.WithTimeout(ctx, pluginDownloadTimeout)
 	defer cancel()
-	resp, err := (&DefaultActions{}).PluginFetch(ctx, sandbox.FetchRequest{Method: http.MethodGet, URL: u.String(), Headers: map[string]string{"Accept": "text/javascript, application/javascript, text/plain, */*"}})
+	resp, err := (&DefaultActions{}).PluginFetch(ctx, sandbox.FetchRequest{Method: http.MethodGet, URL: u.String(), Headers: map[string]string{"Accept": "text/javascript, application/javascript, text/plain, */*"}}, []string{"*"})
 	if err != nil {
 		var actionErr *ActionError
 		if errors.As(err, &actionErr) {
