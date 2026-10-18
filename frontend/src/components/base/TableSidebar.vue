@@ -424,6 +424,7 @@ function openActions(e: MouseEvent, uid: string, name: string) {
   align-items: center;
   gap: 8px;
   height: 36px;
+  margin-bottom: 2px;
   padding: 0 6px 0 10px;
   border-radius: 6px;
   cursor: pointer;
