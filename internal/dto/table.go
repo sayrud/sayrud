@@ -25,14 +25,8 @@ func ToTable(project *db.Project, table *db.SLTable) *Table {
 	}
 }
 
-// TableListItem is the table in the table list, with the number of its records.
-type TableListItem struct {
-	Table
-	Count int64 `json:"count"`
-} // @name TableListItem
-
 // ListTablesResp is the response of the table list.
 type ListTablesResp struct {
-	Tables []*TableListItem `json:"tables"`
-	Total  int64            `json:"total"`
+	Tables []*Table `json:"tables"`
+	Total  int64    `json:"total"`
 } // @name ListTablesResp

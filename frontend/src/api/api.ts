@@ -638,7 +638,7 @@ export interface ListRecordsResp {
 }
 
 export interface ListTablesResp {
-  tables: TableListItem[];
+  tables: SLTable[];
   total: number;
 }
 
@@ -924,7 +924,7 @@ export interface SharedProject {
   includeChildren: boolean;
   project: Project;
   tableUID: string;
-  tables: TableListItem[];
+  tables: SLTable[];
 }
 
 export interface ShortcutFormItem {
@@ -1061,15 +1061,6 @@ export interface SystemSettings {
   sessionTTLDays: number;
   /** SiteName is shown in the page title and the sign-in page. */
   siteName: string;
-}
-
-export interface TableListItem {
-  count: number;
-  createdAt: string;
-  name: string;
-  projectUID: string;
-  uid: string;
-  updatedAt: string;
 }
 
 export interface TableSnapshot {
@@ -3756,7 +3747,7 @@ export class Api<
       }),
 
     /**
-     * @description List the tables of the project, with the number of records in each table.
+     * @description List the tables of the project.
      *
      * @name ListTables
      * @summary List tables

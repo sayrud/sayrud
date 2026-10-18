@@ -1312,7 +1312,7 @@ definitions:
     properties:
       tables:
         items:
-          $ref: '#/definitions/TableListItem'
+          $ref: '#/definitions/SLTable'
         type: array
       total:
         type: integer
@@ -1968,7 +1968,7 @@ definitions:
         type: string
       tables:
         items:
-          $ref: '#/definitions/TableListItem'
+          $ref: '#/definitions/SLTable'
         type: array
     required:
     - includeChildren
@@ -2248,28 +2248,6 @@ definitions:
     - passwordMinLength
     - sessionTTLDays
     - siteName
-    type: object
-  TableListItem:
-    properties:
-      count:
-        type: integer
-      createdAt:
-        type: string
-      name:
-        type: string
-      projectUID:
-        type: string
-      uid:
-        type: string
-      updatedAt:
-        type: string
-    required:
-    - count
-    - createdAt
-    - name
-    - projectUID
-    - uid
-    - updatedAt
     type: object
   TableSnapshot:
     properties:
@@ -6611,8 +6589,7 @@ paths:
       summary: Transfer the ownership of a project
   /projects/{projectUID}/tables:
     get:
-      description: List the tables of the project, with the number of records in each
-        table.
+      description: List the tables of the project.
       operationId: listTables
       parameters:
       - description: Project UID

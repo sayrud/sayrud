@@ -3898,7 +3898,7 @@
         },
         "/projects/{projectUID}/tables": {
             "get": {
-                "description": "List the tables of the project, with the number of records in each table.",
+                "description": "List the tables of the project.",
                 "produces": [
                     "application/json"
                 ],
@@ -8928,7 +8928,7 @@
                 "tables": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/TableListItem"
+                        "$ref": "#/definitions/SLTable"
                     }
                 },
                 "total": {
@@ -9812,7 +9812,7 @@
                 "tables": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/TableListItem"
+                        "$ref": "#/definitions/SLTable"
                     }
                 }
             }
@@ -10162,37 +10162,6 @@
                 },
                 "siteName": {
                     "description": "SiteName is shown in the page title and the sign-in page.",
-                    "type": "string"
-                }
-            }
-        },
-        "TableListItem": {
-            "type": "object",
-            "required": [
-                "count",
-                "createdAt",
-                "name",
-                "projectUID",
-                "uid",
-                "updatedAt"
-            ],
-            "properties": {
-                "count": {
-                    "type": "integer"
-                },
-                "createdAt": {
-                    "type": "string"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "projectUID": {
-                    "type": "string"
-                },
-                "uid": {
-                    "type": "string"
-                },
-                "updatedAt": {
                     "type": "string"
                 }
             }

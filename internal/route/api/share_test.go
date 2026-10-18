@@ -190,21 +190,10 @@ func TestShareUnlockResetsAttempts(t *testing.T) {
 	require.Equal(t, 429, request("secret123").Code, "resetting the share counter must not reset the aggregate IP counter")
 }
 
-type tableRecordCountsStore struct {
-	db.SLRecordsStore
-	counts  map[int64]int64
-	queried [][]int64
-	err     error
-}
-
-func (s *tableRecordCountsStore) CountByTableIDs(_ stdcontext.Context, ids []int64) (map[int64]int64, error) {
-	s.queried = append(s.queried, append([]int64{}, ids...))
-	return s.counts, s.err
-}
-
-func TestTableListsBatchRecordCounts(t *testing.T) {
+func TestTableListsWithoutRecordCounts(t *testing.T) {
 	previousTables, previousRecords := db.SLTables, db.SLRecords
 	t.Cleanup(func() { db.SLTables, db.SLRecords = previousTables, previousRecords })
+	db.SLRecords = nil // Listing table metadata must not query records.
 	project := &db.Project{Model: dbutil.Model{ID: 1}, UID: "prjShared"}
 	root := &db.SLTable{Model: dbutil.Model{ID: 1}, ProjectID: 1, UID: "tblRoot"}
 	empty := &db.SLTable{Model: dbutil.Model{ID: 2}, ProjectID: 1, UID: "tblEmpty"}
@@ -213,32 +202,29 @@ func TestTableListsBatchRecordCounts(t *testing.T) {
 	deleted.DeletedAt.Valid = true
 	small := []*db.SLTable{root, empty, other, deleted}
 	large := append([]*db.SLTable{}, small...)
-	allIDs := []int64{1, 2}
+	allUIDs := []string{root.UID, empty.UID}
 	for id := int64(5); id <= 1003; id++ {
-		large = append(large, &db.SLTable{Model: dbutil.Model{ID: id}, ProjectID: 1, UID: "tbl" + strconv.FormatInt(id, 10)})
-		allIDs = append(allIDs, id)
+		uid := "tbl" + strconv.FormatInt(id, 10)
+		large = append(large, &db.SLTable{Model: dbutil.Model{ID: id}, ProjectID: 1, UID: uid})
+		allUIDs = append(allUIDs, uid)
 	}
 	for _, tc := range []struct {
 		name     string
 		tables   []*db.SLTable
 		children bool
 		path     string
-		ids      []int64
-		err      error
+		uids     []string
+		total    int64
 	}{
-		{name: "single shared table", tables: small, path: "/share", ids: []int64{1}},
-		{name: "shared project", tables: small, children: true, path: "/share", ids: []int64{1, 2}},
-		{name: "shared project across pages", tables: large, children: true, path: "/share", ids: allIDs},
-		{name: "normal table list page", tables: small, path: "/tables?pageSize=1&page=2", ids: []int64{2}},
-		{name: "empty table list", path: "/tables", ids: []int64{}},
-		{name: "shared count error", tables: small, path: "/share", ids: []int64{1}, err: errors.New("count unavailable")},
-		{name: "normal count error", tables: small, path: "/tables", ids: []int64{1, 2}, err: errors.New("count unavailable")},
+		{name: "single shared table", tables: small, path: "/share", uids: []string{root.UID}},
+		{name: "shared project", tables: small, children: true, path: "/share", uids: []string{root.UID, empty.UID}},
+		{name: "shared project across pages", tables: large, children: true, path: "/share", uids: allUIDs},
+		{name: "normal table list page", tables: small, path: "/tables?pageSize=1&page=2", uids: []string{empty.UID}, total: 2},
+		{name: "empty table list", path: "/tables", uids: []string{}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			root.ShareIncludeChildren = tc.children
 			db.SLTables = &shareTablesStore{tables: tc.tables}
-			records := &tableRecordCountsStore{counts: map[int64]int64{1: 7, 3: 99, 1003: 4}, err: tc.err}
-			db.SLRecords = records
 			router := flamego.New()
 			router.Use(i18n.Middleware(), context.Contexter(nil))
 			router.Map(project, publicShare{Table: root})
@@ -246,20 +232,18 @@ func TestTableListsBatchRecordCounts(t *testing.T) {
 			router.Get("/tables", Schemaless.ListTables)
 			response := httptest.NewRecorder()
 			router.ServeHTTP(response, httptest.NewRequest("GET", tc.path, nil))
-			require.Equal(t, [][]int64{tc.ids}, records.queried, "count the scoped tables in one batch")
-			if tc.err != nil {
-				require.Equal(t, 500, response.Code)
-				return
-			}
 			require.Equal(t, 200, response.Code, response.Body.String())
 			var envelope struct {
 				Data dto.ListTablesResp `json:"data"`
 			}
 			require.NoError(t, json.Unmarshal(response.Body.Bytes(), &envelope))
-			require.Len(t, envelope.Data.Tables, len(tc.ids))
-			for i, id := range tc.ids {
-				require.Equal(t, records.counts[id], envelope.Data.Tables[i].Count)
+			require.NotNil(t, envelope.Data.Tables)
+			require.Len(t, envelope.Data.Tables, len(tc.uids))
+			for i, uid := range tc.uids {
+				require.Equal(t, uid, envelope.Data.Tables[i].UID)
 			}
+			require.Equal(t, tc.total, envelope.Data.Total)
+			require.NotContains(t, response.Body.String(), `"count":`)
 			require.NotContains(t, response.Body.String(), "tblOther")
 			require.NotContains(t, response.Body.String(), "tblDeleted")
 		})
@@ -578,10 +562,6 @@ func (sharedReadFields) ListByTableID(_ stdcontext.Context, _ int64) (db.SLField
 }
 
 type sharedReadRecords struct{ db.SLRecordsStore }
-
-func (sharedReadRecords) CountByTableIDs(_ stdcontext.Context, _ []int64) (map[int64]int64, error) {
-	return map[int64]int64{}, nil
-}
 
 func (sharedReadRecords) ListByUIDs(_ stdcontext.Context, _ int64, _ []string) ([]*db.SLRecord, error) {
 	return []*db.SLRecord{{UID: "recOne", Data: datatypes.JSON(`{"fldOne":"visible","files":[{"uid":"filOne","url":"/_/projects/private/attachments/filOne"}]}`)}}, nil

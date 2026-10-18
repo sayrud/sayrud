@@ -277,7 +277,7 @@ function openActions(e: MouseEvent, uid: string, name: string) {
         v-for="table in tables"
         :key="table.uid"
         class="table-item"
-        :class="{ active: !activeWorkflowUid && !credentialsActive && table.uid === store.activeTableUID, editable: store.canEdit }"
+        :class="{ active: !activeWorkflowUid && !credentialsActive && table.uid === store.activeTableUID }"
         @click="emit('select', table.uid)"
         @dblclick="startRename(table.uid, table.name)"
         @contextmenu="openActions($event, table.uid, table.name)"
@@ -295,7 +295,6 @@ function openActions(e: MouseEvent, uid: string, name: string) {
         />
         <template v-else>
           <span class="table-name ellipsis">{{ table.name }}</span>
-          <span class="table-count">{{ table.count }}</span>
           <button v-if="store.canEdit" class="icon-btn sm more" @click.stop="openActions($event, table.uid, table.name)">
             <Ellipsis :size="14" />
           </button>
@@ -304,7 +303,7 @@ function openActions(e: MouseEvent, uid: string, name: string) {
       <div
         v-for="wf in workflowItems"
         :key="wf.uid"
-        class="table-item workflow-item editable"
+        class="table-item workflow-item"
         :class="{ active: wf.uid === activeWorkflowUid }"
         @click="emit('selectWorkflow', wf.uid)"
         @contextmenu.prevent="openWorkflowActions($event, wf)"
@@ -445,13 +444,6 @@ function openActions(e: MouseEvent, uid: string, name: string) {
 }
 .table-name {
   flex: 1;
-}
-.table-count {
-  font-size: 12px;
-  color: var(--text-placeholder);
-}
-.table-item.editable:hover .table-count {
-  display: none;
 }
 .more {
   display: none;

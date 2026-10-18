@@ -45,7 +45,7 @@ func (schemalessRoute) Tabler(ctx context.Context, project *db.Project) error {
 
 // ListTables
 // @Summary List tables
-// @Description List the tables of the project, with the number of records in each table.
+// @Description List the tables of the project.
 // @Produce json
 // @Param projectUID path string true "Project UID"
 // @Param page query int false "Page number, starting from 1"
@@ -69,22 +69,9 @@ func (schemalessRoute) ListTables(ctx context.Context, project *db.Project) erro
 		return ctx.ApiServerError()
 	}
 
-	tableIDs := make([]int64, 0, len(slTables))
+	tables := make([]*dto.Table, 0, len(slTables))
 	for _, table := range slTables {
-		tableIDs = append(tableIDs, table.ID)
-	}
-	counts, err := db.SLRecords.CountByTableIDs(ctx.Request().Context(), tableIDs)
-	if err != nil {
-		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to count sl records")
-		return ctx.ApiServerError()
-	}
-
-	tables := make([]*dto.TableListItem, 0, len(slTables))
-	for _, table := range slTables {
-		tables = append(tables, &dto.TableListItem{
-			Table: *dto.ToTable(project, table),
-			Count: counts[table.ID],
-		})
+		tables = append(tables, dto.ToTable(project, table))
 	}
 
 	return ctx.ApiSuccess(dto.ListTablesResp{

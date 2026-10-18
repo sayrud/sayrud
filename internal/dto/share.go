@@ -29,8 +29,8 @@ type ResolvedLinkShare struct {
 } // @name ResolvedLinkShare
 
 type SharedProject struct {
-	Project         *Project         `json:"project"`
-	Tables          []*TableListItem `json:"tables"`
-	TableUID        string           `json:"tableUID"`
-	IncludeChildren bool             `json:"includeChildren"`
+	Project         *Project `json:"project"`
+	Tables          []*Table `json:"tables"`
+	TableUID        string   `json:"tableUID"`
+	IncludeChildren bool     `json:"includeChildren"`
 } // @name SharedProject

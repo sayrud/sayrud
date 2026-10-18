@@ -15,10 +15,6 @@ export interface ProjectListItem extends Project {
   tableCount: number
 }
 
-export interface TableListItem extends SLTable {
-  count: number
-}
-
 export interface TableSnapshot {
   rev: number
   fields: SLField[]

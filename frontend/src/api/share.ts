@@ -1,7 +1,6 @@
 import type { LinkShare, UpdateLinkShare } from './api'
-import type { TableListItem } from './bitable'
 import { client } from './client'
-import type { Project } from '@/types/bitable'
+import type { Project, SLTable } from '@/types/bitable'
 
 export type { LinkShare } from './api'
 
@@ -13,7 +12,7 @@ export const sharesApi = {
   resolve: async (projectUID: string, tableUID?: string, shareToken?: string) =>
     (await client.shares.resolveLinkShare({ projectUID, tableUID, shareToken })).data,
   open: async (token: string) =>
-    (await client.shares.openLinkShare(token)).data as { project: Project; tables: TableListItem[]; tableUID: string; includeChildren: boolean },
+    (await client.shares.openLinkShare(token)).data as { project: Project; tables: SLTable[]; tableUID: string; includeChildren: boolean },
   unlock: async (token: string, password: string) => {
     await client.shares.unlockLinkShare(token, { password })
   },

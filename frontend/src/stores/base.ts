@@ -2,7 +2,7 @@ import { Message, Modal } from '@arco-design/web-vue'
 import { defineStore } from 'pinia'
 import { computed, reactive, ref, shallowRef, watch } from 'vue'
 
-import { createSyncApi, importsApi, projectsApi, syncApi, tablesApi, type ImportState, type TableListItem } from '@/api/bitable'
+import { createSyncApi, importsApi, projectsApi, syncApi, tablesApi, type ImportState } from '@/api/bitable'
 import { ApiError } from '@/api/client'
 import { sharesApi } from '@/api/share'
 import {
@@ -28,6 +28,7 @@ import type {
   SelectOption,
   SLField,
   SLRecord,
+  SLTable,
   SLView,
   ViewConfig,
   ViewType,
@@ -133,7 +134,7 @@ export const useBaseStore = defineStore('base', () => {
   const isPublic = computed(() => !!shareToken.value)
   /** Reason the current user can not access the project, e.g. it is removed from the collaborators. */
   const accessDenied = ref<string | null>(null)
-  const tableList = ref<TableListItem[]>([])
+  const tableList = ref<SLTable[]>([])
   const activeTableUID = ref('')
   const activeViewUID = ref('')
   const loadingProject = ref(false)
@@ -202,12 +203,7 @@ export const useBaseStore = defineStore('base', () => {
     return list.map((v) => (localViewConfigs.value[v.uid] ? { ...v, config: localViewConfigs.value[v.uid]! } : v))
   })
   const loadingTable = computed(() => switchingTable.value || !!activeSync.value?.loading.value)
-  /** The record count of the current table is taken from the local data, the others from the list API. */
-  const tables = computed<TableListItem[]>(() =>
-    tableList.value.map((t) => (t.uid === activeTableUID.value && activeSync.value && !activeSync.value.loading.value ? { ...t, count: records.value.length } : t)),
-  )
-
-  const activeTable = computed(() => tables.value.find((t) => t.uid === activeTableUID.value) ?? null)
+  const activeTable = computed(() => tableList.value.find((t) => t.uid === activeTableUID.value) ?? null)
   const activeView = computed(() => views.value.find((v) => v.uid === activeViewUID.value) ?? null)
   const ctx = computed(() => new TableContext(fields.value))
   const primaryField = computed(() => fields.value[0] ?? null)
@@ -276,7 +272,7 @@ export const useBaseStore = defineStore('base', () => {
     try {
       const list = await tablesApi.list(projectUID)
 
-      if (project.value?.uid === projectUID && socket.value === connection) tableList.value = list.tables as TableListItem[]
+      if (project.value?.uid === projectUID && socket.value === connection) tableList.value = list.tables
     } catch (e) {
       toastError(e)
     }
@@ -333,7 +329,7 @@ export const useBaseStore = defineStore('base', () => {
     try {
       const [p, t] = await Promise.all([projectsApi.get(projectUID), tablesApi.list(projectUID)])
       project.value = p
-      tableList.value = t.tables as TableListItem[]
+      tableList.value = t.tables
     } catch (e) {
       if (e instanceof ApiError && e.status === 403) accessDenied.value = e.message
       throw e
@@ -496,7 +492,7 @@ export const useBaseStore = defineStore('base', () => {
   }
 
   async function openTable(tableUID: string, viewUID?: string) {
-    if (isPublic.value && !tables.value.some((table) => table.uid === tableUID)) throw new ApiError(404, t('base.tableDeleted'))
+    if (isPublic.value && !tableList.value.some((table) => table.uid === tableUID)) throw new ApiError(404, t('base.tableDeleted'))
 
     if (activeTableUID.value !== tableUID) {
       const prev = activeTableUID.value
@@ -540,7 +536,7 @@ export const useBaseStore = defineStore('base', () => {
     if (!ensureEditable()) throw new Error(t('base.noEditPermission'))
 
     const table = await tablesApi.create(pid(), name)
-    tableList.value = [...tableList.value.filter((item) => item.uid !== table.uid), { ...table, count: 5 }]
+    tableList.value = [...tableList.value.filter((item) => item.uid !== table.uid), table]
 
     const sync = await ensureSync(table.uid)
     submit(
@@ -600,7 +596,7 @@ export const useBaseStore = defineStore('base', () => {
     const data = syncs.get(tableUID)?.data ?? (await syncApi.snapshot(pid(), tableUID))
     const table = await tablesApi.create(pid(), t('base.copyName', { name: src.name }))
 
-    tableList.value = [...tableList.value.filter((item) => item.uid !== table.uid), { ...table, count: data.records.length }]
+    tableList.value = [...tableList.value.filter((item) => item.uid !== table.uid), table]
 
     const map = new Map(data.fields.map((f) => [f.uid, newFieldUID()]))
     const remap = (s: string) => s.replace(/fld[A-Za-z0-9]{7}/g, (m) => map.get(m) ?? m)
@@ -1067,7 +1063,7 @@ export const useBaseStore = defineStore('base', () => {
     canEdit,
     canManage,
     ensureEditable,
-    tables,
+    tables: tableList,
     activeTableUID,
     fields,
     records,

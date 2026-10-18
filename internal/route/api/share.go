@@ -393,19 +393,9 @@ func (shareRoute) Open(ctx context.Context, share publicShare, project *db.Proje
 		}
 	}
 
-	tableIDs := make([]int64, 0, len(tables))
+	items := make([]*dto.Table, 0, len(tables))
 	for _, table := range tables {
-		tableIDs = append(tableIDs, table.ID)
-	}
-	counts, err := db.SLRecords.CountByTableIDs(ctx.Request().Context(), tableIDs)
-	if err != nil {
-		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to count shared records")
-		return ctx.ApiServerError()
-	}
-
-	items := make([]*dto.TableListItem, 0, len(tables))
-	for _, table := range tables {
-		items = append(items, &dto.TableListItem{Table: *dto.ToTable(project, table), Count: counts[table.ID]})
+		items = append(items, dto.ToTable(project, table))
 	}
 
 	return ctx.ApiSuccess(dto.SharedProject{
