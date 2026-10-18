@@ -340,7 +340,7 @@ func formatDate(value, format string, withTime bool) string {
 	}
 	layout := dateFormatReplacer.Replace(format)
 	if withTime {
-		layout += " 15:04"
+		layout += " 15:04:05"
 	}
 	return t.Local().Format(layout)
 }

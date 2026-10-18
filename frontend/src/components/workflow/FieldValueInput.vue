@@ -56,7 +56,8 @@ function setDate(v: unknown) {
     v-else-if="field.type === 'datetime'"
     :model-value="dateValue"
     show-time
-    format="YYYY-MM-DD HH:mm"
+    format="YYYY-MM-DD HH:mm:ss"
+    :time-picker-props="{ format: 'HH:mm:ss' }"
     :disabled="disabled"
     style="width: 100%"
     @change="setDate"

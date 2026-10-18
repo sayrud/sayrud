@@ -176,7 +176,7 @@ function onDate(_v: unknown, date?: Date) {
         :day-start-of-week="1"
         :model-value="dateValue"
         :show-time="!!md.with_time"
-        :time-picker-props="{ format: 'HH:mm' }"
+        :time-picker-props="{ format: 'HH:mm:ss' }"
         @change="onDate"
       />
       <div class="date-footer">

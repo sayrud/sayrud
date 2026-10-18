@@ -3,6 +3,7 @@ package collab
 import (
 	"encoding/json"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -49,6 +50,25 @@ func TestParseDate(t *testing.T) {
 	}
 	_, ok := parseDate("not a date")
 	assert.False(t, ok)
+}
+
+func TestDateConversionPreservesSeconds(t *testing.T) {
+	field := newTestField("fldDate", db.DateTimeFieldType, map[string]interface{}{"format": "YYYY-MM-DD", "with_time": true})
+	value := time.Date(2026, 10, 18, 13, 14, 37, 0, time.Local).Format(time.RFC3339)
+	records := []*db.SLRecord{newTestRecord(t, "recDate", map[string]interface{}{field.UID: value})}
+	conversion, err := convertField(field, db.TextFieldType, map[string]interface{}{}, records, testBoolText)
+	require.NoError(t, err)
+	assert.Equal(t, "2026-10-18 13:14:37", conversion.values["recDate"])
+	assert.Equal(t, "2026/10/18 13:14:37", formatDate(value, "YYYY/MM/DD", true))
+	assert.Equal(t, "2026-10-18", formatDate(value, "YYYY-MM-DD", false))
+
+	parsed, ok := parseDate(conversion.values["recDate"].(string))
+	require.True(t, ok)
+	parsedTime, err := time.Parse(time.RFC3339, parsed)
+	require.NoError(t, err)
+	want, err := time.Parse(time.RFC3339, value)
+	require.NoError(t, err)
+	assert.True(t, want.Equal(parsedTime))
 }
 
 func TestAttachmentConversions(t *testing.T) {

@@ -3,7 +3,7 @@ import test from 'node:test'
 
 import type { Attachment, SLField } from '../src/types/bitable.ts'
 import { compileFormula, FormulaError } from '../src/utils/formula.ts'
-import { formatNumber, isEmptyValue, parseNumber, parseTSV, textToValue, toTSV, valueToText } from '../src/utils/format.ts'
+import { formatDate, formatNumber, isEmptyValue, parseNumber, parseTSV, textToValue, toTSV, valueToText } from '../src/utils/format.ts'
 
 test('attachments copy and search by filename and cannot be fabricated from pasted text', () => {
   const field: SLField<'attachment'> = {
@@ -54,6 +54,20 @@ test('number formatting handles grouping, signs and percentages', () => {
   assert.equal(formatNumber(-1234.5, '$0,000.00'), '-$1,234.50')
   assert.equal(formatNumber(0.125, '0.00%'), '12.50%')
   assert.equal(formatNumber(null, '0'), '')
+})
+
+test('date fields with time display and copy seconds without losing them on paste', () => {
+  const value = new Date(2026, 9, 18, 13, 14, 37).toISOString()
+  const field: SLField<'datetime'> = {
+    uid: 'fldDate', tableUID: 'tblTest', label: 'Date', type: 'datetime',
+    metadata: { format: 'YYYY-MM-DD', with_time: true, default: '' }, position: 1, createdAt: '', updatedAt: '',
+  }
+  const text = valueToText(field, value)
+  assert.equal(text, '2026-10-18 13:14:37')
+  assert.equal(textToValue(field, text).value, value)
+  assert.equal(formatDate(value, 'YYYY/MM/DD', true), '2026/10/18 13:14:37')
+  assert.equal(formatDate(value, 'YYYY-MM-DD', false), '2026-10-18')
+  assert.equal(formatDate(new Date(2026, 9, 18, 13, 14, 0).toISOString(), 'YYYY-MM-DD', true), '2026-10-18 13:14:00')
 })
 
 test('TSV preserves quoted tabs, newlines, quotes and empty cells', () => {

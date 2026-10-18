@@ -38,7 +38,7 @@ export function formatDate(value: string | null | undefined, format: string, wit
   if (!value) return ''
   const d = dayjs(value)
   if (!d.isValid()) return ''
-  return d.format(withTime ? `${format} HH:mm` : format)
+  return d.format(withTime ? `${format} HH:mm:ss` : format)
 }
 
 export function parseDate(text: string): string | null {
