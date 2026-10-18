@@ -1507,6 +1507,8 @@ export interface WorkflowListItem {
 export interface WorkflowModuleDef {
   /** Action marks external side effects; simulated debugging only computes the arguments. */
   action?: boolean;
+  /** BranchLabels overrides the default then / else labels. */
+  branchLabels?: Record<string, string>;
   /** Branches marks modules with then / else branches. */
   branches?: boolean;
   /** Category groups the module in the node picker, one of ModuleCategories. */
@@ -1729,7 +1731,7 @@ export interface WorkflowStep {
   else?: WorkflowStep[];
   id: string;
   name?: string;
-  /** Then and Else are the branches of a branching module (condition). */
+  /** Then and Else are the branches of a branching module. */
   then?: WorkflowStep[];
   /** Type is a built-in module (query, create, update, condition, response, email, http) or an installed plugin (plugin:<id>). */
   type: string;
@@ -1746,7 +1748,7 @@ export interface WorkflowSummaryDef {
 }
 
 export interface WorkflowTraceStep {
-  /** Branch is the branch a condition node entered, then or else. */
+  /** Branch is the branch a branching node entered, then or else. */
   branch?: string;
   durationMs: number;
   error?: string;

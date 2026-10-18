@@ -43,6 +43,8 @@ export const manifest = {
     { key: "status", label: { en: "Status code", "zh-CN": "状态码" }, kind: "number" },
     { key: "body", label: { en: "Response", "zh-CN": "响应内容" }, kind: "object" },
   ],
+  // Optional branches: { output: "passed", then: "Approved", else: "Rejected" }.
+  // The named output must be declared as boolean and returned by execute and preview.
   // Summary on the node card: raw:<field> shows the value as is, value:<field> describes a value field.
   summary: { parts: ["value:message"] },
   // Widgets: value (constant, variable, template or formula), number, select, credential, headers and body.
@@ -73,6 +75,8 @@ export const manifest = {
  *   - ctx.fetch(url, { method, headers, body }): sends a request to an allowed host, a body object is sent as JSON;
  *     the response has status, ok, headers, text() and json();
  *   - ctx.log(...values): writes to the step logs, like console.log;
+ *   - ctx.crypto.sha256(text): returns the SHA-256 hex digest of UTF-8 text;
+ *   - ctx.crypto.hmacSha256(key, text, keyEncoding = "utf8"): returns a hex digest; use "hex" for a derived key;
  *   - ctx.run, ctx.step, ctx.project and ctx.plugin: information about the execution;
  *   - ctx.preview: true when called for simulated debugging.
  * Throw an error to fail the step; set error.retryable = true to let background flows retry it.

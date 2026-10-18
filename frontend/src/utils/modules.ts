@@ -208,9 +208,14 @@ export function stepCategory(type: StepType): ModuleCategory {
   return byType.get(type)?.category ?? 'integration'
 }
 
-/** Steps with then / else branches (condition). */
+/** Steps with then / else branches. */
 export function hasBranches(step: Pick<WorkflowStep, 'type'>) {
   return !!byType.get(step.type)?.branches
+}
+
+/** Branch names supplied by the module, falling back to the condition labels. */
+export function branchLabel(type: StepType, branch: 'then' | 'else') {
+  return dslText(byType.get(type)?.branchLabels?.[branch]) || t(branch === 'then' ? 'workflow.node.then' : 'workflow.node.else')
 }
 
 /** Steps that return the response and end the sync flow. */

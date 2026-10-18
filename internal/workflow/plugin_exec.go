@@ -42,6 +42,35 @@ func pluginImpl(stepType string) (moduleImpl, bool) {
 	return impl, true
 }
 
+// pluginBranch requires an explicit boolean so malformed results never select a branch.
+func pluginBranch(step *Step, output interface{}) (string, error) {
+	p := plugins.get(step.Type)
+	if p == nil || p.manifest.Branches == nil {
+		return "", nil
+	}
+
+	values, _ := output.(map[string]interface{})
+	matched, ok := values[p.manifest.Branches.Output].(bool)
+	if !ok {
+		return "", &ActionError{Message: "the branching node must return a boolean output: " + p.manifest.Branches.Output}
+	}
+	if matched {
+		return "then", nil
+	}
+	return "else", nil
+}
+
+func (x *execution) runBranch(step *Step, branch string) (bool, error) {
+	switch branch {
+	case "then":
+		return x.runSteps(step.Then)
+	case "else":
+		return x.runSteps(step.Else)
+	default:
+		return false, nil
+	}
+}
+
 func (x *execution) runPlugin(step *Step, p *installedPlugin, preview bool) (interface{}, error) {
 	if !p.enabled {
 		return nil, &ActionError{Message: fmt.Sprintf("the node %s is disabled", p.base.Label)}

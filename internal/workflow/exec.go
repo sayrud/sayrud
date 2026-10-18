@@ -33,7 +33,7 @@ type TraceStep struct {
 	Name       string `json:"name,omitempty"`
 	Status     string `json:"status" enums:"succeeded,failed,skipped,planned"`
 	DurationMs int64  `json:"durationMs"`
-	// Branch is the branch a condition node entered, then or else.
+	// Branch is the branch a branching node entered, then or else.
 	Branch string `json:"branch,omitempty"`
 	// Output is the truncated step output.
 	Output json.RawMessage `json:"output,omitempty" swaggertype:"object"`
@@ -234,9 +234,15 @@ func (x *execution) runStep(step *Step) (bool, error) {
 	if raw, ok := x.done[step.ID]; ok && step.Type != StepCondition {
 		var output interface{}
 		_ = json.Unmarshal(raw, &output)
+		branch, err := pluginBranch(step, output)
+		if err != nil {
+			x.addTrace(step, TraceFailed, start, nil, err)
+			return false, classify(step, err)
+		}
+
 		x.scope.SetStep(step.ID, output)
-		x.trace = append(x.trace, TraceStep{StepID: step.ID, Type: step.Type, Name: step.Name, Status: TraceSucceeded, Output: traceOutput(output), Reused: true})
-		return false, nil
+		x.trace = append(x.trace, TraceStep{StepID: step.ID, Type: step.Type, Name: step.Name, Status: TraceSucceeded, Output: traceOutput(output), Reused: true, Branch: branch})
+		return x.runBranch(step, branch)
 	}
 
 	switch step.Type {
@@ -281,9 +287,16 @@ func (x *execution) runStep(step *Step) (bool, error) {
 			return false, classify(step, err)
 		}
 		output = normalize(output)
+		branch, err := pluginBranch(step, output)
+		if err != nil {
+			x.addTrace(step, TraceFailed, start, nil, err)
+			return false, classify(step, err)
+		}
+
 		x.scope.SetStep(step.ID, output)
 		x.addTrace(step, TracePlanned, start, output, nil)
-		return false, nil
+		x.trace[len(x.trace)-1].Branch = branch
+		return x.runBranch(step, branch)
 	}
 
 	output, err := impl.exec(x, step)
@@ -294,6 +307,12 @@ func (x *execution) runStep(step *Step) (bool, error) {
 	}
 
 	output = normalize(output)
+	branch, err := pluginBranch(step, output)
+	if err != nil {
+		x.addTrace(step, TraceFailed, start, nil, err)
+		return false, classify(step, err)
+	}
+
 	if x.persist != nil && !persisted {
 		if err := x.persist(nil, step.ID, output); err != nil {
 			x.addTrace(step, TraceFailed, start, nil, err)
@@ -302,7 +321,8 @@ func (x *execution) runStep(step *Step) (bool, error) {
 	}
 	x.scope.SetStep(step.ID, output)
 	x.addTrace(step, TraceSucceeded, start, output, nil)
-	return false, nil
+	x.trace[len(x.trace)-1].Branch = branch
+	return x.runBranch(step, branch)
 }
 
 // classify maps a step error to a response code and whether it is retryable.

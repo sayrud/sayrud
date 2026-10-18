@@ -10,6 +10,7 @@ import CodeEditor from '@/components/common/CodeEditor.vue'
 import StateIllustration from '@/components/common/StateIllustration.vue'
 import { useWorkflowEditorStore } from '@/stores/workflowEditor'
 import type { AsyncEvent, JobStatus, RunStatus, TriggerType, WorkflowJob, WorkflowRun, WorkflowTraceStep } from '@/types/workflow'
+import { branchLabel } from '@/utils/modules'
 import { eventLabel, findStep, stepTitle, TRIGGER_META } from '@/utils/workflow'
 
 const visible = defineModel<boolean>('visible', { required: true })
@@ -271,7 +272,7 @@ function flowName(job: WorkflowJob) {
             <div v-for="s in detail.trace ?? []" :key="s.stepID" class="trace-row" :class="s.status">
               <component :is="traceIcon(s)" :size="14" class="trace-icon" />
               <span class="ellipsis">{{ traceTitle(s) }}</span>
-              <span v-if="s.branch" class="branch">{{ s.branch === 'then' ? t('workflow.node.then') : t('workflow.node.else') }}</span>
+              <span v-if="s.branch" class="branch">{{ branchLabel(s.type, s.branch) }}</span>
               <span class="trace-ms">{{ t('workflow.debug.duration', { ms: s.durationMs }) }}</span>
               <div v-if="s.error" class="trace-error">{{ s.error }}</div>
             </div>

@@ -457,6 +457,8 @@ export function contextBefore(spec: WorkflowSpec, stepID: string): VarContext | 
     for (const s of steps) {
       if (s.id === stepID) return scope
       if (hasBranches(s)) {
+        if (hasOutputs(s)) scope.push(s)
+
         const inThen = search(s.then ?? [], scope)
         if (inThen) return inThen
         const inElse = search(s.else ?? [], scope)

@@ -6,7 +6,7 @@ import test from 'node:test'
 import { createPinia, disposePinia } from 'pinia'
 import ts from 'typescript'
 
-import type { ModuleDef, Workflow, WorkflowModules } from '../src/types/workflow.ts'
+import type { ModuleDef, Workflow, WorkflowModules, WorkflowSpec, WorkflowStep } from '../src/types/workflow.ts'
 
 function loadModule<T>(path: string, overrides: Record<string, unknown>): T {
   const source = readFileSync(new URL(path, import.meta.url), 'utf8')
@@ -76,4 +76,39 @@ test('reopening the editor refreshes plugin availability and respects flow and e
   resolveOlder(definitions([plugin('plugin:stale', ['sync'])]))
   await first
   assert.deepEqual(modules.stepTypesFor('sync'), ['plugin:latest'])
+})
+
+test('branching plugins expose their labels and outputs inside either branch and after the node', () => {
+  const i18n = { t: (key: string) => key, i18n: { global: { te: () => false } } }
+  const modules = loadModule<typeof import('../src/utils/modules.ts')>('../src/utils/modules.ts', {
+    '@/i18n': i18n,
+    '@/utils/workflowPlugin': { isImageIcon: () => false },
+  })
+  modules.setModuleDefs({
+    modules: [
+      { type: 'condition', order: 40, branches: true, outputs: [] },
+      { type: 'plugin:moderate', order: 1000, idBase: 'moderate', defaults: {}, branches: true, branchLabels: { then: '审核通过', else: '审核不通过' }, outputs: [{ key: 'passed', kind: 'boolean' }] },
+      { type: 'plugin:echo', order: 1001, outputs: [{ key: 'text', kind: 'string' }] },
+    ] as ModuleDef[],
+    credentialTypes: [], secretsReady: true,
+  })
+  assert.equal(modules.branchLabel('plugin:moderate', 'then'), '审核通过')
+  assert.equal(modules.branchLabel('plugin:moderate', 'else'), '审核不通过')
+  assert.equal(modules.branchLabel('condition', 'then'), 'workflow.node.then')
+
+  const workflow = loadModule<typeof import('../src/utils/workflow.ts')>('../src/utils/workflow.ts', {
+    '@/i18n': i18n,
+    '@/utils/modules': modules,
+    '@/utils/valueRefs': {},
+  })
+  const echo = (id: string): WorkflowStep => ({ id, type: 'plugin:echo', config: {} })
+  const step: WorkflowStep = { id: 'moderate', type: 'plugin:moderate', config: {}, then: [echo('approved')], else: [echo('rejected')] }
+  const spec = { steps: [step, echo('after')], async: [] } as unknown as WorkflowSpec
+  for (const id of ['approved', 'rejected', 'after']) {
+    assert.deepEqual(workflow.contextBefore(spec, id)?.steps.map((s) => s.id), ['moderate'])
+  }
+
+  const created = workflow.newStep(spec, 'plugin:moderate')
+  assert.deepEqual(created.then, [])
+  assert.deepEqual(created.else, [])
 })

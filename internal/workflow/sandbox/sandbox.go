@@ -261,7 +261,7 @@ func (s *state) call(p *Program, hook moejs.Hook) (interface{}, error) {
 		args = append(args, v)
 	}
 
-	ctxValue, err := rt.Context(s.opts.Context, map[string]any{"fetch": moejs.NativeFunc(s.fetch)})
+	ctxValue, err := rt.Context(s.opts.Context, map[string]any{"fetch": moejs.NativeFunc(s.fetch), "crypto": cryptoFunctions()})
 	if err != nil {
 		return nil, errors.Wrap(err, "build context")
 	}

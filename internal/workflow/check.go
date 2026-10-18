@@ -447,6 +447,8 @@ func (c *checker) checkSequence(steps []Step, scope *flowScope, kind int) (bool,
 		case def.Terminal:
 			terminated = kind == flowSync
 		case def.Branches:
+			scope.steps[step.ID] = step
+
 			thenDone, err := c.checkSequence(step.Then, scope.clone(), kind)
 			if err != nil {
 				return false, err

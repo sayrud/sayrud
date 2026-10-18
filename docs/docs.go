@@ -11470,6 +11470,13 @@ const docTemplate = `{
                     "description": "Action marks external side effects; simulated debugging only computes the arguments.",
                     "type": "boolean"
                 },
+                "branchLabels": {
+                    "description": "BranchLabels overrides the default then / else labels.",
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
                 "branches": {
                     "description": "Branches marks modules with then / else branches.",
                     "type": "boolean"
@@ -12157,7 +12164,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "then": {
-                    "description": "Then and Else are the branches of a branching module (condition).",
+                    "description": "Then and Else are the branches of a branching module.",
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/WorkflowStep"
@@ -12209,7 +12216,7 @@ const docTemplate = `{
             ],
             "properties": {
                 "branch": {
-                    "description": "Branch is the branch a condition node entered, then or else.",
+                    "description": "Branch is the branch a branching node entered, then or else.",
                     "type": "string"
                 },
                 "durationMs": {

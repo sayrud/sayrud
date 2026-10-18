@@ -196,7 +196,7 @@ type Step struct {
 	Name string `json:"name,omitempty"`
 	// Config is the module configuration defined by the DSL of the type (see ModuleDef), decoded as the matching *XxxConfig.
 	Config interface{} `json:"config" swaggertype:"object"`
-	// Then and Else are the branches of a branching module (condition).
+	// Then and Else are the branches of a branching module.
 	Then []Step `json:"then,omitempty"`
 	Else []Step `json:"else,omitempty"`
 } // @name WorkflowStep

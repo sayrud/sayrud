@@ -87,7 +87,7 @@ export interface WorkflowStep {
   type: StepType
   name?: string
   config: StepConfig
-  /** The two branches of a branching module (condition). */
+  /** The two branches of a branching module. */
   then?: WorkflowStep[]
   else?: WorkflowStep[]
 }
@@ -169,6 +169,7 @@ export interface ModuleDef {
   flows: FlowKind[]
   action?: boolean
   branches?: boolean
+  branchLabels?: Partial<Record<'then' | 'else', string>>
   terminal?: boolean
   tableKey?: string
   defaults: StepConfig

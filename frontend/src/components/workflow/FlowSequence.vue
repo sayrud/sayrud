@@ -5,6 +5,7 @@ import { useI18n } from 'vue-i18n'
 import FlowAdd from '@/components/workflow/FlowAdd.vue'
 import FlowNode from '@/components/workflow/FlowNode.vue'
 import type { WorkflowStep, StepType } from '@/types/workflow'
+import { branchLabel } from '@/utils/modules'
 import { hasBranches, isTerminal, type ListAddress } from '@/utils/workflow'
 
 defineOptions({ name: 'FlowSequence' })
@@ -32,7 +33,7 @@ function hasResponse() {
       <FlowNode :step="step" :tail="!isTerminal(step)" :end="!branch && i === steps.length - 1 && isTerminal(step)" />
       <div v-if="hasBranches(step)" class="branches" :class="{ merged: !terminates([step]) }">
         <div v-for="key in (['then', 'else'] as const)" :key="key" class="branch" :class="key">
-          <div class="branch-label" :class="key">{{ key === 'then' ? t('workflow.node.then') : t('workflow.node.else') }}</div>
+          <div class="branch-label" :class="key">{{ branchLabel(step.type, key) }}</div>
           <FlowSequence :steps="step[key] ?? []" :address="{ flow: address.flow, parent: step.id, branch: key }" :types="types" branch />
           <template v-if="!terminates(step[key] ?? [])">
             <div class="branch-tail" />

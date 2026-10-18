@@ -105,6 +105,8 @@ type ModuleDef struct {
 	Action bool `json:"action,omitempty"`
 	// Branches marks modules with then / else branches.
 	Branches bool `json:"branches,omitempty"`
+	// BranchLabels overrides the default then / else labels.
+	BranchLabels map[string]string `json:"branchLabels,omitempty"`
 	// Terminal marks modules that return the response and end the sync flow.
 	Terminal bool `json:"terminal,omitempty"`
 	// TableKey is the config field referencing a table.

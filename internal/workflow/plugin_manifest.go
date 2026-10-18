@@ -92,6 +92,8 @@ type PluginManifest struct {
 	Flows    []string `json:"flows"`
 	// Action marks external side effects: only these nodes can fetch, and simulated debugging calls preview instead of execute.
 	Action bool `json:"action"`
+	// Branches selects then or else from a declared boolean output.
+	Branches *PluginBranches `json:"branches,omitempty"`
 	// Timeout is the time limit of a call in seconds.
 	Timeout     int               `json:"timeout"`
 	Permissions PluginPermissions `json:"permissions"`
@@ -122,6 +124,12 @@ type PluginOutput struct {
 	Label LocalText `json:"label"`
 	Kind  string    `json:"kind"`
 	Items string    `json:"items"`
+}
+
+type PluginBranches struct {
+	Output string    `json:"output"`
+	Then   LocalText `json:"then"`
+	Else   LocalText `json:"else"`
 }
 
 // PluginSummary is the summary on the node card, made of parts like raw:<key> and value:<key>.
@@ -404,6 +412,18 @@ func (m *PluginManifest) normalize() error {
 		outputs[o.Key] = true
 	}
 
+	if b := m.Branches; b != nil {
+		if !slices.ContainsFunc(m.Outputs, func(o PluginOutput) bool { return o.Key == b.Output && o.Kind == "boolean" }) {
+			return manifestErrorf("branches.output must name a boolean output")
+		}
+		if err := checkText(b.Then, "branches.then", true); err != nil {
+			return err
+		}
+		if err := checkText(b.Else, "branches.else", true); err != nil {
+			return err
+		}
+	}
+
 	if s := m.Summary; s != nil {
 		for _, p := range s.Parts {
 			kind, key, _ := strings.Cut(p, ":")
@@ -551,6 +571,10 @@ func (m *PluginManifest) ModuleDef(lang string, order int, enabled bool) *Module
 		Label: m.Name.In(lang), Description: m.Description.In(lang), Icon: m.Icon, Color: m.Color, IDBase: m.IDBase,
 		Flows: m.Flows, Action: m.Action, Defaults: m.Defaults, Outputs: []OutputDef{}, Sections: pluginSections(m.Sections, lang),
 		Plugin: &ModulePlugin{ID: m.ID, Version: m.Version, Author: m.Author, Homepage: m.Homepage, Enabled: enabled},
+	}
+	if b := m.Branches; b != nil {
+		def.Branches = true
+		def.BranchLabels = map[string]string{"then": b.Then.In(lang), "else": b.Else.In(lang)}
 	}
 	for _, o := range m.Outputs {
 		label := o.Label.In(lang)

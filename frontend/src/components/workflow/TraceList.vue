@@ -5,6 +5,7 @@ import { useI18n } from 'vue-i18n'
 
 import { useWorkflowEditorStore } from '@/stores/workflowEditor'
 import type { WorkflowTraceStep } from '@/types/workflow'
+import { branchLabel } from '@/utils/modules'
 import { findStep, stepMeta, stepTitle } from '@/utils/workflow'
 
 defineProps<{ trace: WorkflowTraceStep[] }>()
@@ -40,7 +41,7 @@ function locate(s: WorkflowTraceStep) {
         <span v-if="typeOf(s)" class="trace-type" :style="{ color: typeOf(s)!.color }"><component :is="typeOf(s)!.icon" :size="13" /></span>
         <span class="trace-name ellipsis">{{ title(s) }}</span>
         <span v-if="s.status === 'planned'" class="trace-chip">{{ t('workflow.debug.planned') }}</span>
-        <span v-if="s.branch" class="trace-chip"><GitBranch :size="11" />{{ s.branch === 'then' ? t('workflow.node.then') : t('workflow.node.else') }}</span>
+        <span v-if="s.branch" class="trace-chip"><GitBranch :size="11" />{{ branchLabel(s.type, s.branch) }}</span>
         <span class="trace-ms">{{ t('workflow.debug.duration', { ms: s.durationMs }) }}</span>
       </div>
       <div v-if="s.error" class="trace-error">{{ s.error }}</div>
