@@ -1449,6 +1449,7 @@ const ko: typeof zhCN = {
     outputs: '출력',
     noInputs: '입력 없음',
     noOutputs: '출력 없음',
+    basicInfo: '기본 정보',
     overview: '개요',
     source: '소스 코드',
     test: '테스트',

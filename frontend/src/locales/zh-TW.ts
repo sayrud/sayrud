@@ -1449,6 +1449,7 @@ const zhTW: typeof zhCN = {
     outputs: '輸出變數',
     noInputs: '沒有設定項目',
     noOutputs: '沒有輸出變數',
+    basicInfo: '基本資料',
     overview: '概覽',
     source: '原始碼',
     test: '測試執行',

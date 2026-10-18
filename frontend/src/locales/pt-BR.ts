@@ -1449,6 +1449,7 @@ const ptBR: typeof zhCN = {
     outputs: 'Saídas',
     noInputs: 'Sem entradas',
     noOutputs: 'Sem saídas',
+    basicInfo: 'Informações básicas',
     overview: 'Visão geral',
     source: 'Código-fonte',
     test: 'Testar',

@@ -1449,6 +1449,7 @@ const ru: typeof zhCN = {
     outputs: 'Результаты',
     noInputs: 'Нет параметров',
     noOutputs: 'Нет результатов',
+    basicInfo: 'Основные сведения',
     overview: 'Обзор',
     source: 'Исходный код',
     test: 'Тест',

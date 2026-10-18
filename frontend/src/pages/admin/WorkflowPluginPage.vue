@@ -304,11 +304,15 @@ const format = (v: unknown) => (v === undefined ? 'undefined' : JSON.stringify(v
             </div>
             <div class="text-desc hero-desc">{{ dslText(module.description) || t('pluginAdmin.noDescription') }}</div>
           </div>
-          <div v-if="plugin" class="hero-actions">
+          <a-space v-if="plugin" wrap :size="8" class="hero-actions">
             <div class="status">
               <span :class="plugin.enabled ? 'status-on' : 'text-desc'">{{ plugin.enabled ? t('pluginAdmin.enabledTag') : t('pluginAdmin.disabledTag') }}</span>
               <a-switch :model-value="plugin.enabled" :loading="toggling" :aria-label="t('pluginAdmin.enabledTag')" @change="(v) => toggle(!!v)" />
             </div>
+            <a-button type="primary" @click="tab = 'source'">
+              <template #icon><FlaskConical :size="16" /></template>
+              {{ t('pluginAdmin.test') }}
+            </a-button>
             <a-button @click="installVisible = true">
               <template #icon><CircleArrowUp :size="16" /></template>
               {{ t('pluginAdmin.upgrade') }}
@@ -317,70 +321,123 @@ const format = (v: unknown) => (v === undefined ? 'undefined' : JSON.stringify(v
               <template #icon><Trash2 :size="16" /></template>
               {{ t('pluginAdmin.uninstall') }}
             </a-button>
-          </div>
+          </a-space>
         </header>
 
-        <div class="workspace" :class="{ single: !plugin }">
+        <div class="workspace" :class="{ single: !plugin || tab === 'overview' }">
           <div class="main">
-            <div class="tabs-card">
+            <SettingsSection flush>
               <a-tabs v-model:active-key="tab" :animation="false" class="tabs">
                 <a-tab-pane key="overview" :title="t('pluginAdmin.overview')">
                   <div class="pane">
-                    <a-descriptions :column="{ xs: 1, md: 2, xl: 3 }" layout="inline-vertical" class="info">
-                      <a-descriptions-item :label="t('pluginAdmin.nodeType')">
-                        <span class="mono">{{ module.type }}</span>
-                      </a-descriptions-item>
-                      <a-descriptions-item :label="t('pluginAdmin.category')">{{ CATEGORY_LABELS[module.category]() }}</a-descriptions-item>
-                      <template v-if="plugin">
-                        <a-descriptions-item :label="t('pluginAdmin.author')">{{ module.plugin?.author || '—' }}</a-descriptions-item>
-                        <a-descriptions-item :label="t('pluginAdmin.language')">{{ LANGUAGE_NAMES[plugin.language] }}</a-descriptions-item>
-                        <a-descriptions-item :label="t('pluginAdmin.installedAt')">{{ formatTime(plugin.createdAt) }}</a-descriptions-item>
-                        <a-descriptions-item :label="t('pluginAdmin.updatedAt')">{{ formatTime(plugin.updatedAt) }}</a-descriptions-item>
-                        <a-descriptions-item :label="t('pluginAdmin.usage')">
-                          {{ plugin.usedBy ? t('pluginAdmin.usedBy', { n: plugin.usedBy }, plugin.usedBy) : t('pluginAdmin.notUsed') }}
-                        </a-descriptions-item>
-                        <a-descriptions-item :label="t('pluginAdmin.homepage')">
-                          <a-link v-if="module.plugin?.homepage" :href="module.plugin.homepage" target="_blank" rel="noopener noreferrer" class="ellipsis">
-                            {{ module.plugin.homepage }}
-                          </a-link>
-                          <span v-else>—</span>
-                        </a-descriptions-item>
-                        <a-descriptions-item v-if="plugin.sourceURL" :label="t('pluginAdmin.sourceURLLabel')">
-                          <span class="mono break">{{ plugin.sourceURL }}</span>
-                        </a-descriptions-item>
-                      </template>
-                      <a-descriptions-item v-else :label="t('pluginAdmin.flows')">
-                        <a-space wrap :size="4">
-                          <a-tag v-for="f in module.flows" :key="f" size="small">{{ FLOW_LABELS[f]() }}</a-tag>
-                        </a-space>
-                      </a-descriptions-item>
-                    </a-descriptions>
+                    <a-row :gutter="[32, 32]" class="overview-grid">
+                      <a-col :xs="24" :lg="plugin ? 12 : 24">
+                        <section aria-labelledby="node-basic-info">
+                          <a-typography-title id="node-basic-info" :heading="6" class="section-heading">{{ t('pluginAdmin.basicInfo') }}</a-typography-title>
+                          <a-descriptions
+                            :column="plugin ? 1 : { xs: 1, md: 2 }"
+                            size="small"
+                            :label-style="{ width: '100px' }"
+                            :value-style="{ overflowWrap: 'anywhere' }"
+                            class="info"
+                          >
+                            <a-descriptions-item :label="t('pluginAdmin.nodeType')">
+                              <a-typography-text code>{{ module.type }}</a-typography-text>
+                            </a-descriptions-item>
+                            <a-descriptions-item :label="t('pluginAdmin.category')">
+                              <a-tag size="small" color="arcoblue">{{ CATEGORY_LABELS[module.category]() }}</a-tag>
+                            </a-descriptions-item>
+                            <template v-if="plugin">
+                              <a-descriptions-item :label="t('pluginAdmin.author')">{{ module.plugin?.author || '—' }}</a-descriptions-item>
+                              <a-descriptions-item :label="t('pluginAdmin.language')">{{ LANGUAGE_NAMES[plugin.language] }}</a-descriptions-item>
+                              <a-descriptions-item :label="t('pluginAdmin.usage')">
+                                {{ plugin.usedBy ? t('pluginAdmin.usedBy', { n: plugin.usedBy }, plugin.usedBy) : t('pluginAdmin.notUsed') }}
+                              </a-descriptions-item>
+                              <a-descriptions-item :label="t('pluginAdmin.installedAt')">{{ formatTime(plugin.createdAt) }}</a-descriptions-item>
+                              <a-descriptions-item :label="t('pluginAdmin.updatedAt')">{{ formatTime(plugin.updatedAt) }}</a-descriptions-item>
+                              <a-descriptions-item :label="t('pluginAdmin.homepage')">
+                                <a-link v-if="module.plugin?.homepage" :href="module.plugin.homepage" target="_blank" rel="noopener noreferrer" class="break">
+                                  {{ module.plugin.homepage }}
+                                </a-link>
+                                <span v-else>—</span>
+                              </a-descriptions-item>
+                              <a-descriptions-item v-if="plugin.sourceURL" :label="t('pluginAdmin.sourceURLLabel')">
+                                <a-typography-paragraph :ellipsis="{ rows: 2, showTooltip: true }" class="source-url mono">
+                                  {{ plugin.sourceURL }}
+                                </a-typography-paragraph>
+                              </a-descriptions-item>
+                            </template>
+                            <a-descriptions-item v-else :label="t('pluginAdmin.flows')">
+                              <a-space wrap :size="4">
+                                <a-tag v-for="f in module.flows" :key="f" size="small">{{ FLOW_LABELS[f]() }}</a-tag>
+                              </a-space>
+                            </a-descriptions-item>
+                          </a-descriptions>
+                        </section>
+                      </a-col>
 
-                    <template v-if="plugin">
-                      <div class="block-title">{{ t('pluginAdmin.permissions') }}</div>
-                      <div class="block">
-                        <WorkflowPluginPermissions :module="module" :domains="plugin.domains" :timeout="plugin.timeout" :credential="plugin.credential" />
-                      </div>
-                    </template>
+                      <a-col v-if="plugin" :xs="24" :lg="12">
+                        <section aria-labelledby="node-permissions" class="overview-permissions">
+                          <a-typography-title id="node-permissions" :heading="6" class="section-heading">{{ t('pluginAdmin.permissions') }}</a-typography-title>
+                          <WorkflowPluginPermissions :module="module" :domains="plugin.domains" :timeout="plugin.timeout" :credential="plugin.credential" />
+                        </section>
+                      </a-col>
+                    </a-row>
 
-                    <div class="block-title">{{ t('pluginAdmin.inputs') }}</div>
-                    <a-table :columns="inputColumns" :data="inputs" :pagination="false" size="small" row-key="key" :bordered="{ cell: false }" class="io-table">
-                      <template #label="{ record }">{{ dslText(record.label) || record.key }}</template>
-                      <template #key="{ record }"><code class="code">{{ record.key }}</code></template>
-                      <template #widget="{ record }">{{ WIDGET_LABELS[record.widget as FieldWidget]?.() ?? record.widget }}</template>
-                      <template #required="{ record }">
-                        <CircleCheck v-if="record.required" :size="15" class="required-icon" />
-                        <span v-else class="text-desc">—</span>
-                      </template>
-                      <template #empty><div class="table-empty text-desc">{{ t('pluginAdmin.noInputs') }}</div></template>
-                    </a-table>
+                    <a-divider class="overview-divider" />
 
-                    <div class="block-title">{{ t('pluginAdmin.outputs') }}</div>
-                    <a-table :columns="outputColumns" :data="module.outputs" :pagination="false" size="small" row-key="key" :bordered="{ cell: false }" class="io-table">
-                      <template #label="{ record }">{{ dslText(record.label) }}</template>
-                      <template #key="{ record }"><code class="code">{{ record.key }}</code></template>
-                      <template #empty><div class="table-empty text-desc">{{ t('pluginAdmin.noOutputs') }}</div></template>
-                    </a-table>
+                    <a-row :gutter="[32, 32]" class="overview-grid">
+                      <a-col :xs="24" :xl="12">
+                        <section aria-labelledby="node-inputs">
+                          <a-space :size="8" align="baseline" class="section-heading">
+                            <a-typography-title id="node-inputs" :heading="6">{{ t('pluginAdmin.inputs') }}</a-typography-title>
+                            <a-typography-text type="secondary">{{ inputs.length }}</a-typography-text>
+                          </a-space>
+                          <a-table
+                            :columns="inputColumns"
+                            :data="inputs"
+                            :pagination="false"
+                            :scroll="{ x: 520 }"
+                            :bordered="false"
+                            size="small"
+                            row-key="key"
+                            class="io-table"
+                          >
+                            <template #label="{ record }">{{ dslText(record.label) || record.key }}</template>
+                            <template #key="{ record }"><a-typography-text code>{{ record.key }}</a-typography-text></template>
+                            <template #widget="{ record }">{{ WIDGET_LABELS[record.widget as FieldWidget]?.() ?? record.widget }}</template>
+                            <template #required="{ record }">
+                              <CircleCheck v-if="record.required" :size="15" class="required-icon" />
+                              <span v-else class="text-desc">—</span>
+                            </template>
+                            <template #empty><a-empty :description="t('pluginAdmin.noInputs')" /></template>
+                          </a-table>
+                        </section>
+                      </a-col>
+
+                      <a-col :xs="24" :xl="12">
+                        <section aria-labelledby="node-outputs">
+                          <a-space :size="8" align="baseline" class="section-heading">
+                            <a-typography-title id="node-outputs" :heading="6">{{ t('pluginAdmin.outputs') }}</a-typography-title>
+                            <a-typography-text type="secondary">{{ module.outputs.length }}</a-typography-text>
+                          </a-space>
+                          <a-table
+                            :columns="outputColumns"
+                            :data="module.outputs"
+                            :pagination="false"
+                            :scroll="{ x: 460 }"
+                            :bordered="false"
+                            size="small"
+                            row-key="key"
+                            class="io-table"
+                          >
+                            <template #label="{ record }">{{ dslText(record.label) }}</template>
+                            <template #key="{ record }"><a-typography-text code>{{ record.key }}</a-typography-text></template>
+                            <template #empty><a-empty :description="t('pluginAdmin.noOutputs')" /></template>
+                          </a-table>
+                        </section>
+                      </a-col>
+                    </a-row>
                   </div>
                 </a-tab-pane>
 
@@ -416,10 +473,10 @@ const format = (v: unknown) => (v === undefined ? 'undefined' : JSON.stringify(v
                   </div>
                 </a-tab-pane>
               </a-tabs>
-            </div>
+            </SettingsSection>
           </div>
 
-          <aside v-if="plugin" class="aside">
+          <aside v-if="plugin && tab === 'source'" class="aside">
             <SettingsSection :title="t('pluginAdmin.test')">
               <template #extra>
                 <a-tooltip :content="RUN_SHORTCUT" position="tl">
@@ -485,7 +542,7 @@ const format = (v: unknown) => (v === undefined ? 'undefined' : JSON.stringify(v
           </aside>
         </div>
 
-        <SaveBar v-if="plugin" :dirty="dirty" :saving="saving" @save="save" @reset="discard" />
+        <SaveBar v-if="plugin && (tab === 'source' || dirty)" :dirty="dirty" :saving="saving" @save="save" @reset="discard" />
       </template>
     </a-spin>
 
@@ -532,12 +589,6 @@ const format = (v: unknown) => (v === undefined ? 'undefined' : JSON.stringify(v
   margin-top: 4px;
   line-height: 1.6;
 }
-.hero-actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-}
 .status {
   display: flex;
   align-items: center;
@@ -554,7 +605,7 @@ const format = (v: unknown) => (v === undefined ? 'undefined' : JSON.stringify(v
   font-family: 'SF Mono', Menlo, Consolas, monospace;
 }
 .break {
-  word-break: break-all;
+  overflow-wrap: anywhere;
 }
 .workspace {
   display: grid;
@@ -581,12 +632,6 @@ const format = (v: unknown) => (v === undefined ? 'undefined' : JSON.stringify(v
   box-sizing: border-box;
   height: 50px !important;
   padding: 0 24px !important;
-}
-.tabs-card {
-  overflow: hidden;
-  border: 1px solid var(--line-border);
-  border-radius: 8px;
-  background: var(--bg-body);
 }
 .tabs :deep(.arco-tabs-nav) {
   height: 50px;
@@ -628,33 +673,42 @@ const format = (v: unknown) => (v === undefined ? 'undefined' : JSON.stringify(v
   border-radius: 50%;
   background: var(--color-warning);
 }
-.block-title {
-  margin: 24px 0 12px;
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--text-title);
+.overview-grid :deep(.arco-col) {
+  min-width: 0;
 }
-.block {
-  padding: 16px;
-  border: 1px solid var(--line-border);
-  border-radius: 8px;
+
+.section-heading {
+  margin: 0 0 16px;
 }
+
+.section-heading :deep(.arco-typography) {
+  margin: 0;
+}
+
+.overview-divider {
+  margin: 28px 0;
+}
+
+.source-url.arco-typography {
+  margin: 0;
+}
+
+.overview-permissions :deep(.permissions) {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px 20px;
+}
+
+.overview-permissions :deep(.perm-warning) {
+  grid-column: 1 / -1;
+}
+
 .io-table :deep(.arco-table-th) {
   background: var(--bg-base);
 }
-.code {
-  padding: 1px 6px;
-  border-radius: 4px;
-  background: var(--fill-hover);
-  font-family: 'SF Mono', Menlo, Consolas, monospace;
-  font-size: 12px;
-}
+
 .required-icon {
   color: var(--color-success);
-}
-.table-empty {
-  padding: 12px 0;
-  text-align: center;
 }
 .source-toolbar {
   display: flex;
@@ -774,6 +828,34 @@ const format = (v: unknown) => (v === undefined ? 'undefined' : JSON.stringify(v
   font-size: 12px;
   text-align: center;
 }
+@media (max-width: 768px) {
+  .hero-text {
+    min-width: 0;
+    flex-basis: 200px;
+  }
+
+  .hero-actions {
+    width: 100%;
+  }
+
+  .hero-actions :deep(.arco-space-item:first-child) {
+    flex-basis: 100%;
+  }
+
+  .pane {
+    padding: 16px;
+  }
+
+  .overview-permissions :deep(.permissions) {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+  }
+
+  .source-toolbar {
+    flex-wrap: wrap;
+  }
+}
+
 @media (max-width: 1180px) {
   .workspace {
     grid-template-columns: minmax(0, 1fr);

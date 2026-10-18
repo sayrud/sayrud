@@ -1447,6 +1447,7 @@ export default {
     outputs: '输出变量',
     noInputs: '没有配置项',
     noOutputs: '没有输出变量',
+    basicInfo: '基本信息',
     overview: '概览',
     source: '源代码',
     test: '测试运行',

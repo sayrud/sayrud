@@ -1449,6 +1449,7 @@ const ja: typeof zhCN = {
     outputs: '出力',
     noInputs: '設定項目はありません',
     noOutputs: '出力はありません',
+    basicInfo: '基本情報',
     overview: '概要',
     source: 'ソースコード',
     test: 'テスト実行',

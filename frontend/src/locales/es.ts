@@ -1449,6 +1449,7 @@ const es: typeof zhCN = {
     outputs: 'Salidas',
     noInputs: 'Sin entradas',
     noOutputs: 'Sin salidas',
+    basicInfo: 'Información básica',
     overview: 'Resumen',
     source: 'Código fuente',
     test: 'Probar',
