@@ -267,7 +267,7 @@ func (s *state) call(p *Program, hook moejs.Hook) (interface{}, error) {
 	}
 	defer release()
 
-	args := make([]moejs.Value, 0, len(s.opts.Args)+1)
+	var args []moejs.Value
 	for _, a := range s.opts.Args {
 		v, err := s.parse(a)
 		if err != nil {

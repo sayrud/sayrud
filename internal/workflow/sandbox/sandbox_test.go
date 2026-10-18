@@ -83,6 +83,37 @@ func TestRun(t *testing.T) {
 	assert.Error(t, err)
 }
 
+func TestRunArguments(t *testing.T) {
+	p := compile(t, `
+export const manifest = {};
+export function execute(...args) {
+  const ctx = args.pop();
+  return { args: JSON.stringify(args), marker: ctx.marker };
+}
+`)
+	for _, tc := range []struct {
+		name string
+		args []interface{}
+		want string
+	}{
+		{name: "nil", want: `[]`},
+		{name: "empty", args: []interface{}{}, want: `[]`},
+		{name: "single", args: []interface{}{map[string]interface{}{"value": "config"}}, want: `[{"value":"config"}]`},
+		{name: "multiple", args: []interface{}{"first", float64(42), nil, map[string]interface{}{"marker": "argument"}}, want: `["first",42,null,{"marker":"argument"}]`},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			result, err := p.Run(context.Background(), Call{
+				Hook:    HookExecute,
+				Args:    tc.args,
+				Context: map[string]interface{}{"marker": "context"},
+			})
+
+			require.NoError(t, err)
+			assert.Equal(t, map[string]interface{}{"args": tc.want, "marker": "context"}, result.Value)
+		})
+	}
+}
+
 func TestRunErrors(t *testing.T) {
 	run := func(body string, timeout time.Duration) (*Result, error) {
 		p := compile(t, `export const manifest = {}; export async function execute(config, ctx) {`+body+`}`)
