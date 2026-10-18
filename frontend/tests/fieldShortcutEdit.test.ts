@@ -6,7 +6,7 @@ import ts from 'typescript'
 import * as vue from 'vue'
 import { compileScript, parse } from 'vue/compiler-sfc'
 
-import type { AdminFieldShortcut, SaveFieldShortcut } from '../src/api/shortcut.ts'
+import type { AdminFieldShortcut, SaveFieldShortcut, TestFieldShortcutResp } from '../src/api/shortcut.ts'
 import * as shortcut from '../src/utils/shortcut.ts'
 import * as formItems from '../src/utils/shortcutFormItems.ts'
 import * as manifestUtils from '../src/utils/shortcutManifest.ts'
@@ -37,13 +37,18 @@ function savedShortcut(code = source): AdminFieldShortcut {
 interface Editor {
   draft: Omit<SaveFieldShortcut, 'formItems' | 'credentials'> & { formItems: string; credentials: { key: string; type: string; name: string; value: string; hasValue: boolean }[] }
   dirty: vue.ComputedRef<boolean>
+  sourceDirty: vue.ComputedRef<boolean>
+  availableTabs: vue.ComputedRef<string[]>
   tab: vue.WritableComputedRef<string>
   params: vue.Ref<string>
   syncError: vue.Ref<string>
-  formItemsRevision: vue.Ref<number>
+  testResult: vue.Ref<TestFieldShortcutResp | null>
   switchTab: (tab: string) => Promise<void>
   save: () => Promise<void>
   test: () => Promise<void>
+  copySource: () => Promise<void>
+  downloadSource: () => void
+  onUpgraded: (saved: AdminFieldShortcut) => void
 }
 
 async function loadEditor(saved = savedShortcut()) {
@@ -96,54 +101,123 @@ async function loadEditor(saved = savedShortcut()) {
   return { page, api, writes, runs, route, stop: () => scope.stop() }
 }
 
-test('forms and module source sync at tab changes and save without copying secrets or enabled state into manifest', async (t) => {
+test('module definitions refresh the overview while credential values and enabled state stay independent', async (t) => {
   const { page, writes, stop } = await loadEditor()
   t.after(stop)
   assert.equal(page.dirty.value, false)
-  page.draft.name = 'From form'
-  page.draft.version = '1.2.3'
-  page.draft.formItems = JSON.stringify([{ key: 'text', label: 'New label', component: 'input', required: true }])
-  page.draft.domains = ['api.example.com']
+  assert.equal(page.sourceDirty.value, false)
+  assert.equal(page.tab.value, 'overview')
+  assert.deepEqual(page.availableTabs.value, ['overview', 'network', 'code'])
   page.draft.credentials[0]!.value = 'private-value'
+  page.draft.enabled = true
   page.params.value = '{"text":"user test input"}'
+  assert.equal(page.sourceDirty.value, false)
   await page.switchTab('code')
+  assert.equal(page.sourceDirty.value, false)
+  assert.equal(page.draft.code, source)
 
-  const manifest = await readManifest(page.draft.code)
-  assert.equal(manifest.name, 'From form')
-  assert.equal(manifest.version, '1.2.3')
-  assert.equal(manifest.formItems[0].label, 'New label')
-  assert.deepEqual(manifest.domains, ['api.example.com'])
-  assert.deepEqual(manifest.credentials, [{ key: 'api', type: 'bearer' }])
-  assert.equal('enabled' in manifest, false)
-  assert.equal(page.draft.code.includes('private-value'), false)
-  assert.match(page.draft.code, /\/\/ keep this execution comment/)
-
-  const revision = page.formItemsRevision.value
   page.draft.code = manifestUtils.updateShortcutManifest(page.draft.code, {
-    name: 'From code', version: '2.0.0', formItems: [{ key: 'text', label: 'Code label', component: 'textarea' }], timeoutSeconds: 60, aiEnabled: true,
+    name: 'From code', version: '2.0.0', description: 'From source', formItems: [{ key: 'text', label: 'Code label', component: 'textarea' }], domains: ['api.example.com'], timeoutSeconds: 60, aiEnabled: true,
   })
-  await page.switchTab('formItems')
-  assert.equal(page.tab.value, 'formItems')
+  const updatedSource = page.draft.code
+  await page.switchTab('overview')
+  assert.equal(page.tab.value, 'overview')
   assert.equal(page.draft.name, 'From code')
   assert.equal(page.draft.version, '2.0.0')
   assert.equal(JSON.parse(page.draft.formItems)[0].component, 'textarea')
   assert.equal(page.draft.timeoutSeconds, 60)
   assert.equal(page.draft.aiEnabled, true)
-  assert.equal(page.draft.enabled, false)
+  assert.equal(page.draft.enabled, true)
+  assert.deepEqual(page.draft.domains, ['api.example.com'])
   assert.equal(page.draft.credentials[0]!.value, 'private-value')
   assert.equal(page.draft.credentials[0]!.hasValue, true)
-  assert.ok(page.formItemsRevision.value > revision)
   assert.equal(page.params.value, '{"text":"user test input"}')
 
-  page.draft.description = 'Saved from form'
   await page.save()
   assert.equal(writes.length, 1)
-  assert.equal(writes[0]!.description, 'Saved from form')
+  assert.equal(writes[0]!.description, 'From source')
   assert.equal(writes[0]!.version, '2.0.0')
-  assert.equal((await readManifest(writes[0]!.code)).description, 'Saved from form')
+  assert.equal(writes[0]!.code, updatedSource)
+  assert.equal(page.draft.code.includes('private-value'), false)
+  assert.equal('enabled' in await readManifest(writes[0]!.code), false)
   assert.equal((await readManifest(writes[0]!.code)).version, '2.0.0')
   assert.equal(writes[0]!.credentials[0]!.value, 'private-value')
   assert.equal(page.dirty.value, false)
+  assert.equal(page.sourceDirty.value, false)
+})
+
+test('editing credentials keeps source expressions intact and removing definitions removes their value form', async (t) => {
+  const expressionSource = 'const details = {name: "Original", version: "1.0.0"};\n' + source.replace('name: "Original", version: "1.0.0"', '...details')
+  const { page, writes, stop } = await loadEditor(savedShortcut(expressionSource))
+  t.after(stop)
+  page.draft.credentials[0]!.value = 'private-value'
+  await page.save()
+  assert.equal(writes[0]!.code, expressionSource)
+  assert.equal(writes[0]!.credentials[0]!.value, 'private-value')
+  assert.equal(page.draft.credentials[0]!.value, '')
+  assert.equal(page.draft.credentials[0]!.hasValue, true)
+
+  await page.switchTab('code')
+  page.draft.code = manifestUtils.updateShortcutManifest(expressionSource, { credentials: [] })
+  await page.switchTab('network')
+  assert.equal(page.tab.value, 'overview')
+  assert.deepEqual(page.availableTabs.value, ['overview', 'code'])
+  assert.deepEqual(page.draft.credentials, [])
+})
+
+test('upgrading from the details page refreshes the saved source, credentials and test parameters', async (t) => {
+  const { page, stop } = await loadEditor()
+  t.after(stop)
+  await page.test()
+  assert.ok(page.testResult.value)
+
+  const formItems = [{ key: 'content', label: 'Content', component: 'input' as const, default: 'Example' }]
+  const code = manifestUtils.updateShortcutManifest(source, { name: 'Upgraded', version: '2.0.0', formItems, credentials: [{ key: 'token', type: 'bearer' }] })
+  page.onUpgraded({ ...savedShortcut(), name: 'Upgraded', version: '2.0.0', code, formItems, credentials: [{ key: 'token', type: 'bearer', hasValue: true }] })
+  assert.equal(page.draft.name, 'Upgraded')
+  assert.equal(page.draft.version, '2.0.0')
+  assert.equal(page.draft.code, code)
+  assert.deepEqual(page.draft.credentials, [{ key: 'token', type: 'bearer', name: '', value: '', hasValue: true }])
+  assert.deepEqual(JSON.parse(page.params.value), { content: 'Example' })
+  assert.equal(page.testResult.value, null)
+  assert.equal(page.dirty.value, false)
+  assert.equal(page.sourceDirty.value, false)
+})
+
+test('source actions export the current draft with the selected language extension without saving', async (t) => {
+  const { page, writes, stop } = await loadEditor()
+  t.after(stop)
+  const copied: string[] = []
+  const blobs: Blob[] = []
+  const downloads: { href: string; download: string }[] = []
+  const revoked: string[] = []
+  for (const [key, value] of Object.entries({
+    navigator: { clipboard: { writeText: async (text: string) => { copied.push(text) } } },
+    document: { createElement: (tag: string) => {
+      assert.equal(tag, 'a')
+      const link = { href: '', download: '', click: () => { downloads.push({ href: link.href, download: link.download }) } }
+      return link
+    } },
+  })) {
+    const previous = Object.getOwnPropertyDescriptor(globalThis, key)
+    Object.defineProperty(globalThis, key, { configurable: true, value })
+    t.after(() => previous ? Object.defineProperty(globalThis, key, previous) : Reflect.deleteProperty(globalThis, key))
+  }
+  t.mock.method(URL, 'createObjectURL', (blob: Blob) => { blobs.push(blob); return 'blob:shortcut-source' })
+  t.mock.method(URL, 'revokeObjectURL', (href: string) => { revoked.push(href) })
+
+  for (const [language, extension] of [['javascript', 'js'], ['typescript', 'ts']] as const) {
+    page.draft.language = language
+    page.draft.code = `// unsaved ${language}\nexport const manifest = {`
+    assert.equal(page.sourceDirty.value, true)
+    await page.copySource()
+    page.downloadSource()
+    assert.equal(copied.at(-1), page.draft.code)
+    assert.equal(await blobs.at(-1)!.text(), page.draft.code)
+    assert.deepEqual(downloads.at(-1), { href: 'blob:shortcut-source', download: `fscAAAAAAA.${extension}` })
+  }
+  assert.deepEqual(revoked, ['blob:shortcut-source', 'blob:shortcut-source'])
+  assert.equal(writes.length, 0)
 })
 
 test('invalid source blocks tab changes, saving and testing without overwriting either draft', async (t) => {
@@ -152,7 +226,7 @@ test('invalid source blocks tab changes, saving and testing without overwriting 
   await page.switchTab('code')
   const invalid = 'export const manifest = {name: '
   page.draft.code = invalid
-  await page.switchTab('basic')
+  await page.switchTab('overview')
   await page.save()
   await page.test()
   assert.equal(page.tab.value, 'code')
@@ -182,7 +256,7 @@ test('credential definition changes and stale source inspections cannot reuse or
   let resolve!: (value: AdminFieldShortcut) => void
   api.inspect = () => new Promise((done) => { resolve = done })
   page.draft.code = manifestUtils.updateShortcutManifest(page.draft.code, { name: 'Pending' })
-  const pending = page.switchTab('basic')
+  const pending = page.switchTab('overview')
   page.draft.code += '\n// newer edit'
   resolve({ ...savedShortcut(), name: 'Stale' })
   await pending
@@ -192,33 +266,43 @@ test('credential definition changes and stale source inspections cannot reuse or
   assert.equal(page.syncError.value, 'shortcutAdmin.manifestSourceChanged')
 })
 
-test('invalid form JSON can be repaired and classic scripts retain their existing behavior', async (t) => {
-  const { page, api, stop } = await loadEditor(savedShortcut('function execute(p) { legacy = p.text; return legacy }'))
+test('all shortcuts use the new tabs and source changes require a manifest', async (t) => {
+  const { page, writes, runs, route, stop } = await loadEditor(savedShortcut('function execute(p) { return p.text }'))
   t.after(stop)
-  api.inspect = async () => assert.fail('classic scripts must not be loaded as modules')
-  page.draft.formItems = '['
-  await page.switchTab('formItems')
-  assert.equal(page.tab.value, 'formItems')
-  page.draft.formItems = '[]'
-  page.draft.name = 'Legacy'
+  assert.deepEqual(page.availableTabs.value, ['overview', 'network', 'code'])
+  for (const oldTab of ['basic', 'formItems']) {
+    route.query.tab = oldTab
+    assert.equal(page.tab.value, 'overview')
+  }
   await page.switchTab('code')
-  assert.equal(page.draft.code, 'function execute(p) { legacy = p.text; return legacy }')
+  page.draft.code = 'function execute(p) { return p.text.toUpperCase() }'
+  await page.save()
+  await page.test()
+  assert.ok(page.syncError.value)
+  assert.equal(writes.length, 0)
+  assert.equal(runs.length, 0)
+  assert.equal(page.tab.value, 'code')
+
+  page.draft.code = source
+  await page.save()
+  assert.equal(page.syncError.value, '')
+  assert.equal(writes[0]!.code, source)
+  assert.equal(writes[0]!.name, 'Original')
 })
 
-test('typed shortcut settings sync and save with the selected language', async (t) => {
+test('typed shortcut definitions refresh and save with the selected language', async (t) => {
   const typed = source.replace('export const manifest =', 'interface Params {text: string}\nexport const manifest =')
     .replace('execute(params)', 'execute(params: Params): string')
   const saved = { ...savedShortcut(typed), language: 'typescript' as const }
   const { page, writes, stop } = await loadEditor(saved)
   t.after(stop)
   assert.equal(page.draft.language, 'typescript')
-  page.draft.name = 'Typed form'
   await page.switchTab('code')
   assert.match(page.draft.code, /params: Params/)
-  assert.equal((await readManifest(page.draft.code, 'typescript')).name, 'Typed form')
+  assert.equal(page.draft.code, typed)
 
   page.draft.code = manifestUtils.updateShortcutManifest(page.draft.code, { name: 'Typed code' }, 'typescript')
-  await page.switchTab('basic')
+  await page.switchTab('overview')
   assert.equal(page.draft.name, 'Typed code')
   await page.save()
   assert.equal(writes[0]!.language, 'typescript')
@@ -226,12 +310,12 @@ test('typed shortcut settings sync and save with the selected language', async (
 
   await page.switchTab('code')
   page.draft.language = 'javascript'
-  await page.switchTab('basic')
+  await page.switchTab('overview')
   assert.equal(page.tab.value, 'code')
   assert.ok(page.syncError.value)
   page.draft.language = 'typescript'
-  await page.switchTab('basic')
-  assert.equal(page.tab.value, 'basic')
+  await page.switchTab('overview')
+  assert.equal(page.tab.value, 'overview')
   assert.equal(page.syncError.value, '')
 })
 
@@ -243,7 +327,7 @@ test('switching the source language triggers validation even when the code is un
   api.inspect = async (body) => { inspections.push(body.language); return inspect(body) }
   await page.switchTab('code')
   page.draft.language = 'typescript'
-  await page.switchTab('basic')
+  await page.switchTab('overview')
   assert.deepEqual(inspections, ['typescript'])
   assert.equal(page.draft.language, 'typescript')
 })

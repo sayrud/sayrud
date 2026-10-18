@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { Message, Modal } from '@arco-design/web-vue'
-import { CircleCheck, CircleX, FlaskConical, Play, Plus, Trash2, WandSparkles } from '@lucide/vue'
+import { Message, Modal, type TableColumnData } from '@arco-design/web-vue'
+import { CircleArrowUp, CircleCheck, CircleX, Copy, Download, FlaskConical, Globe, KeyRound, Play, Sparkles, Timer, Trash2, WandSparkles } from '@lucide/vue'
+import dayjs from 'dayjs'
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
@@ -14,19 +15,18 @@ import {
   type ShortcutFormItem,
   type TestFieldShortcutResp,
 } from '@/api/shortcut'
+import FieldShortcutInstallModal from '@/components/admin/FieldShortcutInstallModal.vue'
+import WorkflowPluginIcon from '@/components/admin/WorkflowPluginIcon.vue'
 import CodeEditor from '@/components/common/CodeEditor.vue'
 import StateIllustration from '@/components/common/StateIllustration.vue'
-import ShortcutFormItemsEditor from '@/components/admin/ShortcutFormItemsEditor.vue'
-import PageHeader from '@/components/console/PageHeader.vue'
 import SaveBar from '@/components/console/SaveBar.vue'
 import SettingsSection from '@/components/console/SettingsSection.vue'
 import FieldTypeIcon from '@/components/field/FieldTypeIcon.vue'
 import type { FieldType } from '@/types/bitable'
 import { fieldTypeInfo } from '@/utils/fieldTypes'
-import { formItemIssueKey, formItemIssueName, loadFormItems, validateFormItems } from '@/utils/shortcutFormItems'
-import { sampleShortcutParams, shortcutStarter, SHORTCUT_HOST_TYPES } from '@/utils/shortcut'
-import { hasShortcutManifest, updateShortcutManifest } from '@/utils/shortcutManifest'
-import { LANGUAGE_NAMES, type PluginLanguage } from '@/utils/workflowPlugin'
+import { formComponentKey, formItemIssueKey, formItemIssueName, loadFormItems, validateFormItems, type FormComponent } from '@/utils/shortcutFormItems'
+import { sampleShortcutParams } from '@/utils/shortcut'
+import { LANGUAGE_NAMES, pluginFileName, versionLabel, type PluginLanguage } from '@/utils/workflowPlugin'
 
 const { t } = useI18n()
 const route = useRoute()
@@ -58,21 +58,19 @@ interface Draft {
 }
 
 function toDraft(s: AdminFieldShortcut | null): Draft {
-  const starter = shortcutStarter(t('shortcutAdmin.templateText'))
-
   return {
     name: s?.name ?? '',
     version: s?.version ?? '1.0.0',
     description: s?.description ?? '',
-    resultType: (s?.resultType ?? starter.resultType) as FieldType,
-    code: s?.code ?? starter.code,
+    resultType: (s?.resultType ?? 'text') as FieldType,
+    code: s?.code ?? '',
     language: s?.language ?? 'javascript',
-    formItems: JSON.stringify(s?.formItems ?? starter.formItems, null, 2),
+    formItems: JSON.stringify(s?.formItems ?? [], null, 2),
     domains: [...(s?.domains ?? [])],
     credentials: (s?.credentials ?? []).map((c) => ({ key: c.key, type: c.type as CredentialType, name: c.name ?? '', value: '', hasValue: c.hasValue })),
-    timeoutSeconds: s?.timeoutSeconds ?? starter.timeoutSeconds,
+    timeoutSeconds: s?.timeoutSeconds ?? 30,
     enabled: s?.enabled ?? true,
-    aiEnabled: s?.aiEnabled ?? starter.aiEnabled,
+    aiEnabled: s?.aiEnabled ?? false,
   }
 }
 
@@ -81,16 +79,16 @@ const shortcut = ref<AdminFieldShortcut | null>(null)
 const loading = ref(false)
 const notFound = ref(false)
 const saving = ref(false)
+const installVisible = ref(false)
 
 const draft = reactive<Draft>(toDraft(null))
 const baseline = ref(JSON.stringify(draft))
 const dirty = computed(() => JSON.stringify(draft) !== baseline.value)
+const sourceDirty = computed(() => !!shortcut.value && (draft.code !== shortcut.value.code || draft.language !== shortcut.value.language))
 const syncing = ref(false)
 const syncError = ref('')
-const formItemsRevision = ref(0)
 let syncedCode = draft.code
 let syncedLanguage = draft.language
-const manifestBacked = ref(false)
 
 const params = ref(sampleShortcutParams(JSON.parse(draft.formItems) as ShortcutFormItem[]))
 const testing = ref(false)
@@ -113,12 +111,6 @@ function reset(s: AdminFieldShortcut | null) {
   syncedCode = draft.code
   syncedLanguage = draft.language
   syncError.value = ''
-  try {
-    manifestBacked.value = hasShortcutManifest(draft.code, draft.language)
-  } catch {
-    manifestBacked.value = false
-  }
-  formItemsRevision.value++
   baseline.value = JSON.stringify(draft)
   params.value = sampleShortcutParams(JSON.parse(draft.formItems) as ShortcutFormItem[])
   testResult.value = null
@@ -131,7 +123,6 @@ async function load() {
     reset(null)
     return
   }
-  // Reuse the saved shortcut when creation navigates to its edit route.
   if (shortcut.value?.uid === uid.value) return
   loading.value = true
   try {
@@ -146,46 +137,15 @@ async function load() {
 }
 watch(uid, load, { immediate: true })
 
-const TABS = ['basic', 'formItems', 'code', 'network'] as const
+const TABS = ['overview', 'network', 'code'] as const
 type Tab = (typeof TABS)[number]
+const availableTabs = computed(() => TABS.filter((value) => value !== 'network' || draft.credentials.length > 0))
 
 // Keep the active tab in the query so it survives a refresh.
 const tab = computed<Tab>({
-  get: () => (TABS.includes(route.query.tab as Tab) ? (route.query.tab as Tab) : 'basic'),
+  get: () => (availableTabs.value.includes(route.query.tab as Tab) ? (route.query.tab as Tab) : 'overview'),
   set: (value) => { void switchTab(value) },
 })
-
-function manifestFields() {
-  return {
-    name: draft.name,
-    version: draft.version,
-    description: draft.description,
-    resultType: draft.resultType,
-    formItems: JSON.parse(draft.formItems) as ShortcutFormItem[],
-    domains: draft.domains,
-    credentials: draft.credentials.map((c) => ({ key: c.key, type: c.type, ...(c.type === 'bearer' ? {} : { name: c.name }) })),
-    timeoutSeconds: draft.timeoutSeconds,
-    aiEnabled: draft.aiEnabled,
-  }
-}
-
-function syncToCode(): boolean {
-  try {
-    // shortcut: Legacy scripts keep separate settings; migrate them explicitly before enabling manifest synchronization.
-    if (!manifestBacked.value) return true
-    if (!loadFormItems(draft.formItems).ok) {
-      syncError.value = t('shortcutAdmin.invalidFormItems')
-      return false
-    }
-
-    draft.code = updateShortcutManifest(draft.code, manifestFields(), draft.language)
-    syncError.value = ''
-    return true
-  } catch {
-    syncError.value = t('shortcutAdmin.manifestSyncError')
-    return false
-  }
-}
 
 async function syncFromCode(): Promise<boolean> {
   if (draft.code === syncedCode && draft.language === syncedLanguage) {
@@ -196,13 +156,6 @@ async function syncFromCode(): Promise<boolean> {
   const source = draft.code
   const language = draft.language
   try {
-    if (!manifestBacked.value && !hasShortcutManifest(source, language)) {
-      syncedCode = source
-      syncedLanguage = language
-      syncError.value = ''
-      return true
-    }
-
     syncing.value = true
     const result = await adminShortcutsApi.inspect({ source, language })
     if (draft.code !== source || draft.language !== language) {
@@ -226,8 +179,6 @@ async function syncFromCode(): Promise<boolean> {
       timeoutSeconds: result.timeoutSeconds,
       aiEnabled: result.aiEnabled,
     })
-    formItemsRevision.value++
-    manifestBacked.value = true
     syncedCode = source
     syncedLanguage = language
     syncError.value = ''
@@ -244,38 +195,58 @@ async function syncFromCode(): Promise<boolean> {
 async function switchTab(value: Tab) {
   if (syncing.value || value === tab.value) return
   if (tab.value === 'code' && !await syncFromCode()) return
-  if (value === 'code' && !syncToCode()) return
+  if (!availableTabs.value.includes(value)) value = 'overview'
 
-  await router.replace({ query: { ...route.query, tab: value === 'basic' ? undefined : value } })
+  await router.replace({ query: { ...route.query, tab: value === 'overview' ? undefined : value } })
 }
 
 async function prepareBody(): Promise<SaveFieldShortcut | null> {
   if (!await syncFromCode()) return null
-  if (!body() || !syncToCode()) return null
-  if (!await syncFromCode() || !syncToCode()) return null
-
-  syncedCode = draft.code
-  syncedLanguage = draft.language
   return body()
 }
 
-const isNew = computed(() => !uid.value)
-const title = computed(() => {
-  if (shortcut.value) return t('shortcutAdmin.editTitle', { name: shortcut.value.name })
-  return isNew.value ? t('shortcutAdmin.createTitle') : ''
-})
+async function copySource() {
+  try {
+    await navigator.clipboard.writeText(draft.code)
+    Message.success(t('pluginAdmin.copied'))
+  } catch (e) {
+    Message.error(e instanceof Error ? e.message : String(e))
+  }
+}
 
-/** Parsed form-item array when the JSON can be loaded into cards, otherwise null. */
+function downloadSource() {
+  const href = URL.createObjectURL(new Blob([draft.code], { type: 'text/javascript;charset=utf-8' }))
+  const link = document.createElement('a')
+  link.href = href
+  link.download = pluginFileName(uid.value || 'field-shortcut', draft.language)
+  link.click()
+  URL.revokeObjectURL(href)
+}
+
+const formatTime = (time?: string) => time ? dayjs(time).format('YYYY-MM-DD HH:mm') : '—'
+
+/** Form-item definitions for the overview and test parameters. */
 const parsedFormItems = computed<ShortcutFormItem[] | null>(() => {
   const loaded = loadFormItems(draft.formItems)
   if (!loaded.ok) return null
   return JSON.parse(draft.formItems) as ShortcutFormItem[]
 })
 
-const formItemsInvalid = computed(() => {
-  const loaded = loadFormItems(draft.formItems)
-  return !loaded.ok || validateFormItems(loaded.items).length > 0
-})
+const formItemColumns = computed<TableColumnData[]>(() => [
+  { title: t('shortcutAdmin.itemLabel'), dataIndex: 'label' },
+  { title: t('shortcutAdmin.itemKey'), slotName: 'key', width: 160 },
+  { title: t('shortcutAdmin.itemComponent'), slotName: 'component', width: 140 },
+  { title: t('shortcutAdmin.itemRequired'), slotName: 'required', width: 80, align: 'center' },
+])
+const credentialColumns = computed<TableColumnData[]>(() => [
+  { title: t('shortcutAdmin.credentialKey'), slotName: 'key' },
+  { title: t('shortcutAdmin.credentialType'), slotName: 'type', width: 120 },
+  { title: t('shortcutAdmin.credentialName'), slotName: 'name' },
+])
+
+function credentialTypeLabel(type: string) {
+  return type === 'bearer' ? 'Bearer' : t(type === 'header' ? 'shortcutAdmin.credentialHeader' : 'shortcutAdmin.credentialQuery')
+}
 
 const paramsInvalid = computed(() => {
   try {
@@ -286,23 +257,23 @@ const paramsInvalid = computed(() => {
   }
 })
 
-/** Returns the request body. Warns and stays on the form-items tab when the JSON cannot be loaded or is invalid. */
+/** Invalid definitions are corrected in the source. */
 function body(): SaveFieldShortcut | null {
   const loaded = loadFormItems(draft.formItems)
   if (!loaded.ok) {
     Message.warning(t('shortcutAdmin.invalidFormItems'))
-    tab.value = 'formItems'
+    tab.value = 'code'
     return null
   }
   const issue = validateFormItems(loaded.items)[0]
   if (issue) {
     Message.warning(t(formItemIssueKey(issue), { key: formItemIssueName(loaded.items, issue) }))
-    tab.value = 'formItems'
+    tab.value = 'code'
     return null
   }
   if (loaded.items.some((item) => item.component === 'field_options') && draft.resultType !== 'single_select' && draft.resultType !== 'multi_select') {
     Message.warning(t('shortcutAdmin.fieldOptionsTypeRequired'))
-    tab.value = 'basic'
+    tab.value = 'code'
     return null
   }
   return {
@@ -319,10 +290,6 @@ function body(): SaveFieldShortcut | null {
     enabled: draft.enabled,
     aiEnabled: draft.aiEnabled,
   }
-}
-
-function addCredential() {
-  draft.credentials.push({ key: `key${draft.credentials.length + 1}`, type: 'bearer', name: '', value: '', hasValue: false })
 }
 
 function fillSampleParams() {
@@ -351,15 +318,14 @@ async function test() {
 }
 
 async function save() {
-  if (saving.value || testing.value || syncing.value) return
+  if (!shortcut.value || saving.value || testing.value || syncing.value) return
 
   saving.value = true
   try {
     const b = await prepareBody()
     if (!b) return
 
-    const created = !shortcut.value
-    const saved = shortcut.value ? await adminShortcutsApi.update(shortcut.value.uid, b) : await adminShortcutsApi.create(b)
+    const saved = await adminShortcutsApi.update(shortcut.value.uid, b)
     shortcut.value = saved
     // Use the server response as the baseline, clear credential values, and preserve the test result.
     const result = testResult.value
@@ -368,7 +334,6 @@ async function save() {
     testResult.value = result
     params.value = currentParams
     Message.success(t('common.saved'))
-    if (created) router.replace({ name: 'admin-field-shortcut-edit', params: { shortcutUID: saved.uid }, query: route.query })
   } catch (e) {
     Message.error(e instanceof Error ? e.message : String(e))
   } finally {
@@ -381,14 +346,19 @@ function discard() {
   reset(shortcut.value)
 }
 
+function onUpgraded(saved: AdminFieldShortcut) {
+  shortcut.value = saved
+  reset(saved)
+}
+
 function remove() {
   const s = shortcut.value
   if (!s) return
   Modal.confirm({
-    title: t('shortcutAdmin.deleteTitle', { name: s.name }),
+    title: t('shortcutAdmin.uninstallTitle', { name: s.name }),
     content: s.usedBy ? t('shortcutAdmin.deleteInUse', { n: s.usedBy }, s.usedBy) : t('shortcutAdmin.deleteContent'),
     okButtonProps: { status: 'danger' },
-    okText: t('common.delete'),
+    okText: t('pluginAdmin.uninstall'),
     onBeforeOk: async () => {
       try {
         await adminShortcutsApi.delete(s.uid)
@@ -397,7 +367,7 @@ function remove() {
         return false
       }
       baseline.value = JSON.stringify(draft)
-      Message.success(t('common.deleted'))
+      Message.success(t('pluginAdmin.uninstalled'))
       router.replace({ name: 'admin-field-shortcuts' })
       return true
     },
@@ -456,7 +426,7 @@ const format = (v: unknown) => (v === undefined ? 'undefined' : JSON.stringify(v
       <a-breadcrumb-item>
         <RouterLink :to="{ name: 'admin-field-shortcuts' }">{{ t('shortcutAdmin.title') }}</RouterLink>
       </a-breadcrumb-item>
-      <a-breadcrumb-item>{{ shortcut?.name ?? (isNew ? t('shortcutAdmin.createTitle') : uid) }}</a-breadcrumb-item>
+      <a-breadcrumb-item>{{ shortcut?.name ?? uid }}</a-breadcrumb-item>
     </a-breadcrumb>
 
     <a-result v-if="notFound" :status="null" title="404" :subtitle="t('shortcutAdmin.notFound')">
@@ -467,154 +437,210 @@ const format = (v: unknown) => (v === undefined ? 'undefined' : JSON.stringify(v
     </a-result>
 
     <a-spin v-else :loading="loading || syncing" class="spin">
-      <PageHeader :title="title" :description="isNew ? t('shortcutAdmin.createDescription') : undefined" class="editor-header">
-        <template #extra>
+      <header v-if="shortcut" class="hero">
+        <WorkflowPluginIcon :icon="draft.aiEnabled ? 'sparkles' : 'zap'" color="var(--color-primary)" :size="56" :muted="!draft.enabled" />
+        <div class="hero-text">
+          <div class="hero-name">
+            <span class="ellipsis">{{ draft.name }}</span>
+            <a-tag size="small" class="mono">{{ versionLabel(draft.version) }}</a-tag>
+          </div>
+          <div class="text-desc hero-desc">{{ draft.description || t('pluginAdmin.noDescription') }}</div>
+        </div>
+        <a-space wrap :size="8" class="hero-actions">
           <a-tooltip :content="t('shortcutAdmin.enabledDescription')">
-            <div class="shortcut-status">
-              <span>{{ draft.enabled ? t('shortcutAdmin.enabledTag') : t('shortcutAdmin.disabledTag') }}</span>
+            <div class="status">
+              <span :class="draft.enabled ? 'status-on' : 'text-desc'">{{ draft.enabled ? t('shortcutAdmin.enabledTag') : t('shortcutAdmin.disabledTag') }}</span>
               <a-switch v-model="draft.enabled" :aria-label="t('shortcutAdmin.enabled')" />
             </div>
           </a-tooltip>
-          <a-button v-if="shortcut" status="danger" @click="remove">
-            <template #icon><Trash2 :size="16" /></template>
-            {{ t('shortcutAdmin.dangerTitle') }}
+          <a-button type="primary" @click="tab = 'code'">
+            <template #icon><FlaskConical :size="16" /></template>
+            {{ t('shortcutAdmin.test') }}
           </a-button>
-        </template>
-      </PageHeader>
+          <a-tooltip :content="dirty ? t('shortcutAdmin.upgradeSaveHint') : t('pluginAdmin.upgrade')">
+            <a-button :disabled="dirty || saving || syncing || testing" @click="installVisible = true">
+              <template #icon><CircleArrowUp :size="16" /></template>
+              {{ t('pluginAdmin.upgrade') }}
+            </a-button>
+          </a-tooltip>
+          <a-button status="danger" @click="remove">
+            <template #icon><Trash2 :size="16" /></template>
+            {{ t('pluginAdmin.uninstall') }}
+          </a-button>
+        </a-space>
+      </header>
 
       <a-alert v-if="syncError" type="error" class="sync-error">{{ syncError }}</a-alert>
 
-      <div class="workspace">
+      <div class="workspace" :class="{ single: tab !== 'code' }">
         <div class="main">
-          <div class="tabs-card">
+          <SettingsSection flush>
             <a-tabs v-model:active-key="tab" :animation="false" class="tabs">
-              <a-tab-pane key="basic" :title="t('shortcutAdmin.basic')">
-                <a-form :model="draft" layout="vertical" class="pane">
-                  <div class="grid">
-                    <a-form-item :label="t('shortcutAdmin.name')" required>
-                      <a-input v-model="draft.name" :max-length="64" show-word-limit :placeholder="t('shortcutAdmin.namePlaceholder')" />
-                    </a-form-item>
-                    <a-form-item :label="t('shortcutAdmin.version')" required>
-                      <a-input v-model="draft.version" :max-length="32" />
-                    </a-form-item>
-                  </div>
-                  <a-form-item :label="t('shortcutAdmin.resultType')" :extra="t('shortcutAdmin.resultTypeDescription')">
-                    <a-select v-model="draft.resultType">
-                      <a-option v-for="rt in SHORTCUT_HOST_TYPES" :key="rt" :value="rt">
-                        <span class="type-option"><FieldTypeIcon :type="rt" /> {{ fieldTypeInfo(rt).label }}</span>
-                      </a-option>
-                    </a-select>
-                  </a-form-item>
-                  <a-form-item :label="t('shortcutAdmin.description')">
-                    <a-textarea
-                      v-model="draft.description"
-                      :max-length="500"
-                      show-word-limit
-                      :auto-size="{ minRows: 3, maxRows: 6 }"
-                      :placeholder="t('shortcutAdmin.descriptionPlaceholder')"
-                    />
-                  </a-form-item>
-                  <div class="grid">
-                    <a-form-item :label="t('shortcutAdmin.timeout')" :extra="t('shortcutAdmin.timeoutDescription')">
-                      <a-input-number v-model="draft.timeoutSeconds" :min="1" :max="300" class="timeout">
-                        <template #suffix>{{ t('shortcutAdmin.seconds') }}</template>
-                      </a-input-number>
-                    </a-form-item>
-                    <a-form-item :label="t('shortcutAdmin.aiEnabled')" :extra="t('shortcutAdmin.aiEnabledDescription')">
-                      <a-switch v-model="draft.aiEnabled" />
-                    </a-form-item>
-                  </div>
-                  <a-alert v-if="draft.aiEnabled" :type="aiLoading ? 'info' : aiReady ? 'success' : 'warning'">
-                    <a-space wrap>
-                      <span>{{ aiStatus }}</span>
-                      <RouterLink v-slot="{ href, navigate }" :to="{ name: 'admin-ai' }" custom>
-                        <a-link :href="href" @click="navigate">{{ t('shortcutAdmin.aiSettings') }}</a-link>
-                      </RouterLink>
-                    </a-space>
-                  </a-alert>
-                </a-form>
-              </a-tab-pane>
-
-              <a-tab-pane key="formItems">
-                <template #title>
-                  <span class="tab-title">
-                    {{ t('shortcutAdmin.formItems') }}
-                    <span v-if="formItemsInvalid" class="tab-dot" />
-                  </span>
-                </template>
+              <a-tab-pane key="overview" :title="t('pluginAdmin.overview')">
                 <div class="pane">
-                  <ShortcutFormItemsEditor :key="`${baseline}:${formItemsRevision}`" v-model="draft.formItems" />
+                  <a-row :gutter="[32, 32]" class="overview-grid">
+                    <a-col :xs="24" :lg="12">
+                      <section aria-labelledby="shortcut-basic-info">
+                        <a-typography-title id="shortcut-basic-info" :heading="6" class="section-heading">{{ t('pluginAdmin.basicInfo') }}</a-typography-title>
+                        <a-descriptions :column="1" size="small" :label-style="{ width: '100px' }" :value-style="{ overflowWrap: 'anywhere' }">
+                          <a-descriptions-item :label="t('shortcutAdmin.identifier')"><a-typography-text code>{{ uid }}</a-typography-text></a-descriptions-item>
+                          <a-descriptions-item :label="t('shortcutAdmin.resultType')">
+                            <span class="type-option"><FieldTypeIcon :type="draft.resultType" /> {{ fieldTypeInfo(draft.resultType).label }}</span>
+                          </a-descriptions-item>
+                          <a-descriptions-item :label="t('pluginAdmin.language')">{{ LANGUAGE_NAMES[draft.language] }}</a-descriptions-item>
+                          <a-descriptions-item :label="t('pluginAdmin.installedAt')">{{ formatTime(shortcut?.createdAt) }}</a-descriptions-item>
+                          <a-descriptions-item :label="t('pluginAdmin.updatedAt')">{{ formatTime(shortcut?.updatedAt) }}</a-descriptions-item>
+                        </a-descriptions>
+                      </section>
+                    </a-col>
+                    <a-col :xs="24" :lg="12">
+                      <section aria-labelledby="shortcut-permissions">
+                        <a-typography-title id="shortcut-permissions" :heading="6" class="section-heading">{{ t('pluginAdmin.permissions') }}</a-typography-title>
+                        <a-row :gutter="[20, 24]" class="permission-grid">
+                          <a-col :xs="24" :sm="12">
+                            <a-space align="start" :size="12" class="permission-item">
+                              <a-avatar :size="28" shape="square" class="permission-icon" :class="draft.domains.length ? 'info' : 'ok'"><Globe :size="15" /></a-avatar>
+                              <div class="permission-body">
+                                <a-typography-text bold>{{ t('pluginAdmin.network') }}</a-typography-text>
+                                <a-typography-text type="secondary" class="permission-description">{{ t(draft.domains.length ? 'pluginAdmin.networkDomains' : 'pluginAdmin.networkNone') }}</a-typography-text>
+                                <a-space v-if="draft.domains.length" wrap :size="4" class="permission-tags"><a-tag v-for="domain in draft.domains" :key="domain" size="small" class="mono">{{ domain }}</a-tag></a-space>
+                              </div>
+                            </a-space>
+                          </a-col>
+                          <a-col :xs="24" :sm="12">
+                            <a-space align="start" :size="12" class="permission-item">
+                              <a-avatar :size="28" shape="square" class="permission-icon" :class="draft.aiEnabled ? 'info' : 'neutral'"><Sparkles :size="15" /></a-avatar>
+                              <div class="permission-body">
+                                <a-typography-text bold>{{ t('shortcutAdmin.aiEnabled') }}</a-typography-text>
+                                <a-typography-text type="secondary" class="permission-description">{{ t(draft.aiEnabled ? 'shortcutAdmin.aiAllowed' : 'shortcutAdmin.aiDenied') }}</a-typography-text>
+                              </div>
+                            </a-space>
+                          </a-col>
+                          <a-col :xs="24" :sm="12">
+                            <a-space align="start" :size="12" class="permission-item">
+                              <a-avatar :size="28" shape="square" class="permission-icon" :class="draft.credentials.length ? 'info' : 'neutral'"><KeyRound :size="15" /></a-avatar>
+                              <div class="permission-body">
+                                <a-typography-text bold>{{ t('shortcutAdmin.credentials') }}</a-typography-text>
+                                <a-typography-text type="secondary" class="permission-description">{{ t(draft.credentials.length ? 'shortcutAdmin.credentialPermissionHint' : 'shortcutAdmin.noCredentialPermission') }}</a-typography-text>
+                                <a-space v-if="draft.credentials.length" wrap :size="4" class="permission-tags"><a-tag v-for="credential in draft.credentials" :key="credential.key" size="small" class="mono">{{ credential.key }}</a-tag></a-space>
+                              </div>
+                            </a-space>
+                          </a-col>
+                          <a-col :xs="24" :sm="12">
+                            <a-space align="start" :size="12" class="permission-item">
+                              <a-avatar :size="28" shape="square" class="permission-icon info"><Timer :size="15" /></a-avatar>
+                              <div class="permission-body">
+                                <a-typography-text bold>{{ t('shortcutAdmin.timeout') }}</a-typography-text>
+                                <a-typography-text type="secondary" class="permission-description">{{ t('pluginAdmin.timeoutValue', { n: draft.timeoutSeconds }) }}</a-typography-text>
+                              </div>
+                            </a-space>
+                          </a-col>
+                        </a-row>
+                        <a-alert v-if="draft.aiEnabled" :type="aiLoading ? 'info' : aiReady ? 'success' : 'warning'" class="ai-status">
+                          <a-space wrap>
+                            <span>{{ aiStatus }}</span>
+                            <RouterLink v-slot="{ href, navigate }" :to="{ name: 'admin-ai' }" custom>
+                              <a-link :href="href" @click="navigate">{{ t('shortcutAdmin.aiSettings') }}</a-link>
+                            </RouterLink>
+                          </a-space>
+                        </a-alert>
+                      </section>
+                    </a-col>
+                  </a-row>
+
+                  <a-divider class="overview-divider" />
+
+                  <a-row :gutter="[32, 32]" class="overview-grid">
+                    <a-col :xs="24" :xl="draft.credentials.length ? 12 : 24">
+                      <section aria-labelledby="shortcut-form-items">
+                        <a-space :size="8" align="baseline" class="section-heading">
+                          <a-typography-title id="shortcut-form-items" :heading="6">{{ t('shortcutAdmin.formItems') }}</a-typography-title>
+                          <a-typography-text type="secondary">{{ parsedFormItems?.length ?? 0 }}</a-typography-text>
+                        </a-space>
+                        <a-table :columns="formItemColumns" :data="parsedFormItems ?? []" :pagination="false" :bordered="false" :expandable="{}" :scroll="{ x: 560 }" size="small" row-key="key" class="definition-table">
+                          <template #key="{ record }"><a-typography-text code>{{ record.key }}</a-typography-text></template>
+                          <template #component="{ record }">{{ t(formComponentKey(record.component as FormComponent)) }}</template>
+                          <template #required="{ record }"><CircleCheck v-if="record.required" :size="15" class="required-icon" /><span v-else class="text-desc">—</span></template>
+                          <template #expand-row="{ record }">
+                            <a-descriptions :column="1" size="small" class="item-details" :label-style="{ width: '100px' }" :value-style="{ overflowWrap: 'anywhere' }">
+                              <a-descriptions-item :label="t('shortcutAdmin.itemPlaceholder')">{{ record.placeholder || '—' }}</a-descriptions-item>
+                              <a-descriptions-item v-if="record.component === 'field_select'" :label="t('shortcutAdmin.fieldTypes')">
+                                <a-space v-if="record.fieldTypes?.length" wrap :size="4"><a-tag v-for="type in record.fieldTypes" :key="type" size="small">{{ fieldTypeInfo(type).label }}</a-tag></a-space>
+                                <span v-else>{{ t('shortcutAdmin.fieldTypesEmpty') }}</span>
+                              </a-descriptions-item>
+                              <a-descriptions-item v-if="record.component === 'select'" :label="t('shortcutAdmin.options')">
+                                <a-space wrap :size="4"><a-tag v-for="option in record.options" :key="option.value" size="small">{{ option.label }} · {{ option.value }}</a-tag></a-space>
+                              </a-descriptions-item>
+                              <a-descriptions-item :label="t('shortcutAdmin.defaultValue')">{{ record.default || '—' }}</a-descriptions-item>
+                            </a-descriptions>
+                          </template>
+                          <template #empty><a-empty :description="t('shortcutAdmin.noFormItems')" /></template>
+                        </a-table>
+                      </section>
+                    </a-col>
+                    <a-col v-if="draft.credentials.length" :xs="24" :xl="12">
+                      <section aria-labelledby="shortcut-credentials">
+                        <a-typography-title id="shortcut-credentials" :heading="6" class="section-heading">{{ t('shortcutAdmin.credentials') }}</a-typography-title>
+                        <a-table :columns="credentialColumns" :data="draft.credentials" :pagination="false" :bordered="false" :scroll="{ x: 480 }" size="small" row-key="key" class="definition-table">
+                          <template #key="{ record }"><a-typography-text code>{{ record.key }}</a-typography-text></template>
+                          <template #type="{ record }">{{ credentialTypeLabel(record.type) }}</template>
+                          <template #name="{ record }"><span class="mono">{{ record.type === 'bearer' ? 'Authorization' : record.name }}</span></template>
+                        </a-table>
+                      </section>
+                    </a-col>
+                  </a-row>
                 </div>
               </a-tab-pane>
 
-              <a-tab-pane key="code" :title="t('shortcutAdmin.code')">
+              <a-tab-pane v-if="draft.credentials.length" key="network" :title="t('shortcutAdmin.credentials')">
+                <a-form :model="draft" layout="vertical" class="pane credential-values">
+                  <a-form-item v-for="c in draft.credentials" :key="c.key" :label="c.key" :extra="`${credentialTypeLabel(c.type)} · ${c.type === 'bearer' ? 'Authorization' : c.name}`">
+                    <a-input-password v-model="c.value" :aria-label="c.key" :placeholder="c.hasValue ? t('shortcutAdmin.credentialKeep') : t('shortcutAdmin.credentialValue')" />
+                  </a-form-item>
+                </a-form>
+              </a-tab-pane>
+
+              <a-tab-pane key="code">
+                <template #title>
+                  <span class="tab-title">
+                    {{ t('shortcutAdmin.code') }}
+                    <span v-if="sourceDirty" class="tab-dot" />
+                  </span>
+                </template>
                 <div class="pane">
-                  <p v-if="manifestBacked" class="text-desc">{{ t('shortcutAdmin.manifestSyncHint') }}</p>
-                  <a-radio-group v-model="draft.language" type="button" size="small" :aria-label="t('pluginAdmin.language')" class="code-language">
-                    <a-radio value="javascript">{{ LANGUAGE_NAMES.javascript }}</a-radio>
-                    <a-radio value="typescript">{{ LANGUAGE_NAMES.typescript }}</a-radio>
-                  </a-radio-group>
+                  <div class="source-toolbar">
+                    <a-radio-group v-model="draft.language" type="button" size="small" :aria-label="t('pluginAdmin.language')">
+                      <a-radio value="javascript">{{ LANGUAGE_NAMES.javascript }}</a-radio>
+                      <a-radio value="typescript">{{ LANGUAGE_NAMES.typescript }}</a-radio>
+                    </a-radio-group>
+                    <a-space :size="4">
+                      <a-button size="small" @click="copySource">
+                        <template #icon><Copy :size="14" /></template>
+                        {{ t('pluginAdmin.copy') }}
+                      </a-button>
+                      <a-button size="small" @click="downloadSource">
+                        <template #icon><Download :size="14" /></template>
+                        {{ t('pluginAdmin.downloadSource') }}
+                      </a-button>
+                    </a-space>
+                  </div>
+                  <p class="text-desc source-hint">{{ t('shortcutAdmin.sourceEditHint') }}</p>
                   <CodeEditor
                     :key="draft.language"
                     v-model="draft.code"
                     :language="draft.language"
-                    height="clamp(420px, calc(100vh - 380px), 860px)"
+                    height="clamp(420px, calc(100vh - 420px), 860px)"
                     :aria-label="t('shortcutAdmin.code')"
                     :error="!!syncError"
                     @submit="test"
                   />
                 </div>
               </a-tab-pane>
-
-              <a-tab-pane key="network" :title="t('shortcutAdmin.network')">
-                <a-form :model="draft" layout="vertical" class="pane">
-                  <a-form-item :label="t('shortcutAdmin.domains')" :extra="t('shortcutAdmin.domainsDescription')">
-                    <a-input-tag v-model="draft.domains" :placeholder="t('shortcutAdmin.domainsPlaceholder')" allow-clear unique-value />
-                  </a-form-item>
-                  <a-form-item :label="t('shortcutAdmin.credentials')">
-                    <div class="credentials">
-                      <div v-if="draft.credentials.length" class="credential-table">
-                        <div class="credential-row credential-head">
-                          <span>{{ t('shortcutAdmin.credentialKey') }}</span>
-                          <span>{{ t('shortcutAdmin.credentialType') }}</span>
-                          <span>{{ t('shortcutAdmin.credentialName') }}</span>
-                          <span>{{ t('shortcutAdmin.credentialValue') }}</span>
-                          <span />
-                        </div>
-                        <div v-for="(c, i) in draft.credentials" :key="i" class="credential-row">
-                          <a-input v-model="c.key" :placeholder="t('shortcutAdmin.credentialKey')" class="mono-input" />
-                          <a-select v-model="c.type">
-                            <a-option value="bearer">Bearer</a-option>
-                            <a-option value="header">{{ t('shortcutAdmin.credentialHeader') }}</a-option>
-                            <a-option value="query">{{ t('shortcutAdmin.credentialQuery') }}</a-option>
-                          </a-select>
-                          <a-input v-if="c.type !== 'bearer'" v-model="c.name" :placeholder="t('shortcutAdmin.credentialName')" class="mono-input" />
-                          <span v-else class="text-desc credential-na">Authorization</span>
-                          <a-input-password
-                            v-model="c.value"
-                            :placeholder="c.hasValue ? t('shortcutAdmin.credentialKeep') : t('shortcutAdmin.credentialValue')"
-                          />
-                          <a-button type="text" status="danger" shape="square" :aria-label="t('common.delete')" @click="draft.credentials.splice(i, 1)">
-                            <template #icon><Trash2 :size="15" /></template>
-                          </a-button>
-                        </div>
-                      </div>
-                      <div v-else class="credential-empty text-desc">{{ t('shortcutAdmin.noCredentials') }}</div>
-                      <div>
-                        <a-button size="small" @click="addCredential">
-                          <template #icon><Plus :size="14" /></template>
-                          {{ t('shortcutAdmin.addCredential') }}
-                        </a-button>
-                      </div>
-                    </div>
-                  </a-form-item>
-                </a-form>
-              </a-tab-pane>
             </a-tabs>
-          </div>
+          </SettingsSection>
         </div>
 
-        <aside class="aside">
+        <aside v-if="tab === 'code'" class="aside">
           <SettingsSection :title="t('shortcutAdmin.test')">
             <div class="test-panel">
               <div class="panel-label">
@@ -668,8 +694,10 @@ const format = (v: unknown) => (v === undefined ? 'undefined' : JSON.stringify(v
         </aside>
       </div>
 
-      <SaveBar :dirty="dirty || isNew" :saving="saving || syncing" @save="save" @reset="discard" />
+      <SaveBar v-if="dirty || tab === 'code'" :dirty="dirty" :saving="saving || syncing" @save="save" @reset="discard" />
     </a-spin>
+
+    <FieldShortcutInstallModal v-if="shortcut" v-model:visible="installVisible" :upgrade="shortcut" @installed="onUpgraded" />
   </div>
 </template>
 
@@ -685,38 +713,70 @@ const format = (v: unknown) => (v === undefined ? 'undefined' : JSON.stringify(v
 }
 .spin {
   display: block;
+  min-height: 240px;
 }
 .sync-error {
   margin-bottom: 16px;
 }
-.code-language {
-  margin-bottom: 12px;
-}
-
-.editor-header > :deep(.arco-space) {
-  flex-wrap: wrap;
-  max-width: 100%;
-}
-
-.shortcut-status {
+.source-toolbar {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 12px;
+  margin-bottom: 12px;
+}
+.source-hint {
+  margin: 0 0 12px;
+  font-size: 12.5px;
+}
+
+.hero {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+.hero-text {
+  flex: 1;
+  min-width: 240px;
+}
+.hero-name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 28px;
   color: var(--text-title);
+}
+.hero-desc {
+  margin-top: 4px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.status {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-right: 8px;
   font-size: 13px;
   font-weight: 500;
   white-space: nowrap;
 }
-
-.mono-input :deep(input) {
-  font-family: 'SF Mono', Menlo, Consolas, monospace;
-  font-size: 12.5px;
+.status-on {
+  color: var(--color-success);
 }
+
 .workspace {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 400px;
   gap: 16px;
   align-items: start;
+}
+.workspace.single {
+  grid-template-columns: minmax(0, 1fr);
 }
 .main {
   min-width: 0;
@@ -737,12 +797,6 @@ const format = (v: unknown) => (v === undefined ? 'undefined' : JSON.stringify(v
 }
 .main > * + * {
   margin-top: 16px;
-}
-.tabs-card {
-  overflow: hidden;
-  border: 1px solid var(--line-border);
-  border-radius: 8px;
-  background: var(--bg-body);
 }
 .tabs :deep(.arco-tabs-nav) {
   height: 50px;
@@ -773,6 +827,83 @@ const format = (v: unknown) => (v === undefined ? 'undefined' : JSON.stringify(v
 .pane {
   padding: 20px 24px 24px;
 }
+.overview-grid :deep(.arco-col) {
+  min-width: 0;
+}
+.section-heading {
+  margin: 0 0 16px;
+}
+.section-heading :deep(.arco-typography) {
+  margin: 0;
+}
+.overview-divider {
+  margin: 28px 0;
+}
+.permission-grid :deep(.arco-col) {
+  min-width: 0;
+}
+.permission-item {
+  width: 100%;
+}
+.permission-item :deep(.arco-space-item:last-child) {
+  flex: 1;
+  min-width: 0;
+}
+.permission-icon {
+  flex: none;
+  border-radius: 8px;
+}
+.permission-icon.info {
+  color: var(--color-primary);
+  background: var(--bg-primary-soft);
+}
+.permission-icon.ok {
+  color: var(--color-success);
+  background: rgba(var(--success-6), 0.12);
+}
+.permission-icon.neutral {
+  color: var(--text-caption);
+  background: var(--bg-base);
+}
+.permission-body {
+  min-width: 0;
+  padding-top: 3px;
+  overflow-wrap: anywhere;
+}
+.permission-body :deep(.arco-typography) {
+  font-size: 13px;
+  line-height: 1.6;
+}
+.permission-description {
+  display: block;
+  margin-top: 2px;
+}
+.permission-tags {
+  margin-top: 6px;
+}
+.permission-tags :deep(.arco-tag) {
+  height: auto;
+  max-width: 100%;
+  white-space: normal;
+}
+.ai-status {
+  margin-top: 20px;
+}
+.definition-table :deep(.arco-table-th) {
+  background: var(--bg-base);
+}
+.required-icon {
+  color: var(--color-success);
+}
+.mono {
+  font-family: 'SF Mono', Menlo, Consolas, monospace;
+}
+.item-details {
+  padding: 8px 16px;
+}
+.credential-values :deep(.arco-form-item) {
+  max-width: 560px;
+}
 .tab-title {
   display: inline-flex;
   align-items: center;
@@ -784,53 +915,10 @@ const format = (v: unknown) => (v === undefined ? 'undefined' : JSON.stringify(v
   border-radius: 50%;
   background: var(--color-danger);
 }
-.grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0 24px;
-}
-
 .type-option {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-}
-.timeout {
-  width: 180px;
-  max-width: 100%;
-}
-
-.credentials {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  width: 100%;
-}
-.credential-table {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-.credential-row {
-  display: grid;
-  grid-template-columns: 140px 128px 160px minmax(0, 1fr) 32px;
-  gap: 8px;
-  align-items: center;
-}
-.credential-head {
-  font-size: 12px;
-  color: var(--text-caption);
-}
-.credential-na {
-  padding: 0 12px;
-  font-family: 'SF Mono', Menlo, Consolas, monospace;
-  font-size: 12.5px;
-}
-.credential-empty {
-  padding: 14px 16px;
-  border: 1px dashed var(--line-border-strong);
-  border-radius: 6px;
-  text-align: center;
 }
 .test-panel {
   display: flex;
@@ -915,18 +1003,20 @@ const format = (v: unknown) => (v === undefined ? 'undefined' : JSON.stringify(v
   }
 }
 @media (max-width: 768px) {
-  .grid {
-    grid-template-columns: minmax(0, 1fr);
+  .hero-text {
+    min-width: 0;
   }
-  .credential-row {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  .hero-actions {
+    width: 100%;
   }
-  .credential-row:not(.credential-head) + .credential-row {
-    padding-top: 8px;
-    border-top: 1px solid var(--line-border);
+  .hero-actions :deep(.arco-space-item:first-child) {
+    flex-basis: 100%;
   }
-  .credential-head {
-    display: none;
+  .pane {
+    padding: 16px;
+  }
+  .source-toolbar {
+    flex-wrap: wrap;
   }
 }
 </style>

@@ -4,6 +4,18 @@ export const MAX_FORM_ITEMS = 20
 
 export const FORM_COMPONENTS = ['field_select', 'input', 'textarea', 'select', 'field_options', 'prompt'] as const
 export type FormComponent = (typeof FORM_COMPONENTS)[number]
+const FORM_COMPONENT_LABELS: Record<FormComponent, string> = {
+  field_select: 'shortcutAdmin.componentFieldSelect',
+  input: 'shortcutAdmin.componentInput',
+  textarea: 'shortcutAdmin.componentTextarea',
+  select: 'shortcutAdmin.componentSelect',
+  field_options: 'shortcutAdmin.componentFieldOptions',
+  prompt: 'shortcutAdmin.componentPrompt',
+}
+
+export function formComponentKey(component: FormComponent): string {
+  return FORM_COMPONENT_LABELS[component]
+}
 
 export const FORM_FIELD_TYPES = ['text', 'single_select', 'multi_select', 'datetime', 'number', 'checkbox'] as const
 export type FormFieldType = (typeof FORM_FIELD_TYPES)[number]

@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 
 import type { SLField } from '../src/types/bitable.ts'
-import { defaultInputs, legacyOptionNames, missingInput, newShortcut, promptFromDisplay, promptToDisplay, sampleShortcutParams, selectableFields, shortcutStarter } from '../src/utils/shortcut.ts'
+import { defaultInputs, legacyOptionNames, missingInput, newShortcut, promptFromDisplay, promptToDisplay, sampleShortcutParams, selectableFields } from '../src/utils/shortcut.ts'
 
 const field = (uid: string, label: string, type: SLField['type']) => ({ uid, label, type }) as SLField
 const fields = [field('fldAAAAAAA', 'Feedback', 'text'), field('fldBBBBBBB', 'Score', 'number'), field('fldCCCCCCC', 'Total', 'formula')]
@@ -41,23 +41,7 @@ test('new shortcuts start with the default inputs and report the missing ones', 
   assert.equal(missingInput(manifest, { language: 'English', source: 'fldAAAAAAA' }), null)
 })
 
-test('new shortcuts start with a runnable JavaScript example', async () => {
-  const textLabel = '输入文本'
-  const starter = shortcutStarter(textLabel)
-
-  assert.equal(starter.aiEnabled, false)
-  assert.equal(starter.resultType, 'number')
-  assert.equal(starter.timeoutSeconds, 30)
-  assert.deepEqual(starter.formItems.map((item) => [item.key, item.label, item.component]), [
-    ['text', textLabel, 'field_select'],
-  ])
-
-  const params = JSON.parse(sampleShortcutParams(starter.formItems))
-  assert.deepEqual(params, { text: 'Hello' })
-
-  const execute = new Function(`${starter.code}; return execute`)()
-  assert.equal(await execute(params, {}), 5)
-
+test('sample shortcut parameters use form defaults', () => {
   assert.equal(sampleShortcutParams([{ key: 'choice', label: 'Choice', component: 'select', default: 'second', options: [{ value: 'first', label: 'First' }, { value: 'second', label: 'Second' }] }]), '{\n  "choice": "second"\n}')
 })
 
