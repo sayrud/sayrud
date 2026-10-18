@@ -333,8 +333,27 @@ func (c *checker) checkRoute() {
 	if a.Auth.Type != AuthNone && a.Auth.Type != AuthAPIKey {
 		c.add("auth.invalid_type", "auth")
 	}
+	if a.Auth.Type == AuthAPIKey {
+		c.checkErrorResponse(a.Auth.ErrorResponse, "auth")
+	}
+
 	if rl := a.RateLimit; rl.Enabled && (rl.Limit < 1 || rl.Limit > 100000 || rl.Window < 1 || rl.Window > 86400) {
 		c.add("rate_limit.invalid", "rate_limit")
+	}
+	if a.RateLimit.Enabled {
+		c.checkErrorResponse(a.RateLimit.ErrorResponse, "rate_limit")
+	}
+}
+
+func (c *checker) checkErrorResponse(response *ErrorResponse, target string) {
+	if response == nil {
+		return
+	}
+	if !response.validStatus() {
+		c.add("security.invalid_response_status", target)
+	}
+	if !json.Valid([]byte(response.Body)) {
+		c.add("security.invalid_response_body", target)
 	}
 }
 

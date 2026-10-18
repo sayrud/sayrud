@@ -113,6 +113,8 @@ const (
 type Auth struct {
 	// Type is none or api_key; the key is passed via X-API-Key or Authorization: Bearer.
 	Type string `json:"type" enums:"none,api_key"`
+	// ErrorResponse overrides the response returned when the API key is missing or invalid.
+	ErrorResponse *ErrorResponse `json:"errorResponse,omitempty"`
 } // @name WorkflowAuth
 
 // RateLimit limits requests per client IP within a fixed window.
@@ -122,7 +124,20 @@ type RateLimit struct {
 	Limit int `json:"limit"`
 	// Window is the window length in seconds.
 	Window int `json:"window"`
+	// ErrorResponse overrides the response returned when the request limit is exceeded.
+	ErrorResponse *ErrorResponse `json:"errorResponse,omitempty"`
 } // @name WorkflowRateLimit
+
+// ErrorResponse is a static JSON response returned before the workflow starts.
+type ErrorResponse struct {
+	Status int `json:"status"`
+	// Body keeps JSON as text so incomplete edits can still be saved in drafts.
+	Body string `json:"body"`
+} // @name WorkflowErrorResponse
+
+func (r *ErrorResponse) validStatus() bool {
+	return r.Status >= 200 && r.Status <= 599 && r.Status != 204 && r.Status != 205 && r.Status != 304
+}
 
 // Parameter sources.
 const (

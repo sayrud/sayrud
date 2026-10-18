@@ -1702,6 +1702,8 @@ const ja: typeof zhCN = {
       close: '閉じる',
     },
     issue: {
+      invalidSecurityResponseStatus: 'ステータスコードは 200–599 で、204、205、304 は使用できません',
+      invalidSecurityResponseBody: 'レスポンス本文は有効な JSON である必要があります',
       pluginDisabled: 'ノード「{plugin}」は管理者により無効化されています',
       pluginMissing: 'ノードプラグイン「{plugin}」がインストールされていません',
       credentialMissing: '参照している認証情報が存在しないか、種類が一致しません',
@@ -1891,6 +1893,11 @@ const ja: typeof zhCN = {
       matchAny: 'いずれかの',
     },
     request: {
+      errorResponse: 'エラーレスポンス',
+      defaultResponse: '標準形式',
+      customResponse: 'カスタム形式',
+      errorResponseHelp: 'ワークフローの開始前に返されます。固定の JSON のみ対応しています。',
+      retryAfterHelp: '再試行までの待機時間を示す Retry-After ヘッダーが常に返されます。',
       authKey: '認証情報の検証 (API キー)',
       authKeyDesc: 'X-API-Key または Authorization: Bearer でキーを送信します',
       copied: 'コピーしました',

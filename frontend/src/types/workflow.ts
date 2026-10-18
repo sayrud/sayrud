@@ -227,9 +227,15 @@ export interface WorkflowAsyncFlow {
 export interface ApiTrigger {
   method: HttpMethod
   path: string
-  auth: { type: 'none' | 'api_key' }
-  rateLimit: { enabled: boolean; limit: number; window: number }
+  auth: { type: 'none' | 'api_key'; errorResponse?: WorkflowErrorResponse }
+  rateLimit: { enabled: boolean; limit: number; window: number; errorResponse?: WorkflowErrorResponse }
   params: WorkflowParam[]
+}
+
+/** Static JSON response returned before the workflow starts; body text also preserves incomplete drafts. */
+export interface WorkflowErrorResponse {
+  status: number
+  body: string
 }
 
 /** Table and conditions watched by record and date triggers; condition values can only be constants. */

@@ -1702,6 +1702,8 @@ const de: typeof zhCN = {
       close: 'Schließen',
     },
     issue: {
+      invalidSecurityResponseStatus: 'Der Status muss 200–599 sein, außer 204, 205 und 304',
+      invalidSecurityResponseBody: 'Der Antworttext muss gültiges JSON sein',
       pluginDisabled: 'Der Knoten „{plugin}“ wurde von einem Administrator deaktiviert',
       pluginMissing: 'Das Knoten-Plugin „{plugin}“ ist nicht installiert',
       credentialMissing: 'Die verwendeten Zugangsdaten existieren nicht oder haben einen anderen Typ',
@@ -1891,6 +1893,11 @@ const de: typeof zhCN = {
       matchAny: 'eine der',
     },
     request: {
+      errorResponse: 'Fehlerantwort',
+      defaultResponse: 'Standardformat',
+      customResponse: 'Eigenes Format',
+      errorResponseHelp: 'Wird vor dem Workflow-Start zurückgegeben. Nur statisches JSON wird unterstützt.',
+      retryAfterHelp: 'Der Retry-After-Header gibt immer an, wann ein erneuter Versuch möglich ist.',
       authKey: 'Anmeldedatenprüfung (API-Schlüssel)',
       authKeyDesc: 'Schlüssel per X-API-Key oder Authorization: Bearer senden',
       copied: 'Kopiert',

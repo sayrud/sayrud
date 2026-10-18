@@ -400,6 +400,15 @@ func writeError(w http.ResponseWriter, status int, code, message string) {
 	WriteResponse(w, &Response{Status: status, Body: ErrorBody(code, message, nil)}, "")
 }
 
+func writeSecurityError(w http.ResponseWriter, response *ErrorResponse, status int, code, message string) {
+	if response != nil && response.validStatus() && json.Valid([]byte(response.Body)) {
+		WriteResponse(w, &Response{Status: response.Status, Body: json.RawMessage(response.Body)}, "")
+		return
+	}
+
+	writeError(w, status, code, message)
+}
+
 func apiKeyOf(r *http.Request) string {
 	if key := r.Header.Get("X-API-Key"); key != "" {
 		return key
@@ -478,13 +487,13 @@ func (e *Engine) Serve(w http.ResponseWriter, r *http.Request, projectUID, rawPa
 			return
 		}
 		if !ok {
-			writeError(w, http.StatusUnauthorized, "unauthorized", "a valid API key is required")
+			writeSecurityError(w, spec.Trigger.API.Auth.ErrorResponse, http.StatusUnauthorized, "unauthorized", "a valid API key is required")
 			return
 		}
 	}
 	if allowed, retry := e.AllowRate(ctx, wf.ID, ip, spec.Trigger.API.RateLimit); !allowed {
 		w.Header().Set("Retry-After", strconv.Itoa(retry))
-		writeError(w, http.StatusTooManyRequests, "rate_limited", "too many requests")
+		writeSecurityError(w, spec.Trigger.API.RateLimit.ErrorResponse, http.StatusTooManyRequests, "rate_limited", "too many requests")
 		return
 	}
 

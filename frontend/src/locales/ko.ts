@@ -1702,6 +1702,8 @@ const ko: typeof zhCN = {
       close: '닫기',
     },
     issue: {
+      invalidSecurityResponseStatus: '응답 상태 코드는 200–599여야 하며 204, 205, 304는 사용할 수 없습니다',
+      invalidSecurityResponseBody: '응답 본문은 유효한 JSON이어야 합니다',
       pluginDisabled: '노드 "{plugin}"은(는) 관리자가 비활성화했습니다',
       pluginMissing: '노드 플러그인 "{plugin}"이(가) 설치되어 있지 않습니다',
       credentialMissing: '참조한 자격 증명이 없거나 유형이 맞지 않습니다',
@@ -1891,6 +1893,11 @@ const ko: typeof zhCN = {
       matchAny: '하나 이상의',
     },
     request: {
+      errorResponse: '오류 응답',
+      defaultResponse: '기본 형식',
+      customResponse: '사용자 지정 형식',
+      errorResponseHelp: '워크플로 시작 전에 반환됩니다. 고정 JSON만 지원합니다.',
+      retryAfterHelp: '재시도 대기 시간을 알리는 Retry-After 헤더가 항상 포함됩니다.',
       authKey: '자격 증명 확인 (API 키)',
       authKeyDesc: 'X-API-Key 또는 Authorization: Bearer 로 키를 전달합니다',
       copied: '복사했습니다',

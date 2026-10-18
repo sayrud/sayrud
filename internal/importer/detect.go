@@ -20,7 +20,7 @@ var (
 
 	// numberPattern matches the plain numbers with an optional sign, currency symbol, thousands separators and percent sign.
 	numberPattern = regexp.MustCompile(`^[-+]?[¥$]?[-+]?(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?%?$`)
-	// datePattern also matches the Chinese dates such as 2024年1月15日, the characters are escaped as \x{5e74} (year), \x{6708} (month) and \x{65e5} (day).
+	// datePattern also matches Chinese dates with separators escaped as \x{5e74} (year), \x{6708} (month) and \x{65e5} (day).
 	datePattern = regexp.MustCompile(`^\d{4}[-/.\x{5e74}]\d{1,2}[-/.\x{6708}]\d{1,2}\x{65e5}?(?:[ T]\d{1,2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:?\d{2})?)?$`)
 	// codePattern matches the integers of 11+ digits, such as phone numbers and IDs.
 	codePattern = regexp.MustCompile(`^[-+]?\d{11,}$`)
@@ -71,7 +71,7 @@ func isNumberText(text string) bool {
 	return len(strings.Replace(digits, ".", "", 1)) <= 15
 }
 
-// IsDateText reports whether the text is a date such as 2024-01-15, 2024/1/15 10:30 or 2024年1月15日.
+// IsDateText reports whether the text is a date such as 2024-01-15 or 2024/1/15 10:30, including Chinese date formats.
 func IsDateText(text string) bool {
 	return datePattern.MatchString(text)
 }

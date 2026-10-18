@@ -1700,6 +1700,8 @@ export default {
       close: '关闭',
     },
     issue: {
+      invalidSecurityResponseStatus: '响应状态码需为 200–599，且不能为 204、205 或 304',
+      invalidSecurityResponseBody: '响应体必须是有效的 JSON',
       pluginDisabled: '节点「{plugin}」已被管理员停用',
       pluginMissing: '节点插件「{plugin}」未安装',
       credentialMissing: '引用的凭据不存在或类型不符',
@@ -1889,6 +1891,11 @@ export default {
       matchAny: '任一',
     },
     request: {
+      errorResponse: '错误响应',
+      defaultResponse: '默认格式',
+      customResponse: '自定义格式',
+      errorResponseHelp: '在请求进入工作流前返回，仅支持固定 JSON 内容。',
+      retryAfterHelp: '始终返回 Retry-After 响应头，告知调用方多久后可重试。',
       authKey: '凭证校验 (API Key)',
       authKeyDesc: '通过 X-API-Key 或 Authorization: Bearer 传递密钥',
       copied: '已复制',

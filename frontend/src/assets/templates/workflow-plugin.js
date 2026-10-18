@@ -4,7 +4,7 @@
  *   - execute(config, ctx): runs the node and returns its output;
  *   - preview(config, ctx), optional: called instead of execute by simulated debugging of action nodes.
  *
- * Texts are plain strings or translations keyed by language, e.g. { en: "Send", "zh-CN": "发送" }.
+ * Texts are plain strings or translations keyed by language codes such as en and zh-CN.
  * The module can not import other modules; there are no timers, eval or Node.js APIs.
  */
 export const manifest = {

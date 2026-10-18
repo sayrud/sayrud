@@ -2916,6 +2916,11 @@ definitions:
     type: object
   WorkflowAuth:
     properties:
+      errorResponse:
+        allOf:
+        - $ref: '#/definitions/WorkflowErrorResponse'
+        description: ErrorResponse overrides the response returned when the API key
+          is missing or invalid.
       type:
         description: 'Type is none or api_key; the key is passed via X-API-Key or
           Authorization: Bearer.'
@@ -2971,6 +2976,18 @@ definitions:
     - sections
     - summary
     - type
+    type: object
+  WorkflowErrorResponse:
+    properties:
+      body:
+        description: Body keeps JSON as text so incomplete edits can still be saved
+          in drafts.
+        type: string
+      status:
+        type: integer
+    required:
+    - body
+    - status
     type: object
   WorkflowFieldDef:
     properties:
@@ -3530,6 +3547,11 @@ definitions:
     properties:
       enabled:
         type: boolean
+      errorResponse:
+        allOf:
+        - $ref: '#/definitions/WorkflowErrorResponse'
+        description: ErrorResponse overrides the response returned when the request
+          limit is exceeded.
       limit:
         description: Limit is the maximum number of requests allowed per window.
         type: integer

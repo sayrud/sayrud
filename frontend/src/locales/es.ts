@@ -1702,6 +1702,8 @@ const es: typeof zhCN = {
       close: 'Cerrar',
     },
     issue: {
+      invalidSecurityResponseStatus: 'El estado debe ser 200–599, excepto 204, 205 y 304',
+      invalidSecurityResponseBody: 'El cuerpo de la respuesta debe ser JSON válido',
       pluginDisabled: 'Un administrador desactivó el nodo «{plugin}»',
       pluginMissing: 'El plugin de nodo «{plugin}» no está instalado',
       credentialMissing: 'La credencial usada no existe o es de otro tipo',
@@ -1891,6 +1893,11 @@ const es: typeof zhCN = {
       matchAny: 'alguna de',
     },
     request: {
+      errorResponse: 'Respuesta de error',
+      defaultResponse: 'Formato predeterminado',
+      customResponse: 'Formato personalizado',
+      errorResponseHelp: 'Se devuelve antes de iniciar el flujo. Solo admite JSON estático.',
+      retryAfterHelp: 'La cabecera Retry-After siempre indica cuándo se puede reintentar.',
       authKey: 'Verificación de credenciales (clave de API)',
       authKeyDesc: 'Envía la clave con X-API-Key o Authorization: Bearer',
       copied: 'Copiado',

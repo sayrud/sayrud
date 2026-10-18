@@ -1376,6 +1376,8 @@ export interface WorkflowAsyncFlow {
 }
 
 export interface WorkflowAuth {
+  /** ErrorResponse overrides the response returned when the API key is missing or invalid. */
+  errorResponse?: WorkflowErrorResponse;
   /** Type is none or api_key; the key is passed via X-API-Key or Authorization: Bearer. */
   type: "none" | "api_key";
 }
@@ -1396,6 +1398,12 @@ export interface WorkflowCredentialTypeDef {
   summary: string[];
   test?: WorkflowCredentialTestDef;
   type: string;
+}
+
+export interface WorkflowErrorResponse {
+  /** Body keeps JSON as text so incomplete edits can still be saved in drafts. */
+  body: string;
+  status: number;
 }
 
 export interface WorkflowFieldDef {
@@ -1642,6 +1650,8 @@ export interface WorkflowPlugin {
 
 export interface WorkflowRateLimit {
   enabled: boolean;
+  /** ErrorResponse overrides the response returned when the request limit is exceeded. */
+  errorResponse?: WorkflowErrorResponse;
   /** Limit is the maximum number of requests allowed per window. */
   limit: number;
   /** Window is the window length in seconds. */

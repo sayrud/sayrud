@@ -1702,6 +1702,8 @@ const en: typeof zhCN = {
       close: 'Close',
     },
     issue: {
+      invalidSecurityResponseStatus: 'Response status must be 200–599, excluding 204, 205 and 304',
+      invalidSecurityResponseBody: 'Response body must be valid JSON',
       pluginDisabled: 'The node "{plugin}" is disabled by an admin',
       pluginMissing: 'The node plugin "{plugin}" is not installed',
       credentialMissing: 'The referenced credential does not exist or has a different type',
@@ -1891,6 +1893,11 @@ const en: typeof zhCN = {
       matchAny: 'any',
     },
     request: {
+      errorResponse: 'Error response',
+      defaultResponse: 'Default format',
+      customResponse: 'Custom format',
+      errorResponseHelp: 'Returned before the workflow starts. Only static JSON is supported.',
+      retryAfterHelp: 'The Retry-After header is always included to tell callers when to retry.',
       authKey: 'Credential check (API key)',
       authKeyDesc: 'Send the key by X-API-Key or Authorization: Bearer',
       copied: 'Copied',

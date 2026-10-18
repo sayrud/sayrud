@@ -11071,6 +11071,14 @@ const docTemplate = `{
                 "type"
             ],
             "properties": {
+                "errorResponse": {
+                    "description": "ErrorResponse overrides the response returned when the API key is missing or invalid.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/WorkflowErrorResponse"
+                        }
+                    ]
+                },
                 "type": {
                     "description": "Type is none or api_key; the key is passed via X-API-Key or Authorization: Bearer.",
                     "type": "string",
@@ -11143,6 +11151,22 @@ const docTemplate = `{
                 },
                 "type": {
                     "type": "string"
+                }
+            }
+        },
+        "WorkflowErrorResponse": {
+            "type": "object",
+            "required": [
+                "body",
+                "status"
+            ],
+            "properties": {
+                "body": {
+                    "description": "Body keeps JSON as text so incomplete edits can still be saved in drafts.",
+                    "type": "string"
+                },
+                "status": {
+                    "type": "integer"
                 }
             }
         },
@@ -11883,6 +11907,14 @@ const docTemplate = `{
             "properties": {
                 "enabled": {
                     "type": "boolean"
+                },
+                "errorResponse": {
+                    "description": "ErrorResponse overrides the response returned when the request limit is exceeded.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/WorkflowErrorResponse"
+                        }
+                    ]
                 },
                 "limit": {
                     "description": "Limit is the maximum number of requests allowed per window.",

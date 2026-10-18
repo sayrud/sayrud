@@ -1702,6 +1702,8 @@ const ru: typeof zhCN = {
       close: 'Закрыть',
     },
     issue: {
+      invalidSecurityResponseStatus: 'Статус должен быть от 200 до 599, кроме 204, 205 и 304',
+      invalidSecurityResponseBody: 'Тело ответа должно содержать корректный JSON',
       pluginDisabled: 'Узел «{plugin}» отключён администратором',
       pluginMissing: 'Плагин узла «{plugin}» не установлен',
       credentialMissing: 'Используемые учётные данные не существуют или другого типа',
@@ -1891,6 +1893,11 @@ const ru: typeof zhCN = {
       matchAny: 'любое из',
     },
     request: {
+      errorResponse: 'Ответ об ошибке',
+      defaultResponse: 'Стандартный формат',
+      customResponse: 'Свой формат',
+      errorResponseHelp: 'Возвращается до запуска процесса. Поддерживается только статический JSON.',
+      retryAfterHelp: 'Заголовок Retry-After всегда указывает время до повторной попытки.',
       authKey: 'Проверка учётных данных (API-ключ)',
       authKeyDesc: 'Передайте ключ через X-API-Key или Authorization: Bearer',
       copied: 'Скопировано',

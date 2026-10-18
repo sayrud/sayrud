@@ -7,6 +7,7 @@ import { computed, h, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import { apiEndpoint, workflowsApi } from '@/api/workflow'
+import ErrorResponseEditor from '@/components/workflow/ErrorResponseEditor.vue'
 import PanelSection from '@/components/workflow/PanelSection.vue'
 import { useWorkflowEditorStore } from '@/stores/workflowEditor'
 import type { WorkflowKey } from '@/types/workflow'
@@ -153,6 +154,9 @@ onMounted(() => {
       </a-spin>
     </div>
 
+    <!-- eslint-disable-next-line i18n-audit/source -- Keep the API response identical across interface languages. -->
+    <ErrorResponseEditor v-if="api.auth.type === 'api_key'" v-model="api.auth.errorResponse" :status="401" code="unauthorized" message="a valid API key is required" />
+
     <div class="switch-row">
       <span class="switch-title">{{ t('workflow.request.rateLimit') }}</span>
       <a-tooltip :content="t('workflow.request.rateLimitDesc')" mini>
@@ -170,6 +174,9 @@ onMounted(() => {
         <template #suffix>{{ t('workflow.request.times') }}</template>
       </a-input-number>
     </div>
+
+    <!-- eslint-disable-next-line i18n-audit/source -- Keep the API response identical across interface languages. -->
+    <ErrorResponseEditor v-if="api.rateLimit.enabled" v-model="api.rateLimit.errorResponse" :status="429" code="rate_limited" message="too many requests" retry-after />
   </PanelSection>
 
   <a-modal v-model:visible="createVisible" :title="t('workflow.request.createKey')" :width="420" :ok-loading="creating" :on-before-ok="createKey">

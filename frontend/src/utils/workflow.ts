@@ -810,6 +810,8 @@ const ISSUE_MESSAGES: Record<string, (args: Record<string, string>) => string> =
   'route.invalid_path': () => t('workflow.issue.invalidPath'),
   'auth.invalid_type': () => t('workflow.issue.invalidAuth'),
   'rate_limit.invalid': () => t('workflow.issue.invalidRateLimit'),
+  'security.invalid_response_status': () => t('workflow.issue.invalidSecurityResponseStatus'),
+  'security.invalid_response_body': () => t('workflow.issue.invalidSecurityResponseBody'),
   'param.too_many': (a) => t('workflow.issue.tooManyParams', a),
   'param.invalid_id': () => t('workflow.issue.invalidParam'),
   'param.invalid_key': (a) => t('workflow.issue.invalidParamKey', a),

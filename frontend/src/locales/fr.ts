@@ -1702,6 +1702,8 @@ const fr: typeof zhCN = {
       close: 'Fermer',
     },
     issue: {
+      invalidSecurityResponseStatus: 'Le statut doit être compris entre 200 et 599, sauf 204, 205 et 304',
+      invalidSecurityResponseBody: 'Le corps de la réponse doit être un JSON valide',
       pluginDisabled: 'Le nœud « {plugin} » a été désactivé par un administrateur',
       pluginMissing: 'Le plugin de nœud « {plugin} » n\'est pas installé',
       credentialMissing: 'L’identifiant utilisé n’existe pas ou n’est pas du bon type',
@@ -1891,6 +1893,11 @@ const fr: typeof zhCN = {
       matchAny: 'une des',
     },
     request: {
+      errorResponse: 'Réponse d’erreur',
+      defaultResponse: 'Format par défaut',
+      customResponse: 'Format personnalisé',
+      errorResponseHelp: 'Renvoyée avant le démarrage du workflow. Seul le JSON statique est pris en charge.',
+      retryAfterHelp: 'L’en-tête Retry-After indique toujours quand réessayer.',
       authKey: 'Vérification des identifiants (clé d’API)',
       authKeyDesc: 'Transmettez la clé via X-API-Key ou Authorization: Bearer',
       copied: 'Copié',

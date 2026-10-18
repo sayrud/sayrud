@@ -1702,6 +1702,8 @@ const zhTW: typeof zhCN = {
       close: '關閉',
     },
     issue: {
+      invalidSecurityResponseStatus: '回應狀態碼須為 200–599，且不能為 204、205 或 304',
+      invalidSecurityResponseBody: '回應內容必須是有效的 JSON',
       pluginDisabled: '節點「{plugin}」已被管理員停用',
       pluginMissing: '節點外掛「{plugin}」未安裝',
       credentialMissing: '引用的憑證不存在或類型不符',
@@ -1891,6 +1893,11 @@ const zhTW: typeof zhCN = {
       matchAny: '任一',
     },
     request: {
+      errorResponse: '錯誤回應',
+      defaultResponse: '預設格式',
+      customResponse: '自訂格式',
+      errorResponseHelp: '在請求進入工作流前回傳，僅支援固定 JSON 內容。',
+      retryAfterHelp: '一律回傳 Retry-After 回應標頭，告知呼叫端何時可重試。',
       authKey: '憑證校驗 (API Key)',
       authKeyDesc: '透過 X-API-Key 或 Authorization: Bearer 傳遞金鑰',
       copied: '已複製',
