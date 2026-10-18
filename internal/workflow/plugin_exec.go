@@ -214,8 +214,10 @@ func pluginError(err error, fetched bool, timeout int) error {
 		return actionErr
 	case errors.As(err, &scriptErr):
 		return &ActionError{Message: scriptErr.Message, Transient: scriptErr.Retryable}
-	case errors.Is(err, sandbox.ErrTimeout):
+	case errors.Is(err, sandbox.ErrTimeout), errors.Is(err, context.DeadlineExceeded):
 		return &ActionError{Message: fmt.Sprintf("the node timed out after %d seconds", timeout), Transient: !fetched, Uncertain: fetched}
+	case errors.Is(err, context.Canceled):
+		return &ActionError{Message: "the node was canceled", Uncertain: fetched}
 	case errors.Is(err, sandbox.ErrMemoryLimit), errors.Is(err, sandbox.ErrPendingPromise), errors.Is(err, sandbox.ErrResultTooLarge), errors.Is(err, sandbox.ErrFetchDisabled):
 		return &ActionError{Message: err.Error()}
 	}

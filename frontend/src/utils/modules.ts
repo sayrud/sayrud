@@ -164,10 +164,6 @@ export function setModuleDefs(data: WorkflowModules) {
   defs.value = { ...data, modules }
 }
 
-export function modulesLoaded() {
-  return byType.size > 0
-}
-
 export function moduleDef(type: StepType): ModuleDef | undefined {
   return byType.get(type)
 }

@@ -85,7 +85,7 @@ type DebugInput struct {
 	Spec     *Spec
 	Trigger  map[string]interface{}
 	UserID   int64
-	// DryRun runs the main flow in a rolled-back transaction and only previews emails and HTTP requests; otherwise a real background run is enqueued.
+	// DryRun runs the main flow in a rolled-back transaction and only previews external actions; otherwise a real background run is enqueued.
 	DryRun bool
 }
 

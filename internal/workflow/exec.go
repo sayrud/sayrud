@@ -97,7 +97,7 @@ func traceOutput(v interface{}) json.RawMessage {
 	return raw
 }
 
-// Actions performs async actions with external side effects.
+// Actions performs operations with external side effects.
 type Actions interface {
 	// SendEmail sends with the SMTP server resolved from the credential referenced by the step.
 	SendEmail(ctx context.Context, server SMTPServer, mail Mail) error
@@ -118,9 +118,9 @@ type execution struct {
 	batch *collab.Batch
 	// origin is the source of the flow's writes, used to trigger other workflows.
 	origin collab.Origin
-	// actions is nil when external actions must not run, e.g. in sync flows or simulated debugging.
+	// actions is nil when external actions must not run, e.g. in simulated debugging.
 	actions Actions
-	// preview marks simulated debugging of a background flow: external actions only compute their parameters and are not executed.
+	// preview marks simulated debugging: external actions only compute their parameters and are not executed.
 	preview bool
 	// done holds the outputs of steps already completed in an async retry, keyed by step ID.
 	done map[string]json.RawMessage

@@ -106,7 +106,7 @@ func TestParsePluginManifest(t *testing.T) {
 	m, err := ParsePluginManifest([]byte(`{"id":"echo","version":"1.0.0","name":"Echo","action":true,"permissions":{"fetch":["API.Example.com.","*.hooks.test","*"]},
 		"sections":[{"fields":[{"key":"n","widget":"number","default":3}]}]}`))
 	require.NoError(t, err)
-	assert.Equal(t, []string{"async", "background"}, m.Flows)
+	assert.Equal(t, []string{"sync", "async", "background"}, m.Flows)
 	assert.Equal(t, []string{"*", "api.example.com", "hooks.test"}, m.Permissions.Fetch)
 	assert.Equal(t, defaultPluginTimeout, m.Timeout)
 	assert.Equal(t, "integration", m.Category)
@@ -124,13 +124,20 @@ func TestParsePluginManifest(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, m, again)
 
+	for _, flows := range []string{`["sync"]`, `["async","background"]`} {
+		t.Run("explicit flows "+flows, func(t *testing.T) {
+			m, err := ParsePluginManifest([]byte(`{"id":"echo","version":"1","name":"Echo","action":true,"flows":` + flows + `}`))
+			require.NoError(t, err)
+			assert.JSONEq(t, flows, string(marshalJSON(m.Flows)))
+		})
+	}
+
 	for name, manifest := range map[string]string{
 		"bad id":             `{"id":"Echo","version":"1","name":"x"}`,
 		"no version":         `{"id":"echo","name":"x"}`,
 		"no name":            `{"id":"echo","version":"1"}`,
 		"bad category":       `{"id":"echo","version":"1","name":"x","category":"misc"}`,
 		"bad flow":           `{"id":"echo","version":"1","name":"x","flows":["web"]}`,
-		"action in sync":     `{"id":"echo","version":"1","name":"x","action":true,"flows":["sync"]}`,
 		"fetch without act":  `{"id":"echo","version":"1","name":"x","permissions":{"fetch":["a.com"]}}`,
 		"bad host":           `{"id":"echo","version":"1","name":"x","action":true,"permissions":{"fetch":["http://a.com"]}}`,
 		"bad widget":         `{"id":"echo","version":"1","name":"x","sections":[{"fields":[{"key":"t","widget":"table"}]}]}`,
@@ -235,10 +242,14 @@ export function execute() { const e = new Error("rate limited"); e.retryable = t
 type fakePluginFetcher struct {
 	fakeActions
 	requests []sandbox.FetchRequest
+	fetch    func(context.Context, sandbox.FetchRequest) (*sandbox.FetchResponse, error)
 }
 
-func (f *fakePluginFetcher) PluginFetch(_ context.Context, req sandbox.FetchRequest) (*sandbox.FetchResponse, error) {
+func (f *fakePluginFetcher) PluginFetch(ctx context.Context, req sandbox.FetchRequest) (*sandbox.FetchResponse, error) {
 	f.requests = append(f.requests, req)
+	if f.fetch != nil {
+		return f.fetch(ctx, req)
+	}
 	return &sandbox.FetchResponse{Status: 202, Body: "{}"}, nil
 }
 
@@ -268,6 +279,28 @@ func TestRunActionPlugin(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, x.trace[0].Error, "not allowed by the plugin permissions")
 	assert.Len(t, fetcher.requests, 1)
+}
+
+func TestRunActionPluginCancellation(t *testing.T) {
+	installTestPlugins(t, map[string]bool{notifyPlugin: true})
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	fetcher := &fakePluginFetcher{fetch: func(fetchCtx context.Context, _ sandbox.FetchRequest) (*sandbox.FetchResponse, error) {
+		cancel()
+		<-fetchCtx.Done()
+		return nil, fetchCtx.Err()
+	}}
+	x := newPluginExecution(fetcher, false)
+	x.ctx = ctx
+	_, err := x.runSteps([]Step{pluginStep(t, `{"id":"notify","type":"plugin:notify","config":{"url":{"kind":"const","const":"https://team.hooks.example.com/x"}}}`)})
+	var stepErr *StepError
+	require.ErrorAs(t, err, &stepErr)
+	assert.Equal(t, ErrCodeAction, stepErr.Code)
+	assert.True(t, stepErr.Uncertain)
+	assert.False(t, stepErr.Transient)
+	assert.Len(t, fetcher.requests, 1)
+	assert.Equal(t, TraceFailed, x.trace[0].Status)
+	assert.Equal(t, "the node was canceled", x.trace[0].Error)
 }
 
 func TestCheckPluginSteps(t *testing.T) {

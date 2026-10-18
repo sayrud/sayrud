@@ -6,7 +6,7 @@ import { ApiError } from '@/api/client'
 import { credentialsApi, workflowsApi } from '@/api/workflow'
 import type { Project } from '@/types/bitable'
 import type { Credential, WorkflowIssue, WorkflowSpec, WorkflowTraceStep, Workflow } from '@/types/workflow'
-import { modulesLoaded, setModuleDefs } from '@/utils/modules'
+import { setModuleDefs } from '@/utils/modules'
 import { referencedTables, type TableMeta } from '@/utils/workflow'
 import { roleAtLeast } from '@/utils/role'
 
@@ -98,10 +98,9 @@ export const useWorkflowEditorStore = defineStore('workflowEditor', () => {
     credentials.value = null
     selection.value = { kind: 'trigger' }
     try {
-      const modules = modulesLoaded() ? null : workflowsApi.modules(pid)
-      const [p, list, data, defs] = await Promise.all([projectsApi.get(pid), tablesApi.list(pid), workflowsApi.get(pid, workflowUID), modules])
-      if (defs) setModuleDefs(defs)
+      const [p, list, data, defs] = await Promise.all([projectsApi.get(pid), tablesApi.list(pid), workflowsApi.get(pid, workflowUID), workflowsApi.modules(pid)])
       if (seq !== loadSeq) return
+      setModuleDefs(defs)
       project.value = p
       tables.value = list.tables.map((t) => ({ uid: t.uid, name: t.name }))
       apply(data)

@@ -19,7 +19,7 @@ export const manifest = {
   color: "#2f6bff",
   // data | logic | integration
   category: "integration",
-  // Action nodes have external side effects: they run in background flows only and are the only nodes that can fetch.
+  // Action nodes can fetch; synchronous requests wait for them, while simulated debugging only calls preview.
   action: true,
   // Time limit of a call in seconds, 1-60.
   timeout: 10,
