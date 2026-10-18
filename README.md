@@ -18,24 +18,25 @@
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="assets/product-preview-en-dark.svg">
-    <img src="assets/product-preview-en-light.svg" alt="Sayrud product preview showing four views, seven field types, and real-time collaboration" width="100%">
+    <img src="assets/product-preview-en-light.svg" alt="Sayrud product preview showing table views, field types, and real-time collaboration" width="100%">
   </picture>
 </p>
 
 ## ✨ Features
 
-Sayrud is a self-hosted collaborative spreadsheet database for organizing projects, tasks, and shared data.
+Sayrud is a self-hosted collaborative spreadsheet database for organizing shared data and automating work.
 
-- Grid, kanban, gallery, and form views over the same table.
+- Grid, kanban, gallery, and form views, each with its own filters, sorting, grouping, and visible fields.
 - Text, number, date, single-select, multi-select, checkbox, attachment, and formula fields.
+- Real-time collaboration with online presence and cell editing indicators, including across server instances.
+- Visual workflows triggered by API requests, record changes, dates, or schedules. Query, create, and update records,
+  branch on conditions, send email, and call HTTP services, with debugging, run history, and version rollback.
+- Extend workflows with sandboxed JavaScript plugins, control network access, and add custom credentials.
 - Custom JavaScript field shortcuts published by admins. They regenerate automatically when the referenced fields change.
-- Each view has its own filters, sorting, grouping, and visible fields.
-- Edit together in real time and see who is online and which cells they are editing.
-- Copy and paste cells, edit records in batches, and undo or redo changes.
+- Import CSV, TSV, and Excel (`.xlsx`/`.xlsm`) into new or existing tables, with previews, automatic field type detection,
+  and field mapping.
 - Configurable OAuth2, OIDC, and SAML single sign-on, and LDAP authentication, with provider templates for GitHub,
   Google, Microsoft, Keycloak, and more.
-- Localized interface and system messages in ten languages.
-- Light, dark, and system themes.
 - REST API with an [OpenAPI specification](docs/swagger.yaml).
 
 ## 🚀 Deployment

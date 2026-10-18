@@ -18,23 +18,23 @@
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="assets/product-preview-zh-CN-dark.svg">
-    <img src="assets/product-preview-zh-CN-light.svg" alt="Sayrud 产品预览：四种视图、七种字段类型与多人实时协作" width="100%">
+    <img src="assets/product-preview-zh-CN-light.svg" alt="Sayrud 产品预览：多种视图、字段类型与多人实时协作" width="100%">
   </picture>
 </p>
 
 ## ✨ 功能介绍
 
-Sayrud 是一款可以自己部署的协作式多维表格，用来整理项目、任务和共享数据。
+Sayrud 是一款可以自己部署的协作式多维表格，用来整理项目、任务和共享数据，并通过工作流自动处理业务。
 
-- 同一张数据表支持表格、看板、画册和表单视图。
+- 同一张数据表支持表格、看板、画册和表单视图，每个视图可独立设置筛选、排序、分组和可见字段。
 - 支持文本、数字、日期、单选、多选、复选框、附件和公式字段。
+- 支持多实例部署下的多人实时编辑，显示在线成员和正在编辑的单元格。
+- 可视化工作流：通过 API 请求、记录变化、日期到达或定时计划触发，支持查询、新增和更新记录、条件分支、发送邮件及 HTTP 请求，
+  并提供调试、运行历史与版本回滚。
+- 沙箱 JavaScript 插件可扩展工作流节点与外部集成，支持网络访问权限控制，可添加自定义凭证。
 - 字段捷径：管理员可发布 JavaScript 自定义捷径；引用字段变化后自动重新生成。
-- 每个视图可以单独设置筛选、排序、分组，以及显示或隐藏哪些字段。
-- 多人实时编辑，显示在线成员和正在编辑的单元格。
-- 复制粘贴单元格、批量编辑记录，支持撤销和重做。
+- 将 CSV、TSV 和 Excel（`.xlsx`/`.xlsm`）导入到新表或已有表，支持数据预览、字段类型自动识别与字段映射。
 - 可配置 OAuth2、OIDC、SAML 单点登录和 LDAP 身份验证，内置 GitHub、Google、Microsoft、Keycloak 等配置模板。
-- 提供十种语言的本地化界面与系统提示。
-- 支持浅色、深色和跟随系统的主题。
 - 提供 REST API 和 [OpenAPI 描述文件](docs/swagger.yaml)。
 
 ## 🚀 部署方式
