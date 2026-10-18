@@ -441,6 +441,7 @@ func (x *execution) write(step *Step) (interface{}, error) {
 		var record *db.SLRecord
 		var err error
 		if step.Type == StepCreate {
+			info.applyDefaults(values)
 			record, err = b.CreateRecord(info.table, values)
 		} else {
 			record, err = b.UpdateRecord(info.table, recordUID, func(current map[string]interface{}) map[string]interface{} {

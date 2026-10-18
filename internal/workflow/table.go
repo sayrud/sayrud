@@ -12,6 +12,7 @@ import (
 	"github.com/samber/lo"
 
 	"github.com/wuhan005/sayrud/internal/db"
+	"github.com/wuhan005/sayrud/internal/routeutil"
 )
 
 // tableInfo is a table and its fields cached during a run.
@@ -51,6 +52,36 @@ func fieldOptions(field *db.SLField) []selectOption {
 // WritableField reports whether the field can be written by the API: formula, attachment and shortcut-generated fields are not writable.
 func WritableField(field *db.SLField) bool {
 	return field.Type != db.FormulaFieldType && field.Type != db.AttachmentFieldType && field.Shortcut == nil && !field.Type.IsUnknown()
+}
+
+// applyDefaults fills only unmapped writable fields when a workflow creates a record.
+func (info *tableInfo) applyDefaults(values map[string]interface{}) {
+	var currentDate string
+	for _, field := range info.fields {
+		if _, mapped := values[field.UID]; mapped || !WritableField(field) {
+			continue
+		}
+
+		metadata, _ := field.Metadata.Data().(map[string]interface{})
+		value := metadata["default"]
+		switch field.Type {
+		case db.DateTimeFieldType:
+			if value != "now" {
+				continue
+			}
+			if currentDate == "" {
+				currentDate = time.Now().UTC().Format(time.RFC3339)
+			}
+			value = currentDate
+		case db.TextFieldType, db.NumberFieldType, db.SingleSelectFieldType, db.MultiSelectFieldType:
+		default:
+			continue
+		}
+
+		if routeutil.IsStoredValue(field, value) && routeutil.CheckValue(field, value) {
+			values[field.UID] = value
+		}
+	}
 }
 
 // toCellValue converts a value to the field's stored value; single and multiple selects accept option names or UIDs.
