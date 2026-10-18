@@ -264,6 +264,16 @@ func checkPluginFetchURL(u *url.URL, domains []string) error {
 	return nil
 }
 
+func checkPluginFetchRedirect(r *http.Request, via []*http.Request, domains []string) error {
+	if len(via) >= 5 {
+		return errors.New("too many redirects")
+	}
+	if len(via) > 0 && via[len(via)-1].URL.Scheme == "https" && r.URL.Scheme == "http" {
+		return &ActionError{Message: "fetch: redirect to an insecure URL is not allowed"}
+	}
+	return checkPluginFetchURL(r.URL, domains)
+}
+
 // PluginHostAllowed reports whether a plugin with the allowed hosts can fetch the host; * allows any host.
 func PluginHostAllowed(host string, domains []string) bool {
 	for _, d := range domains {
@@ -285,10 +295,7 @@ func (a *DefaultActions) PluginFetch(ctx context.Context, req sandbox.FetchReque
 			ResponseHeaderTimeout: 60 * time.Second,
 		},
 		CheckRedirect: func(r *http.Request, via []*http.Request) error {
-			if len(via) >= 5 {
-				return errors.New("too many redirects")
-			}
-			return checkPluginFetchURL(r.URL, domains)
+			return checkPluginFetchRedirect(r, via, domains)
 		},
 	}
 	defer client.CloseIdleConnections()

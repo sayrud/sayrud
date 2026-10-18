@@ -117,3 +117,34 @@ func TestPluginFetchBlocksPrivateNetworks(t *testing.T) {
 	assert.Contains(t, actionErr.Message, "is not public")
 	assert.False(t, actionErr.Transient)
 }
+
+func TestPluginFetchRedirectSchemes(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		via     []string
+		target  string
+		blocked bool
+	}{
+		{name: "https destination", via: []string{"https://api.example.com/start"}, target: "https://api.example.com/end"},
+		{name: "http destination", via: []string{"http://api.example.com/start"}, target: "http://api.example.com/end"},
+		{name: "upgrade", via: []string{"http://api.example.com/start"}, target: "https://api.example.com/end"},
+		{name: "downgrade", via: []string{"https://api.example.com/start"}, target: "http://api.example.com/end", blocked: true},
+		{name: "downgrade after upgrade", via: []string{"http://api.example.com/start", "https://api.example.com/next"}, target: "http://api.example.com/end", blocked: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var via []*http.Request
+			for _, address := range tc.via {
+				via = append(via, httptest.NewRequest(http.MethodGet, address, nil))
+			}
+			err := checkPluginFetchRedirect(httptest.NewRequest(http.MethodGet, tc.target, nil), via, []string{"*"})
+			if tc.blocked {
+				var actionErr *ActionError
+				require.ErrorAs(t, err, &actionErr)
+				assert.Contains(t, actionErr.Message, "insecure URL")
+				assert.False(t, actionErr.Transient)
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
+}

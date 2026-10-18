@@ -177,7 +177,7 @@ func (adminRoute) InspectWorkflowPlugin(ctx context.Context, f form.InspectWorkf
 		return respondPluginError(ctx, err, "inspect")
 	}
 	if strings.TrimSpace(source) == "" && strings.TrimSpace(f.URL) != "" {
-		source, lang, err = workflow.DownloadPluginSource(ctx.Request().Context(), f.URL)
+		source, lang, err = workflow.DownloadPluginSource(ctx.Request().Context(), f.URL, lang)
 		if err != nil {
 			var downloadErr *workflow.DownloadError
 			switch {

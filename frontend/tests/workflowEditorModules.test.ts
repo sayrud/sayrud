@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
+import { setImmediate } from 'node:timers/promises'
 import test from 'node:test'
 import { createPinia, disposePinia } from 'pinia'
 import ts from 'typescript'
@@ -66,8 +67,12 @@ test('reopening the editor refreshes plugin availability and respects flow and e
   const older = new Promise<WorkflowModules>((resolve) => { resolveOlder = resolve })
   available = older
   const first = store.load('project', 'older')
+  // Let the older load request its modules before the newer load starts.
+  await setImmediate()
+  assert.equal(requests, 3)
   available = definitions([plugin('plugin:latest', ['sync'])])
   await store.load('project', 'latest')
+  assert.equal(requests, 4)
   resolveOlder(definitions([plugin('plugin:stale', ['sync'])]))
   await first
   assert.deepEqual(modules.stepTypesFor('sync'), ['plugin:latest'])

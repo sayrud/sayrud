@@ -31,8 +31,8 @@ func (e *DownloadError) Error() string {
 
 const pluginDownloadTimeout = 15 * time.Second
 
-// DownloadPluginSource downloads a plugin source with a client that can not reach private networks; the language is TypeScript when the path ends with .ts or .mts.
-func DownloadPluginSource(ctx context.Context, rawURL string) (string, sandbox.Language, error) {
+// DownloadPluginSource downloads a plugin source with a client that can not reach private networks.
+func DownloadPluginSource(ctx context.Context, rawURL string, fallback sandbox.Language) (string, sandbox.Language, error) {
 	u, err := url.Parse(strings.TrimSpace(rawURL))
 	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" || u.User != nil {
 		return "", "", ErrInvalidPluginURL
@@ -62,16 +62,18 @@ func DownloadPluginSource(ctx context.Context, rawURL string) (string, sandbox.L
 	if mediaType, _, _ := mime.ParseMediaType(resp.Headers["content-type"]); strings.HasPrefix(mediaType, "text/html") {
 		return "", "", &DownloadError{Message: "the URL returns an HTML page instead of the source"}
 	}
-	return resp.Body, LanguageOf(u.Path), nil
+	return resp.Body, LanguageOf(u.Path, fallback), nil
 }
 
-// LanguageOf returns the language of a plugin file by its extension.
-func LanguageOf(name string) sandbox.Language {
+// LanguageOf returns the language of a plugin file by its extension, or fallback when the extension is unknown.
+func LanguageOf(name string, fallback sandbox.Language) sandbox.Language {
 	switch strings.ToLower(path.Ext(name)) {
 	case ".ts", ".mts":
 		return sandbox.TypeScript
+	case ".js", ".mjs", ".cjs":
+		return sandbox.JavaScript
 	}
-	return sandbox.JavaScript
+	return fallback
 }
 
 // InspectPlugin compiles a plugin source and validates its manifest; errors are *sandbox.Error, *ManifestError or the sandbox errors.

@@ -90,7 +90,7 @@ type PluginManifest struct {
 	Category string   `json:"category"`
 	IDBase   string   `json:"idBase"`
 	Flows    []string `json:"flows"`
-	// Action marks external side effects: only these nodes can fetch, and simulated debugging calls preview instead of execute.
+	// Action marks external side effects: only these nodes can fetch, they run in the background flows, and simulated debugging calls preview instead of execute.
 	Action bool `json:"action"`
 	// Timeout is the time limit of a call in seconds.
 	Timeout     int               `json:"timeout"`
@@ -285,6 +285,9 @@ func (m *PluginManifest) normalize() error {
 
 	if len(m.Flows) == 0 {
 		m.Flows = []string{"sync", "async", "background"}
+		if m.Action {
+			m.Flows = []string{"async", "background"}
+		}
 	}
 	flows := make([]string, 0, len(m.Flows))
 	for _, f := range []string{"sync", "async", "background"} {
@@ -298,6 +301,9 @@ func (m *PluginManifest) normalize() error {
 		}
 	}
 	m.Flows = flows
+	if m.Action && slices.Contains(m.Flows, "sync") {
+		return manifestErrorf("an action node can not run in the sync flow")
+	}
 
 	if m.Timeout == 0 {
 		m.Timeout = defaultPluginTimeout
