@@ -7576,7 +7576,8 @@ const docTemplate = `{
                 "timeoutSeconds",
                 "uid",
                 "updatedAt",
-                "usedBy"
+                "usedBy",
+                "version"
             ],
             "properties": {
                 "aiEnabled": {
@@ -7651,6 +7652,10 @@ const docTemplate = `{
                 "usedBy": {
                     "description": "UsedBy is the number of the fields using the shortcut.",
                     "type": "integer"
+                },
+                "version": {
+                    "description": "Version is the version declared by the shortcut manifest.",
+                    "type": "string"
                 }
             }
         },
@@ -9844,6 +9849,10 @@ const docTemplate = `{
                 "timeoutSeconds": {
                     "description": "TimeoutSeconds is the time limit of an execution between 1 and 300, 0 defaults to 30.",
                     "type": "integer"
+                },
+                "version": {
+                    "description": "Version is the manifest version, 1.0.0 when omitted for compatibility.",
+                    "type": "string"
                 }
             }
         },

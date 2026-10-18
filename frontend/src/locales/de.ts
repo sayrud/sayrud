@@ -1255,6 +1255,7 @@ const de: typeof zhCN = {
     generating: 'Wird generiert…',
   },
   shortcutAdmin: {
+    version: 'Version',
     uninstallTitle: 'Shortcut „{name}“ deinstallieren?',
     manifestSyncError: 'Die Einstellungen konnten nicht synchronisiert werden. Prüfe die Syntax und den manifest-Export.',
     manifestSourceChanged: 'Der Quellcode wurde während der Synchronisierung geändert. Bitte versuche es erneut.',

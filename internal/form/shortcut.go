@@ -30,6 +30,8 @@ type PreviewFieldShortcut struct {
 type SaveFieldShortcut struct {
 	// Name is shown in the field editor, at most 64 characters.
 	Name string `json:"name"`
+	// Version is the manifest version, 1.0.0 when omitted for compatibility.
+	Version string `json:"version,omitempty"`
 	// Description tells the members what the shortcut does, at most 500 characters.
 	Description string `json:"description"`
 	// ResultType is the type of the fields the shortcut can be attached to.

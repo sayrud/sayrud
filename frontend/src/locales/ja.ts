@@ -1255,6 +1255,7 @@ const ja: typeof zhCN = {
     generating: '生成中…',
   },
   shortcutAdmin: {
+    version: 'バージョン',
     uninstallTitle: 'ショートカット「{name}」をアンインストールしますか？',
     manifestSyncError: '設定を同期できません。構文と manifest のエクスポート宣言を確認してください。',
     manifestSourceChanged: '同期中にコードが変更されました。もう一度お試しください。',

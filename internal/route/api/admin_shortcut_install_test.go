@@ -24,7 +24,7 @@ import (
 
 const installableShortcut = `
 export const manifest = {
-  name: "Uppercase", resultType: "text", aiEnabled: true,
+  name: "Uppercase", version: "1.2.3", resultType: "text", aiEnabled: true,
   formItems: [{key: "text", label: "Text", component: "input", required: true}],
   domains: ["API.EXAMPLE.COM"],
   credentials: [{key: "api", type: "bearer", value: "ignored-secret"}]
@@ -36,7 +36,7 @@ export async function execute(params, context) {
 
 const installableTypeScriptShortcut = `
 interface Params { text: string }
-export const manifest = { name: "Typed shortcut", resultType: "text" } as const;
+export const manifest = { name: "Typed shortcut", version: "2.0.0-beta.1", resultType: "text" } as const;
 export function execute(params: Params): string { return params.text.toUpperCase() }
 `
 
@@ -44,6 +44,7 @@ func TestInspectTypeScriptShortcut(t *testing.T) {
 	s, err := inspectFieldShortcut(stdcontext.Background(), installableTypeScriptShortcut, sandbox.TypeScript)
 	require.NoError(t, err)
 	require.Equal(t, "typescript", s.Language)
+	require.Equal(t, "2.0.0-beta.1", s.Version)
 	require.Equal(t, installableTypeScriptShortcut, s.Code)
 	result, err := script.Run(stdcontext.Background(), script.Options{Code: s.Code, Language: s.Language, Params: map[string]interface{}{"text": "hello"}})
 	require.NoError(t, err)
@@ -60,6 +61,7 @@ func TestInspectFieldShortcut(t *testing.T) {
 	s, err := inspectFieldShortcut(stdcontext.Background(), installableShortcut, sandbox.JavaScript)
 	require.NoError(t, err)
 	require.Equal(t, "Uppercase", s.Name)
+	require.Equal(t, "1.2.3", s.Version)
 	require.Equal(t, db.TextFieldType, s.ResultType)
 	require.Equal(t, defaultShortcutTimeout, s.TimeoutSeconds)
 	require.True(t, s.Enabled)
@@ -83,6 +85,12 @@ func TestInspectFieldShortcut(t *testing.T) {
 	result, err = script.Run(stdcontext.Background(), script.Options{Code: s.Code, Params: map[string]interface{}{"text": "example"}})
 	require.NoError(t, err)
 	require.Equal(t, "EXAMPLE", result.Value)
+	require.Equal(t, "1.0.0", s.Version)
+
+	legacy := strings.Replace(installableShortcut, `version: "1.2.3", `, "", 1)
+	s, err = inspectFieldShortcut(stdcontext.Background(), legacy, sandbox.JavaScript)
+	require.NoError(t, err)
+	require.Equal(t, "1.0.0", s.Version)
 }
 
 func TestInspectFieldShortcutValidation(t *testing.T) {
@@ -93,6 +101,8 @@ func TestInspectFieldShortcutValidation(t *testing.T) {
 		`export const manifest = {name: 1}; export function execute() {}`,
 		`export const manifest = {name: "Invalid", resultType: "formula"}; export function execute() {}`,
 		strings.Replace(installableShortcut, `component: "input"`, `component: "unknown"`, 1),
+		strings.Replace(installableShortcut, `version: "1.2.3"`, `version: "invalid version"`, 1),
+		strings.Replace(installableShortcut, `version: "1.2.3"`, `version: 123`, 1),
 		strings.Replace(installableShortcut, `"API.EXAMPLE.COM"`, `"https://example.com/path"`, 1),
 		`import data from "other.js"; ` + installableShortcut,
 		`throw new Error("top-level failure"); ` + installableShortcut,
@@ -183,12 +193,14 @@ func TestFieldShortcutInstallRoutes(t *testing.T) {
 		require.Empty(t, store.created, "installation must validate the source again")
 		installed := request("/install", form.InstallFieldShortcut{Source: preview.Code, Language: preview.Language}, http.StatusOK)
 		require.NotEmpty(t, installed.UID)
+		require.Equal(t, preview.Version, installed.Version)
 		if len(installed.Credentials) > 0 {
 			require.False(t, installed.Credentials[0].HasValue)
 		}
 		require.Len(t, store.created, 1)
 		require.Equal(t, preview.Code, store.created[0].Code)
 		require.Equal(t, preview.Language, store.created[0].Language)
+		require.Equal(t, preview.Version, store.created[0].Version)
 		store.created = nil
 	}
 	request("/inspect", form.InspectFieldShortcut{Source: installableTypeScriptShortcut, Language: "unknown"}, http.StatusBadRequest)

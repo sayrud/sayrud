@@ -1253,6 +1253,7 @@ export default {
     generating: '生成中…',
   },
   shortcutAdmin: {
+    version: '版本',
     uninstallTitle: '卸载捷径「{name}」？',
     manifestSyncError: '无法同步配置，请检查源代码语法和 manifest 导出声明。',
     manifestSourceChanged: '同步期间代码已修改，请重试。',

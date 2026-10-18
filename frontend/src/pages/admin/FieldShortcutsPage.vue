@@ -1,18 +1,20 @@
 <script setup lang="ts">
 import { Message, Modal, type TableColumnData } from '@arco-design/web-vue'
-import { CircleArrowUp, Download, Ellipsis, Sparkles, Trash2, Zap } from '@lucide/vue'
+import { CircleArrowUp, Download, Ellipsis, Trash2 } from '@lucide/vue'
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 
 import { adminShortcutsApi, type AdminFieldShortcut } from '@/api/shortcut'
 import FieldShortcutInstallModal from '@/components/admin/FieldShortcutInstallModal.vue'
+import WorkflowPluginIcon from '@/components/admin/WorkflowPluginIcon.vue'
 import StateIllustration from '@/components/common/StateIllustration.vue'
 import PageHeader from '@/components/console/PageHeader.vue'
 import SettingsSection from '@/components/console/SettingsSection.vue'
 import FieldTypeIcon from '@/components/field/FieldTypeIcon.vue'
 import type { FieldType } from '@/types/bitable'
 import { fieldTypeInfo } from '@/utils/fieldTypes'
+import { versionLabel } from '@/utils/workflowPlugin'
 
 const { t } = useI18n()
 const router = useRouter()
@@ -27,6 +29,7 @@ const pagination = reactive({ current: 1, pageSize: 20, total: 0 })
 
 const columns = computed<TableColumnData[]>(() => [
   { title: t('shortcutAdmin.name'), slotName: 'name', width: 320 },
+  { title: t('shortcutAdmin.version'), slotName: 'version', width: 100 },
   { title: t('shortcutAdmin.resultType'), slotName: 'resultType', width: 140 },
   { title: t('shortcutAdmin.colStatus'), slotName: 'status', width: 110 },
   { title: t('common.actions'), slotName: 'actions', width: 140, fixed: 'right' },
@@ -102,6 +105,7 @@ async function toggle(s: AdminFieldShortcut, enabled: boolean) {
   try {
     const saved = await adminShortcutsApi.update(s.uid, {
       name: s.name,
+      version: s.version,
       description: s.description,
       resultType: s.resultType as Parameters<typeof adminShortcutsApi.update>[1]['resultType'],
       code: s.code,
@@ -168,22 +172,21 @@ onMounted(load)
         :loading="loading"
         row-key="uid"
         :bordered="false"
-        :scroll="{ x: 720 }"
+        :scroll="{ x: 820 }"
         :pagination="false"
         class="table"
         @row-click="(record) => edit(record as AdminFieldShortcut)"
       >
         <template #name="{ record }">
           <div class="name-cell">
-            <a-avatar shape="square" :size="32" class="name-icon">
-              <component :is="record.aiEnabled ? Sparkles : Zap" :size="16" />
-            </a-avatar>
+            <WorkflowPluginIcon :icon="record.aiEnabled ? 'sparkles' : 'zap'" color="var(--color-primary)" :size="32" />
             <div class="name-text">
               <div class="name ellipsis">{{ record.name }}</div>
               <div class="text-desc ellipsis desc">{{ record.description || record.uid }}</div>
             </div>
           </div>
         </template>
+        <template #version="{ record }">{{ versionLabel(record.version) }}</template>
         <template #resultType="{ record }">
           <span class="type-cell">
             <FieldTypeIcon :type="record.resultType as FieldType" />
@@ -288,11 +291,6 @@ onMounted(load)
   align-items: center;
   gap: 12px;
   min-width: 0;
-}
-.name-icon {
-  flex: none;
-  background: var(--bg-primary-soft);
-  color: var(--color-primary);
 }
 .name-text {
   min-width: 0;

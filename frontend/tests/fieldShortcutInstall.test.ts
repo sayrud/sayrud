@@ -150,11 +150,11 @@ test('TypeScript files and custom code retain their reviewed language through in
 
 test('upgrading replaces the selected shortcut with reviewed source and preserves its identity and enabled state', async (t) => {
   const original = {
-    uid: 'fscAAAAAAA', name: 'Original', code: 'original source', language: 'javascript', enabled: false,
+    uid: 'fscAAAAAAA', name: 'Original', version: '1.0.0', code: 'original source', language: 'javascript', enabled: false,
     credentials: [{ key: 'api', type: 'bearer', hasValue: true }],
   } as AdminFieldShortcut
   const preview = {
-    name: 'Replacement', description: 'Updated description', resultType: 'text',
+    name: 'Replacement', version: '2.3.0', description: 'Updated description', resultType: 'text',
     code: 'reviewed source', language: 'typescript', enabled: true,
     formItems: [{ key: 'text', label: 'Text', component: 'input', required: true }],
     domains: ['api.example.com'], credentials: [{ key: 'api', type: 'bearer', hasValue: false }],
@@ -179,7 +179,7 @@ test('upgrading replaces the selected shortcut with reviewed source and preserve
   assert.deepEqual(writes, [{
     uid: original.uid,
     body: {
-      name: preview.name, description: preview.description, resultType: 'text',
+      name: preview.name, version: '2.3.0', description: preview.description, resultType: 'text',
       code: preview.code, language: 'typescript', formItems: preview.formItems,
       domains: preview.domains, credentials: [{ key: 'api', type: 'bearer', name: undefined }],
       timeoutSeconds: 60, aiEnabled: true, enabled: false,

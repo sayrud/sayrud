@@ -1255,6 +1255,7 @@ const ptBR: typeof zhCN = {
     generating: 'Gerando…',
   },
   shortcutAdmin: {
+    version: 'Versão',
     uninstallTitle: 'Desinstalar o atalho "{name}"?',
     manifestSyncError: 'Não foi possível sincronizar as configurações. Verifique a sintaxe e a exportação de manifest.',
     manifestSourceChanged: 'O código mudou durante a sincronização. Tente novamente.',

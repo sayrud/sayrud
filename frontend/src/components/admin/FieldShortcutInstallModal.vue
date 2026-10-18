@@ -1,17 +1,18 @@
 <script setup lang="ts">
 import { Message, type FileItem } from '@arco-design/web-vue'
-import { ArrowRight, CodeXml, FileCode2, Link2, Sparkles, Upload, X, Zap } from '@lucide/vue'
+import { ArrowRight, CodeXml, FileCode2, Link2, Upload, X } from '@lucide/vue'
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import { adminShortcutsApi, type AdminFieldShortcut, type SaveFieldShortcut } from '@/api/shortcut'
 import SHORTCUT_STARTER from '@/assets/templates/field-shortcut.js?raw'
+import WorkflowPluginIcon from '@/components/admin/WorkflowPluginIcon.vue'
 import CodeEditor from '@/components/common/CodeEditor.vue'
 import FieldTypeIcon from '@/components/field/FieldTypeIcon.vue'
 import type { FieldType } from '@/types/bitable'
 import { attachmentSize } from '@/utils/attachments'
 import { fieldTypeInfo } from '@/utils/fieldTypes'
-import { LANGUAGE_NAMES, languageOf, type PluginLanguage } from '@/utils/workflowPlugin'
+import { LANGUAGE_NAMES, languageOf, versionLabel, type PluginLanguage } from '@/utils/workflowPlugin'
 
 const props = defineProps<{ upgrade?: AdminFieldShortcut | null }>()
 const visible = defineModel<boolean>('visible', { required: true })
@@ -129,6 +130,7 @@ async function install() {
     const shortcut = upgrade
       ? await adminShortcutsApi.update(upgrade.uid, {
           name: i.name,
+          version: i.version,
           description: i.description,
           resultType: i.resultType as SaveFieldShortcut['resultType'],
           code: i.code,
@@ -216,12 +218,11 @@ async function install() {
 
     <div v-else-if="inspection" class="review-step">
       <div class="review-head">
-        <a-avatar shape="square" :size="44" class="shortcut-icon">
-          <component :is="inspection.aiEnabled ? Sparkles : Zap" :size="22" />
-        </a-avatar>
+        <WorkflowPluginIcon :icon="inspection.aiEnabled ? 'sparkles' : 'zap'" color="var(--color-primary)" :size="44" />
         <div class="review-title">
           <div class="review-name">
             <span>{{ inspection.name }}</span>
+            <a-tag size="small">{{ versionLabel(inspection.version) }}</a-tag>
             <a-tag size="small">{{ LANGUAGE_NAMES[inspection.language] }}</a-tag>
           </div>
           <div v-if="inspection.description" class="text-desc">{{ inspection.description }}</div>
@@ -370,11 +371,6 @@ async function install() {
   align-items: center;
   gap: 12px;
   overflow-wrap: anywhere;
-}
-.shortcut-icon {
-  flex: none;
-  background: var(--bg-primary-soft);
-  color: var(--color-primary);
 }
 .review-name {
   display: flex;

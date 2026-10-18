@@ -13,7 +13,7 @@ import * as manifestUtils from '../src/utils/shortcutManifest.ts'
 import * as workflowPlugin from '../src/utils/workflowPlugin.ts'
 
 const source = `export const manifest = {
-  name: "Original", description: "Description", resultType: "text",
+  name: "Original", version: "1.0.0", description: "Description", resultType: "text",
   formItems: [{key: "text", label: "Text", component: "input", required: true}],
   domains: [], credentials: [{key: "api", type: "bearer"}], timeoutSeconds: 30, aiEnabled: false,
 };
@@ -27,7 +27,7 @@ async function readManifest(code: string, language = 'javascript') {
 
 function savedShortcut(code = source): AdminFieldShortcut {
   return {
-    uid: 'fscAAAAAAA', name: 'Original', description: 'Description', resultType: 'text', code, language: 'javascript',
+    uid: 'fscAAAAAAA', name: 'Original', version: '1.0.0', description: 'Description', resultType: 'text', code, language: 'javascript',
     formItems: [{ key: 'text', label: 'Text', component: 'input', required: true }], domains: [],
     credentials: [{ key: 'api', type: 'bearer', hasValue: true }], timeoutSeconds: 30, aiEnabled: false,
     enabled: false, usedBy: 1, createdAt: '', updatedAt: '',
@@ -101,6 +101,7 @@ test('forms and module source sync at tab changes and save without copying secre
   t.after(stop)
   assert.equal(page.dirty.value, false)
   page.draft.name = 'From form'
+  page.draft.version = '1.2.3'
   page.draft.formItems = JSON.stringify([{ key: 'text', label: 'New label', component: 'input', required: true }])
   page.draft.domains = ['api.example.com']
   page.draft.credentials[0]!.value = 'private-value'
@@ -109,6 +110,7 @@ test('forms and module source sync at tab changes and save without copying secre
 
   const manifest = await readManifest(page.draft.code)
   assert.equal(manifest.name, 'From form')
+  assert.equal(manifest.version, '1.2.3')
   assert.equal(manifest.formItems[0].label, 'New label')
   assert.deepEqual(manifest.domains, ['api.example.com'])
   assert.deepEqual(manifest.credentials, [{ key: 'api', type: 'bearer' }])
@@ -118,11 +120,12 @@ test('forms and module source sync at tab changes and save without copying secre
 
   const revision = page.formItemsRevision.value
   page.draft.code = manifestUtils.updateShortcutManifest(page.draft.code, {
-    name: 'From code', formItems: [{ key: 'text', label: 'Code label', component: 'textarea' }], timeoutSeconds: 60, aiEnabled: true,
+    name: 'From code', version: '2.0.0', formItems: [{ key: 'text', label: 'Code label', component: 'textarea' }], timeoutSeconds: 60, aiEnabled: true,
   })
   await page.switchTab('formItems')
   assert.equal(page.tab.value, 'formItems')
   assert.equal(page.draft.name, 'From code')
+  assert.equal(page.draft.version, '2.0.0')
   assert.equal(JSON.parse(page.draft.formItems)[0].component, 'textarea')
   assert.equal(page.draft.timeoutSeconds, 60)
   assert.equal(page.draft.aiEnabled, true)
@@ -136,7 +139,9 @@ test('forms and module source sync at tab changes and save without copying secre
   await page.save()
   assert.equal(writes.length, 1)
   assert.equal(writes[0]!.description, 'Saved from form')
+  assert.equal(writes[0]!.version, '2.0.0')
   assert.equal((await readManifest(writes[0]!.code)).description, 'Saved from form')
+  assert.equal((await readManifest(writes[0]!.code)).version, '2.0.0')
   assert.equal(writes[0]!.credentials[0]!.value, 'private-value')
   assert.equal(page.dirty.value, false)
 })

@@ -1255,6 +1255,7 @@ const ko: typeof zhCN = {
     generating: '생성 중…',
   },
   shortcutAdmin: {
+    version: '버전',
     uninstallTitle: '바로가기 "{name}"을(를) 제거할까요?',
     manifestSyncError: '설정을 동기화할 수 없습니다. 구문과 manifest 내보내기 선언을 확인하세요.',
     manifestSourceChanged: '동기화 중 코드가 변경되었습니다. 다시 시도하세요.',

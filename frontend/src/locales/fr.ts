@@ -1255,6 +1255,7 @@ const fr: typeof zhCN = {
     generating: 'Génération…',
   },
   shortcutAdmin: {
+    version: 'Version',
     uninstallTitle: 'Désinstaller le raccourci « {name} » ?',
     manifestSyncError: 'Impossible de synchroniser les paramètres. Vérifiez la syntaxe et la déclaration d’export de manifest.',
     manifestSourceChanged: 'Le code a changé pendant la synchronisation. Réessayez.',

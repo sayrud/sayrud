@@ -95,3 +95,23 @@ func TestFieldShortcutLanguage(t *testing.T) {
 	require.Equal(t, "typescript", got.Language)
 	require.Equal(t, "export function execute(): number { return 1 }", got.Code)
 }
+
+func TestFieldShortcutVersion(t *testing.T) {
+	ctx := context.Background()
+	store := NewFieldShortcutsStore(newTestDB(t, &CustomFieldShortcut{}))
+	s := &CustomFieldShortcut{
+		Name: "Legacy", ResultType: TextFieldType, Code: "function execute() { return 'text' }",
+		FormItems: datatypes.NewJSONType([]ShortcutFormItem{}), Domains: datatypes.NewJSONType([]string{}), Credentials: datatypes.NewJSONType([]ShortcutCredential{}),
+	}
+	require.NoError(t, store.Create(ctx, s))
+	got, err := store.GetByUID(ctx, s.UID)
+	require.NoError(t, err)
+	require.Equal(t, "1.0.0", got.Version)
+
+	got.Version = "2.3.0"
+	require.NoError(t, store.Update(ctx, got))
+	list, total, err := store.ListAdmin(ctx, ListFieldShortcutsOptions{})
+	require.NoError(t, err)
+	require.Equal(t, int64(1), total)
+	require.Equal(t, "2.3.0", list[0].Version)
+}

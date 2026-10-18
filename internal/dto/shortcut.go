@@ -70,6 +70,8 @@ type AdminFieldShortcut struct {
 	UID string `json:"uid"`
 	// Name is shown in the field editor.
 	Name string `json:"name"`
+	// Version is the version declared by the shortcut manifest.
+	Version string `json:"version"`
 	// Description tells the members what the shortcut does.
 	Description string `json:"description"`
 	// ResultType is the type of the fields the shortcut can be attached to.
@@ -131,10 +133,15 @@ func ToAdminFieldShortcut(s *db.CustomFieldShortcut, valueKeys map[string]bool, 
 	if language == "" {
 		language = "javascript"
 	}
+	version := s.Version
+	if version == "" {
+		version = "1.0.0"
+	}
 
 	return &AdminFieldShortcut{
 		UID:            s.UID,
 		Name:           s.Name,
+		Version:        version,
 		Description:    s.Description,
 		ResultType:     string(s.ResultType),
 		Code:           s.Code,

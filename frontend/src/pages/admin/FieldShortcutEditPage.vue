@@ -44,6 +44,7 @@ interface CredentialDraft {
 
 interface Draft {
   name: string
+  version: string
   description: string
   resultType: FieldType
   code: string
@@ -61,6 +62,7 @@ function toDraft(s: AdminFieldShortcut | null): Draft {
 
   return {
     name: s?.name ?? '',
+    version: s?.version ?? '1.0.0',
     description: s?.description ?? '',
     resultType: (s?.resultType ?? starter.resultType) as FieldType,
     code: s?.code ?? starter.code,
@@ -156,6 +158,7 @@ const tab = computed<Tab>({
 function manifestFields() {
   return {
     name: draft.name,
+    version: draft.version,
     description: draft.description,
     resultType: draft.resultType,
     formItems: JSON.parse(draft.formItems) as ShortcutFormItem[],
@@ -214,6 +217,7 @@ async function syncFromCode(): Promise<boolean> {
     })
     Object.assign(draft, {
       name: result.name,
+      version: result.version,
       description: result.description,
       resultType: result.resultType,
       formItems: JSON.stringify(result.formItems, null, 2),
@@ -303,6 +307,7 @@ function body(): SaveFieldShortcut | null {
   }
   return {
     name: draft.name,
+    version: draft.version,
     description: draft.description,
     resultType: draft.resultType as SaveFieldShortcut['resultType'],
     code: draft.code,
@@ -489,14 +494,17 @@ const format = (v: unknown) => (v === undefined ? 'undefined' : JSON.stringify(v
                     <a-form-item :label="t('shortcutAdmin.name')" required>
                       <a-input v-model="draft.name" :max-length="64" show-word-limit :placeholder="t('shortcutAdmin.namePlaceholder')" />
                     </a-form-item>
-                    <a-form-item :label="t('shortcutAdmin.resultType')" :extra="t('shortcutAdmin.resultTypeDescription')">
-                      <a-select v-model="draft.resultType">
-                        <a-option v-for="rt in SHORTCUT_HOST_TYPES" :key="rt" :value="rt">
-                          <span class="type-option"><FieldTypeIcon :type="rt" /> {{ fieldTypeInfo(rt).label }}</span>
-                        </a-option>
-                      </a-select>
+                    <a-form-item :label="t('shortcutAdmin.version')" required>
+                      <a-input v-model="draft.version" :max-length="32" />
                     </a-form-item>
                   </div>
+                  <a-form-item :label="t('shortcutAdmin.resultType')" :extra="t('shortcutAdmin.resultTypeDescription')">
+                    <a-select v-model="draft.resultType">
+                      <a-option v-for="rt in SHORTCUT_HOST_TYPES" :key="rt" :value="rt">
+                        <span class="type-option"><FieldTypeIcon :type="rt" /> {{ fieldTypeInfo(rt).label }}</span>
+                      </a-option>
+                    </a-select>
+                  </a-form-item>
                   <a-form-item :label="t('shortcutAdmin.description')">
                     <a-textarea
                       v-model="draft.description"

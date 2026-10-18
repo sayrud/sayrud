@@ -44,6 +44,36 @@ func TestBuildCustomShortcutLanguage(t *testing.T) {
 	}
 }
 
+func TestBuildCustomShortcutVersion(t *testing.T) {
+	legacy, err := toAdminFieldShortcut(&db.CustomFieldShortcut{}, nil)
+	require.NoError(t, err)
+	require.Equal(t, "1.0.0", legacy.Version)
+
+	for _, tc := range []struct {
+		version string
+		want    string
+	}{
+		{want: "1.0.0"},
+		{version: " 2.3.0-beta.1+build.4 ", want: "2.3.0-beta.1+build.4"},
+		{version: "invalid version"},
+		{version: "../invalid"},
+		{version: "123456789012345678901234567890123"},
+	} {
+		s, _, err := buildCustomShortcut(form.SaveFieldShortcut{
+			Name: "Versioned", Version: tc.version, ResultType: "text", Code: "function execute() { return 'text' }",
+		})
+		if tc.want == "" {
+			require.Error(t, err)
+			continue
+		}
+		require.NoError(t, err)
+		require.Equal(t, tc.want, s.Version)
+		resp, err := toAdminFieldShortcut(s, nil)
+		require.NoError(t, err)
+		require.Equal(t, tc.want, resp.Version)
+	}
+}
+
 func TestBuildCustomShortcutAIEnabled(t *testing.T) {
 	for _, enabled := range []bool{true, false} {
 		s, _, err := buildCustomShortcut(form.SaveFieldShortcut{

@@ -129,6 +129,8 @@ type CustomFieldShortcut struct {
 	UID string `gorm:"type:varchar(16);not null;uniqueIndex:idx_field_shortcuts_uid, where:deleted_at IS NULL"`
 	// Name is shown in the field editor.
 	Name string `gorm:"type:varchar(64);not null"`
+	// Version is the manifest version, defaulting to 1.0.0 for existing shortcuts.
+	Version string `gorm:"type:varchar(32);not null;default:1.0.0"`
 	// Description tells the members what the shortcut does, empty if not set.
 	Description string `gorm:"type:text;not null;default:''"`
 	// ResultType is the type of the fields the shortcut can be attached to.
@@ -226,6 +228,7 @@ func (db *fieldShortcuts) Create(ctx context.Context, s *CustomFieldShortcut) er
 func (db *fieldShortcuts) Update(ctx context.Context, s *CustomFieldShortcut) error {
 	result := db.WithContext(ctx).Model(&CustomFieldShortcut{}).Where("uid = ?", s.UID).Updates(map[string]interface{}{
 		"name":            s.Name,
+		"version":         s.Version,
 		"description":     s.Description,
 		"result_type":     s.ResultType,
 		"code":            s.Code,

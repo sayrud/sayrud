@@ -1255,6 +1255,7 @@ const ru: typeof zhCN = {
     generating: 'Генерация…',
   },
   shortcutAdmin: {
+    version: 'Версия',
     uninstallTitle: 'Удалить ярлык «{name}»?',
     manifestSyncError: 'Не удалось синхронизировать настройки. Проверьте синтаксис и экспорт manifest.',
     manifestSourceChanged: 'Код изменился во время синхронизации. Попробуйте ещё раз.',

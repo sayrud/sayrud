@@ -1255,6 +1255,7 @@ const zhTW: typeof zhCN = {
     generating: '產生中…',
   },
   shortcutAdmin: {
+    version: '版本',
     uninstallTitle: '解除安裝捷徑「{name}」？',
     manifestSyncError: '無法同步設定，請檢查原始碼語法和 manifest 匯出宣告。',
     manifestSourceChanged: '同步期間程式碼已修改，請重試。',

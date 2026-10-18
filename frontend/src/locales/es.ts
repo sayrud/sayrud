@@ -1255,6 +1255,7 @@ const es: typeof zhCN = {
     generating: 'Generando…',
   },
   shortcutAdmin: {
+    version: 'Versión',
     uninstallTitle: '¿Desinstalar el atajo «{name}»?',
     manifestSyncError: 'No se pudo sincronizar la configuración. Revisa la sintaxis y la exportación de manifest.',
     manifestSourceChanged: 'El código cambió durante la sincronización. Inténtalo de nuevo.',

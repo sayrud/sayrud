@@ -1255,6 +1255,7 @@ const en: typeof zhCN = {
     generating: 'Generating…',
   },
   shortcutAdmin: {
+    version: 'Version',
     uninstallTitle: 'Uninstall the shortcut "{name}"?',
     manifestSyncError: 'Unable to sync settings. Check the source syntax and manifest export declaration.',
     manifestSourceChanged: 'The source changed during synchronization. Please try again.',

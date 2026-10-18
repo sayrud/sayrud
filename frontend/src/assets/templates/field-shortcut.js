@@ -5,6 +5,7 @@
  */
 export const manifest = {
   name: "Uppercase text",
+  version: "1.0.0",
   description: "Converts the selected field's text to uppercase.",
   // text | number | checkbox | datetime | single_select | multi_select
   resultType: "text",

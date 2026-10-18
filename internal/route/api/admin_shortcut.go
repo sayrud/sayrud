@@ -130,9 +130,10 @@ const (
 )
 
 var (
-	shortcutKeyPattern  = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9_]{0,31}$`)
-	headerNamePattern   = regexp.MustCompile("^[!#$%&'*+.^_`|~0-9A-Za-z-]+$")
-	errSecretKeyMissing = errors.New("secret key is not configured")
+	shortcutKeyPattern     = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9_]{0,31}$`)
+	shortcutVersionPattern = regexp.MustCompile(`^[0-9A-Za-z][0-9A-Za-z.+\-]{0,31}$`)
+	headerNamePattern      = regexp.MustCompile("^[!#$%&'*+.^_`|~0-9A-Za-z-]+$")
+	errSecretKeyMissing    = errors.New("secret key is not configured")
 )
 
 // buildCustomShortcut validates the form and returns the shortcut without the secrets, along with the credential values keyed by key.
@@ -146,6 +147,14 @@ func buildCustomShortcut(f form.SaveFieldShortcut) (*db.CustomFieldShortcut, map
 	case utf8.RuneCountInString(f.Description) > maxShortcutDescriptionLength:
 		return nil, nil, i18n.Errorf("field_shortcut::description_too_long", maxShortcutDescriptionLength)
 	}
+	version := strings.TrimSpace(f.Version)
+	if version == "" {
+		version = "1.0.0"
+	}
+	if !shortcutVersionPattern.MatchString(version) {
+		return nil, nil, i18n.Errorf("field_shortcut::invalid_version")
+	}
+
 	resultType := db.SLFieldType(f.ResultType)
 	if !resultType.CanHostShortcut() {
 		return nil, nil, i18n.Errorf("field_shortcut::invalid_result_type")
@@ -224,6 +233,7 @@ func buildCustomShortcut(f form.SaveFieldShortcut) (*db.CustomFieldShortcut, map
 
 	return &db.CustomFieldShortcut{
 		Name:           name,
+		Version:        version,
 		Description:    strings.TrimSpace(f.Description),
 		ResultType:     resultType,
 		Code:           f.Code,
