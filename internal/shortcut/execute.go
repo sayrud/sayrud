@@ -178,7 +178,9 @@ func scriptError(err error) *Error {
 	case errors.Is(err, script.ErrAIDisabled):
 		return newError("shortcut::ai_disabled")
 	case errors.As(err, &scriptErr):
-		return newError("shortcut::script_error").withDetail("%s", scriptErr.Message)
+		result := newError("shortcut::script_error").withDetail("%s", scriptErr.Message)
+		result.I18n = scriptErr.I18n
+		return result
 	case errors.Is(err, script.ErrTimeout):
 		return newError("shortcut::timeout")
 	case errors.Is(err, script.ErrNoExecute):

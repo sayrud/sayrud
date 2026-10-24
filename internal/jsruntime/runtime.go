@@ -10,6 +10,8 @@ import (
 
 	"github.com/Calcium-Ion/moejs"
 	"github.com/cockroachdb/errors"
+
+	"github.com/wuhan005/sayrud/internal/i18n"
 )
 
 const (
@@ -29,6 +31,8 @@ var (
 // Error is a syntax error or a value thrown or rejected by JavaScript.
 type Error struct {
 	Message string
+	// I18n is the plugin's error key, translations and parameters, independent of the viewer's language.
+	I18n *i18n.Message
 	// Retryable is true when the thrown object has a retryable property set to true.
 	Retryable bool
 }
@@ -223,6 +227,14 @@ func (rt *Runtime) Thrown(v moejs.Value) error {
 
 	err := &Error{Message: rt.Describe(v)}
 	if v.IsObject() {
+		if value, getErr := rt.Get(v, "i18n"); getErr == nil && value.IsObject() {
+			if raw, encodeErr := rt.AppendJSON(nil, value); encodeErr == nil && len(raw) <= 16<<10 {
+				var message i18n.Message
+				if json.Unmarshal(raw, &message) == nil && message.Valid() {
+					err.I18n = &message
+				}
+			}
+		}
 		if retry, getErr := rt.Get(v, "retryable"); getErr == nil && retry.IsBool() && retry.AsBool() {
 			err.Retryable = true
 		}

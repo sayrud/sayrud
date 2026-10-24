@@ -168,7 +168,7 @@ func TestSharedWebSocketLiveChangesPresenceAndWriteDenial(t *testing.T) {
 	require.Equal(t, int64(6), shared.Rev)
 	require.NotNil(t, shared.Operations)
 	require.Empty(t, shared.Operations)
-	hub.NotifyTable(project.UID, "root", MessageShortcutJobs, func(func(string, ...interface{}) string) interface{} { return "private-job-config" })
+	hub.NotifyTable(project.UID, "root", MessageShortcutJobs, func(func(string, ...interface{}) string, string) interface{} { return "private-job-config" })
 	require.NoError(t, conn.WriteJSON(Message{Type: MessagePing, ReqID: 5}))
 	readShared(t, conn, MessagePong, 5)
 }

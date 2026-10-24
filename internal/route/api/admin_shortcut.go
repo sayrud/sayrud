@@ -201,6 +201,11 @@ func buildCustomShortcut(f form.SaveFieldShortcut) (*db.CustomFieldShortcut, map
 	values := map[string]string{}
 	for _, c := range f.Credentials {
 		key := strings.TrimSpace(c.Key)
+		label := c.Label.Trim()
+		if label.In("en") == "" {
+			label = i18n.LocalText{"": key}
+		}
+
 		credentialType := db.ShortcutCredentialType(c.Type)
 		credentialName := strings.TrimSpace(c.Name)
 		switch {
@@ -208,6 +213,8 @@ func buildCustomShortcut(f form.SaveFieldShortcut) (*db.CustomFieldShortcut, map
 			return nil, nil, i18n.Errorf("field_shortcut::invalid_credential_key", key)
 		case lo.ContainsBy(credentials, func(other db.ShortcutCredential) bool { return other.Key == key }):
 			return nil, nil, i18n.Errorf("field_shortcut::duplicate_credential_key", key)
+		case !label.Valid(64, true):
+			return nil, nil, i18n.Errorf("field_shortcut::invalid_credential_label", key)
 		case !credentialType.Valid():
 			return nil, nil, i18n.Errorf("field_shortcut::invalid_credential_type", key)
 		case credentialType == db.ShortcutCredentialBearer:
@@ -217,7 +224,7 @@ func buildCustomShortcut(f form.SaveFieldShortcut) (*db.CustomFieldShortcut, map
 		case credentialType == db.ShortcutCredentialHeader && !headerNamePattern.MatchString(credentialName):
 			return nil, nil, i18n.Errorf("field_shortcut::invalid_credential_name", key)
 		}
-		credentials = append(credentials, db.ShortcutCredential{Key: key, Type: credentialType, Name: credentialName})
+		credentials = append(credentials, db.ShortcutCredential{Key: key, Label: label, Type: credentialType, Name: credentialName})
 		if c.Value != "" {
 			values[key] = c.Value
 		}
@@ -254,15 +261,17 @@ func normalizeFormItems(items []db.ShortcutFormItem) ([]db.ShortcutFormItem, err
 	result := make([]db.ShortcutFormItem, 0, len(items))
 	for _, item := range items {
 		item.Key = strings.TrimSpace(item.Key)
-		item.Label = strings.TrimSpace(item.Label)
-		item.Placeholder = strings.TrimSpace(item.Placeholder)
+		item.Label = item.Label.Trim()
+		item.Placeholder = item.Placeholder.Trim()
 		switch {
 		case !shortcutKeyPattern.MatchString(item.Key):
 			return nil, i18n.Errorf("field_shortcut::invalid_form_key", item.Key)
 		case lo.ContainsBy(result, func(other db.ShortcutFormItem) bool { return other.Key == item.Key }):
 			return nil, i18n.Errorf("field_shortcut::duplicate_form_key", item.Key)
-		case item.Label == "" || utf8.RuneCountInString(item.Label) > maxShortcutNameLength:
+		case !item.Label.Valid(maxShortcutNameLength, true):
 			return nil, i18n.Errorf("field_shortcut::invalid_form_label", item.Key)
+		case !item.Placeholder.Valid(maxShortcutDescriptionLength, false):
+			return nil, i18n.Errorf("field_shortcut::invalid_form_placeholder", item.Key)
 		case !item.Component.Valid():
 			return nil, i18n.Errorf("field_shortcut::invalid_component", item.Key)
 		}
@@ -284,9 +293,17 @@ func normalizeFormItems(items []db.ShortcutFormItem) ([]db.ShortcutFormItem, err
 			if len(item.Options) == 0 || lo.Contains(values, "") || len(lo.Uniq(values)) != len(values) {
 				return nil, i18n.Errorf("field_shortcut::invalid_options", item.Key)
 			}
-			item.Options = lo.Map(item.Options, func(o db.ShortcutFormOption, _ int) db.ShortcutFormOption {
-				return db.ShortcutFormOption{Value: o.Value, Label: lo.Ternary(strings.TrimSpace(o.Label) == "", o.Value, strings.TrimSpace(o.Label))}
-			})
+			item.Options = append([]db.ShortcutFormOption(nil), item.Options...)
+			for index := range item.Options {
+				option := &item.Options[index]
+				option.Label = option.Label.Trim()
+				if option.Label.In("en") == "" {
+					option.Label = i18n.LocalText{"": option.Value}
+				}
+				if !option.Label.Valid(maxShortcutDescriptionLength, false) {
+					return nil, i18n.Errorf("field_shortcut::invalid_options", item.Key)
+				}
+			}
 			if item.Default != "" && !lo.Contains(values, item.Default) {
 				return nil, i18n.Errorf("field_shortcut::invalid_options", item.Key)
 			}
@@ -464,7 +481,7 @@ func (adminRoute) TestFieldShortcut(ctx context.Context, f form.TestFieldShortcu
 	if err != nil {
 		var shortcutErr *shortcut.Error
 		if errors.As(err, &shortcutErr) {
-			resp.Error = shortcutErr.Text(ctx.Tr)
+			resp.Error = shortcutErr.Text(ctx.Tr, ctx.Locale().Lang())
 		} else {
 			resp.Error = err.Error()
 		}
@@ -478,7 +495,7 @@ func (adminRoute) TestFieldShortcut(ctx context.Context, f form.TestFieldShortcu
 		if err != nil {
 			var shortcutErr *shortcut.Error
 			if errors.As(err, &shortcutErr) {
-				resp.Error = shortcutErr.Text(ctx.Tr)
+				resp.Error = shortcutErr.Text(ctx.Tr, ctx.Locale().Lang())
 			}
 		}
 		resp.CellValue = cellValue

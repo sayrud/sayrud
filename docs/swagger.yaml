@@ -210,6 +210,8 @@ definitions:
         type: boolean
       key:
         type: string
+      label:
+        $ref: '#/definitions/i18n.LocalText'
       name:
         type: string
       type:
@@ -221,6 +223,7 @@ definitions:
     required:
     - hasValue
     - key
+    - label
     - type
     type: object
   AdminFieldShortcut:
@@ -1935,6 +1938,11 @@ definitions:
         description: Key is the identifier the script passes to context.fetch to use
           the credential.
         type: string
+      label:
+        allOf:
+        - $ref: '#/definitions/i18n.LocalText'
+        description: Label is the display name, at most 64 characters; defaults to
+          Key when omitted.
       name:
         description: Name is the header or query parameter name, it is ignored by
           bearer.
@@ -2053,16 +2061,18 @@ definitions:
           and of the parameter passed to the shortcut.
         type: string
       label:
+        allOf:
+        - $ref: '#/definitions/i18n.LocalText'
         description: Label is the name of the item shown in the form.
-        type: string
       options:
         description: Options are the choices of select.
         items:
           $ref: '#/definitions/ShortcutFormOption'
         type: array
       placeholder:
+        allOf:
+        - $ref: '#/definitions/i18n.LocalText'
         description: Placeholder is the hint of the empty input.
-        type: string
       required:
         description: Required reports whether the item must be filled in before saving
           or executing.
@@ -2075,8 +2085,9 @@ definitions:
   ShortcutFormOption:
     properties:
       label:
+        allOf:
+        - $ref: '#/definitions/i18n.LocalText'
         description: Label is the text of the option shown in the form.
-        type: string
       value:
         description: Value is the configured value of the option.
         type: string
@@ -3979,6 +3990,10 @@ definitions:
     - WorkflowRunSucceeded
     - WorkflowRunFailed
     - WorkflowRunRejected
+  i18n.LocalText:
+    additionalProperties:
+      type: string
+    type: object
   workflow.Spec:
     properties:
       async:

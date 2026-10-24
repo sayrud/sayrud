@@ -11,6 +11,7 @@ import (
 
 	"github.com/wuhan005/sayrud/internal/collab"
 	"github.com/wuhan005/sayrud/internal/db"
+	"github.com/wuhan005/sayrud/internal/i18n"
 	"github.com/wuhan005/sayrud/internal/routeutil"
 )
 
@@ -49,7 +50,7 @@ func TestReferencedOptionsSyncAndExecute(t *testing.T) {
 
 	custom := &db.CustomFieldShortcut{UID: "fscRefernc", Name: "Classify", Enabled: true, ResultType: db.SingleSelectFieldType, TimeoutSeconds: 5,
 		Code:      `function execute(p) { return p.categories[0] }`,
-		FormItems: datatypes.NewJSONType([]db.ShortcutFormItem{{Key: "categories", Label: "Categories", Component: db.ShortcutFormFieldOptions, Required: true}})}
+		FormItems: datatypes.NewJSONType([]db.ShortcutFormItem{{Key: "categories", Label: i18n.LocalText{"": "Categories"}, Component: db.ShortcutFormFieldOptions, Required: true}})}
 	require.NoError(t, tx.Create(custom).Error)
 	host.Shortcut = &db.FieldShortcut{ID: custom.UID, Inputs: map[string]interface{}{}, AutoUpdate: true}
 	require.NoError(t, fieldsStore.SetShortcut(ctx, host.ID, host.Shortcut))

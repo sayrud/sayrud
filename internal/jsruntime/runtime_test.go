@@ -79,3 +79,49 @@ func TestCanceledContext(t *testing.T) {
 	_, err = rt.RunScript(program)
 	require.ErrorIs(t, rt.Wrap(err), context.Canceled)
 }
+
+func TestThrownLocalizedError(t *testing.T) {
+	for _, expression := range []string{
+		`throw Object.assign(new Error("Request failed"), {retryable: true, i18n: {key: "request_failed", messages: {en: "HTTP {status}", "zh-CN": "状态码 {status}"}, params: {status: 429}}})`,
+		`Promise.reject({message: "Request failed", retryable: true, i18n: {key: "request_failed", messages: {en: "HTTP {status}", "zh-CN": "状态码 {status}"}, params: {status: 429}}})`,
+	} {
+		rt, err := New(context.Background(), moejs.Options{})
+		require.NoError(t, err)
+		program, err := moejs.CompileScript("error.js", expression)
+		require.NoError(t, err)
+		value, err := rt.RunScript(program)
+		if err != nil {
+			err = rt.Wrap(err)
+		} else {
+			_, err = rt.Resolve(value)
+		}
+		rt.Close()
+		var thrown *Error
+		require.ErrorAs(t, err, &thrown)
+		require.True(t, thrown.Retryable)
+		require.NotNil(t, thrown.I18n)
+		require.Equal(t, "request_failed", thrown.I18n.Key)
+		require.Equal(t, "HTTP 429", thrown.I18n.Text("en"))
+		require.Equal(t, "状态码 429", thrown.I18n.Text("zh-CN"))
+	}
+}
+
+func TestMalformedLocalizedErrorFallsBack(t *testing.T) {
+	for _, metadata := range []string{
+		`null`, `"text"`, `[]`, `{key: "missing"}`, `{key: "invalid", messages: {en: 1}}`,
+		`{key: "nested", messages: {en: "Error"}, params: {value: {secret: "hidden"}}}`,
+		`{key: "oversized", messages: {en: "x".repeat(17000)}}`,
+		`{get messages() { throw new Error("getter failure") }}`,
+	} {
+		rt, err := New(context.Background(), moejs.Options{})
+		require.NoError(t, err)
+		program, err := moejs.CompileScript("error.js", `throw Object.assign(new Error("Original"), {i18n: `+metadata+`})`)
+		require.NoError(t, err)
+		_, err = rt.RunScript(program)
+		var thrown *Error
+		require.ErrorAs(t, rt.Wrap(err), &thrown)
+		require.Nil(t, thrown.I18n, metadata)
+		require.Equal(t, "Error: Original", thrown.Message)
+		rt.Close()
+	}
+}

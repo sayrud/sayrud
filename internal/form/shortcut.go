@@ -2,6 +2,7 @@ package form
 
 import (
 	"github.com/wuhan005/sayrud/internal/db"
+	"github.com/wuhan005/sayrud/internal/i18n"
 )
 
 // RunFieldShortcut queues the cells of the field to generate by its shortcut.
@@ -74,6 +75,8 @@ type InstallFieldShortcut struct {
 type SaveShortcutCredential struct {
 	// Key is the identifier the script passes to context.fetch to use the credential.
 	Key string `json:"key"`
+	// Label is the display name, at most 64 characters; defaults to Key when omitted.
+	Label i18n.LocalText `json:"label,omitempty"`
 	// Type is how the credential is put into the request.
 	Type string `json:"type" enums:"bearer,header,query"`
 	// Name is the header or query parameter name, it is ignored by bearer.

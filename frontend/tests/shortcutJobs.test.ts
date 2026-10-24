@@ -19,7 +19,9 @@ test('shortcut job refreshes never overwrite newer requests, pushes or table ses
   const requests: { resolve: (jobs: ShortcutJob[]) => void; reject: (error: Error) => void }[] = []
   const sockets: Socket[] = []
   const tableLoads = new Map<string, Promise<void>>()
+  const locale = ref('zh-CN')
   class Socket {
+    reconnects = 0
     handlers = new Map<string, Set<(data: unknown) => void>>()
     constructor() { sockets.push(this) }
     on(type: string, handler: (data: unknown) => void) {
@@ -29,6 +31,7 @@ test('shortcut job refreshes never overwrite newer requests, pushes or table ses
     }
     emit(type: string, data?: unknown) { for (const handler of this.handlers.get(type) ?? []) handler(data) }
     connect() {}
+    reconnect() { this.reconnects++ }
     close() {}
     send() {}
   }
@@ -54,6 +57,7 @@ test('shortcut job refreshes never overwrite newer requests, pushes or table ses
     '@/collab/socket': { ProjectSocket: Socket },
     '@/collab/tableSync': { TableSync: Sync },
     '@/stores/auth': { useAuthStore: () => ({}) },
+    '@/i18n': { i18n: { global: { locale } }, t: (key: string) => key },
     '@/utils/role': { roleAtLeast: () => true },
   }
   const module = { exports: {} as { useBaseStore: typeof useBaseStore } }
@@ -115,8 +119,14 @@ test('shortcut job refreshes never overwrite newer requests, pushes or table ses
   await respond(12, job('failed'))
   assert.equal(status(), 'failed', 'The current table still accepts a fresh response')
 
+  locale.value = 'en'
+  await settle()
+  assert.equal(sockets.at(-1)!.reconnects, 1, 'Language changes reconnect localized pushes')
+  await respond(13, { ...job('failed'), error: 'Translated error' })
+  assert.equal(store.shortcutJob('record', 'field')?.error, 'Translated error', 'Language changes refresh saved job errors')
+
   emit('PONG')
   store.closeProject()
-  await respond(13, job('pending'))
+  await respond(14, job('pending'))
   assert.equal(store.shortcutJobs.size, 0, 'A closed project cannot be populated by an old response')
 })

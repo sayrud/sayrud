@@ -9,6 +9,7 @@ import { compileScript, parse } from 'vue/compiler-sfc'
 
 import type { AdminFieldShortcut, SaveFieldShortcut } from '../src/api/shortcut.ts'
 import * as workflowPlugin from '../src/utils/workflowPlugin.ts'
+import * as localTexts from '../src/utils/localText.ts'
 
 interface InstallModal {
   source: vue.Ref<'file' | 'url' | 'code'>
@@ -43,12 +44,13 @@ function loadModal(api: {
     vue: { ...vue, useModel: () => visible },
     '@arco-design/web-vue': { Message: { warning: (text: string) => messages.push(text), error: (text: string) => messages.push(text), success: (text: string) => messages.push(text) } },
     '@lucide/vue': {},
-    'vue-i18n': { useI18n: () => ({ t: (key: string) => key }) },
+    'vue-i18n': { useI18n: () => ({ t: (key: string) => key, locale: vue.ref('en') }) },
     '@/api/shortcut': { adminShortcutsApi: api },
     '@/assets/templates/field-shortcut.js?raw': { default: readFileSync(new URL('../src/assets/templates/field-shortcut.js', import.meta.url), 'utf8') },
     '@/utils/attachments': {},
     '@/utils/fieldTypes': {},
     '@/utils/workflowPlugin': workflowPlugin,
+    '@/utils/localText': localTexts,
   }
   new Function('require', 'module', 'exports', compiled)((id: string) =>
     id in overrides ? overrides[id] : id.endsWith('.vue') ? {} : require(id), module, module.exports)
@@ -151,16 +153,16 @@ test('TypeScript files and custom code retain their reviewed language through in
 test('upgrading replaces the selected shortcut with reviewed source and preserves its identity and enabled state', async (t) => {
   const original = {
     uid: 'fscAAAAAAA', name: 'Original', version: '1.0.0', code: 'original source', language: 'javascript', enabled: false,
-    credentials: [{ key: 'api', type: 'bearer', hasValue: true }],
+    credentials: [{ key: 'api', label: 'API Key', type: 'bearer', hasValue: true }],
   } as AdminFieldShortcut
   const preview = {
     name: 'Replacement', version: '2.3.0', description: 'Updated description', resultType: 'text',
     code: 'reviewed source', language: 'typescript', enabled: true,
     formItems: [{ key: 'text', label: 'Text', component: 'input', required: true }],
-    domains: ['api.example.com'], credentials: [{ key: 'api', type: 'bearer', hasValue: false }],
+    domains: ['api.example.com'], credentials: [{ key: 'api', label: { en: 'Updated API Key', 'zh-CN': '新 API 密钥' }, type: 'bearer', hasValue: false }],
     timeoutSeconds: 60, aiEnabled: true,
   } as AdminFieldShortcut
-  const updated = { ...preview, uid: original.uid, enabled: false, credentials: original.credentials }
+  const updated = { ...preview, uid: original.uid, enabled: false, credentials: [{ ...preview.credentials[0]!, hasValue: true }] }
   const writes: { uid: string; body: SaveFieldShortcut }[] = []
   const { modal, visible, props, messages, events, stop } = loadModal({
     inspect: async () => preview,
@@ -181,7 +183,7 @@ test('upgrading replaces the selected shortcut with reviewed source and preserve
     body: {
       name: preview.name, version: '2.3.0', description: preview.description, resultType: 'text',
       code: preview.code, language: 'typescript', formItems: preview.formItems,
-      domains: preview.domains, credentials: [{ key: 'api', type: 'bearer', name: undefined }],
+      domains: preview.domains, credentials: [{ key: 'api', label: { en: 'Updated API Key', 'zh-CN': '新 API 密钥' }, type: 'bearer', name: undefined }],
       timeoutSeconds: 60, aiEnabled: true, enabled: false,
     },
   }])

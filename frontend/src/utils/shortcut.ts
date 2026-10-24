@@ -1,5 +1,6 @@
 import type { FieldShortcutManifest, ShortcutFormItem } from '@/api/shortcut'
 import type { FieldShortcut, FieldType, SLField } from '@/types/bitable'
+import { localText } from './localText.ts'
 
 /** Field types which can have a shortcut, the formula values are computed by the browser so they can not. */
 export const SHORTCUT_HOST_TYPES: FieldType[] = ['text', 'number', 'single_select', 'multi_select', 'checkbox', 'datetime']
@@ -35,9 +36,9 @@ export function selectableFields(item: Pick<ShortcutFormItem, 'fieldTypes'>, fie
 }
 
 /** Returns the label of the first required item without a value, or null if complete. */
-export function missingInput(manifest: Pick<FieldShortcutManifest, 'formItems'>, inputs: Record<string, string>): string | null {
+export function missingInput(manifest: Pick<FieldShortcutManifest, 'formItems'>, inputs: Record<string, string>, language = 'en'): string | null {
   const item = manifest.formItems.find((i) => i.component !== 'field_options' && i.required && !inputs[i.key]?.trim())
-  return item ? item.label : null
+  return item ? localText(item.label, language) : null
 }
 
 const REF = /\{(fld[A-Za-z0-9]{7})\}/g

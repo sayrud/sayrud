@@ -27,7 +27,7 @@ export const manifest = {
   name: "Uppercase", version: "1.2.3", resultType: "text", aiEnabled: true,
   formItems: [{key: "text", label: "Text", component: "input", required: true}],
   domains: ["API.EXAMPLE.COM"],
-  credentials: [{key: "api", type: "bearer", value: "ignored-secret"}]
+  credentials: [{key: "api", label: "API Key", type: "bearer", value: "ignored-secret"}]
 };
 export async function execute(params, context) {
   context.log("running");
@@ -68,7 +68,7 @@ func TestInspectFieldShortcut(t *testing.T) {
 	require.True(t, s.AIEnabled)
 	require.Equal(t, []string{"api.example.com"}, s.Domains.Data())
 	require.Len(t, s.FormItems.Data(), 1)
-	require.Equal(t, []db.ShortcutCredential{{Key: "api", Type: db.ShortcutCredentialBearer}}, s.Credentials.Data())
+	require.Equal(t, []db.ShortcutCredential{{Key: "api", Label: i18n.LocalText{"": "API Key"}, Type: db.ShortcutCredentialBearer}}, s.Credentials.Data())
 	require.Empty(t, s.Secrets)
 	require.Empty(t, s.UID, "inspection must not install the shortcut")
 
@@ -100,6 +100,7 @@ func TestInspectFieldShortcutValidation(t *testing.T) {
 		`export const manifest = []; export function execute() {}`,
 		`export const manifest = {name: 1}; export function execute() {}`,
 		`export const manifest = {name: "Invalid", resultType: "formula"}; export function execute() {}`,
+		strings.Replace(installableShortcut, `label: "API Key"`, `label: 123`, 1),
 		strings.Replace(installableShortcut, `component: "input"`, `component: "unknown"`, 1),
 		strings.Replace(installableShortcut, `version: "1.2.3"`, `version: "invalid version"`, 1),
 		strings.Replace(installableShortcut, `version: "1.2.3"`, `version: 123`, 1),
@@ -118,6 +119,47 @@ func TestInspectFieldShortcutValidation(t *testing.T) {
 	defer cancel()
 	_, err = inspectFieldShortcut(ctx, `while (true) {} `+installableShortcut, sandbox.JavaScript)
 	require.Error(t, err)
+}
+
+func TestLocalizedShortcutConfiguration(t *testing.T) {
+	source := `export const manifest = {
+  name: "Localized", resultType: "text",
+  formItems: [{key: "tone", label: {en: "Tone", "zh-CN": "语气"}, component: "select", required: true,
+    placeholder: {en: "Choose a tone", "zh-CN": "选择语气"}, default: "formal",
+    options: [{value: "formal", label: {en: "Formal", "zh-CN": "正式"}}]}],
+  credentials: [{key: "api", label: {en: "API Key", "zh-CN": "API 密钥"}, type: "bearer"}]
+};
+export function execute(params) { return params.tone; }`
+	s, err := inspectFieldShortcut(stdcontext.Background(), source, sandbox.JavaScript)
+	require.NoError(t, err)
+	require.Equal(t, "语气", s.FormItems.Data()[0].Label.In("zh-CN"))
+	require.Equal(t, "Choose a tone", s.FormItems.Data()[0].Placeholder.In("en"))
+	require.Equal(t, "正式", s.FormItems.Data()[0].Options[0].Label.In("zh-CN"))
+	require.Equal(t, "API 密钥", s.Credentials.Data()[0].Label.In("zh-CN"))
+
+	// Editing credentials or toggling the shortcut must preserve every translation.
+	raw, err := json.Marshal(dto.ToAdminFieldShortcut(s, nil, 0))
+	require.NoError(t, err)
+	var save form.SaveFieldShortcut
+	require.NoError(t, json.Unmarshal(raw, &save))
+	saved, _, err := buildCustomShortcut(save)
+	require.NoError(t, err)
+	require.Equal(t, s.FormItems.Data(), saved.FormItems.Data())
+	require.Equal(t, s.Credentials.Data(), saved.Credentials.Data())
+	result, err := script.Run(stdcontext.Background(), script.Options{Code: saved.Code, Params: map[string]interface{}{"tone": "formal"}})
+	require.NoError(t, err)
+	require.Equal(t, "formal", result.Value, "translation must not change the stored option value")
+
+	for _, invalid := range []string{
+		strings.Replace(source, `"zh-CN": "语气"`, `"zh-CN": "`+strings.Repeat("界", 65)+`"`, 1),
+		strings.Replace(source, `"zh-CN": "选择语气"`, `"zh-CN": "`+strings.Repeat("界", 501)+`"`, 1),
+		strings.Replace(source, `"zh-CN": "正式"`, `"zh-CN": 123`, 1),
+		strings.Replace(source, `"zh-CN": "API 密钥"`, `"zh-CN": "`+strings.Repeat("界", 65)+`"`, 1),
+		strings.Replace(source, `default: "formal"`, `default: {en: "formal"}`, 1),
+	} {
+		_, err := inspectFieldShortcut(stdcontext.Background(), invalid, sandbox.JavaScript)
+		require.Error(t, err)
+	}
 }
 
 type installShortcutsStore struct {
@@ -195,6 +237,8 @@ func TestFieldShortcutInstallRoutes(t *testing.T) {
 		require.NotEmpty(t, installed.UID)
 		require.Equal(t, preview.Version, installed.Version)
 		if len(installed.Credentials) > 0 {
+			require.Equal(t, "API Key", preview.Credentials[0].Label.In("en"))
+			require.Equal(t, "API Key", installed.Credentials[0].Label.In("en"))
 			require.False(t, installed.Credentials[0].HasValue)
 		}
 		require.Len(t, store.created, 1)

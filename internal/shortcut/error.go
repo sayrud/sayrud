@@ -7,6 +7,7 @@ import (
 	"regexp"
 
 	"github.com/wuhan005/sayrud/internal/db"
+	"github.com/wuhan005/sayrud/internal/i18n"
 )
 
 // Translator translates the message key in the language of the reader.
@@ -17,9 +18,11 @@ type Error struct {
 	// Key is the message key, its arguments are Args.
 	Key string
 	// Args are the arguments of the message, the ones which are message keys are translated too.
-	Args []string
+	Args []i18n.LocalText
 	// Detail is the untranslated text appended to the message, e.g. the error thrown by the script.
 	Detail string
+	// I18n is the plugin error translated in the language of the reader.
+	I18n *i18n.Message
 	// Transient reports whether retrying may succeed, e.g. execution was interrupted.
 	Transient bool
 }
@@ -31,7 +34,7 @@ func (e *Error) Error() string {
 	return e.Key
 }
 
-func newError(key string, args ...string) *Error {
+func newError(key string, args ...i18n.LocalText) *Error {
 	return &Error{Key: key, Args: args}
 }
 
@@ -47,30 +50,37 @@ func (e *Error) transient() *Error {
 
 // JobError returns the error stored in the job.
 func (e *Error) JobError() db.ShortcutJobError {
-	return db.ShortcutJobError{Key: e.Key, Args: e.Args, Detail: e.Detail}
+	return db.ShortcutJobError{Key: e.Key, Args: e.Args, Detail: e.Detail, I18n: e.I18n}
 }
 
 // Text translates the error.
-func (e *Error) Text(tr Translator) string {
-	return ErrorText(tr, e.JobError())
+func (e *Error) Text(tr Translator, lang string) string {
+	return ErrorText(tr, lang, e.JobError())
 }
 
 // ErrorText translates the error of a job, it returns empty if there is no error.
-func ErrorText(tr Translator, jobErr db.ShortcutJobError) string {
+func ErrorText(tr Translator, lang string, jobErr db.ShortcutJobError) string {
+	detail := jobErr.Detail
+	if jobErr.I18n != nil {
+		if text := jobErr.I18n.Text(lang); text != "" {
+			detail = truncate(text, 500)
+		}
+	}
 	if jobErr.Key == "" {
-		return jobErr.Detail
+		return detail
 	}
 	args := make([]interface{}, 0, len(jobErr.Args))
 	for _, arg := range jobErr.Args {
-		// Historical job errors may include translated form item labels.
-		if messageKeyPattern.MatchString(arg) {
-			arg = tr(arg)
+		text := arg.In(lang)
+		// Historical job errors may include translation keys for form item labels.
+		if key, ok := arg[""]; ok && len(arg) == 1 && messageKeyPattern.MatchString(key) {
+			text = tr(key)
 		}
-		args = append(args, arg)
+		args = append(args, text)
 	}
 	text := tr(jobErr.Key, args...)
-	if jobErr.Detail != "" {
-		text += ": " + jobErr.Detail
+	if detail != "" {
+		text += ": " + detail
 	}
 	return text
 }

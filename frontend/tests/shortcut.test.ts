@@ -64,3 +64,14 @@ test('legacy options merge only host option inputs and tolerate missing values',
   assert.deepEqual(legacyOptionNames(manifest, { extra: ' C \n' }), ['C'])
   assert.deepEqual(legacyOptionNames(manifest, {}), [])
 })
+
+
+test('missing input labels follow the language while defaults remain executable values', () => {
+  const manifest = { formItems: [
+    { key: 'source', label: { en: 'Source', 'zh-CN': '来源' }, component: 'input' as const, required: true },
+    { key: 'tone', label: { en: 'Tone', 'zh-CN': '语气' }, component: 'select' as const, default: 'formal', options: [{ value: 'formal', label: { en: 'Formal', 'zh-CN': '正式' } }] },
+  ] }
+  assert.equal(missingInput(manifest, {}, 'en-US'), 'Source')
+  assert.equal(missingInput(manifest, {}, 'zh-CN'), '来源')
+  assert.deepEqual(defaultInputs(manifest), { tone: 'formal' })
+})

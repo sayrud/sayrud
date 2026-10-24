@@ -112,7 +112,7 @@ async function toggle(s: AdminFieldShortcut, enabled: boolean) {
       language: s.language,
       formItems: s.formItems,
       domains: s.domains,
-      credentials: s.credentials.map((c) => ({ key: c.key, type: c.type, name: c.name })),
+      credentials: s.credentials.map((c) => ({ key: c.key, label: c.label, type: c.type, name: c.name })),
       timeoutSeconds: s.timeoutSeconds,
       aiEnabled: s.aiEnabled,
       enabled,

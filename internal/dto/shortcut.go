@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/wuhan005/sayrud/internal/db"
+	"github.com/wuhan005/sayrud/internal/i18n"
 )
 
 // FieldShortcutManifest describes a field shortcut for the field editor to render the configuration form.
@@ -108,17 +109,22 @@ type ListAdminFieldShortcutsResp struct {
 
 // AdminCredential is a credential of a custom shortcut, HasValue reports whether its value is saved.
 type AdminCredential struct {
-	Key      string `json:"key"`
-	Type     string `json:"type" enums:"bearer,header,query"`
-	Name     string `json:"name,omitempty"`
-	HasValue bool   `json:"hasValue"`
+	Key      string         `json:"key"`
+	Label    i18n.LocalText `json:"label"`
+	Type     string         `json:"type" enums:"bearer,header,query"`
+	Name     string         `json:"name,omitempty"`
+	HasValue bool           `json:"hasValue"`
 } // @name AdminCredential
 
 // ToAdminFieldShortcut converts the custom shortcut, keys are the credentials with saved values.
 func ToAdminFieldShortcut(s *db.CustomFieldShortcut, valueKeys map[string]bool, usedBy int64) *AdminFieldShortcut {
 	credentials := make([]*AdminCredential, 0, len(s.Credentials.Data()))
 	for _, c := range s.Credentials.Data() {
-		credentials = append(credentials, &AdminCredential{Key: c.Key, Type: string(c.Type), Name: c.Name, HasValue: valueKeys[c.Key]})
+		label := c.Label
+		if label.In("en") == "" {
+			label = i18n.LocalText{"": c.Key}
+		}
+		credentials = append(credentials, &AdminCredential{Key: c.Key, Label: label, Type: string(c.Type), Name: c.Name, HasValue: valueKeys[c.Key]})
 	}
 
 	formItems := s.FormItems.Data()

@@ -7537,6 +7537,7 @@ const docTemplate = `{
             "required": [
                 "hasValue",
                 "key",
+                "label",
                 "type"
             ],
             "properties": {
@@ -7545,6 +7546,9 @@ const docTemplate = `{
                 },
                 "key": {
                     "type": "string"
+                },
+                "label": {
+                    "$ref": "#/definitions/i18n.LocalText"
                 },
                 "name": {
                     "type": "string"
@@ -9867,6 +9871,14 @@ const docTemplate = `{
                     "description": "Key is the identifier the script passes to context.fetch to use the credential.",
                     "type": "string"
                 },
+                "label": {
+                    "description": "Label is the display name, at most 64 characters; defaults to Key when omitted.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/i18n.LocalText"
+                        }
+                    ]
+                },
                 "name": {
                     "description": "Name is the header or query parameter name, it is ignored by bearer.",
                     "type": "string"
@@ -10031,7 +10043,11 @@ const docTemplate = `{
                 },
                 "label": {
                     "description": "Label is the name of the item shown in the form.",
-                    "type": "string"
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/i18n.LocalText"
+                        }
+                    ]
                 },
                 "options": {
                     "description": "Options are the choices of select.",
@@ -10042,7 +10058,11 @@ const docTemplate = `{
                 },
                 "placeholder": {
                     "description": "Placeholder is the hint of the empty input.",
-                    "type": "string"
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/i18n.LocalText"
+                        }
+                    ]
                 },
                 "required": {
                     "description": "Required reports whether the item must be filled in before saving or executing.",
@@ -10059,7 +10079,11 @@ const docTemplate = `{
             "properties": {
                 "label": {
                     "description": "Label is the text of the option shown in the form.",
-                    "type": "string"
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/i18n.LocalText"
+                        }
+                    ]
                 },
                 "value": {
                     "description": "Value is the configured value of the option.",
@@ -12590,6 +12614,12 @@ const docTemplate = `{
                 "WorkflowRunFailed",
                 "WorkflowRunRejected"
             ]
+        },
+        "i18n.LocalText": {
+            "type": "object",
+            "additionalProperties": {
+                "type": "string"
+            }
         },
         "workflow.Spec": {
             "type": "object",

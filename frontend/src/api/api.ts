@@ -134,6 +134,7 @@ export interface AdminCreateUser {
 export interface AdminCredential {
   hasValue: boolean;
   key: string;
+  label: I18NLocalText;
   name?: string;
   type: "bearer" | "header" | "query";
 }
@@ -909,6 +910,8 @@ export interface SaveFieldShortcut {
 export interface SaveShortcutCredential {
   /** Key is the identifier the script passes to context.fetch to use the credential. */
   key: string;
+  /** Label is the display name, at most 64 characters; defaults to Key when omitted. */
+  label?: I18NLocalText;
   /** Name is the header or query parameter name, it is ignored by bearer. */
   name?: string;
   /** Type is how the credential is put into the request. */
@@ -966,18 +969,18 @@ export interface ShortcutFormItem {
   /** Key is the key of the configured value in FieldShortcut.Inputs and of the parameter passed to the shortcut. */
   key: string;
   /** Label is the name of the item shown in the form. */
-  label: string;
+  label: I18NLocalText;
   /** Options are the choices of select. */
   options?: ShortcutFormOption[];
   /** Placeholder is the hint of the empty input. */
-  placeholder?: string;
+  placeholder?: I18NLocalText;
   /** Required reports whether the item must be filled in before saving or executing. */
   required?: boolean;
 }
 
 export interface ShortcutFormOption {
   /** Label is the text of the option shown in the form. */
-  label: string;
+  label: I18NLocalText;
   /** Value is the configured value of the option. */
   value: string;
 }
@@ -1822,6 +1825,8 @@ export interface WorkflowValue {
   template?: string;
   var?: string;
 }
+
+export type I18NLocalText = Record<string, string>;
 
 export interface WorkflowSpec {
   /** Async holds the flows an API trigger runs in the background after request events; empty for other triggers. */

@@ -7,6 +7,7 @@ import { useI18n } from 'vue-i18n'
 import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
 
 import { ApiError } from '@/api/client'
+import { localText, type LocalText } from '@/utils/localText'
 import { adminApi, type AdminAISettings } from '@/api/admin'
 import {
   adminShortcutsApi,
@@ -28,7 +29,8 @@ import { formComponentKey, formItemIssueKey, formItemIssueName, loadFormItems, v
 import { sampleShortcutParams } from '@/utils/shortcut'
 import { LANGUAGE_NAMES, pluginFileName, versionLabel, type PluginLanguage } from '@/utils/workflowPlugin'
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
+const text = (value: LocalText | undefined) => localText(value, locale.value)
 const route = useRoute()
 const router = useRouter()
 
@@ -36,6 +38,7 @@ type CredentialType = 'bearer' | 'header' | 'query'
 
 interface CredentialDraft {
   key: string
+  label: Record<string, string>
   type: CredentialType
   name: string
   value: string
@@ -67,7 +70,7 @@ function toDraft(s: AdminFieldShortcut | null): Draft {
     language: s?.language ?? 'javascript',
     formItems: JSON.stringify(s?.formItems ?? [], null, 2),
     domains: [...(s?.domains ?? [])],
-    credentials: (s?.credentials ?? []).map((c) => ({ key: c.key, type: c.type as CredentialType, name: c.name ?? '', value: '', hasValue: c.hasValue })),
+    credentials: (s?.credentials ?? []).map((c) => ({ key: c.key, label: c.label, type: c.type as CredentialType, name: c.name ?? '', value: '', hasValue: c.hasValue })),
     timeoutSeconds: s?.timeoutSeconds ?? 30,
     enabled: s?.enabled ?? true,
     aiEnabled: s?.aiEnabled ?? false,
@@ -166,7 +169,7 @@ async function syncFromCode(): Promise<boolean> {
     const credentials = result.credentials.map((c) => {
       const previous = draft.credentials.find((entry) => entry.key === c.key)
 
-      return { key: c.key, type: c.type as CredentialType, name: c.name ?? '', value: previous?.value ?? '', hasValue: previous?.hasValue ?? false }
+      return { key: c.key, label: c.label, type: c.type as CredentialType, name: c.name ?? '', value: previous?.value ?? '', hasValue: previous?.hasValue ?? false }
     })
     Object.assign(draft, {
       name: result.name,
@@ -233,13 +236,14 @@ const parsedFormItems = computed<ShortcutFormItem[] | null>(() => {
 })
 
 const formItemColumns = computed<TableColumnData[]>(() => [
-  { title: t('shortcutAdmin.itemLabel'), dataIndex: 'label' },
+  { title: t('shortcutAdmin.itemLabel'), slotName: 'label' },
   { title: t('shortcutAdmin.itemKey'), slotName: 'key', width: 160 },
   { title: t('shortcutAdmin.itemComponent'), slotName: 'component', width: 140 },
   { title: t('shortcutAdmin.itemRequired'), slotName: 'required', width: 80, align: 'center' },
 ])
 const credentialColumns = computed<TableColumnData[]>(() => [
-  { title: t('shortcutAdmin.credentialKey'), slotName: 'key' },
+  { title: t('shortcutAdmin.credentialLabel'), slotName: 'label' },
+  { title: t('shortcutAdmin.credentialKey'), slotName: 'key', width: 140 },
   { title: t('shortcutAdmin.credentialType'), slotName: 'type', width: 120 },
   { title: t('shortcutAdmin.credentialName'), slotName: 'name' },
 ])
@@ -285,7 +289,7 @@ function body(): SaveFieldShortcut | null {
     language: draft.language,
     formItems: JSON.parse(draft.formItems) as ShortcutFormItem[],
     domains: draft.domains,
-    credentials: draft.credentials.map((c) => ({ key: c.key, type: c.type, name: c.type === 'bearer' ? undefined : c.name, value: c.value || undefined })),
+    credentials: draft.credentials.map((c) => ({ key: c.key, label: c.label, type: c.type, name: c.type === 'bearer' ? undefined : c.name, value: c.value || undefined })),
     timeoutSeconds: draft.timeoutSeconds,
     enabled: draft.enabled,
     aiEnabled: draft.aiEnabled,
@@ -522,7 +526,7 @@ const format = (v: unknown) => (v === undefined ? 'undefined' : JSON.stringify(v
                               <div class="permission-body">
                                 <a-typography-text bold>{{ t('shortcutAdmin.credentials') }}</a-typography-text>
                                 <a-typography-text type="secondary" class="permission-description">{{ t(draft.credentials.length ? 'shortcutAdmin.credentialPermissionHint' : 'shortcutAdmin.noCredentialPermission') }}</a-typography-text>
-                                <a-space v-if="draft.credentials.length" wrap :size="4" class="permission-tags"><a-tag v-for="credential in draft.credentials" :key="credential.key" size="small" class="mono">{{ credential.key }}</a-tag></a-space>
+                                <a-space v-if="draft.credentials.length" wrap :size="4" class="permission-tags"><a-tag v-for="credential in draft.credentials" :key="credential.key" size="small">{{ text(credential.label) }}</a-tag></a-space>
                               </div>
                             </a-space>
                           </a-col>
@@ -558,18 +562,19 @@ const format = (v: unknown) => (v === undefined ? 'undefined' : JSON.stringify(v
                           <a-typography-text type="secondary">{{ parsedFormItems?.length ?? 0 }}</a-typography-text>
                         </a-space>
                         <a-table :columns="formItemColumns" :data="parsedFormItems ?? []" :pagination="false" :bordered="false" :expandable="{}" :scroll="{ x: 560 }" size="small" row-key="key" class="definition-table">
+                          <template #label="{ record }"><span class="definition-label">{{ text(record.label) }}</span></template>
                           <template #key="{ record }"><a-typography-text code>{{ record.key }}</a-typography-text></template>
                           <template #component="{ record }">{{ t(formComponentKey(record.component as FormComponent)) }}</template>
                           <template #required="{ record }"><CircleCheck v-if="record.required" :size="15" class="required-icon" /><span v-else class="text-desc">—</span></template>
                           <template #expand-row="{ record }">
                             <a-descriptions :column="1" size="small" class="item-details" :label-style="{ width: '100px' }" :value-style="{ overflowWrap: 'anywhere' }">
-                              <a-descriptions-item :label="t('shortcutAdmin.itemPlaceholder')">{{ record.placeholder || '—' }}</a-descriptions-item>
+                              <a-descriptions-item :label="t('shortcutAdmin.itemPlaceholder')">{{ text(record.placeholder) || '—' }}</a-descriptions-item>
                               <a-descriptions-item v-if="record.component === 'field_select'" :label="t('shortcutAdmin.fieldTypes')">
                                 <a-space v-if="record.fieldTypes?.length" wrap :size="4"><a-tag v-for="type in record.fieldTypes" :key="type" size="small">{{ fieldTypeInfo(type).label }}</a-tag></a-space>
                                 <span v-else>{{ t('shortcutAdmin.fieldTypesEmpty') }}</span>
                               </a-descriptions-item>
                               <a-descriptions-item v-if="record.component === 'select'" :label="t('shortcutAdmin.options')">
-                                <a-space wrap :size="4"><a-tag v-for="option in record.options" :key="option.value" size="small">{{ option.label }} · {{ option.value }}</a-tag></a-space>
+                                <a-space wrap :size="4"><a-tag v-for="option in record.options" :key="option.value" size="small">{{ text(option.label) }} · {{ option.value }}</a-tag></a-space>
                               </a-descriptions-item>
                               <a-descriptions-item :label="t('shortcutAdmin.defaultValue')">{{ record.default || '—' }}</a-descriptions-item>
                             </a-descriptions>
@@ -581,7 +586,8 @@ const format = (v: unknown) => (v === undefined ? 'undefined' : JSON.stringify(v
                     <a-col v-if="draft.credentials.length" :xs="24" :xl="12">
                       <section aria-labelledby="shortcut-credentials">
                         <a-typography-title id="shortcut-credentials" :heading="6" class="section-heading">{{ t('shortcutAdmin.credentials') }}</a-typography-title>
-                        <a-table :columns="credentialColumns" :data="draft.credentials" :pagination="false" :bordered="false" :scroll="{ x: 480 }" size="small" row-key="key" class="definition-table">
+                        <a-table :columns="credentialColumns" :data="draft.credentials" :pagination="false" :bordered="false" :scroll="{ x: 600 }" size="small" row-key="key" class="definition-table">
+                          <template #label="{ record }"><span class="definition-label">{{ text(record.label) }}</span></template>
                           <template #key="{ record }"><a-typography-text code>{{ record.key }}</a-typography-text></template>
                           <template #type="{ record }">{{ credentialTypeLabel(record.type) }}</template>
                           <template #name="{ record }"><span class="mono">{{ record.type === 'bearer' ? 'Authorization' : record.name }}</span></template>
@@ -594,8 +600,8 @@ const format = (v: unknown) => (v === undefined ? 'undefined' : JSON.stringify(v
 
               <a-tab-pane v-if="draft.credentials.length" key="network" :title="t('shortcutAdmin.credentials')">
                 <a-form :model="draft" layout="vertical" class="pane credential-values">
-                  <a-form-item v-for="c in draft.credentials" :key="c.key" :label="c.key" :extra="`${credentialTypeLabel(c.type)} · ${c.type === 'bearer' ? 'Authorization' : c.name}`">
-                    <a-input-password v-model="c.value" :aria-label="c.key" :placeholder="c.hasValue ? t('shortcutAdmin.credentialKeep') : t('shortcutAdmin.credentialValue')" />
+                  <a-form-item v-for="c in draft.credentials" :key="c.key" :label="text(c.label)" :extra="`${credentialTypeLabel(c.type)} · ${c.type === 'bearer' ? 'Authorization' : c.name}`">
+                    <a-input-password v-model="c.value" :aria-label="text(c.label)" :placeholder="c.hasValue ? t('shortcutAdmin.credentialKeep') : t('shortcutAdmin.credentialValue')" />
                   </a-form-item>
                 </a-form>
               </a-tab-pane>
@@ -888,6 +894,10 @@ const format = (v: unknown) => (v === undefined ? 'undefined' : JSON.stringify(v
 }
 .ai-status {
   margin-top: 20px;
+}
+.definition-label {
+  word-break: normal;
+  overflow-wrap: anywhere;
 }
 .definition-table :deep(.arco-table-th) {
   background: var(--bg-base);

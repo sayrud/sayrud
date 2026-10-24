@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { localText, type LocalText } from '@/utils/localText'
 import { Message, type FileItem } from '@arco-design/web-vue'
 import { ArrowRight, CodeXml, FileCode2, Link2, Upload, X } from '@lucide/vue'
 import { computed, ref, watch } from 'vue'
@@ -17,7 +18,8 @@ import { LANGUAGE_NAMES, languageOf, versionLabel, type PluginLanguage } from '@
 const props = defineProps<{ upgrade?: AdminFieldShortcut | null }>()
 const visible = defineModel<boolean>('visible', { required: true })
 const emit = defineEmits<{ installed: [shortcut: AdminFieldShortcut] }>()
-const { t } = useI18n()
+const { t, locale } = useI18n()
+const text = (value: LocalText | undefined) => localText(value, locale.value)
 
 const MAX_SOURCE_SIZE = 200 * 1024
 const step = ref(1)
@@ -137,7 +139,7 @@ async function install() {
           language: i.language,
           formItems: i.formItems,
           domains: i.domains,
-          credentials: i.credentials.map((c) => ({ key: c.key, type: c.type, name: c.name })),
+          credentials: i.credentials.map((c) => ({ key: c.key, label: c.label, type: c.type, name: c.name })),
           timeoutSeconds: i.timeoutSeconds,
           aiEnabled: i.aiEnabled,
           enabled: upgrade.enabled,
@@ -242,7 +244,7 @@ async function install() {
         </a-descriptions-item>
         <a-descriptions-item :label="t('shortcutAdmin.formItems')">
           <div v-if="inspection.formItems.length" class="tags">
-            <a-tag v-for="item in inspection.formItems" :key="item.key" size="small">{{ item.label }}<span v-if="item.required" class="required">*</span></a-tag>
+            <a-tag v-for="item in inspection.formItems" :key="item.key" size="small">{{ text(item.label) }}<span v-if="item.required" class="required">*</span></a-tag>
           </div>
           <span v-else class="text-desc">{{ t('pluginAdmin.noInputs') }}</span>
         </a-descriptions-item>
@@ -254,7 +256,7 @@ async function install() {
         </a-descriptions-item>
         <a-descriptions-item v-if="inspection.credentials.length" :label="t('shortcutAdmin.credentials')" :span="2">
           <div class="tags">
-            <a-tag v-for="credential in inspection.credentials" :key="credential.key" size="small">{{ credential.key }} · {{ credential.type }}</a-tag>
+            <a-tag v-for="credential in inspection.credentials" :key="credential.key" size="small">{{ text(credential.label) }} · {{ credential.type }}</a-tag>
           </div>
           <p class="text-desc hint">{{ t('shortcutAdmin.credentialsHint') }}</p>
         </a-descriptions-item>
