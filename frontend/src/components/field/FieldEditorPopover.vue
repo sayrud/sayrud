@@ -19,7 +19,7 @@ import FormulaModal from './FormulaModal.vue'
 import SelectOptionsEditor from './SelectOptionsEditor.vue'
 import ShortcutForm from './ShortcutForm.vue'
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
 
 const store = useBaseStore()
 const state = computed(() => store.fieldEditor!)
@@ -189,7 +189,7 @@ const optionsReference = computed<OptionReference | undefined>({
 
 const hasOptionsItem = computed(() => manifest.value?.formItems.some((item) => item.component === 'field_options'))
 
-const missingShortcutInput = computed(() => (shortcut.value && manifest.value ? missingInput(manifest.value, shortcut.value.inputs) : null))
+const missingShortcutInput = computed(() => (shortcut.value && manifest.value ? missingInput(manifest.value, shortcut.value.inputs, locale.value) : null))
 const formulaDisplay = computed(() => expToDisplay(String(md.value.exp ?? ''), store.fields))
 
 function uniqueLabel(base: string) {

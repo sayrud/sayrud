@@ -10,6 +10,7 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/wuhan005/sayrud/internal/dbutil"
+	"github.com/wuhan005/sayrud/internal/i18n"
 )
 
 var _ FieldShortcutsStore = (*fieldShortcuts)(nil)
@@ -66,7 +67,7 @@ type ShortcutFormOption struct {
 	// Value is the configured value of the option.
 	Value string `json:"value"`
 	// Label is the text of the option shown in the form.
-	Label string `json:"label"`
+	Label i18n.LocalText `json:"label"`
 } // @name ShortcutFormOption
 
 // ShortcutFormItem describes an input of a shortcut, the field editor renders the form by them.
@@ -74,13 +75,13 @@ type ShortcutFormItem struct {
 	// Key is the key of the configured value in FieldShortcut.Inputs and of the parameter passed to the shortcut.
 	Key string `json:"key"`
 	// Label is the name of the item shown in the form.
-	Label string `json:"label"`
+	Label i18n.LocalText `json:"label"`
 	// Component is the control to render the item.
 	Component ShortcutFormComponent `json:"component" swaggertype:"string" enums:"field_select,input,textarea,select,field_options,prompt"`
 	// Required reports whether the item must be filled in before saving or executing.
 	Required bool `json:"required,omitempty"`
 	// Placeholder is the hint of the empty input.
-	Placeholder string `json:"placeholder,omitempty"`
+	Placeholder i18n.LocalText `json:"placeholder,omitempty"`
 	// FieldTypes limits the fields of field_select, empty allows all the fields except formulas.
 	FieldTypes []SLFieldType `json:"fieldTypes,omitempty" swaggertype:"array,string"`
 	// Options are the choices of select.
@@ -114,6 +115,8 @@ func (t ShortcutCredentialType) Valid() bool {
 type ShortcutCredential struct {
 	// Key is the identifier the script passes to context.fetch to use the credential.
 	Key string `json:"key"`
+	// Label is the display name of the credential.
+	Label i18n.LocalText `json:"label"`
 	// Type is how the credential is put into the request.
 	Type ShortcutCredentialType `json:"type"`
 	// Name is the header or query parameter name, it is ignored by bearer.
@@ -129,12 +132,16 @@ type CustomFieldShortcut struct {
 	UID string `gorm:"type:varchar(16);not null;uniqueIndex:idx_field_shortcuts_uid, where:deleted_at IS NULL"`
 	// Name is shown in the field editor.
 	Name string `gorm:"type:varchar(64);not null"`
+	// Version is the manifest version, defaulting to 1.0.0 for existing shortcuts.
+	Version string `gorm:"type:varchar(32);not null;default:1.0.0"`
 	// Description tells the members what the shortcut does, empty if not set.
 	Description string `gorm:"type:text;not null;default:''"`
 	// ResultType is the type of the fields the shortcut can be attached to.
 	ResultType SLFieldType `gorm:"type:varchar(32);not null"`
 	// Code defines `async function execute(params, context)` returning the cell value, with context.ai.complete using the global model when AIEnabled.
 	Code string `gorm:"type:text;not null"`
+	// Language is javascript for existing shortcuts, or typescript for typed modules.
+	Language string `gorm:"type:varchar(16);not null;default:javascript"`
 	// AIEnabled allows the script to call the globally configured AI model.
 	AIEnabled bool `gorm:"not null;default:false"`
 	// FormItems are the inputs configured in the field editor and passed to execute as the params.
@@ -224,9 +231,11 @@ func (db *fieldShortcuts) Create(ctx context.Context, s *CustomFieldShortcut) er
 func (db *fieldShortcuts) Update(ctx context.Context, s *CustomFieldShortcut) error {
 	result := db.WithContext(ctx).Model(&CustomFieldShortcut{}).Where("uid = ?", s.UID).Updates(map[string]interface{}{
 		"name":            s.Name,
+		"version":         s.Version,
 		"description":     s.Description,
 		"result_type":     s.ResultType,
 		"code":            s.Code,
+		"language":        s.Language,
 		"ai_enabled":      s.AIEnabled,
 		"form_items":      s.FormItems,
 		"domains":         s.Domains,

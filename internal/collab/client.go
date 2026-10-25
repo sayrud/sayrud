@@ -445,8 +445,11 @@ func (c *Client) tr(key string, args ...interface{}) string {
 
 	args = append([]interface{}(nil), args...)
 	for i, arg := range args {
-		if k, ok := arg.(MessageKey); ok {
-			args[i] = c.locale.Translate(string(k))
+		switch value := arg.(type) {
+		case MessageKey:
+			args[i] = c.locale.Translate(string(value))
+		case i18n.LocalText:
+			args[i] = value.In(c.locale.Lang())
 		}
 	}
 	return c.locale.Translate(key, args...)

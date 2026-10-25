@@ -16,6 +16,7 @@ import (
 	"github.com/wuhan005/sayrud/internal/db"
 	"github.com/wuhan005/sayrud/internal/dbutil"
 	"github.com/wuhan005/sayrud/internal/dto"
+	"github.com/wuhan005/sayrud/internal/i18n"
 )
 
 const (
@@ -207,20 +208,20 @@ func (e *Engine) broadcast(projectUID, tableUID string, states []jobState) {
 	if len(states) == 0 {
 		return
 	}
-	e.hub.NotifyTable(projectUID, tableUID, collab.MessageShortcutJobs, func(tr func(string, ...interface{}) string) interface{} {
+	e.hub.NotifyTable(projectUID, tableUID, collab.MessageShortcutJobs, func(tr func(string, ...interface{}) string, lang string) interface{} {
 		if len(states) > maxBroadcastJobs {
 			return dto.ShortcutJobsMessage{TableUID: tableUID, Reload: true, Jobs: []*dto.ShortcutJob{}}
 		}
 		jobs := make([]*dto.ShortcutJob, 0, len(states))
 		for _, s := range states {
-			jobs = append(jobs, &dto.ShortcutJob{FieldUID: s.fieldUID, RecordUID: s.recordUID, Status: s.status, Error: ErrorText(tr, s.err)})
+			jobs = append(jobs, &dto.ShortcutJob{FieldUID: s.fieldUID, RecordUID: s.recordUID, Status: s.status, Error: ErrorText(tr, lang, s.err)})
 		}
 		return dto.ShortcutJobsMessage{TableUID: tableUID, Jobs: jobs}
 	})
 }
 
 func (e *Engine) broadcastReload(projectUID, tableUID string) {
-	e.hub.NotifyTable(projectUID, tableUID, collab.MessageShortcutJobs, func(func(string, ...interface{}) string) interface{} {
+	e.hub.NotifyTable(projectUID, tableUID, collab.MessageShortcutJobs, func(func(string, ...interface{}) string, string) interface{} {
 		return dto.ShortcutJobsMessage{TableUID: tableUID, Reload: true, Jobs: []*dto.ShortcutJob{}}
 	})
 }
@@ -273,13 +274,13 @@ func (e *Engine) Run(ctx context.Context, project *db.Project, table *db.SLTable
 }
 
 // ListJobs returns the jobs of the table with the errors in the language of the reader.
-func (e *Engine) ListJobs(ctx context.Context, table *db.SLTable, tr Translator) ([]*dto.ShortcutJob, error) {
+func (e *Engine) ListJobs(ctx context.Context, table *db.SLTable, tr Translator, lang string) ([]*dto.ShortcutJob, error) {
 	jobs, err := e.jobs().ListByTableID(ctx, table.ID)
 	if err != nil {
 		return nil, err
 	}
 	return lo.Map(jobs, func(j *db.SLShortcutJob, _ int) *dto.ShortcutJob {
-		return &dto.ShortcutJob{FieldUID: j.FieldUID, RecordUID: j.RecordUID, Status: string(j.Status), Error: ErrorText(tr, j.Error.Data())}
+		return &dto.ShortcutJob{FieldUID: j.FieldUID, RecordUID: j.RecordUID, Status: string(j.Status), Error: ErrorText(tr, lang, j.Error.Data())}
 	}), nil
 }
 
@@ -289,9 +290,9 @@ func (e *Engine) ValidateShortcut(ctx context.Context, fields []*db.SLField, fie
 	if err != nil {
 		var shortcutErr *Error
 		if errors.As(err, &shortcutErr) {
-			args := lo.Map(shortcutErr.Args, func(arg string, _ int) interface{} {
-				if messageKeyPattern.MatchString(arg) {
-					return collab.MessageKey(arg)
+			args := lo.Map(shortcutErr.Args, func(arg i18n.LocalText, _ int) interface{} {
+				if key, ok := arg[""]; ok && len(arg) == 1 && messageKeyPattern.MatchString(key) {
+					return collab.MessageKey(key)
 				}
 				return arg
 			})
@@ -530,7 +531,7 @@ func (e *Engine) fail(ctx context.Context, target *jobTarget, job *db.SLShortcut
 }
 
 // Preview executes the shortcut of the unsaved field on the records without writing back, at most 3 records in parallel.
-func (e *Engine) Preview(ctx context.Context, project *db.Project, table *db.SLTable, fields []*db.SLField, field *db.SLField, records []*db.SLRecord, tr Translator) ([]*dto.ShortcutPreview, error) {
+func (e *Engine) Preview(ctx context.Context, project *db.Project, table *db.SLTable, fields []*db.SLField, field *db.SLField, records []*db.SLRecord, tr Translator, lang string) ([]*dto.ShortcutPreview, error) {
 	shortcut, err := ValidateField(ctx, fields, field)
 	if err != nil {
 		return nil, err
@@ -562,7 +563,7 @@ func (e *Engine) Preview(ctx context.Context, project *db.Project, table *db.SLT
 			if err != nil {
 				var shortcutErr *Error
 				if errors.As(err, &shortcutErr) {
-					result.Error = shortcutErr.Text(tr)
+					result.Error = shortcutErr.Text(tr, lang)
 				} else {
 					logrus.WithContext(ctx).WithError(err).Error("Failed to preview shortcut")
 					result.Error = tr("shortcut::internal_error")

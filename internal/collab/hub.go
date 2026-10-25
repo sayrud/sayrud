@@ -311,10 +311,14 @@ func (h *Hub) NotifyChange(ctx context.Context, project *db.Project, table *db.S
 }
 
 // NotifyTable sends the message to the subscribers of the table, build returns the data in the language of each subscriber.
-func (h *Hub) NotifyTable(projectUID, tableUID, messageType string, build func(tr func(key string, args ...interface{}) string) interface{}) {
+func (h *Hub) NotifyTable(projectUID, tableUID, messageType string, build func(tr func(key string, args ...interface{}) string, lang string) interface{}) {
 	for _, c := range h.clients(projectUID) {
 		if c.subscribed(tableUID) {
-			c.send(newMessage(messageType, 0, build(c.tr)))
+			lang := ""
+			if c.locale != nil {
+				lang = c.locale.Lang()
+			}
+			c.send(newMessage(messageType, 0, build(c.tr, lang)))
 		}
 	}
 

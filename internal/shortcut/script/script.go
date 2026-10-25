@@ -1,4 +1,4 @@
-// Package script runs the custom field shortcuts written in JavaScript.
+// Package script runs the custom field shortcuts written in JavaScript or TypeScript.
 //
 // Every run uses a new moejs runtime which has no module loader, file system or process access, and is interrupted on timeout.
 // context.fetch is limited to allowed domains and public or explicitly allowed addresses; context.ai uses the injected server-side model client.
@@ -32,6 +32,8 @@ type Credential struct {
 type Options struct {
 	// Code defines `async function execute(params, context)`.
 	Code string
+	// Language is javascript by default; typescript uses the engine's type-erasing module compiler.
+	Language string
 	// Params are passed as the first argument, keyed by the form item key.
 	Params map[string]interface{}
 	// Context is merged into the second argument, e.g. the UIDs of the table and the record.
@@ -70,13 +72,45 @@ var (
 // Error is an error thrown by the script or a syntax error, Message is shown to the users.
 type Error = jsruntime.Error
 
-// Compile checks the syntax of the code.
-func Compile(code string) error {
+// Compile checks classic scripts and single-file ES modules.
+func Compile(code, language string) error {
+	if language == "typescript" {
+		_, err := compileModule(code, language)
+		return err
+	}
+	if language != "" && language != "javascript" {
+		return &Error{Message: "unsupported source language"}
+	}
 	if _, err := moejs.CompileScript(scriptName, code); err != nil {
-		return &Error{Message: err.Error()}
+		_, err = compileModule(code, language)
+		return err
 	}
 
 	return nil
+}
+
+func compileModule(code, language string) (*moejs.Module, error) {
+	var mod *moejs.Module
+	var err error
+	switch language {
+	case "typescript":
+		mod, err = moejs.CompileTS("shortcut.ts", code)
+	case "", "javascript":
+		mod, err = moejs.Compile(scriptName, code)
+	default:
+		return nil, &Error{Message: "unsupported source language"}
+	}
+	if err != nil {
+		return nil, &Error{Message: err.Error()}
+	}
+	if len(mod.Requests()) > 0 {
+		return nil, &Error{Message: "the module can not import other modules"}
+	}
+	if _, err := mod.Hook("execute"); err != nil {
+		return nil, ErrNoExecute
+	}
+
+	return mod, nil
 }
 
 type sandbox struct {
@@ -124,17 +158,9 @@ func Run(ctx context.Context, opts Options) (*Result, error) {
 }
 
 func (s *sandbox) execute() (interface{}, error) {
-	// Read execute in the same global scope without turning a classic script into a strict module.
-	program, err := moejs.CompileScript(scriptName, s.opts.Code+"\n;typeof execute === 'function' ? execute : undefined;")
+	fn, err := s.loadExecute()
 	if err != nil {
-		return nil, s.vm.Wrap(err)
-	}
-	fn, err := s.vm.RunScript(program)
-	if err != nil {
-		return nil, s.vm.Wrap(err)
-	}
-	if fn.IsUndefined() {
-		return nil, ErrNoExecute
+		return nil, err
 	}
 
 	params := s.opts.Params
@@ -160,6 +186,39 @@ func (s *sandbox) execute() (interface{}, error) {
 	}
 
 	return s.vm.Resolve(value)
+}
+
+func (s *sandbox) loadExecute() (moejs.Value, error) {
+	// Read execute in the same global scope without turning a classic script into a strict module.
+	var program *moejs.Script
+	if s.opts.Language == "" || s.opts.Language == "javascript" {
+		program, _ = moejs.CompileScript(scriptName, s.opts.Code+"\n;typeof execute === 'function' ? execute : undefined;")
+	}
+	if program == nil {
+		mod, err := compileModule(s.opts.Code, s.opts.Language)
+		if err != nil {
+			return moejs.Undefined(), err
+		}
+		if err := s.vm.Load(mod); err != nil {
+			return moejs.Undefined(), s.vm.Wrap(err)
+		}
+		hook, _ := mod.Hook("execute")
+		if ok, err := s.vm.Has(hook); err != nil || !ok {
+			return moejs.Undefined(), ErrNoExecute
+		}
+		fn, _ := s.vm.Export("execute")
+		return fn, nil
+	}
+
+	fn, err := s.vm.RunScript(program)
+	if err != nil {
+		return moejs.Undefined(), s.vm.Wrap(err)
+	}
+	if fn.IsUndefined() {
+		return moejs.Undefined(), ErrNoExecute
+	}
+
+	return fn, nil
 }
 
 // redact hides the credential values printed by the script.

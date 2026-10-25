@@ -26,8 +26,6 @@ type WorkflowPlugin struct {
 	Domains []string `json:"domains"`
 	// Timeout is the time limit of a call in seconds.
 	Timeout int `json:"timeout"`
-	// UsedBy is the number of workflows whose draft or published revision uses the node.
-	UsedBy int64 `json:"usedBy"`
 	// Source is the source code, only returned when getting a single plugin.
 	Source    string    `json:"source,omitempty"`
 	CreatedAt time.Time `json:"createdAt"`
@@ -35,7 +33,7 @@ type WorkflowPlugin struct {
 } // @name WorkflowPlugin
 
 // ToWorkflowPlugin converts an installed plugin with its validated manifest.
-func ToWorkflowPlugin(p *db.WorkflowPlugin, m *workflow.PluginManifest, lang string, usedBy int64) *WorkflowPlugin {
+func ToWorkflowPlugin(p *db.WorkflowPlugin, m *workflow.PluginManifest, lang string) *WorkflowPlugin {
 	domains := m.Permissions.Fetch
 	if domains == nil {
 		domains = []string{}
@@ -43,7 +41,7 @@ func ToWorkflowPlugin(p *db.WorkflowPlugin, m *workflow.PluginManifest, lang str
 	return &WorkflowPlugin{
 		ID: p.PluginID, Version: m.Version, Language: p.Language, SourceURL: p.SourceURL, Checksum: p.Checksum, Enabled: p.Enabled,
 		Module: m.ModuleDef(lang, 0, p.Enabled), Credential: m.CredentialTypeDef(lang), Domains: domains, Timeout: m.Timeout,
-		UsedBy: usedBy, CreatedAt: p.CreatedAt, UpdatedAt: p.UpdatedAt,
+		CreatedAt: p.CreatedAt, UpdatedAt: p.UpdatedAt,
 	}
 }
 

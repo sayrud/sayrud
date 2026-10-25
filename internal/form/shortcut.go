@@ -2,6 +2,7 @@ package form
 
 import (
 	"github.com/wuhan005/sayrud/internal/db"
+	"github.com/wuhan005/sayrud/internal/i18n"
 )
 
 // RunFieldShortcut queues the cells of the field to generate by its shortcut.
@@ -30,12 +31,16 @@ type PreviewFieldShortcut struct {
 type SaveFieldShortcut struct {
 	// Name is shown in the field editor, at most 64 characters.
 	Name string `json:"name"`
+	// Version is the manifest version, 1.0.0 when omitted for compatibility.
+	Version string `json:"version,omitempty"`
 	// Description tells the members what the shortcut does, at most 500 characters.
 	Description string `json:"description"`
 	// ResultType is the type of the fields the shortcut can be attached to.
 	ResultType string `json:"resultType" enums:"text,single_select,multi_select,datetime,number,checkbox"`
 	// Code defines `async function execute(params, context)`, with context.ai.complete using the global model when AIEnabled.
 	Code string `json:"code"`
+	// Language of Code, javascript by default.
+	Language string `json:"language,omitempty" enums:"javascript,typescript"`
 	// AIEnabled allows the script to call the globally configured AI model.
 	AIEnabled bool `json:"aiEnabled"`
 	// FormItems are the inputs configured in the field editor and passed to execute as the params.
@@ -50,10 +55,28 @@ type SaveFieldShortcut struct {
 	Enabled bool `json:"enabled"`
 } // @name SaveFieldShortcut
 
+// InspectFieldShortcut checks a single JavaScript or TypeScript module before installing it.
+type InspectFieldShortcut struct {
+	Source string `json:"source,omitempty"`
+	// Language of Source, javascript by default; URL extensions take precedence.
+	Language string `json:"language,omitempty" enums:"javascript,typescript"`
+	// URL is downloaded when Source is empty.
+	URL string `json:"url,omitempty"`
+} // @name InspectFieldShortcut
+
+// InstallFieldShortcut installs the exact source reviewed by the admin.
+type InstallFieldShortcut struct {
+	Source string `json:"source"`
+	// Language of Source, javascript by default.
+	Language string `json:"language,omitempty" enums:"javascript,typescript"`
+} // @name InstallFieldShortcut
+
 // SaveShortcutCredential is a credential of a custom shortcut.
 type SaveShortcutCredential struct {
 	// Key is the identifier the script passes to context.fetch to use the credential.
 	Key string `json:"key"`
+	// Label is the display name, at most 64 characters; defaults to Key when omitted.
+	Label i18n.LocalText `json:"label,omitempty"`
 	// Type is how the credential is put into the request.
 	Type string `json:"type" enums:"bearer,header,query"`
 	// Name is the header or query parameter name, it is ignored by bearer.

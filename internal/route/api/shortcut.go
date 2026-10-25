@@ -38,7 +38,7 @@ func shortcutErrorResponse(ctx context.Context, err error) (error, bool) {
 	if !errors.As(err, &shortcutErr) {
 		return nil, false
 	}
-	return ctx.ApiErrorMessage(http.StatusBadRequest, shortcutErr.Text(ctx.Tr)), true
+	return ctx.ApiErrorMessage(http.StatusBadRequest, shortcutErr.Text(ctx.Tr, ctx.Locale().Lang())), true
 }
 
 // ListFieldShortcuts
@@ -124,7 +124,7 @@ func (shortcutRoute) Preview(ctx context.Context, engine *shortcut.Engine, proje
 	}
 	fields = append(lo.Filter(fields, func(field *db.SLField, _ int) bool { return field.UID != f.FieldUID }), draft)
 
-	results, err := engine.Preview(c, project, table, fields, draft, records, ctx.Tr)
+	results, err := engine.Preview(c, project, table, fields, draft, records, ctx.Tr, ctx.Locale().Lang())
 	if err != nil {
 		if resp, ok := shortcutErrorResponse(ctx, err); ok {
 			return resp
@@ -184,7 +184,7 @@ func (shortcutRoute) Run(ctx context.Context, engine *shortcut.Engine, project *
 // @ID listShortcutJobs
 // @Router /projects/{projectUID}/tables/{tableUID}/shortcut-jobs [get]
 func (shortcutRoute) ListJobs(ctx context.Context, engine *shortcut.Engine, table *db.SLTable) error {
-	jobs, err := engine.ListJobs(ctx.Request().Context(), table, ctx.Tr)
+	jobs, err := engine.ListJobs(ctx.Request().Context(), table, ctx.Tr, ctx.Locale().Lang())
 	if err != nil {
 		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to list shortcut jobs")
 		return ctx.ApiServerError()

@@ -237,3 +237,20 @@ test('issue names fall back to the 1-based index and map to locale keys', () => 
   assert.equal(formItemIssueKey({ index: -1, field: 'list', code: 'too_many' }), 'shortcutAdmin.issueTooMany')
   assert.equal(formItemIssueKey({ index: 0, field: 'key', code: 'duplicate_key' }), 'shortcutAdmin.issueDuplicateKey')
 })
+
+
+test('translated labels, placeholders and options round-trip without changing configured values', () => {
+  const items = [{ key: 'tone', label: { en: 'Tone', 'zh-CN': '语气' }, component: 'select', required: true,
+    placeholder: { en: 'Choose a tone', 'zh-CN': '选择语气' }, default: 'formal',
+    options: [{ value: 'formal', label: { en: 'Formal', 'zh-CN': '正式' } }] }]
+  const loaded = loadFormItems(JSON.stringify(items))
+  assert.equal(loaded.ok, true)
+  if (!loaded.ok) return
+  assert.deepEqual(validateFormItems(loaded.items), [])
+  assert.deepEqual(JSON.parse(serializeFormItems(loaded.items)), items)
+  loaded.items[0]!.label = { en: 'Valid', 'zh-CN': '界'.repeat(65) }
+  assert.deepEqual(codes(validateFormItems(loaded.items)), ['label'])
+  loaded.items[0]!.label = { en: 'Valid' }
+  loaded.items[0]!.placeholder = { en: 'Valid', 'zh-CN': '界'.repeat(501) }
+  assert.deepEqual(codes(validateFormItems(loaded.items)), ['placeholder'])
+})

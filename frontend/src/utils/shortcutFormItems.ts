@@ -1,9 +1,23 @@
+import { localText, normalizeLocalText, validLocalText, type LocalText } from './localText.ts'
+
 // shortcutFormItems converts form items between the visual editor and JSON text, and validates them the same way as normalizeFormItems.
 
 export const MAX_FORM_ITEMS = 20
 
 export const FORM_COMPONENTS = ['field_select', 'input', 'textarea', 'select', 'field_options', 'prompt'] as const
 export type FormComponent = (typeof FORM_COMPONENTS)[number]
+const FORM_COMPONENT_LABELS: Record<FormComponent, string> = {
+  field_select: 'shortcutAdmin.componentFieldSelect',
+  input: 'shortcutAdmin.componentInput',
+  textarea: 'shortcutAdmin.componentTextarea',
+  select: 'shortcutAdmin.componentSelect',
+  field_options: 'shortcutAdmin.componentFieldOptions',
+  prompt: 'shortcutAdmin.componentPrompt',
+}
+
+export function formComponentKey(component: FormComponent): string {
+  return FORM_COMPONENT_LABELS[component]
+}
 
 export const FORM_FIELD_TYPES = ['text', 'single_select', 'multi_select', 'datetime', 'number', 'checkbox'] as const
 export type FormFieldType = (typeof FORM_FIELD_TYPES)[number]
@@ -14,6 +28,7 @@ const ISSUE_KEYS = {
   key: 'shortcutAdmin.issueKey',
   duplicate_key: 'shortcutAdmin.issueDuplicateKey',
   label: 'shortcutAdmin.issueLabel',
+  placeholder: 'shortcutAdmin.issuePlaceholder',
   component: 'shortcutAdmin.issueComponent',
   field_types: 'shortcutAdmin.issueFieldTypes',
   options: 'shortcutAdmin.issueOptions',
@@ -24,15 +39,15 @@ const ISSUE_KEYS = {
 
 export interface ShortcutFormOptionDraft {
   value: string
-  label: string
+  label: LocalText
 }
 
 export interface ShortcutFormItemDraft {
   key: string
-  label: string
+  label: LocalText
   component: string
   required: boolean
-  placeholder: string
+  placeholder: LocalText
   fieldTypes: string[]
   options: ShortcutFormOptionDraft[]
   /** JSON field `default`. Field references and host options have no default. */
@@ -44,7 +59,7 @@ export interface FormItemIssue {
   index: number
   /** 0-based option index when the issue is about one option. */
   option?: number
-  field: 'list' | 'key' | 'label' | 'component' | 'fieldTypes' | 'options' | 'default'
+  field: 'list' | 'key' | 'label' | 'placeholder' | 'component' | 'fieldTypes' | 'options' | 'default'
   code: keyof typeof ISSUE_KEYS
 }
 
@@ -77,8 +92,8 @@ function optionsOf(value: unknown): ShortcutFormOptionDraft[] {
   for (const entry of value) {
     if (!isPlainObject(entry)) continue
     const option = optionValue(entry.value)
-    const label = typeof entry.label === 'string' ? entry.label.trim() : ''
-    out.push({ value: option, label: label === '' ? option : label })
+    const label = normalizeLocalText(entry.label)
+    out.push({ value: option, label: localText(label, 'en') === '' ? option : label })
   }
   return out
 }
@@ -87,10 +102,10 @@ function coerce(raw: Record<string, unknown>): ShortcutFormItemDraft {
   const component = typeof raw.component === 'string' ? raw.component : ''
   return {
     key: typeof raw.key === 'string' ? raw.key.trim() : '',
-    label: typeof raw.label === 'string' ? raw.label.trim() : '',
+    label: normalizeLocalText(raw.label),
     component,
     required: raw.required === true,
-    placeholder: typeof raw.placeholder === 'string' ? raw.placeholder.trim() : '',
+    placeholder: normalizeLocalText(raw.placeholder),
     fieldTypes: component === 'field_select' ? stringList(raw.fieldTypes) : [],
     options: component === 'select' ? optionsOf(raw.options) : [],
     defaultValue: component === 'field_select' || component === 'field_options' || typeof raw.default !== 'string' ? '' : raw.default,
@@ -110,12 +125,12 @@ export function loadFormItems(text: string): { ok: true; items: ShortcutFormItem
 function serializeItem(item: ShortcutFormItemDraft): Record<string, unknown> {
   const out: Record<string, unknown> = { key: item.key, label: item.label, component: item.component }
   if (item.required) out.required = true
-  if (item.placeholder !== '') out.placeholder = item.placeholder
+  if (localText(item.placeholder, 'en') !== '') out.placeholder = item.placeholder
   if (item.component === 'field_select' && item.fieldTypes.length > 0) out.fieldTypes = item.fieldTypes
   if (item.component === 'select' && item.options.length > 0) {
     out.options = item.options.map((option) => ({
       value: option.value,
-      label: option.label === '' ? option.value : option.label,
+      label: localText(option.label, 'en') === '' ? option.value : option.label,
     }))
   }
   if (item.component !== 'field_select' && item.component !== 'field_options' && item.defaultValue !== '') out.default = item.defaultValue
@@ -134,8 +149,8 @@ export function validateFormItems(items: readonly ShortcutFormItemDraft[]): Form
   items.forEach((entry, index) => {
     if (!KEY.test(entry.key)) issues.push({ index, field: 'key', code: 'key' })
     else if ((counts.get(entry.key) ?? 0) > 1) issues.push({ index, field: 'key', code: 'duplicate_key' })
-    const label = entry.label.trim()
-    if (label.length === 0 || [...label].length > 64) issues.push({ index, field: 'label', code: 'label' })
+    if (!validLocalText(entry.label, 64, true)) issues.push({ index, field: 'label', code: 'label' })
+    if (!validLocalText(entry.placeholder, 500, false)) issues.push({ index, field: 'placeholder', code: 'placeholder' })
     if (!isFormComponent(entry.component)) issues.push({ index, field: 'component', code: 'component' })
     if (entry.component === 'field_select' && entry.fieldTypes.some((type) => !isFormFieldType(type))) {
       issues.push({ index, field: 'fieldTypes', code: 'field_types' })
@@ -147,6 +162,7 @@ export function validateFormItems(items: readonly ShortcutFormItemDraft[]): Form
       const values = new Map<string, number>()
       for (const option of entry.options) values.set(option.value, (values.get(option.value) ?? 0) + 1)
       entry.options.forEach((option, optionIndex) => {
+        if (!validLocalText(option.label, 500, false)) issues.push({ index, option: optionIndex, field: 'options', code: 'options' })
         if (option.value === '') issues.push({ index, option: optionIndex, field: 'options', code: 'option_value' })
         else if ((values.get(option.value) ?? 0) > 1) issues.push({ index, option: optionIndex, field: 'options', code: 'duplicate_option' })
       })

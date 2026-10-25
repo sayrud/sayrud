@@ -1,5 +1,6 @@
 import type { FieldType } from '@/types/bitable'
 import type { ListParams } from './admin'
+import type { PluginLanguage } from '../utils/workflowPlugin'
 import type {
   AdminFieldShortcut,
   FieldShortcutManifest as ApiManifest,
@@ -47,6 +48,8 @@ export const adminShortcutsApi = {
   delete: async (uid: string) => {
     await client.admin.deleteAdminFieldShortcut(uid)
   },
+  inspect: async (body: { source?: string; url?: string; language?: PluginLanguage }) => (await client.admin.inspectAdminFieldShortcut(body)).data,
+  install: async (source: string, language: PluginLanguage) => (await client.admin.installAdminFieldShortcut({ source, language })).data,
   test: async (body: SaveFieldShortcut, params: Record<string, unknown>, uid?: string) =>
     (await client.admin.testAdminFieldShortcut({ uid, shortcut: body, params })).data,
 }

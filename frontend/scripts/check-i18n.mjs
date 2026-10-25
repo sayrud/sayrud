@@ -158,7 +158,7 @@ export async function audit(
                     } else if (node.type === 'ConditionalExpression') {
                       translation(node.consequent)
                       translation(node.alternate)
-                    } else if (node.type === 'CallExpression' && ['ssoErrorKey', 'formItemIssueKey'].includes(node.callee.name)) {
+                    } else if (node.type === 'CallExpression' && ['ssoErrorKey', 'formItemIssueKey', 'formComponentKey'].includes(node.callee.name)) {
                       // Their return values are collected from the helper's literal keys / finite template domain.
                     } else context.report({ node, messageId: 'dynamic', data: { key: context.sourceCode.getText(node) } })
                   }

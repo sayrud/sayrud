@@ -11,6 +11,7 @@ import (
 	"gorm.io/gorm/clause"
 
 	"github.com/wuhan005/sayrud/internal/dbutil"
+	"github.com/wuhan005/sayrud/internal/i18n"
 )
 
 var _ SLShortcutJobsStore = (*slShortcutJobs)(nil)
@@ -67,9 +68,11 @@ type ShortcutJobError struct {
 	// Key is the message key, empty if Detail is the whole message.
 	Key string `json:"key,omitempty"`
 	// Args are the arguments of the message.
-	Args []string `json:"args,omitempty"`
+	Args []i18n.LocalText `json:"args,omitempty"`
 	// Detail is the untranslated text, e.g. the message of the error thrown by the script.
 	Detail string `json:"detail,omitempty"`
+	// I18n preserves a plugin error's translations and parameters for each reader.
+	I18n *i18n.Message `json:"i18n,omitempty"`
 }
 
 // SLShortcutJob is the job of generating the value of a cell by the shortcut of its field.

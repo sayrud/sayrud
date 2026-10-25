@@ -91,8 +91,7 @@ const router = createRouter({
         {
           path: 'field-shortcuts/new',
           name: 'admin-field-shortcut-new',
-          component: () => import('@/pages/admin/FieldShortcutEditPage.vue'),
-          meta: { nav: 'admin-field-shortcuts', wide: true },
+          redirect: { name: 'admin-field-shortcuts' },
         },
         {
           path: 'field-shortcuts/:shortcutUID',

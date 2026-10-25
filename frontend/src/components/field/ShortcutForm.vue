@@ -6,6 +6,7 @@ import { useI18n } from 'vue-i18n'
 import type { ShortcutFormItem } from '@/api/shortcut'
 import type { OptionReference, SelectOption, SLField } from '@/types/bitable'
 import { promptFromDisplay, promptToDisplay, selectableFields } from '@/utils/shortcut'
+import { localText, type LocalText } from '@/utils/localText'
 import FieldTypeIcon from './FieldTypeIcon.vue'
 import SelectOptionsEditor from './SelectOptionsEditor.vue'
 
@@ -21,7 +22,8 @@ const inputs = defineModel<Record<string, string>>({ required: true })
 const options = defineModel<SelectOption[]>('options', { default: () => [] })
 const reference = defineModel<OptionReference | undefined>('reference')
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
+const text = (value: LocalText | undefined) => localText(value, locale.value)
 
 function set(key: string, value: string | undefined) {
   const next = { ...inputs.value }
@@ -57,15 +59,15 @@ async function insertField(item: ShortcutFormItem, field: SLField) {
   <div class="shortcut-form">
     <div v-for="item in items" :key="item.key" class="row">
       <div v-if="item.component !== 'field_options'" class="row-label">
-        {{ item.label }}<span v-if="item.required" class="required">*</span>
+        {{ text(item.label) }}<span v-if="item.required" class="required">*</span>
       </div>
 
-      <SelectOptionsEditor v-if="item.component === 'field_options'" v-model="options" v-model:reference="reference" :label="item.label" :required="item.required" :field-u-i-d="fieldUID" />
+      <SelectOptionsEditor v-if="item.component === 'field_options'" v-model="options" v-model:reference="reference" :label="text(item.label)" :required="item.required" :field-u-i-d="fieldUID" />
 
       <a-select
         v-else-if="item.component === 'field_select'"
         :model-value="inputs[item.key] || undefined"
-        :placeholder="item.placeholder || t('shortcut.pickField')"
+        :placeholder="text(item.placeholder) || t('shortcut.pickField')"
         allow-clear
         allow-search
         @update:model-value="(v: unknown) => set(item.key, v as string | undefined)"
@@ -78,17 +80,17 @@ async function insertField(item: ShortcutFormItem, field: SLField) {
       <a-select
         v-else-if="item.component === 'select'"
         :model-value="inputs[item.key] || undefined"
-        :placeholder="item.placeholder || t('common.selectPlaceholder')"
+        :placeholder="text(item.placeholder) || t('common.selectPlaceholder')"
         :allow-clear="!item.required"
         @update:model-value="(v: unknown) => set(item.key, v as string | undefined)"
       >
-        <a-option v-for="o in item.options ?? []" :key="o.value" :value="o.value">{{ o.label }}</a-option>
+        <a-option v-for="o in item.options ?? []" :key="o.value" :value="o.value">{{ text(o.label) }}</a-option>
       </a-select>
 
       <a-input
         v-else-if="item.component === 'input'"
         :model-value="inputs[item.key] ?? ''"
-        :placeholder="item.placeholder || t('common.inputPlaceholder')"
+        :placeholder="text(item.placeholder) || t('common.inputPlaceholder')"
         :max-length="10000"
         @update:model-value="(v: string) => set(item.key, v)"
       />
@@ -96,7 +98,7 @@ async function insertField(item: ShortcutFormItem, field: SLField) {
       <a-textarea
         v-else-if="item.component === 'textarea'"
         :model-value="inputs[item.key] ?? ''"
-        :placeholder="item.placeholder"
+        :placeholder="text(item.placeholder)"
         :auto-size="{ minRows: 2, maxRows: 6 }"
         :max-length="10000"
         @update:model-value="(v: string) => set(item.key, v)"
@@ -106,7 +108,7 @@ async function insertField(item: ShortcutFormItem, field: SLField) {
         <a-textarea
           :ref="(el: unknown) => bindPrompt(item.key, el)"
           :model-value="promptToDisplay(inputs[item.key] ?? '', fields)"
-          :placeholder="item.placeholder"
+          :placeholder="text(item.placeholder)"
           :auto-size="{ minRows: 3, maxRows: 8 }"
           :max-length="10000"
           @update:model-value="(v: string) => set(item.key, promptFromDisplay(v, fields))"

@@ -12,7 +12,7 @@ import {
   type ShortcutJobsMessage,
   type ShortcutRunScope,
 } from '@/api/shortcut'
-import { t } from '@/i18n'
+import { i18n, t } from '@/i18n'
 import { ProjectSocket } from '@/collab/socket'
 import { TableSync } from '@/collab/tableSync'
 import type { Action, Member, Operation } from '@/collab/types'
@@ -163,6 +163,12 @@ export const useBaseStore = defineStore('base', () => {
   /** Imports started in this page keyed by import UID. */
   const imports = shallowRef<Record<string, TrackedImport>>({})
   let shortcutJobsVersion = 0
+
+  watch(i18n.global.locale, () => {
+    if (isPublic.value) return
+    void loadShortcutJobs()
+    socket.value?.reconnect()
+  })
 
   watch([activeTableUID, activeViewUID], () => {
     selectedRecords.value = []

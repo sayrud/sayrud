@@ -178,7 +178,7 @@ function uninstall() {
   if (!p) return
   Modal.confirm({
     title: t('pluginAdmin.uninstallTitle', { name: p.module.label }),
-    content: p.usedBy ? t('pluginAdmin.uninstallInUse', { n: p.usedBy }, p.usedBy) : t('pluginAdmin.uninstallContent'),
+    content: t('pluginAdmin.uninstallContent'),
     okButtonProps: { status: 'danger' },
     okText: t('pluginAdmin.uninstall'),
     onBeforeOk: async () => {
@@ -350,9 +350,6 @@ const format = (v: unknown) => (v === undefined ? 'undefined' : JSON.stringify(v
                             <template v-if="plugin">
                               <a-descriptions-item :label="t('pluginAdmin.author')">{{ module.plugin?.author || '—' }}</a-descriptions-item>
                               <a-descriptions-item :label="t('pluginAdmin.language')">{{ LANGUAGE_NAMES[plugin.language] }}</a-descriptions-item>
-                              <a-descriptions-item :label="t('pluginAdmin.usage')">
-                                {{ plugin.usedBy ? t('pluginAdmin.usedBy', { n: plugin.usedBy }, plugin.usedBy) : t('pluginAdmin.notUsed') }}
-                              </a-descriptions-item>
                               <a-descriptions-item :label="t('pluginAdmin.installedAt')">{{ formatTime(plugin.createdAt) }}</a-descriptions-item>
                               <a-descriptions-item :label="t('pluginAdmin.updatedAt')">{{ formatTime(plugin.updatedAt) }}</a-descriptions-item>
                               <a-descriptions-item :label="t('pluginAdmin.homepage')">
@@ -712,6 +709,7 @@ const format = (v: unknown) => (v === undefined ? 'undefined' : JSON.stringify(v
 }
 .source-toolbar {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
@@ -849,10 +847,6 @@ const format = (v: unknown) => (v === undefined ? 'undefined' : JSON.stringify(v
   .overview-permissions :deep(.permissions) {
     grid-template-columns: minmax(0, 1fr);
     gap: 16px;
-  }
-
-  .source-toolbar {
-    flex-wrap: wrap;
   }
 }
 

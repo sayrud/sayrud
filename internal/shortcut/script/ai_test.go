@@ -10,7 +10,7 @@ import (
 )
 
 func TestAIComplete(t *testing.T) {
-	for _, prefix := range []string{"", "async "} {
+	for _, prefix := range []string{"", "async ", "export async "} {
 		t.Run(prefix+"execute", func(t *testing.T) {
 			result, err := Run(context.Background(), Options{
 				Code: prefix + `function execute(p, context) {

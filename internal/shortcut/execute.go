@@ -146,8 +146,9 @@ func RunCustom(ctx context.Context, custom *db.CustomFieldShortcut, secrets map[
 	}
 
 	result, err := script.Run(ctx, script.Options{
-		Code:   custom.Code,
-		Params: params,
+		Code:     custom.Code,
+		Language: custom.Language,
+		Params:   params,
 		Context: map[string]interface{}{
 			"projectUID": env.ProjectUID,
 			"tableUID":   env.TableUID,
@@ -177,7 +178,9 @@ func scriptError(err error) *Error {
 	case errors.Is(err, script.ErrAIDisabled):
 		return newError("shortcut::ai_disabled")
 	case errors.As(err, &scriptErr):
-		return newError("shortcut::script_error").withDetail("%s", scriptErr.Message)
+		result := newError("shortcut::script_error").withDetail("%s", scriptErr.Message)
+		result.I18n = scriptErr.I18n
+		return result
 	case errors.Is(err, script.ErrTimeout):
 		return newError("shortcut::timeout")
 	case errors.Is(err, script.ErrNoExecute):

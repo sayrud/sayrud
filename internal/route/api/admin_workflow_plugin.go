@@ -41,17 +41,13 @@ func (adminRoute) WorkflowPluginer(ctx context.Context) error {
 	return nil
 }
 
-// toWorkflowPlugin converts an installed plugin with its usage; a stored manifest that is no longer valid keeps the plugin listed so that it can be removed.
-func toWorkflowPlugin(ctx context.Context, p *db.WorkflowPlugin) (*dto.WorkflowPlugin, error) {
+// toWorkflowPlugin keeps plugins with an invalid stored manifest listed so that they can be removed.
+func toWorkflowPlugin(ctx context.Context, p *db.WorkflowPlugin) *dto.WorkflowPlugin {
 	m, err := workflow.ParsePluginManifest(p.Manifest)
 	if err != nil {
 		m = &workflow.PluginManifest{ID: p.PluginID, Version: p.Version, Name: workflow.LocalText{"": p.Name}, Icon: "puzzle", Color: "#8f959e", Category: "integration", Flows: []string{}, Defaults: []byte("{}")}
 	}
-	usedBy, err := db.WorkflowPlugins.CountUsage(ctx.Request().Context(), workflow.PluginType(p.PluginID))
-	if err != nil {
-		return nil, errors.Wrap(err, "count usage")
-	}
-	return dto.ToWorkflowPlugin(p, m, requestLang(ctx), usedBy), nil
+	return dto.ToWorkflowPlugin(p, m, requestLang(ctx))
 }
 
 // ListWorkflowPlugins
@@ -71,12 +67,7 @@ func (adminRoute) ListWorkflowPlugins(ctx context.Context) error {
 	}
 	resp := dto.ListWorkflowPluginsResp{Plugins: make([]*dto.WorkflowPlugin, 0, len(list)), Builtins: workflow.Modules()}
 	for _, p := range list {
-		item, err := toWorkflowPlugin(ctx, p)
-		if err != nil {
-			logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to convert workflow plugin")
-			return ctx.ApiServerError()
-		}
-		resp.Plugins = append(resp.Plugins, item)
+		resp.Plugins = append(resp.Plugins, toWorkflowPlugin(ctx, p))
 	}
 	return ctx.ApiSuccess(resp)
 }
@@ -93,11 +84,7 @@ func (adminRoute) ListWorkflowPlugins(ctx context.Context) error {
 // @ID getAdminWorkflowPlugin
 // @Router /admin/workflow-plugins/{pluginID} [get]
 func (adminRoute) GetWorkflowPlugin(ctx context.Context, p *db.WorkflowPlugin) error {
-	resp, err := toWorkflowPlugin(ctx, p)
-	if err != nil {
-		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to convert workflow plugin")
-		return ctx.ApiServerError()
-	}
+	resp := toWorkflowPlugin(ctx, p)
 	resp.Source = p.Source
 	return ctx.ApiSuccess(resp)
 }
@@ -155,7 +142,7 @@ func installedPlugin(ctx context.Context, id string) (*dto.WorkflowPlugin, error
 	} else if err != nil {
 		return nil, err
 	}
-	return toWorkflowPlugin(ctx, saved)
+	return toWorkflowPlugin(ctx, saved), nil
 }
 
 // InspectWorkflowPlugin
@@ -202,7 +189,7 @@ func (adminRoute) InspectWorkflowPlugin(ctx context.Context, f form.InspectWorkf
 		preview.Enabled = installed.Enabled
 	}
 	return ctx.ApiSuccess(dto.InspectWorkflowPluginResp{
-		Plugin: dto.ToWorkflowPlugin(preview, m, requestLang(ctx), 0), Installed: installed,
+		Plugin: dto.ToWorkflowPlugin(preview, m, requestLang(ctx)), Installed: installed,
 		Source: source, Language: string(lang), HasPreview: program.Has(sandbox.HookPreview),
 	})
 }
@@ -236,11 +223,7 @@ func (adminRoute) InstallWorkflowPlugin(ctx context.Context, f form.InstallWorkf
 		return respondPluginError(ctx, err, "save")
 	}
 	workflow.SyncPlugins(ctx.Request().Context(), true)
-	resp, err := toWorkflowPlugin(ctx, p)
-	if err != nil {
-		return respondPluginError(ctx, err, "read")
-	}
-	return ctx.ApiSuccess(resp)
+	return ctx.ApiSuccess(toWorkflowPlugin(ctx, p))
 }
 
 // SetWorkflowPluginEnabled
@@ -265,11 +248,7 @@ func (adminRoute) SetWorkflowPluginEnabled(ctx context.Context, p *db.WorkflowPl
 	}
 	workflow.SyncPlugins(ctx.Request().Context(), true)
 	p.Enabled = f.Enabled
-	resp, err := toWorkflowPlugin(ctx, p)
-	if err != nil {
-		return respondPluginError(ctx, err, "read")
-	}
-	return ctx.ApiSuccess(resp)
+	return ctx.ApiSuccess(toWorkflowPlugin(ctx, p))
 }
 
 // UninstallWorkflowPlugin

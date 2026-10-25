@@ -2,6 +2,7 @@ package shortcut
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -13,6 +14,7 @@ import (
 
 	"github.com/wuhan005/sayrud/internal/conf"
 	"github.com/wuhan005/sayrud/internal/db"
+	"github.com/wuhan005/sayrud/internal/i18n"
 )
 
 type testNetworkSettingsStore struct {
@@ -158,9 +160,9 @@ func TestValidate(t *testing.T) {
 		ResultType: db.SingleSelectFieldType,
 		Code:       `function execute() { return "A" }`,
 		FormItems: datatypes.NewJSONType([]db.ShortcutFormItem{
-			{Key: "source", Label: "Source", Component: db.ShortcutFormFieldSelect, Required: true},
-			{Key: "language", Label: "Language", Component: db.ShortcutFormSelect, Options: []db.ShortcutFormOption{{Value: "English", Label: "English"}}},
-			{Key: "prompt", Label: "Prompt", Component: db.ShortcutFormPrompt},
+			{Key: "source", Label: i18n.LocalText{"": "Source"}, Component: db.ShortcutFormFieldSelect, Required: true},
+			{Key: "language", Label: i18n.LocalText{"": "Language"}, Component: db.ShortcutFormSelect, Options: []db.ShortcutFormOption{{Value: "English", Label: i18n.LocalText{"": "English"}}}},
+			{Key: "prompt", Label: i18n.LocalText{"": "Prompt"}, Component: db.ShortcutFormPrompt},
 		}),
 		Enabled: true,
 	}
@@ -202,7 +204,7 @@ func TestValidateCycle(t *testing.T) {
 		ResultType: db.TextFieldType,
 		Code:       `function execute(params) { return params.source }`,
 		FormItems: datatypes.NewJSONType([]db.ShortcutFormItem{
-			{Key: "source", Label: "Source", Component: db.ShortcutFormFieldSelect, Required: true},
+			{Key: "source", Label: i18n.LocalText{"": "Source"}, Component: db.ShortcutFormFieldSelect, Required: true},
 		}),
 		Enabled: true,
 	}
@@ -224,7 +226,7 @@ func TestExecuteFieldOptions(t *testing.T) {
 	def := &db.CustomFieldShortcut{
 		UID: "fscAAAAAAA", ResultType: db.SingleSelectFieldType, Enabled: true, TimeoutSeconds: 5,
 		Code:      `function execute(params) { return params.categories[params.categories.length - 1] }`,
-		FormItems: datatypes.NewJSONType([]db.ShortcutFormItem{{Key: "categories", Label: "Categories", Component: db.ShortcutFormFieldOptions, Required: true}}),
+		FormItems: datatypes.NewJSONType([]db.ShortcutFormItem{{Key: "categories", Label: i18n.LocalText{"": "Categories"}, Component: db.ShortcutFormFieldOptions, Required: true}}),
 	}
 	target.Shortcut = &db.FieldShortcut{ID: def.UID, Inputs: map[string]interface{}{"categories": "stale text"}, AutoUpdate: true}
 	normalized, err := Validate(def, nil, target, target.Shortcut)
@@ -258,7 +260,7 @@ func TestExecutePrompt(t *testing.T) {
 		ResultType: db.TextFieldType,
 		Code:       `function execute(params) { return params.prompt }`,
 		FormItems: datatypes.NewJSONType([]db.ShortcutFormItem{
-			{Key: "prompt", Label: "Prompt", Component: db.ShortcutFormPrompt, Required: true},
+			{Key: "prompt", Label: i18n.LocalText{"": "Prompt"}, Component: db.ShortcutFormPrompt, Required: true},
 		}),
 		Enabled: true,
 	}
@@ -288,8 +290,8 @@ func TestExecuteScript(t *testing.T) {
 		ResultType: db.NumberFieldType,
 		Code:       `async function execute(params, context) { return params.unit === "chars" ? String(params.text.length) : -1 }`,
 		FormItems: datatypes.NewJSONType([]db.ShortcutFormItem{
-			{Key: "text", Label: "Text", Component: db.ShortcutFormFieldSelect, Required: true},
-			{Key: "unit", Label: "Unit", Component: db.ShortcutFormSelect, Options: []db.ShortcutFormOption{{Value: "chars", Label: "Chars"}}},
+			{Key: "text", Label: i18n.LocalText{"": "Text"}, Component: db.ShortcutFormFieldSelect, Required: true},
+			{Key: "unit", Label: i18n.LocalText{"": "Unit"}, Component: db.ShortcutFormSelect, Options: []db.ShortcutFormOption{{Value: "chars", Label: i18n.LocalText{"": "Chars"}}}},
 		}),
 		Domains:        datatypes.NewJSONType([]string{}),
 		Credentials:    datatypes.NewJSONType([]db.ShortcutCredential{}),
@@ -324,7 +326,47 @@ func TestErrorText(t *testing.T) {
 		}
 		return key
 	}
-	require.Equal(t, "required: Source", ErrorText(tr, db.ShortcutJobError{Key: "shortcut::input_required", Args: []string{"custom::source"}}))
-	require.Equal(t, "shortcut::script_error: boom", ErrorText(tr, db.ShortcutJobError{Key: "shortcut::script_error", Detail: "boom"}))
-	require.Empty(t, ErrorText(tr, db.ShortcutJobError{}))
+	require.Equal(t, "required: Source", ErrorText(tr, "en", db.ShortcutJobError{Key: "shortcut::input_required", Args: []i18n.LocalText{{"": "custom::source"}}}))
+	require.Equal(t, "shortcut::script_error: boom", ErrorText(tr, "en", db.ShortcutJobError{Key: "shortcut::script_error", Detail: "boom"}))
+	require.Empty(t, ErrorText(tr, "en", db.ShortcutJobError{}))
+}
+
+func TestLocalizedScriptErrorSurvivesJobStorage(t *testing.T) {
+	for _, language := range []string{"javascript", "typescript"} {
+		_, err := RunCustom(context.Background(), &db.CustomFieldShortcut{
+			Language: language,
+			Code: `export async function execute() {
+  throw Object.assign(new Error("Request failed"), {
+    i18n: {key: "request_failed", messages: {en: "Request failed (HTTP {status}).", "zh-CN": "请求失败（HTTP {status}）。"}, params: {status: 429}}
+  });
+}`,
+		}, nil, nil, Env{})
+		var shortcutErr *Error
+		require.ErrorAs(t, err, &shortcutErr)
+		require.NotNil(t, shortcutErr.I18n)
+		raw, err := json.Marshal(shortcutErr.JobError())
+		require.NoError(t, err)
+		var stored db.ShortcutJobError
+		require.NoError(t, json.Unmarshal(raw, &stored))
+		require.Equal(t, "request_failed", stored.I18n.Key)
+		tr := func(string, ...interface{}) string { return "Script failed" }
+		require.Equal(t, "Script failed: Request failed (HTTP 429).", ErrorText(tr, "en", stored))
+		require.Equal(t, "Script failed: 请求失败（HTTP 429）。", ErrorText(tr, "zh-CN", stored))
+		require.Equal(t, "Script failed: Request failed (HTTP 429).", ErrorText(tr, "de", stored))
+	}
+}
+
+func TestLocalizedFormValidationError(t *testing.T) {
+	custom := &db.CustomFieldShortcut{UID: "fscAAAAAAA", ResultType: db.TextFieldType,
+		FormItems: datatypes.NewJSONType([]db.ShortcutFormItem{{Key: "text", Label: i18n.LocalText{"en": "Source", "zh-CN": "来源"}, Component: db.ShortcutFormInput, Required: true}})}
+	_, err := Validate(custom, nil, field("fldAAAAAAA", db.TextFieldType, nil), &db.FieldShortcut{ID: custom.UID})
+	var validation *Error
+	require.ErrorAs(t, err, &validation)
+	raw, err := json.Marshal(validation.JobError())
+	require.NoError(t, err)
+	var stored db.ShortcutJobError
+	require.NoError(t, json.Unmarshal(raw, &stored))
+	tr := func(_ string, args ...interface{}) string { return args[0].(string) + " required" }
+	require.Equal(t, "Source required", ErrorText(tr, "en", stored))
+	require.Equal(t, "来源 required", ErrorText(tr, "zh-CN", stored))
 }

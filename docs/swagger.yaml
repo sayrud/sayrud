@@ -210,6 +210,8 @@ definitions:
         type: boolean
       key:
         type: string
+      label:
+        $ref: '#/definitions/i18n.LocalText'
       name:
         type: string
       type:
@@ -221,6 +223,7 @@ definitions:
     required:
     - hasValue
     - key
+    - label
     - type
     type: object
   AdminFieldShortcut:
@@ -259,6 +262,12 @@ definitions:
         items:
           $ref: '#/definitions/ShortcutFormItem'
         type: array
+      language:
+        description: Language is the language of the saved source.
+        enum:
+        - javascript
+        - typescript
+        type: string
       name:
         description: Name is shown in the field editor.
         type: string
@@ -278,6 +287,9 @@ definitions:
       usedBy:
         description: UsedBy is the number of the fields using the shortcut.
         type: integer
+      version:
+        description: Version is the version declared by the shortcut manifest.
+        type: string
     required:
     - aiEnabled
     - code
@@ -287,12 +299,14 @@ definitions:
     - domains
     - enabled
     - formItems
+    - language
     - name
     - resultType
     - timeoutSeconds
     - uid
     - updatedAt
     - usedBy
+    - version
     type: object
   AdminOverview:
     properties:
@@ -1129,6 +1143,21 @@ definitions:
     - sheets
     - uid
     type: object
+  InspectFieldShortcut:
+    properties:
+      language:
+        description: Language of Source, javascript by default; URL extensions take
+          precedence.
+        enum:
+        - javascript
+        - typescript
+        type: string
+      source:
+        type: string
+      url:
+        description: URL is downloaded when Source is empty.
+        type: string
+    type: object
   InspectWorkflowPlugin:
     properties:
       language:
@@ -1170,6 +1199,19 @@ definitions:
     - hasPreview
     - language
     - plugin
+    - source
+    type: object
+  InstallFieldShortcut:
+    properties:
+      language:
+        description: Language of Source, javascript by default.
+        enum:
+        - javascript
+        - typescript
+        type: string
+      source:
+        type: string
+    required:
     - source
     type: object
   InstallWorkflowPlugin:
@@ -1851,6 +1893,12 @@ definitions:
         items:
           $ref: '#/definitions/ShortcutFormItem'
         type: array
+      language:
+        description: Language of Code, javascript by default.
+        enum:
+        - javascript
+        - typescript
+        type: string
       name:
         description: Name is shown in the field editor, at most 64 characters.
         type: string
@@ -1869,6 +1917,9 @@ definitions:
         description: TimeoutSeconds is the time limit of an execution between 1 and
           300, 0 defaults to 30.
         type: integer
+      version:
+        description: Version is the manifest version, 1.0.0 when omitted for compatibility.
+        type: string
     required:
     - aiEnabled
     - code
@@ -1887,6 +1938,11 @@ definitions:
         description: Key is the identifier the script passes to context.fetch to use
           the credential.
         type: string
+      label:
+        allOf:
+        - $ref: '#/definitions/i18n.LocalText'
+        description: Label is the display name, at most 64 characters; defaults to
+          Key when omitted.
       name:
         description: Name is the header or query parameter name, it is ignored by
           bearer.
@@ -2005,16 +2061,18 @@ definitions:
           and of the parameter passed to the shortcut.
         type: string
       label:
+        allOf:
+        - $ref: '#/definitions/i18n.LocalText'
         description: Label is the name of the item shown in the form.
-        type: string
       options:
         description: Options are the choices of select.
         items:
           $ref: '#/definitions/ShortcutFormOption'
         type: array
       placeholder:
+        allOf:
+        - $ref: '#/definitions/i18n.LocalText'
         description: Placeholder is the hint of the empty input.
-        type: string
       required:
         description: Required reports whether the item must be filled in before saving
           or executing.
@@ -2027,8 +2085,9 @@ definitions:
   ShortcutFormOption:
     properties:
       label:
+        allOf:
+        - $ref: '#/definitions/i18n.LocalText'
         description: Label is the text of the option shown in the form.
-        type: string
       value:
         description: Value is the configured value of the option.
         type: string
@@ -3526,10 +3585,6 @@ definitions:
         type: integer
       updatedAt:
         type: string
-      usedBy:
-        description: UsedBy is the number of workflows whose draft or published revision
-          uses the node.
-        type: integer
       version:
         type: string
     required:
@@ -3543,7 +3598,6 @@ definitions:
     - sourceURL
     - timeout
     - updatedAt
-    - usedBy
     - version
     type: object
   WorkflowRateLimit:
@@ -3936,6 +3990,10 @@ definitions:
     - WorkflowRunSucceeded
     - WorkflowRunFailed
     - WorkflowRunRejected
+  i18n.LocalText:
+    additionalProperties:
+      type: string
+    type: object
   workflow.Spec:
     properties:
       async:
@@ -4410,6 +4468,74 @@ paths:
           schema:
             type: string
       summary: Update a custom field shortcut
+  /admin/field-shortcuts/inspect:
+    post:
+      consumes:
+      - application/json
+      description: Requires the admin. Download the source if a URL is given, then
+        validate its exported manifest and execute function without running execute.
+      operationId: inspectAdminFieldShortcut
+      parameters:
+      - description: Source or URL
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/InspectFieldShortcut'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/AdminFieldShortcut'
+        "400":
+          description: Invalid shortcut
+          schema:
+            type: string
+        "403":
+          description: Not an admin
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      summary: Check a field shortcut before installing
+  /admin/field-shortcuts/install:
+    post:
+      consumes:
+      - application/json
+      description: Requires the admin. Revalidate the reviewed source and create a
+        new shortcut. Credential values must be configured separately.
+      operationId: installAdminFieldShortcut
+      parameters:
+      - description: Source
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/InstallFieldShortcut'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/AdminFieldShortcut'
+        "400":
+          description: Invalid shortcut
+          schema:
+            type: string
+        "403":
+          description: Not an admin
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      summary: Install a field shortcut from a JavaScript or TypeScript module
   /admin/field-shortcuts/test:
     post:
       consumes:

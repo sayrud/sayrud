@@ -134,6 +134,7 @@ export interface AdminCreateUser {
 export interface AdminCredential {
   hasValue: boolean;
   key: string;
+  label: I18NLocalText;
   name?: string;
   type: "bearer" | "header" | "query";
 }
@@ -155,6 +156,8 @@ export interface AdminFieldShortcut {
   enabled: boolean;
   /** FormItems are the inputs configured in the field editor and passed to execute as the params. */
   formItems: ShortcutFormItem[];
+  /** Language is the language of the saved source. */
+  language: "javascript" | "typescript";
   /** Name is shown in the field editor. */
   name: string;
   /** ResultType is the type of the fields the shortcut can be attached to. */
@@ -167,6 +170,8 @@ export interface AdminFieldShortcut {
   updatedAt: string;
   /** UsedBy is the number of the fields using the shortcut. */
   usedBy: number;
+  /** Version is the version declared by the shortcut manifest. */
+  version: string;
 }
 
 export interface AdminOverview {
@@ -557,6 +562,14 @@ export interface ImportUpload {
   uid: string;
 }
 
+export interface InspectFieldShortcut {
+  /** Language of Source, javascript by default; URL extensions take precedence. */
+  language?: "javascript" | "typescript";
+  source?: string;
+  /** URL is downloaded when Source is empty. */
+  url?: string;
+}
+
 export interface InspectWorkflowPlugin {
   /** Language of Source, javascript by default. */
   language?: "javascript" | "typescript";
@@ -574,6 +587,12 @@ export interface InspectWorkflowPluginResp {
   /** Plugin is the plugin as it would be installed. */
   plugin: WorkflowPlugin;
   /** Source is the checked source, downloaded when inspecting a URL. */
+  source: string;
+}
+
+export interface InstallFieldShortcut {
+  /** Language of Source, javascript by default. */
+  language?: "javascript" | "typescript";
   source: string;
 }
 
@@ -870,6 +889,8 @@ export interface SaveFieldShortcut {
   enabled: boolean;
   /** FormItems are the inputs configured in the field editor and passed to execute as the params. */
   formItems: ShortcutFormItem[];
+  /** Language of Code, javascript by default. */
+  language?: "javascript" | "typescript";
   /** Name is shown in the field editor, at most 64 characters. */
   name: string;
   /** ResultType is the type of the fields the shortcut can be attached to. */
@@ -882,11 +903,15 @@ export interface SaveFieldShortcut {
     | "checkbox";
   /** TimeoutSeconds is the time limit of an execution between 1 and 300, 0 defaults to 30. */
   timeoutSeconds: number;
+  /** Version is the manifest version, 1.0.0 when omitted for compatibility. */
+  version?: string;
 }
 
 export interface SaveShortcutCredential {
   /** Key is the identifier the script passes to context.fetch to use the credential. */
   key: string;
+  /** Label is the display name, at most 64 characters; defaults to Key when omitted. */
+  label?: I18NLocalText;
   /** Name is the header or query parameter name, it is ignored by bearer. */
   name?: string;
   /** Type is how the credential is put into the request. */
@@ -944,18 +969,18 @@ export interface ShortcutFormItem {
   /** Key is the key of the configured value in FieldShortcut.Inputs and of the parameter passed to the shortcut. */
   key: string;
   /** Label is the name of the item shown in the form. */
-  label: string;
+  label: I18NLocalText;
   /** Options are the choices of select. */
   options?: ShortcutFormOption[];
   /** Placeholder is the hint of the empty input. */
-  placeholder?: string;
+  placeholder?: I18NLocalText;
   /** Required reports whether the item must be filled in before saving or executing. */
   required?: boolean;
 }
 
 export interface ShortcutFormOption {
   /** Label is the text of the option shown in the form. */
-  label: string;
+  label: I18NLocalText;
   /** Value is the configured value of the option. */
   value: string;
 }
@@ -1644,8 +1669,6 @@ export interface WorkflowPlugin {
   /** Timeout is the time limit of a call in seconds. */
   timeout: number;
   updatedAt: string;
-  /** UsedBy is the number of workflows whose draft or published revision uses the node. */
-  usedBy: number;
   version: string;
 }
 
@@ -1803,6 +1826,8 @@ export interface WorkflowValue {
   var?: string;
 }
 
+export type I18NLocalText = Record<string, string>;
+
 export interface WorkflowSpec {
   /** Async holds the flows an API trigger runs in the background after request events; empty for other triggers. */
   async: WorkflowAsyncFlow[];
@@ -1834,6 +1859,10 @@ export type DeleteAdminAuthProviderData = any;
 export type ListAdminFieldShortcutsData = ListAdminFieldShortcutsResp;
 
 export type CreateAdminFieldShortcutData = AdminFieldShortcut;
+
+export type InspectAdminFieldShortcutData = AdminFieldShortcut;
+
+export type InstallAdminFieldShortcutData = AdminFieldShortcut;
 
 export type TestAdminFieldShortcutData = TestFieldShortcutResp;
 
@@ -2484,6 +2513,46 @@ export class Api<
     ) =>
       this.request<CreateAdminFieldShortcutData, string>({
         path: `/admin/field-shortcuts`,
+        method: "POST",
+        body: data,
+        type: ContentType.Json,
+        format: "json",
+        ...params,
+      }),
+
+    /**
+     * @description Requires the admin. Download the source if a URL is given, then validate its exported manifest and execute function without running execute.
+     *
+     * @name InspectAdminFieldShortcut
+     * @summary Check a field shortcut before installing
+     * @request POST:/admin/field-shortcuts/inspect
+     */
+    inspectAdminFieldShortcut: (
+      data: InspectFieldShortcut,
+      params: RequestParams = {},
+    ) =>
+      this.request<InspectAdminFieldShortcutData, string>({
+        path: `/admin/field-shortcuts/inspect`,
+        method: "POST",
+        body: data,
+        type: ContentType.Json,
+        format: "json",
+        ...params,
+      }),
+
+    /**
+     * @description Requires the admin. Revalidate the reviewed source and create a new shortcut. Credential values must be configured separately.
+     *
+     * @name InstallAdminFieldShortcut
+     * @summary Install a field shortcut from a JavaScript or TypeScript module
+     * @request POST:/admin/field-shortcuts/install
+     */
+    installAdminFieldShortcut: (
+      data: InstallFieldShortcut,
+      params: RequestParams = {},
+    ) =>
+      this.request<InstallAdminFieldShortcutData, string>({
+        path: `/admin/field-shortcuts/install`,
         method: "POST",
         body: data,
         type: ContentType.Json,

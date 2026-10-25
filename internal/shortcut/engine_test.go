@@ -17,6 +17,7 @@ import (
 
 	"github.com/wuhan005/sayrud/internal/collab"
 	"github.com/wuhan005/sayrud/internal/db"
+	"github.com/wuhan005/sayrud/internal/i18n"
 )
 
 // newTestDB connects to the PostgreSQL of the PG* environment variables in a temporary schema, and skips the test if not configured.
@@ -67,7 +68,7 @@ func TestEngine(t *testing.T) {
 		ResultType: db.SingleSelectFieldType,
 		Code:       `function execute(params) { return params.source.includes("support") ? "Service" : "Product" }`,
 		FormItems: datatypes.NewJSONType([]db.ShortcutFormItem{
-			{Key: "source", Label: "Source", Component: db.ShortcutFormFieldSelect, Required: true},
+			{Key: "source", Label: i18n.LocalText{"": "Source"}, Component: db.ShortcutFormFieldSelect, Required: true},
 		}),
 		Domains:        datatypes.NewJSONType([]string{}),
 		Credentials:    datatypes.NewJSONType([]db.ShortcutCredential{}),

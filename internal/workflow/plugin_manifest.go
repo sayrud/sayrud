@@ -1,16 +1,15 @@
 package workflow
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"net/url"
 	"regexp"
 	"slices"
-	"sort"
 	"strings"
 	"unicode/utf8"
 
+	"github.com/wuhan005/sayrud/internal/i18n"
 	"github.com/wuhan005/sayrud/internal/shortcut/script"
 )
 
@@ -27,54 +26,8 @@ func IsPluginType(t string) bool {
 	return strings.HasPrefix(t, PluginTypePrefix)
 }
 
-// LocalText is a text of a plugin manifest, given as a string or as the translations keyed by language such as en and zh-CN.
-type LocalText map[string]string
-
-func (t *LocalText) UnmarshalJSON(data []byte) error {
-	if bytes.Equal(bytes.TrimSpace(data), []byte("null")) {
-		*t = nil
-		return nil
-	}
-	var s string
-	if err := json.Unmarshal(data, &s); err == nil {
-		*t = LocalText{"": s}
-		return nil
-	}
-	var m map[string]string
-	if err := json.Unmarshal(data, &m); err != nil {
-		return fmt.Errorf("a text must be a string or an object of translations")
-	}
-	*t = m
-	return nil
-}
-
-// In returns the text in the language, falling back to the same base language, English, the untranslated string, then any translation.
-func (t LocalText) In(lang string) string {
-	if len(t) == 0 {
-		return ""
-	}
-	if s, ok := t[lang]; ok {
-		return s
-	}
-	keys := make([]string, 0, len(t))
-	for k := range t {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
-	if base, _, _ := strings.Cut(lang, "-"); base != "" {
-		for _, k := range keys {
-			if kb, _, _ := strings.Cut(k, "-"); strings.EqualFold(kb, base) {
-				return t[k]
-			}
-		}
-	}
-	for _, k := range []string{"en", ""} {
-		if s, ok := t[k]; ok {
-			return s
-		}
-	}
-	return t[keys[0]]
-}
+// LocalText is a plain string or a set of translations shared with field shortcuts.
+type LocalText = i18n.LocalText
 
 // PluginManifest is the manifest exported by a plugin module; it describes the node with the same DSL as the built-in modules.
 type PluginManifest struct {

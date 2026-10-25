@@ -1,31 +1,11 @@
-import type { FieldShortcutManifest, SaveFieldShortcut, ShortcutFormItem } from '@/api/shortcut'
+import type { FieldShortcutManifest, ShortcutFormItem } from '@/api/shortcut'
 import type { FieldShortcut, FieldType, SLField } from '@/types/bitable'
+import { localText } from './localText.ts'
 
 /** Field types which can have a shortcut, the formula values are computed by the browser so they can not. */
 export const SHORTCUT_HOST_TYPES: FieldType[] = ['text', 'number', 'single_select', 'multi_select', 'checkbox', 'datetime']
 
-/** Starter drafts only become available to members after an admin saves them. */
-export function shortcutStarter(textLabel: string):
-  Pick<SaveFieldShortcut, 'aiEnabled' | 'resultType' | 'code' | 'formItems' | 'timeoutSeconds'> {
-  return {
-    aiEnabled: false,
-    resultType: 'number',
-    timeoutSeconds: 30,
-    formItems: [
-      { key: 'text', label: textLabel, component: 'field_select', required: true },
-    ],
-    code: `// params: the form item values keyed by key, a field_select item passes the cell value of the record.
-// context: { projectUID, tableUID, fieldUID, recordUID, fetch(url, options, credentialKey), ai.complete({ prompt, system? }), log(...args) }
-async function execute(params, context) {
-  const text = params.text ?? ''
-
-  return text.length
-}
-`,
-  }
-}
-
-/** Sample parameters use the defaults so a starter draft can be tested immediately. */
+/** Sample parameters use the defaults declared by the form items. */
 export function sampleShortcutParams(items: ShortcutFormItem[]): string {
   return JSON.stringify(Object.fromEntries(items.map((item) => [item.key, item.component === 'field_options' ? ['A', 'B'] : item.default ?? (item.component === 'select' ? (item.options?.[0]?.value ?? '') : 'Hello')])), null, 2)
 }
@@ -56,9 +36,9 @@ export function selectableFields(item: Pick<ShortcutFormItem, 'fieldTypes'>, fie
 }
 
 /** Returns the label of the first required item without a value, or null if complete. */
-export function missingInput(manifest: Pick<FieldShortcutManifest, 'formItems'>, inputs: Record<string, string>): string | null {
+export function missingInput(manifest: Pick<FieldShortcutManifest, 'formItems'>, inputs: Record<string, string>, language = 'en'): string | null {
   const item = manifest.formItems.find((i) => i.component !== 'field_options' && i.required && !inputs[i.key]?.trim())
-  return item ? item.label : null
+  return item ? localText(item.label, language) : null
 }
 
 const REF = /\{(fld[A-Za-z0-9]{7})\}/g

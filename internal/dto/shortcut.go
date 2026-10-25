@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/wuhan005/sayrud/internal/db"
+	"github.com/wuhan005/sayrud/internal/i18n"
 )
 
 // FieldShortcutManifest describes a field shortcut for the field editor to render the configuration form.
@@ -70,12 +71,16 @@ type AdminFieldShortcut struct {
 	UID string `json:"uid"`
 	// Name is shown in the field editor.
 	Name string `json:"name"`
+	// Version is the version declared by the shortcut manifest.
+	Version string `json:"version"`
 	// Description tells the members what the shortcut does.
 	Description string `json:"description"`
 	// ResultType is the type of the fields the shortcut can be attached to.
 	ResultType string `json:"resultType"`
 	// Code defines `async function execute(params, context)` returning the cell value, with context.ai.complete using the global model when AIEnabled.
 	Code string `json:"code"`
+	// Language is the language of the saved source.
+	Language string `json:"language" enums:"javascript,typescript"`
 	// AIEnabled allows the script to call the globally configured AI model.
 	AIEnabled bool `json:"aiEnabled"`
 	// FormItems are the inputs configured in the field editor and passed to execute as the params.
@@ -104,17 +109,22 @@ type ListAdminFieldShortcutsResp struct {
 
 // AdminCredential is a credential of a custom shortcut, HasValue reports whether its value is saved.
 type AdminCredential struct {
-	Key      string `json:"key"`
-	Type     string `json:"type" enums:"bearer,header,query"`
-	Name     string `json:"name,omitempty"`
-	HasValue bool   `json:"hasValue"`
+	Key      string         `json:"key"`
+	Label    i18n.LocalText `json:"label"`
+	Type     string         `json:"type" enums:"bearer,header,query"`
+	Name     string         `json:"name,omitempty"`
+	HasValue bool           `json:"hasValue"`
 } // @name AdminCredential
 
 // ToAdminFieldShortcut converts the custom shortcut, keys are the credentials with saved values.
 func ToAdminFieldShortcut(s *db.CustomFieldShortcut, valueKeys map[string]bool, usedBy int64) *AdminFieldShortcut {
 	credentials := make([]*AdminCredential, 0, len(s.Credentials.Data()))
 	for _, c := range s.Credentials.Data() {
-		credentials = append(credentials, &AdminCredential{Key: c.Key, Type: string(c.Type), Name: c.Name, HasValue: valueKeys[c.Key]})
+		label := c.Label
+		if label.In("en") == "" {
+			label = i18n.LocalText{"": c.Key}
+		}
+		credentials = append(credentials, &AdminCredential{Key: c.Key, Label: label, Type: string(c.Type), Name: c.Name, HasValue: valueKeys[c.Key]})
 	}
 
 	formItems := s.FormItems.Data()
@@ -125,13 +135,23 @@ func ToAdminFieldShortcut(s *db.CustomFieldShortcut, valueKeys map[string]bool, 
 	if domains == nil {
 		domains = []string{}
 	}
+	language := s.Language
+	if language == "" {
+		language = "javascript"
+	}
+	version := s.Version
+	if version == "" {
+		version = "1.0.0"
+	}
 
 	return &AdminFieldShortcut{
 		UID:            s.UID,
 		Name:           s.Name,
+		Version:        version,
 		Description:    s.Description,
 		ResultType:     string(s.ResultType),
 		Code:           s.Code,
+		Language:       language,
 		AIEnabled:      s.AIEnabled,
 		FormItems:      formItems,
 		Domains:        domains,

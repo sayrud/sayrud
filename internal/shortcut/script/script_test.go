@@ -58,12 +58,68 @@ func TestRunClassicScriptCompatibility(t *testing.T) {
 		{name: "json output", code: `function execute() { return {n: NaN, omitted: undefined, date: new Date(0), items: [undefined, 7]} }`, want: map[string]interface{}{"n": nil, "date": "1970-01-01T00:00:00.000Z", "items": []interface{}{nil, float64(7)}}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			require.NoError(t, Compile(tc.code))
+			require.NoError(t, Compile(tc.code, "javascript"))
 			result, err := Run(context.Background(), Options{Code: tc.code, Params: map[string]interface{}{"text": "hello"}})
 			require.NoError(t, err)
 			require.Equal(t, tc.want, result.Value)
 		})
 	}
+}
+
+func TestRunModule(t *testing.T) {
+	for _, code := range []string{
+		`export async function execute(params, context) { context.log("module"); return params.text.toUpperCase() }`,
+		`const run = (params, context) => { context.log("module"); return params.text.toUpperCase() }; export { run as execute };`,
+	} {
+		require.NoError(t, Compile(code, "javascript"))
+		result, err := Run(context.Background(), Options{Code: code, Params: map[string]interface{}{"text": "hello"}})
+		require.NoError(t, err)
+		require.Equal(t, "HELLO", result.Value)
+		require.Equal(t, []string{"module"}, result.Logs)
+	}
+
+	for _, code := range []string{
+		`import { run } from "other.js"; export const execute = run;`,
+		`export const execute = 1;`,
+		`export const manifest = {};`,
+	} {
+		_, err := Run(context.Background(), Options{Code: code})
+		require.Error(t, err)
+	}
+
+	_, err := Run(context.Background(), Options{Code: `export function execute() { while (true) {} }`, Timeout: 20 * time.Millisecond})
+	require.ErrorIs(t, err, ErrTimeout)
+}
+
+func TestRunTypeScript(t *testing.T) {
+	code := `
+interface Params { text: string }
+type Output = { text: string; count: number };
+export const manifest = { name: "Typed shortcut" } as const satisfies { name: string };
+export async function execute(params: Params, context: { log: (text: string) => void }): Promise<Output> {
+  const text: string = params.text.toUpperCase();
+  context.log(text);
+  return { text, count: text.length };
+}`
+	require.NoError(t, Compile(code, "typescript"))
+	require.Error(t, Compile(code, "javascript"))
+	result, err := Run(context.Background(), Options{Code: code, Language: "typescript", Params: map[string]interface{}{"text": "hello"}})
+	require.NoError(t, err)
+	require.Equal(t, map[string]interface{}{"text": "HELLO", "count": float64(5)}, result.Value)
+	require.Equal(t, []string{"HELLO"}, result.Logs)
+
+	for _, invalid := range []string{
+		`import { run } from "other.ts"; export const execute = run;`,
+		`export enum Status { Ready }; export function execute() { return Status.Ready }`,
+		`export function execute(params: { text: }) { return params.text }`,
+	} {
+		require.Error(t, Compile(invalid, "typescript"))
+	}
+
+	_, err = Run(context.Background(), Options{Code: `export function execute(): never { while (true) {} }`, Language: "typescript", Timeout: 20 * time.Millisecond})
+	require.ErrorIs(t, err, ErrTimeout)
+	_, err = Run(context.Background(), Options{Code: `function execute() { return 1 }`, Language: "unknown"})
+	require.Error(t, err)
 }
 
 func TestRunIsolation(t *testing.T) {
@@ -134,8 +190,8 @@ func TestRunErrors(t *testing.T) {
 	_, err = Run(ctx, Options{Code: `function execute() { return require("fs") }`, Timeout: time.Second})
 	require.ErrorAs(t, err, &scriptErr)
 
-	require.Error(t, Compile(`function execute( {`))
-	require.NoError(t, Compile(`async function execute() { return 1 }`))
+	require.Error(t, Compile(`function execute( {`, "javascript"))
+	require.NoError(t, Compile(`async function execute() { return 1 }`, "javascript"))
 }
 
 func TestRunLogs(t *testing.T) {
@@ -175,7 +231,7 @@ func TestFetch(t *testing.T) {
 		})
 	}
 
-	result, err := run(`async function execute(p, context) {
+	result, err := run(`export async function execute(p, context) {
 		const resp = await context.fetch(p.base + "/echo", { method: "post", body: { a: 1 } }, "token")
 		return { status: resp.status, ok: resp.ok, data: resp.json() }
 	}`, Credential{Key: "token", Type: db.ShortcutCredentialBearer, Value: "s3cret"})
@@ -193,7 +249,7 @@ func TestFetch(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, []interface{}{"s3cret", false}, result.Value)
 
-	_, err = run(`function execute(p, context) { return context.fetch("https://example.org/") }`)
+	_, err = run(`export function execute(p, context) { return context.fetch("https://example.org/") }`)
 	require.ErrorContains(t, err, "not in the allowed domains")
 
 	_, err = run(`function execute(p, context) { return context.fetch(p.base + "/redirect").status }`)

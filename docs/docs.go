@@ -519,6 +519,106 @@ const docTemplate = `{
                 }
             }
         },
+        "/admin/field-shortcuts/inspect": {
+            "post": {
+                "description": "Requires the admin. Download the source if a URL is given, then validate its exported manifest and execute function without running execute.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "Check a field shortcut before installing",
+                "operationId": "inspectAdminFieldShortcut",
+                "parameters": [
+                    {
+                        "description": "Source or URL",
+                        "name": "data",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/InspectFieldShortcut"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/AdminFieldShortcut"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid shortcut",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "403": {
+                        "description": "Not an admin",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/field-shortcuts/install": {
+            "post": {
+                "description": "Requires the admin. Revalidate the reviewed source and create a new shortcut. Credential values must be configured separately.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "Install a field shortcut from a JavaScript or TypeScript module",
+                "operationId": "installAdminFieldShortcut",
+                "parameters": [
+                    {
+                        "description": "Source",
+                        "name": "data",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/InstallFieldShortcut"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/AdminFieldShortcut"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid shortcut",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "403": {
+                        "description": "Not an admin",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
         "/admin/field-shortcuts/test": {
             "post": {
                 "description": "Requires the admin. Run the unsaved code with the parameters, and return the result and the logs.",
@@ -7437,6 +7537,7 @@ const docTemplate = `{
             "required": [
                 "hasValue",
                 "key",
+                "label",
                 "type"
             ],
             "properties": {
@@ -7445,6 +7546,9 @@ const docTemplate = `{
                 },
                 "key": {
                     "type": "string"
+                },
+                "label": {
+                    "$ref": "#/definitions/i18n.LocalText"
                 },
                 "name": {
                     "type": "string"
@@ -7470,12 +7574,14 @@ const docTemplate = `{
                 "domains",
                 "enabled",
                 "formItems",
+                "language",
                 "name",
                 "resultType",
                 "timeoutSeconds",
                 "uid",
                 "updatedAt",
-                "usedBy"
+                "usedBy",
+                "version"
             ],
             "properties": {
                 "aiEnabled": {
@@ -7519,6 +7625,14 @@ const docTemplate = `{
                         "$ref": "#/definitions/ShortcutFormItem"
                     }
                 },
+                "language": {
+                    "description": "Language is the language of the saved source.",
+                    "type": "string",
+                    "enum": [
+                        "javascript",
+                        "typescript"
+                    ]
+                },
                 "name": {
                     "description": "Name is shown in the field editor.",
                     "type": "string"
@@ -7542,6 +7656,10 @@ const docTemplate = `{
                 "usedBy": {
                     "description": "UsedBy is the number of the fields using the shortcut.",
                     "type": "integer"
+                },
+                "version": {
+                    "description": "Version is the version declared by the shortcut manifest.",
+                    "type": "string"
                 }
             }
         },
@@ -8670,6 +8788,26 @@ const docTemplate = `{
                 }
             }
         },
+        "InspectFieldShortcut": {
+            "type": "object",
+            "properties": {
+                "language": {
+                    "description": "Language of Source, javascript by default; URL extensions take precedence.",
+                    "type": "string",
+                    "enum": [
+                        "javascript",
+                        "typescript"
+                    ]
+                },
+                "source": {
+                    "type": "string"
+                },
+                "url": {
+                    "description": "URL is downloaded when Source is empty.",
+                    "type": "string"
+                }
+            }
+        },
         "InspectWorkflowPlugin": {
             "type": "object",
             "properties": {
@@ -8728,6 +8866,25 @@ const docTemplate = `{
                 },
                 "source": {
                     "description": "Source is the checked source, downloaded when inspecting a URL.",
+                    "type": "string"
+                }
+            }
+        },
+        "InstallFieldShortcut": {
+            "type": "object",
+            "required": [
+                "source"
+            ],
+            "properties": {
+                "language": {
+                    "description": "Language of Source, javascript by default.",
+                    "type": "string",
+                    "enum": [
+                        "javascript",
+                        "typescript"
+                    ]
+                },
+                "source": {
                     "type": "string"
                 }
             }
@@ -9669,6 +9826,14 @@ const docTemplate = `{
                         "$ref": "#/definitions/ShortcutFormItem"
                     }
                 },
+                "language": {
+                    "description": "Language of Code, javascript by default.",
+                    "type": "string",
+                    "enum": [
+                        "javascript",
+                        "typescript"
+                    ]
+                },
                 "name": {
                     "description": "Name is shown in the field editor, at most 64 characters.",
                     "type": "string"
@@ -9688,6 +9853,10 @@ const docTemplate = `{
                 "timeoutSeconds": {
                     "description": "TimeoutSeconds is the time limit of an execution between 1 and 300, 0 defaults to 30.",
                     "type": "integer"
+                },
+                "version": {
+                    "description": "Version is the manifest version, 1.0.0 when omitted for compatibility.",
+                    "type": "string"
                 }
             }
         },
@@ -9701,6 +9870,14 @@ const docTemplate = `{
                 "key": {
                     "description": "Key is the identifier the script passes to context.fetch to use the credential.",
                     "type": "string"
+                },
+                "label": {
+                    "description": "Label is the display name, at most 64 characters; defaults to Key when omitted.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/i18n.LocalText"
+                        }
+                    ]
                 },
                 "name": {
                     "description": "Name is the header or query parameter name, it is ignored by bearer.",
@@ -9866,7 +10043,11 @@ const docTemplate = `{
                 },
                 "label": {
                     "description": "Label is the name of the item shown in the form.",
-                    "type": "string"
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/i18n.LocalText"
+                        }
+                    ]
                 },
                 "options": {
                     "description": "Options are the choices of select.",
@@ -9877,7 +10058,11 @@ const docTemplate = `{
                 },
                 "placeholder": {
                     "description": "Placeholder is the hint of the empty input.",
-                    "type": "string"
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/i18n.LocalText"
+                        }
+                    ]
                 },
                 "required": {
                     "description": "Required reports whether the item must be filled in before saving or executing.",
@@ -9894,7 +10079,11 @@ const docTemplate = `{
             "properties": {
                 "label": {
                     "description": "Label is the text of the option shown in the form.",
-                    "type": "string"
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/i18n.LocalText"
+                        }
+                    ]
                 },
                 "value": {
                     "description": "Value is the configured value of the option.",
@@ -11829,7 +12018,6 @@ const docTemplate = `{
                 "sourceURL",
                 "timeout",
                 "updatedAt",
-                "usedBy",
                 "version"
             ],
             "properties": {
@@ -11891,10 +12079,6 @@ const docTemplate = `{
                 },
                 "updatedAt": {
                     "type": "string"
-                },
-                "usedBy": {
-                    "description": "UsedBy is the number of workflows whose draft or published revision uses the node.",
-                    "type": "integer"
                 },
                 "version": {
                     "type": "string"
@@ -12430,6 +12614,12 @@ const docTemplate = `{
                 "WorkflowRunFailed",
                 "WorkflowRunRejected"
             ]
+        },
+        "i18n.LocalText": {
+            "type": "object",
+            "additionalProperties": {
+                "type": "string"
+            }
         },
         "workflow.Spec": {
             "type": "object",
