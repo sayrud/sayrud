@@ -2,11 +2,13 @@ package shortcut
 
 import (
 	"context"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
 	"gorm.io/datatypes"
+	"gorm.io/gorm"
 
 	"github.com/wuhan005/sayrud/internal/collab"
 	"github.com/wuhan005/sayrud/internal/db"
@@ -21,7 +23,7 @@ func TestEngineShutdownDrainsOrReleasesOwnedJobs(t *testing.T) {
 			require.NoError(t, gormDB.Create(project).Error)
 			table, err := db.NewSLTablesStore(gormDB).Create(ctx, project.ID, db.CreateSLTableOptions{Name: "Test"})
 			require.NoError(t, err)
-			code := "function execute() { const start = Date.now(); while (Date.now() - start < 300) {} return 'done'; }"
+			code := "function execute() { return 'done'; }"
 			if mode == "cancel" {
 				code = "function execute() { while (true) {} }"
 			}
@@ -40,12 +42,27 @@ func TestEngineShutdownDrainsOrReleasesOwnedJobs(t *testing.T) {
 			require.NoError(t, err)
 			hub := collab.NewHub(gormDB)
 			engine := NewEngine(gormDB, hub, 1)
+			started, proceed := make(chan struct{}), make(chan struct{})
+			resume := sync.OnceFunc(func() { close(proceed) })
+			defer resume()
+			var once sync.Once
+			// A running row can precede the post-claim cancellation check; pause inside process instead.
+			require.NoError(t, gormDB.Callback().Query().Before("gorm:query").Register("test:job_started", func(tx *gorm.DB) {
+				if tx.Statement.Table == "sl_tables" {
+					once.Do(func() {
+						close(started)
+						<-proceed
+					})
+				}
+			}))
 			engine.Start(ctx)
-			require.Eventually(t, func() bool {
-				jobs, err := store.ListByTableID(ctx, table.ID)
-				return err == nil && len(jobs) == 2 && jobs[0].Status == db.ShortcutJobRunning
-			}, 2*time.Second, 5*time.Millisecond)
+			select {
+			case <-started:
+			case <-time.After(2 * time.Second):
+				t.Fatal("worker did not start processing a job")
+			}
 			engine.Stop()
+			resume()
 			budget := 2 * time.Second
 			if mode == "cancel" {
 				budget = 20 * time.Millisecond
