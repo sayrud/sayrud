@@ -1342,7 +1342,7 @@ const de: typeof zhCN = {
     colStatus: 'Status',
     enabledTag: 'Aktiviert',
     noMatch: 'Keine passenden Shortcuts',
-    emptyDescription: 'Schreiben Sie einen Shortcut in JavaScript, die Mitglieder können ihn dann im Feldeditor auswählen, um Zellwerte zu erzeugen',
+    emptyDescription: 'Schreiben Sie einen Shortcut in JavaScript oder TypeScript, die Mitglieder können ihn dann im Feldeditor auswählen, um Zellwerte zu erzeugen',
     enabledDescription: 'Deaktiviert kann er nicht ausgewählt werden und die Felder, die ihn verwenden, erzeugen keine neuen Werte',
     credentialType: 'Typ',
     sampleParams: 'Aus Formularelementen',

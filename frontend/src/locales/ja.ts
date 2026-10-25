@@ -1342,7 +1342,7 @@ const ja: typeof zhCN = {
     colStatus: 'ステータス',
     enabledTag: '有効',
     noMatch: '一致するショートカットはありません',
-    emptyDescription: 'JavaScript でショートカットを作成すると、メンバーがフィールドエディターで選択してセルの値を自動生成できます',
+    emptyDescription: 'JavaScript または TypeScript でショートカットを作成すると、メンバーがフィールドエディターで選択してセルの値を自動生成できます',
     enabledDescription: '無効にするとメンバーは選択できず、使用中のフィールドも新しい値を生成しなくなります',
     credentialType: '種類',
     sampleParams: 'フォーム項目から生成',

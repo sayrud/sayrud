@@ -1342,7 +1342,7 @@ const ko: typeof zhCN = {
     colStatus: '상태',
     enabledTag: '사용 중',
     noMatch: '일치하는 바로가기가 없습니다',
-    emptyDescription: 'JavaScript로 바로가기를 작성하면 구성원이 필드 편집기에서 선택해 셀 값을 자동으로 생성할 수 있습니다',
+    emptyDescription: 'JavaScript 또는 TypeScript로 바로가기를 작성하면 구성원이 필드 편집기에서 선택해 셀 값을 자동으로 생성할 수 있습니다',
     enabledDescription: '비활성화하면 구성원이 선택할 수 없고 사용 중인 필드도 새 값을 생성하지 않습니다',
     credentialType: '유형',
     sampleParams: '양식 항목에서 생성',

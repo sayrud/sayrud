@@ -1340,7 +1340,7 @@ export default {
     colStatus: '状态',
     enabledTag: '已启用',
     noMatch: '没有匹配的捷径',
-    emptyDescription: '用 JavaScript 编写捷径，成员即可在字段编辑器中选用，自动为记录生成内容',
+    emptyDescription: '用 JavaScript 或 TypeScript 编写捷径，成员即可在字段编辑器中选用，自动为记录生成内容',
     enabledDescription: '停用后成员无法再选用，使用中的字段也不再生成新内容',
     credentialType: '类型',
     sampleParams: '按表单项生成',

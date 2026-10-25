@@ -1342,7 +1342,7 @@ const ptBR: typeof zhCN = {
     colStatus: 'Status',
     enabledTag: 'Ativado',
     noMatch: 'Nenhum atalho correspondente',
-    emptyDescription: 'Escreva um atalho em JavaScript e os membros poderão escolhê-lo no editor de campos para gerar os valores das células',
+    emptyDescription: 'Escreva um atalho em JavaScript ou TypeScript e os membros poderão escolhê-lo no editor de campos para gerar os valores das células',
     enabledDescription: 'Quando desativado, os membros não podem escolhê-lo e os campos que o usam param de gerar valores',
     credentialType: 'Tipo',
     sampleParams: 'A partir do formulário',

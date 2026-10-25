@@ -162,7 +162,7 @@ onMounted(load)
     </PageHeader>
 
     <SettingsSection flush>
-      <div v-if="plugins.length || view === 'builtin' || keyword.trim()" class="toolbar">
+      <div class="toolbar">
         <a-radio-group v-model="view" type="button">
           <a-radio value="installed">
             <a-space :size="6">

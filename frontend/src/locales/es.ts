@@ -1342,7 +1342,7 @@ const es: typeof zhCN = {
     colStatus: 'Estado',
     enabledTag: 'Activado',
     noMatch: 'No hay atajos que coincidan',
-    emptyDescription: 'Escribe un atajo en JavaScript y los miembros podrán elegirlo en el editor de campos para generar los valores de las celdas',
+    emptyDescription: 'Escribe un atajo en JavaScript o TypeScript y los miembros podrán elegirlo en el editor de campos para generar los valores de las celdas',
     enabledDescription: 'Si se desactiva, los miembros no podrán elegirlo y los campos que lo usan dejarán de generar valores',
     credentialType: 'Tipo',
     sampleParams: 'Desde el formulario',

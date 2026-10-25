@@ -1342,7 +1342,7 @@ const en: typeof zhCN = {
     colStatus: 'Status',
     enabledTag: 'Enabled',
     noMatch: 'No matching shortcuts',
-    emptyDescription: 'Write a shortcut in JavaScript, the members can then pick it in the field editor to generate the cell values',
+    emptyDescription: 'Write a shortcut in JavaScript or TypeScript, the members can then pick it in the field editor to generate the cell values',
     enabledDescription: 'When disabled, the members can not pick it and the fields using it stop generating',
     credentialType: 'Type',
     sampleParams: 'From form items',

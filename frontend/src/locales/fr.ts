@@ -1342,7 +1342,7 @@ const fr: typeof zhCN = {
     colStatus: 'Statut',
     enabledTag: 'Activé',
     noMatch: 'Aucun raccourci correspondant',
-    emptyDescription: 'Écrivez un raccourci en JavaScript, les membres pourront le choisir dans l’éditeur de champ pour générer les valeurs des cellules',
+    emptyDescription: 'Écrivez un raccourci en JavaScript ou TypeScript, les membres pourront le choisir dans l’éditeur de champ pour générer les valeurs des cellules',
     enabledDescription: 'Une fois désactivé, les membres ne peuvent plus le choisir et les champs qui l’utilisent ne génèrent plus de valeurs',
     credentialType: 'Type',
     sampleParams: 'Depuis le formulaire',
