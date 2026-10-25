@@ -9,7 +9,6 @@ import { compileScript, parse } from 'vue/compiler-sfc'
 import type { AdminFieldShortcut, SaveFieldShortcut, TestFieldShortcutResp } from '../src/api/shortcut.ts'
 import * as shortcut from '../src/utils/shortcut.ts'
 import * as formItems from '../src/utils/shortcutFormItems.ts'
-import * as manifestUtils from '../src/utils/shortcutManifest.ts'
 import * as workflowPlugin from '../src/utils/workflowPlugin.ts'
 import * as localTexts from '../src/utils/localText.ts'
 
@@ -20,6 +19,10 @@ const source = `export const manifest = {
 };
 // keep this execution comment
 export function execute(params) { return params.text.toUpperCase() }`
+
+function withManifest(code: string, values: Record<string, unknown>): string {
+  return `${code}\nObject.assign(manifest, ${JSON.stringify(values)});`
+}
 
 async function readManifest(code: string, language = 'javascript') {
   if (language === 'typescript') code = ts.transpileModule(code, { compilerOptions: { module: ts.ModuleKind.ESNext } }).outputText
@@ -90,7 +93,6 @@ async function loadEditor(saved = savedShortcut()) {
     '@/utils/fieldTypes': {},
     '@/utils/shortcut': shortcut,
     '@/utils/shortcutFormItems': formItems,
-    '@/utils/shortcutManifest': manifestUtils,
     '@/utils/workflowPlugin': workflowPlugin,
     '@/utils/localText': localTexts,
   }
@@ -120,7 +122,7 @@ test('module definitions refresh the overview while credential values and enable
   assert.equal(page.sourceDirty.value, false)
   assert.equal(page.draft.code, source)
 
-  page.draft.code = manifestUtils.updateShortcutManifest(page.draft.code, {
+  page.draft.code = withManifest(page.draft.code, {
     credentials: [{ key: 'api', label: 'Renamed API Key', type: 'bearer' }],
     name: 'From code', version: '2.0.0', description: 'From source', formItems: [{ key: 'text', label: 'Code label', component: 'textarea' }], domains: ['api.example.com'], timeoutSeconds: 60, aiEnabled: true,
   })
@@ -165,7 +167,7 @@ test('editing credentials keeps source expressions intact and removing definitio
   assert.equal(page.draft.credentials[0]!.hasValue, true)
 
   await page.switchTab('code')
-  page.draft.code = manifestUtils.updateShortcutManifest(expressionSource, { credentials: [] })
+  page.draft.code = withManifest(expressionSource, { credentials: [] })
   await page.switchTab('network')
   assert.equal(page.tab.value, 'overview')
   assert.deepEqual(page.availableTabs.value, ['overview', 'code'])
@@ -179,7 +181,7 @@ test('upgrading from the details page refreshes the saved source, credentials an
   assert.ok(page.testResult.value)
 
   const formItems = [{ key: 'content', label: 'Content', component: 'input' as const, default: 'Example' }]
-  const code = manifestUtils.updateShortcutManifest(source, { name: 'Upgraded', version: '2.0.0', formItems, credentials: [{ key: 'token', label: 'Access token', type: 'bearer' }] })
+  const code = withManifest(source, { name: 'Upgraded', version: '2.0.0', formItems, credentials: [{ key: 'token', label: 'Access token', type: 'bearer' }] })
   page.onUpgraded({ ...savedShortcut(), name: 'Upgraded', version: '2.0.0', code, formItems, credentials: [{ key: 'token', label: 'Access token', type: 'bearer', hasValue: true }] })
   assert.equal(page.draft.name, 'Upgraded')
   assert.equal(page.draft.version, '2.0.0')
@@ -243,7 +245,7 @@ test('invalid source blocks tab changes, saving and testing without overwriting 
   assert.equal(writes.length, 0)
   assert.equal(runs.length, 0)
 
-  page.draft.code = manifestUtils.updateShortcutManifest(source, { name: 'Repaired' })
+  page.draft.code = withManifest(source, { name: 'Repaired' })
   await page.test()
   assert.equal(runs.length, 1)
   assert.equal(runs[0]!.name, 'Repaired')
@@ -255,14 +257,14 @@ test('credential definition changes and stale source inspections cannot reuse or
   t.after(stop)
   await page.switchTab('code')
   page.draft.credentials[0]!.value = 'secret'
-  page.draft.code = manifestUtils.updateShortcutManifest(page.draft.code, { credentials: [{ key: 'other', type: 'bearer' }] })
+  page.draft.code = withManifest(page.draft.code, { credentials: [{ key: 'other', type: 'bearer' }] })
   await page.switchTab('network')
   assert.deepEqual(page.draft.credentials, [{ key: 'other', label: 'other', type: 'bearer', name: '', value: '', hasValue: false }])
 
   await page.switchTab('code')
   let resolve!: (value: AdminFieldShortcut) => void
   api.inspect = () => new Promise((done) => { resolve = done })
-  page.draft.code = manifestUtils.updateShortcutManifest(page.draft.code, { name: 'Pending' })
+  page.draft.code = withManifest(page.draft.code, { name: 'Pending' })
   const pending = page.switchTab('overview')
   page.draft.code += '\n// newer edit'
   resolve({ ...savedShortcut(), name: 'Stale' })
@@ -308,7 +310,7 @@ test('typed shortcut definitions refresh and save with the selected language', a
   assert.match(page.draft.code, /params: Params/)
   assert.equal(page.draft.code, typed)
 
-  page.draft.code = manifestUtils.updateShortcutManifest(page.draft.code, { name: 'Typed code' }, 'typescript')
+  page.draft.code = withManifest(page.draft.code, { name: 'Typed code' })
   await page.switchTab('overview')
   assert.equal(page.draft.name, 'Typed code')
   await page.save()
@@ -348,7 +350,7 @@ test('localized definitions survive source refresh, credential editing and savin
   const formItems = [{ key: 'text', label, placeholder: { en: 'Type text', 'zh-CN': '填写文本' }, component: 'input' }]
   page.draft.credentials[0]!.value = 'private-value'
   await page.switchTab('code')
-  page.draft.code = manifestUtils.updateShortcutManifest(page.draft.code, { formItems, credentials: [{ key: 'api', label: credentialLabel, type: 'bearer' }] })
+  page.draft.code = withManifest(page.draft.code, { formItems, credentials: [{ key: 'api', label: credentialLabel, type: 'bearer' }] })
   await page.switchTab('overview')
   assert.equal(page.text(label), 'Text')
   locale.value = 'zh-CN'
