@@ -217,3 +217,51 @@ test('updating a shortcut from Sayrud Hub keeps its identity and sends the revie
   assert.equal(writes[0]!.body.enabled, false)
   assert.deepEqual(writes[0]!.body.signature, signature)
 })
+
+test('installing from the catalog downloads the picked package and installs the reviewed release with its signature', async (t) => {
+  const signature = { payloadType: 'application/vnd.sayrud.hub.release.v1+json', payload: 'e30=', signatures: [] }
+  const plugin = { id: 'acme', version: '1.0.0', sourceURL: 'https://hub.sayrud.com/open/v1/packages/workflow-plugin/acme/versions/1.0.0/source.js', module: { label: 'Acme' }, hub: origin('1.0.0') } as unknown as WorkflowPlugin
+  const inspection = { plugin, source: 'reviewed source', language: 'typescript', hasPreview: false, signature } as unknown as PluginInspection
+  const inspections: PluginSource[] = []
+  const installs: unknown[][] = []
+  const { modal, events, stop } = mountModal<object>('../src/components/admin/WorkflowPluginInstallModal.vue', {
+    '@/api/workflowPlugin': {
+      workflowPluginsApi: {
+        inspect: async (body: PluginSource) => { inspections.push(body); return inspection },
+        install: async (...args: unknown[]) => { installs.push(args); return plugin },
+      },
+    },
+  }, { hubID: 'acme', hubName: 'Acme' })
+  t.after(stop)
+
+  assert.equal(modal.hubMode.value, true)
+  await flush()
+  assert.deepEqual(inspections, [{ hubID: 'acme' }])
+  assert.equal(modal.step.value, 2)
+  await modal.install()
+  assert.deepEqual(installs, [['reviewed source', 'typescript', plugin.sourceURL, signature]])
+  assert.deepEqual(events, [['installed', plugin]])
+})
+
+test('installing a shortcut from the catalog creates a new one with the reviewed source and signature', async (t) => {
+  const signature = { payloadType: 'application/vnd.sayrud.hub.release.v1+json', payload: 'e30=', signatures: [] }
+  const preview = { uid: '', id: 'acme', name: 'Acme', version: '1.0.0', code: 'reviewed', language: 'javascript', enabled: true, credentials: [], hub: origin('1.0.0'), signature } as unknown as AdminFieldShortcut
+  const inspections: unknown[] = []
+  const installs: unknown[][] = []
+  const { modal, stop } = mountModal<object>('../src/components/admin/FieldShortcutInstallModal.vue', {
+    '@/api/shortcut': {
+      adminShortcutsApi: {
+        inspect: async (body: unknown) => { inspections.push(body); return preview },
+        install: async (...args: unknown[]) => { installs.push(args); return { ...preview, uid: 'fscBBBBBBB' } },
+        update: async () => assert.fail('a catalog install must not replace an existing shortcut'),
+      },
+    },
+  }, { hubID: 'acme', hubName: 'Acme' })
+  t.after(stop)
+
+  await flush()
+  assert.deepEqual(inspections, [{ hubID: 'acme' }])
+  assert.equal(modal.step.value, 2)
+  await modal.install()
+  assert.deepEqual(installs, [['reviewed', 'javascript', signature]])
+})

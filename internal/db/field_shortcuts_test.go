@@ -89,6 +89,7 @@ func TestFieldShortcutLanguage(t *testing.T) {
 	got, err := store.GetByUID(ctx, s.UID)
 	require.NoError(t, err)
 	require.Equal(t, "javascript", got.Language)
+	require.Empty(t, got.Icon)
 
 	got.Language = "typescript"
 	got.Code = "export function execute(): number { return 1 }"
@@ -115,6 +116,7 @@ func TestFieldShortcutVersion(t *testing.T) {
 
 	got.Version = "2.3.0"
 	got.Homepage = "https://example.com/support"
+	got.Icon = "tag"
 	require.NoError(t, store.Update(ctx, got))
 	list, total, err := store.ListAdmin(ctx, ListFieldShortcutsOptions{})
 	require.NoError(t, err)
@@ -122,11 +124,14 @@ func TestFieldShortcutVersion(t *testing.T) {
 	require.Equal(t, "2.3.0", list[0].Version)
 	require.Equal(t, "version_test", list[0].ManifestID)
 	require.Equal(t, "https://example.com/support", list[0].Homepage)
+	require.Equal(t, "tag", list[0].Icon)
 	require.Equal(t, s.UID, list[0].UID)
 	got.Homepage = ""
+	got.Icon = ""
 	require.NoError(t, store.Update(ctx, got))
 	got, err = store.GetByUID(ctx, s.UID)
 	require.NoError(t, err)
 	require.Empty(t, got.Homepage)
+	require.Empty(t, got.Icon)
 	require.Equal(t, "version_test", got.ManifestID)
 }

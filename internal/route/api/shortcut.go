@@ -24,6 +24,7 @@ func toManifest(custom *db.CustomFieldShortcut, aiConfigured bool) *dto.FieldSho
 		ID:          custom.UID,
 		Kind:        "script",
 		Name:        custom.Name,
+		Icon:        custom.Icon,
 		Description: custom.Description,
 		ResultTypes: []string{string(custom.ResultType)},
 		Sections:    dto.ShortcutSections(custom),

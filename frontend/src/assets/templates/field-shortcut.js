@@ -8,10 +8,13 @@
  * Install from a .js/.mjs/.ts/.mts file or a URL pointing directly to this source.
  */
 export const manifest = {
-  // Source package id: lowercase letters, digits and underscores. Installed shortcuts have separate local UIDs.
+  // Source package id: lowercase letters, digits and underscores, with optional dot-separated namespaces.
+  // Installed shortcuts have separate local UIDs.
   id: "uppercase_text",
   version: "1.0.0",
   name: { en: "Uppercase text", "zh-CN": "转为大写" },
+  // Optional Lucide icon name, e.g. tag; empty uses the default shortcut icon.
+  icon: "",
   description: { en: "Converts the selected field's text to uppercase.", "zh-CN": "将所选字段的文本转为大写。" },
   // Optional project website or support page.
   homepage: "",

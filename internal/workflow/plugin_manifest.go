@@ -200,7 +200,7 @@ func (m *PluginManifest) normalize() error {
 		return manifestErrorf("category must be one of %s", strings.Join(ModuleCategories, ", "))
 	}
 	if m.IDBase == "" {
-		m.IDBase = m.ID
+		m.IDBase = strings.ReplaceAll(m.ID, ".", "_")
 		if len(m.IDBase) > 24 {
 			m.IDBase = m.IDBase[:24]
 		}

@@ -23,6 +23,10 @@ const props = defineProps<{
   startWithCode?: boolean
   /** Downloads the latest release of the upgraded plugin from Sayrud Hub instead of asking for a source. */
   fromHub?: boolean
+  /** Installs the latest release of this Sayrud Hub package, picked in its catalog. */
+  hubID?: string
+  /** Name of the Sayrud Hub package, shown while its release is downloaded. */
+  hubName?: string
 }>()
 const visible = defineModel<boolean>('visible', { required: true })
 const emit = defineEmits<{ installed: [plugin: WorkflowPlugin] }>()
@@ -42,6 +46,7 @@ const inspecting = ref(false)
 const installing = ref(false)
 const inspection = ref<PluginInspection | null>(null)
 const busy = computed(() => inspecting.value || installing.value)
+const hubPackage = computed(() => props.hubID || (props.fromHub ? props.upgrade?.id : undefined))
 
 watch(
   visible,
@@ -53,7 +58,7 @@ watch(
     file.value = null
     url.value = props.upgrade?.sourceURL ?? ''
     source.value = props.startWithCode ? 'code' : props.upgrade?.sourceURL ? 'url' : 'file'
-    hubMode.value = !!props.fromHub && !!props.upgrade
+    hubMode.value = !!hubPackage.value
     if (hubMode.value) void inspectHub()
   },
   { immediate: true },
@@ -105,11 +110,12 @@ async function inspect() {
 }
 
 async function inspectHub() {
-  if (!props.upgrade || inspecting.value) return
+  const hubID = hubPackage.value
+  if (!hubID || inspecting.value) return
   inspecting.value = true
   error.value = ''
   try {
-    inspection.value = await workflowPluginsApi.inspect({ hubID: props.upgrade.id })
+    inspection.value = await workflowPluginsApi.inspect({ hubID })
     step.value = 2
   } catch (e) {
     error.value = e instanceof Error ? e.message : String(e)
@@ -159,7 +165,7 @@ const inputs = computed(() => plugin.value?.module.sections.flatMap((s) => s.fie
       v-if="step === 1 && hubMode"
       :loading="inspecting"
       :error="error"
-      :name="upgrade?.module.label ?? ''"
+      :name="upgrade?.module.label ?? hubName ?? ''"
       @retry="inspectHub"
       @choose-source="chooseSource"
     />

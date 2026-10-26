@@ -53,6 +53,11 @@ func PageURL(kind, id string) string {
 	return URL + "/packages/" + kindPath(kind) + "/" + url.PathEscape(id)
 }
 
+// CatalogURL returns the catalog page of Sayrud Hub listing the packages of the kind.
+func CatalogURL(kind string) string {
+	return URL + "/?kind=" + url.QueryEscape(kind)
+}
+
 // ParseSourceURL reports whether the URL downloads the source of a release from the Hub, and returns its kind, id and version.
 func ParseSourceURL(raw string) (kind, id, version string, ok bool) {
 	prefix := baseURL + "/open/v1/packages/"

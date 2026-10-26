@@ -16,6 +16,7 @@ import (
 	"github.com/flamego/flamego"
 	"github.com/stretchr/testify/require"
 
+	"github.com/wuhan005/sayrud/internal/appconst"
 	"github.com/wuhan005/sayrud/internal/context"
 	"github.com/wuhan005/sayrud/internal/db"
 	"github.com/wuhan005/sayrud/internal/dto"
@@ -100,7 +101,7 @@ func fakeHub(t *testing.T, key ed25519.PrivateKey, source string) *httptest.Serv
 		case "/open/v1/packages/field-shortcut/uppercase_text/versions/latest", "/open/v1/packages/field-shortcut/uppercase_text/versions/1.2.3":
 			_ = json.NewEncoder(w).Encode(map[string]interface{}{"msg": "success", "data": map[string]interface{}{
 				"kind": hub.KindFieldShortcut, "id": "uppercase_text", "version": "1.2.3", "language": "javascript",
-				"sourceURL": server.URL + sourcePath, "changelog": "Uppercase everything",
+				"sourceURL": server.URL + sourcePath, "changelog": "Uppercase everything", "minAppVersion": "1.2.0",
 				"signature": json.RawMessage(signRelease(t, key, hub.KindFieldShortcut, "uppercase_text", "1.2.3", installableShortcut)),
 			}})
 		case sourcePath:
@@ -186,6 +187,13 @@ func TestFieldShortcutHubRoutes(t *testing.T) {
 	_, msg = request("/inspect", form.InspectFieldShortcut{HubID: "missing"}, http.StatusBadRequest)
 	require.Contains(t, msg, "not available")
 
+	previousVersion := appconst.BuildVersion
+	t.Cleanup(func() { appconst.BuildVersion = previousVersion })
+	appconst.BuildVersion = "v1.1.0"
+	_, msg = request("/inspect", form.InspectFieldShortcut{HubID: "uppercase_text"}, http.StatusBadRequest)
+	require.Contains(t, msg, "requires Sayrud 1.2.0", "a release requiring a later Sayrud is refused")
+	appconst.BuildVersion = previousVersion
+
 	fakeHub(t, key, strings.Replace(installableShortcut, "toUpperCase", "toLowerCase", 1))
 	_, msg = request("/inspect", form.InspectFieldShortcut{HubID: "uppercase_text"}, http.StatusBadRequest)
 	require.Contains(t, msg, "the source has been modified")
@@ -249,4 +257,87 @@ func TestCheckHubUpdates(t *testing.T) {
 		"workflow_plugin/greet@1.0.0":         "1.3.0",
 		"field_shortcut/uppercase_text@1.2.3": "1.3.0",
 	}, got, "only the packages verified as installed from the Hub are checked")
+}
+
+func TestHubCatalogRoutes(t *testing.T) {
+	previousPlugins, previousShortcuts := db.WorkflowPlugins, db.FieldShortcuts
+	t.Cleanup(func() { db.WorkflowPlugins, db.FieldShortcuts = previousPlugins, previousShortcuts })
+
+	key := newHubKey(t)
+	catalog := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		pkg := func(id string) map[string]interface{} {
+			return map[string]interface{}{"kind": hub.KindWorkflowPlugin, "id": id, "name": id, "latestVersion": "2.0.0", "tags": nil}
+		}
+		switch r.URL.Path {
+		case "/open/v1/packages":
+			require.Equal(t, "data", r.URL.Query().Get("category"))
+			require.Empty(t, r.URL.Query().Get("sort"), "an unknown sort falls back to the default")
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{"data": map[string]interface{}{
+				"packages": []interface{}{pkg("greet"), pkg("local"), pkg("fresh")}, "total": 3,
+			}})
+		case "/open/v1/packages/workflow-plugin/greet":
+			detail := pkg("greet")
+			detail["readme"] = "# Greet"
+			detail["latest"] = map[string]interface{}{"version": "2.0.0", "minAppVersion": "99.0.0", "permissions": map[string]interface{}{}}
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{"data": detail})
+		case "/open/v1/packages/workflow-plugin/down":
+			w.WriteHeader(http.StatusServiceUnavailable)
+			_, _ = w.Write([]byte(`{"code":"internal","msg":"Maintenance"}`))
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	t.Cleanup(catalog.Close)
+	t.Cleanup(hub.UseForTest(catalog.URL, key.Public().(ed25519.PublicKey)))
+
+	db.WorkflowPlugins = &hubPluginsStore{list: []*db.WorkflowPlugin{
+		{PluginID: "greet", Version: "1.0.0", Enabled: true, HubSignature: signRelease(t, key, hub.KindWorkflowPlugin, "greet", "1.0.0", "source")},
+		{PluginID: "local", Version: "3.0.0"},
+	}}
+
+	f := flamego.New()
+	f.Use(i18n.Middleware(), context.Contexter(nil))
+	f.Get("/packages", Admin.ListHubPackages)
+	f.Get("/packages/{kind}/{id}", Admin.GetHubPackage)
+	request := func(target string) *httptest.ResponseRecorder {
+		response := httptest.NewRecorder()
+		f.ServeHTTP(response, httptest.NewRequest(http.MethodGet, target, nil))
+		return response
+	}
+
+	response := request("/packages?kind=workflow_plugin&category=data&sort=random")
+	require.Equal(t, http.StatusOK, response.Code, response.Body.String())
+	var list struct {
+		Data dto.HubPackagesResp `json:"data"`
+	}
+	require.NoError(t, json.Unmarshal(response.Body.Bytes(), &list))
+	require.Equal(t, int64(3), list.Data.Total)
+	require.Equal(t, hub.URL+"/?kind=workflow_plugin", list.Data.URL)
+	installed := map[string]*dto.HubInstalled{}
+	for _, p := range list.Data.Packages {
+		installed[p.ID] = p.Installed
+		require.Equal(t, []string{}, p.Tags)
+		require.Equal(t, hub.PageURL(hub.KindWorkflowPlugin, p.ID), p.URL)
+	}
+	require.Equal(t, &dto.HubInstalled{Version: "1.0.0", FromHub: true, Enabled: true}, installed["greet"])
+	require.Equal(t, &dto.HubInstalled{Version: "3.0.0"}, installed["local"], "a local plugin with the same id is not from the Hub")
+	require.Nil(t, installed["fresh"])
+
+	response = request("/packages/workflow_plugin/greet")
+	require.Equal(t, http.StatusOK, response.Code, response.Body.String())
+	var detail struct {
+		Data dto.HubPackageDetail `json:"data"`
+	}
+	require.NoError(t, json.Unmarshal(response.Body.Bytes(), &detail))
+	require.Equal(t, "# Greet", detail.Data.Readme)
+	require.True(t, detail.Data.Installed.FromHub)
+	require.Equal(t, []string{}, detail.Data.Latest.Permissions.Fetch)
+
+	require.Equal(t, http.StatusBadRequest, request("/packages?kind=theme").Code)
+	require.Equal(t, http.StatusBadRequest, request("/packages/theme/greet").Code)
+	require.Equal(t, http.StatusNotFound, request("/packages/workflow_plugin/missing").Code)
+	response = request("/packages/workflow_plugin/down")
+	require.Equal(t, http.StatusBadGateway, response.Code)
+	require.Contains(t, response.Body.String(), "Maintenance")
 }

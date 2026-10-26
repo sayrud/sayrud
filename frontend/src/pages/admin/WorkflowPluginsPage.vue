@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Message, Modal, type TableColumnData } from '@arco-design/web-vue'
-import { CircleArrowUp, CloudDownload, Download, Ellipsis, Globe, KeyRound, Trash2, Zap } from '@lucide/vue'
+import { CircleArrowUp, CloudDownload, Download, Ellipsis, Globe, KeyRound, Store, Trash2, Zap } from '@lucide/vue'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
@@ -113,6 +113,10 @@ function openPlugin(p: WorkflowPlugin) {
   router.push({ name: 'admin-workflow-plugin', params: { pluginID: p.id } })
 }
 
+function browseHub() {
+  router.push({ name: 'admin-hub-workflow-plugins' })
+}
+
 function openBuiltin(m: ModuleDef) {
   router.push({ name: 'admin-workflow-builtin', params: { type: m.type } })
 }
@@ -173,6 +177,10 @@ onMounted(load)
     <PageHeader :title="t('pluginAdmin.title')" :description="t('pluginAdmin.pageDescription')">
       <template #extra>
         <HubCheckButton v-if="fromHub" kind="workflow_plugin" />
+        <a-button @click="browseHub">
+          <template #icon><Store :size="16" /></template>
+          {{ t('hubCatalog.browsePlugins') }}
+        </a-button>
         <a-button type="primary" @click="openInstall()">
           <template #icon><Download :size="16" /></template>
           {{ t('pluginAdmin.install') }}
@@ -307,6 +315,10 @@ onMounted(load)
             <a-button type="primary" @click="openInstall()">
               <template #icon><Download :size="16" /></template>
               {{ t('pluginAdmin.install') }}
+            </a-button>
+            <a-button @click="browseHub">
+              <template #icon><Store :size="16" /></template>
+              {{ t('hubCatalog.browsePlugins') }}
             </a-button>
             <a-button @click="openInstall(true)">{{ t('pluginAdmin.startFromTemplate') }}</a-button>
           </a-space>

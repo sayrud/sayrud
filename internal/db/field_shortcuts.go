@@ -163,6 +163,8 @@ type CustomFieldShortcut struct {
 	Homepage string `gorm:"type:text;not null;default:''"`
 	// Name is shown in the field editor.
 	Name i18n.LocalText `gorm:"type:jsonb;not null"`
+	// Icon is an optional Lucide icon name, empty for the default shortcut icon.
+	Icon string `gorm:"type:varchar(40);not null;default:''"`
 	// Version is the manifest version, defaulting to 1.0.0 for existing shortcuts.
 	Version string `gorm:"type:varchar(32);not null;default:1.0.0"`
 	// Description tells the members what the shortcut does, empty if not set.
@@ -275,6 +277,7 @@ func (db *fieldShortcuts) Update(ctx context.Context, s *CustomFieldShortcut) er
 		"manifest_id":     s.ManifestID,
 		"homepage":        s.Homepage,
 		"name":            s.Name,
+		"icon":            s.Icon,
 		"version":         s.Version,
 		"description":     s.Description,
 		"result_type":     s.ResultType,

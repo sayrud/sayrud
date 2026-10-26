@@ -54,6 +54,7 @@ interface CredentialDraft {
 interface Draft {
   id: string
   homepage: string
+  icon: string
   name: AdminFieldShortcut['name']
   version: string
   description: AdminFieldShortcut['description']
@@ -71,6 +72,7 @@ function toDraft(s: AdminFieldShortcut | null): Draft {
   return {
     id: s?.id ?? '',
     homepage: s?.homepage ?? '',
+    icon: s?.icon ?? '',
     name: s?.name ?? {},
     version: s?.version ?? '1.0.0',
     description: s?.description ?? {},
@@ -187,6 +189,7 @@ async function syncFromCode(): Promise<boolean> {
     Object.assign(draft, {
       id: result.id ?? '',
       homepage: result.homepage ?? '',
+      icon: result.icon ?? '',
       name: result.name,
       version: result.version,
       description: result.description,
@@ -293,6 +296,7 @@ function body(): SaveFieldShortcut {
   return {
     id: draft.id,
     homepage: draft.homepage,
+    icon: draft.icon,
     name: draft.name,
     version: draft.version,
     description: draft.description,
@@ -466,7 +470,7 @@ const format = (v: unknown) => (v === undefined ? 'undefined' : JSON.stringify(v
 
     <a-spin v-else :loading="loading || syncing" class="spin">
       <header v-if="shortcut" class="hero">
-        <WorkflowPluginIcon :icon="draft.permissions.ai ? 'sparkles' : 'zap'" color="var(--color-primary)" :size="56" :muted="!draft.enabled" />
+        <WorkflowPluginIcon :icon="draft.icon || (draft.permissions.ai ? 'sparkles' : 'zap')" color="var(--color-primary)" :size="56" :muted="!draft.enabled" />
         <div class="hero-text">
           <div class="hero-name">
             <span class="ellipsis">{{ text(draft.name) }}</span>

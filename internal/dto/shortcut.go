@@ -17,6 +17,8 @@ type FieldShortcutManifest struct {
 	Kind string `json:"kind" enums:"script"`
 	// Name is shown in the field editor.
 	Name i18n.LocalText `json:"name"`
+	// Icon is an optional Lucide icon name, empty for the default shortcut icon.
+	Icon string `json:"icon,omitempty"`
 	// Description tells what the shortcut does.
 	Description i18n.LocalText `json:"description"`
 	// ResultTypes are the types of the fields the shortcut can be attached to.
@@ -83,6 +85,8 @@ type AdminFieldShortcut struct {
 	Homepage string `json:"homepage"`
 	// Name is shown in the field editor.
 	Name i18n.LocalText `json:"name"`
+	// Icon is an optional Lucide icon name, empty for the default shortcut icon.
+	Icon string `json:"icon,omitempty"`
 	// Version is the version declared by the shortcut manifest.
 	Version string `json:"version"`
 	// Description tells the members what the shortcut does.
@@ -155,6 +159,7 @@ func ToAdminFieldShortcut(s *db.CustomFieldShortcut, valueKeys map[string]bool, 
 		ID:          s.ManifestID,
 		Homepage:    s.Homepage,
 		Name:        s.Name,
+		Icon:        s.Icon,
 		Version:     version,
 		Description: s.Description,
 		ResultType:  string(s.ResultType),

@@ -258,6 +258,10 @@ definitions:
         - $ref: '#/definitions/HubOrigin'
         description: Hub is the Sayrud Hub release the shortcut is installed from,
           omitted if installed from elsewhere.
+      icon:
+        description: Icon is an optional Lucide icon name, empty for the default shortcut
+          icon.
+        type: string
       id:
         description: ID is the source package identifier, empty if not declared; UID
           identifies this installation.
@@ -1005,6 +1009,10 @@ definitions:
         allOf:
         - $ref: '#/definitions/i18n.LocalText'
         description: Description tells what the shortcut does.
+      icon:
+        description: Icon is an optional Lucide icon name, empty for the default shortcut
+          icon.
+        type: string
       id:
         description: ID is the UID of a custom shortcut.
         type: string
@@ -1052,6 +1060,28 @@ definitions:
     required:
     - ai
     type: object
+  HubInstalled:
+    properties:
+      enabled:
+        description: Enabled reports whether the installed module can be used.
+        type: boolean
+      fromHub:
+        description: |-
+          FromHub reports whether it is installed from Sayrud Hub; a module installed from elsewhere with the same id is
+          never replaced from the catalog.
+        type: boolean
+      uid:
+        description: UID identifies the installed field shortcut, empty for a workflow
+          plugin, which is identified by its id.
+        type: string
+      version:
+        description: Version is the installed version.
+        type: string
+    required:
+    - enabled
+    - fromHub
+    - version
+    type: object
   HubOrigin:
     properties:
       changelog:
@@ -1072,6 +1102,195 @@ definitions:
     - url
     - version
     type: object
+  HubPackage:
+    properties:
+      author:
+        type: string
+      category:
+        description: Category is data, logic or integration of a workflow plugin,
+          empty for a field shortcut.
+        type: string
+      color:
+        type: string
+      description:
+        type: string
+      downloads:
+        type: integer
+      homepage:
+        type: string
+      icon:
+        description: Icon is a Lucide icon name or a data:image URL, empty for the
+          default icon.
+        type: string
+      id:
+        type: string
+      installed:
+        allOf:
+        - $ref: '#/definitions/HubInstalled'
+        description: Installed is omitted if the package is not installed.
+      kind:
+        enum:
+        - workflow_plugin
+        - field_shortcut
+        type: string
+      latestVersion:
+        description: LatestVersion is the version installed from the catalog, empty
+          if no release is available.
+        type: string
+      name:
+        type: string
+      official:
+        description: Official reports whether the package is published by the Sayrud
+          team.
+        type: boolean
+      publisher:
+        description: Publisher is the user name of the Hub account publishing the
+          package, empty if the account is removed.
+        type: string
+      releasedAt:
+        type: string
+      tags:
+        items:
+          type: string
+        type: array
+      url:
+        description: URL is the page of the package on Sayrud Hub.
+        type: string
+    required:
+    - author
+    - category
+    - color
+    - description
+    - downloads
+    - homepage
+    - icon
+    - id
+    - kind
+    - latestVersion
+    - name
+    - official
+    - publisher
+    - tags
+    - url
+    type: object
+  HubPackageDetail:
+    properties:
+      author:
+        type: string
+      category:
+        description: Category is data, logic or integration of a workflow plugin,
+          empty for a field shortcut.
+        type: string
+      color:
+        type: string
+      description:
+        type: string
+      downloads:
+        type: integer
+      homepage:
+        type: string
+      icon:
+        description: Icon is a Lucide icon name or a data:image URL, empty for the
+          default icon.
+        type: string
+      id:
+        type: string
+      installed:
+        allOf:
+        - $ref: '#/definitions/HubInstalled'
+        description: Installed is omitted if the package is not installed.
+      kind:
+        enum:
+        - workflow_plugin
+        - field_shortcut
+        type: string
+      latest:
+        allOf:
+        - $ref: '#/definitions/HubReleaseDetail'
+        description: Latest is omitted if no release is available.
+      latestVersion:
+        description: LatestVersion is the version installed from the catalog, empty
+          if no release is available.
+        type: string
+      name:
+        type: string
+      official:
+        description: Official reports whether the package is published by the Sayrud
+          team.
+        type: boolean
+      publisher:
+        description: Publisher is the user name of the Hub account publishing the
+          package, empty if the account is removed.
+        type: string
+      readme:
+        description: Readme is in Markdown.
+        type: string
+      releasedAt:
+        type: string
+      tags:
+        items:
+          type: string
+        type: array
+      url:
+        description: URL is the page of the package on Sayrud Hub.
+        type: string
+    required:
+    - author
+    - category
+    - color
+    - description
+    - downloads
+    - homepage
+    - icon
+    - id
+    - kind
+    - latestVersion
+    - name
+    - official
+    - publisher
+    - readme
+    - tags
+    - url
+    type: object
+  HubPackagesResp:
+    properties:
+      packages:
+        items:
+          $ref: '#/definitions/HubPackage'
+        type: array
+      total:
+        type: integer
+      url:
+        description: URL is the catalog page of Sayrud Hub listing the packages of
+          the kind.
+        type: string
+    required:
+    - packages
+    - total
+    - url
+    type: object
+  HubPermissions:
+    properties:
+      ai:
+        description: AI reports whether a field shortcut calls the configured AI model.
+        type: boolean
+      credentials:
+        description: Credentials are the labels of the credentials the module asks
+          for.
+        items:
+          type: string
+        type: array
+      fetch:
+        description: Fetch are the hosts the module can request, including their subdomains;
+          * allows any public host.
+        items:
+          type: string
+        type: array
+    required:
+    - ai
+    - credentials
+    - fetch
+    type: object
   HubRelease:
     properties:
       minAppVersion:
@@ -1088,6 +1307,62 @@ definitions:
     - minAppVersion
     - prerelease
     - version
+    type: object
+  HubReleaseDetail:
+    properties:
+      changelog:
+        type: string
+      compatible:
+        description: Compatible reports whether the release works with this Sayrud
+          version.
+        type: boolean
+      hasPreview:
+        description: HasPreview reports whether a workflow plugin supports the simulated
+          debugging.
+        type: boolean
+      language:
+        enum:
+        - javascript
+        - typescript
+        type: string
+      minAppVersion:
+        description: MinAppVersion is the lowest Sayrud version the release works
+          with, empty if not declared.
+        type: string
+      permissions:
+        $ref: '#/definitions/HubPermissions'
+      prerelease:
+        type: boolean
+      publishedAt:
+        type: string
+      resultType:
+        description: ResultType is the type of the fields a field shortcut can be
+          attached to, empty for a workflow plugin.
+        type: string
+      size:
+        description: Size is the length of the source in bytes.
+        type: integer
+      timeout:
+        description: Timeout is the execution limit in seconds.
+        type: integer
+      version:
+        type: string
+      yankReason:
+        type: string
+      yanked:
+        type: boolean
+    required:
+    - changelog
+    - compatible
+    - hasPreview
+    - language
+    - minAppVersion
+    - permissions
+    - prerelease
+    - size
+    - timeout
+    - version
+    - yanked
     type: object
   HubUpdate:
     properties:
@@ -2025,6 +2300,10 @@ definitions:
         type: boolean
       homepage:
         description: Homepage is the project website or support page.
+        type: string
+      icon:
+        description: Icon is an optional Lucide icon name, e.g. tag; empty uses the
+          default shortcut icon.
         type: string
       id:
         description: ID identifies the source package. It is optional for local scripts
@@ -4766,6 +5045,119 @@ paths:
           schema:
             type: string
       summary: Test a custom field shortcut
+  /admin/hub/packages:
+    get:
+      description: Requires the admin. Search the packages available on Sayrud Hub,
+        with their installation in Sayrud.
+      operationId: listAdminHubPackages
+      parameters:
+      - description: Kind
+        enum:
+        - workflow_plugin
+        - field_shortcut
+        in: query
+        name: kind
+        required: true
+        type: string
+      - description: Matches the id, names, descriptions and tags
+        in: query
+        name: q
+        type: string
+      - description: Category of the workflow plugins
+        enum:
+        - data
+        - logic
+        - integration
+        in: query
+        name: category
+        type: string
+      - description: Order, new by default
+        enum:
+        - popular
+        - recent
+        - new
+        in: query
+        name: sort
+        type: string
+      - description: Page number, starting from 1
+        in: query
+        name: page
+        type: integer
+      - description: Page size, at most 100
+        in: query
+        name: pageSize
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/HubPackagesResp'
+        "400":
+          description: Invalid kind
+          schema:
+            type: string
+        "403":
+          description: Not an admin
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+        "502":
+          description: Sayrud Hub can not be reached
+          schema:
+            type: string
+      summary: Browse the Sayrud Hub catalog
+  /admin/hub/packages/{kind}/{id}:
+    get:
+      description: Requires the admin. Get the package with its readme, its latest
+        release, which is the one installed, and its installation in Sayrud.
+      operationId: getAdminHubPackage
+      parameters:
+      - description: Kind
+        enum:
+        - workflow_plugin
+        - field_shortcut
+        in: path
+        name: kind
+        required: true
+        type: string
+      - description: Package ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/HubPackageDetail'
+        "400":
+          description: Invalid kind
+          schema:
+            type: string
+        "403":
+          description: Not an admin
+          schema:
+            type: string
+        "404":
+          description: Package not found
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+        "502":
+          description: Sayrud Hub can not be reached
+          schema:
+            type: string
+      summary: Get a package of the Sayrud Hub catalog
   /admin/hub/updates:
     get:
       description: |-

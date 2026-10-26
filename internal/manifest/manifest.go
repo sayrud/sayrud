@@ -39,7 +39,7 @@ const (
 )
 
 var (
-	idPattern = regexp.MustCompile(`^[a-z][a-z0-9_]{1,39}$`)
+	idPattern = regexp.MustCompile(`^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)*$`)
 	// VersionPattern is the version of a manifest, e.g. 1.0.0.
 	VersionPattern = regexp.MustCompile(`^[0-9A-Za-z][0-9A-Za-z.+\-]{0,31}$`)
 	// KeyPattern is the key of a form field, an output or a credential.
@@ -49,8 +49,8 @@ var (
 
 // CheckID checks the source package identifier, independently of a shortcut installation's UID.
 func CheckID(id string) error {
-	if !idPattern.MatchString(id) {
-		return Errorf("id must be 2–40 lowercase letters, digits or underscores starting with a letter")
+	if len(id) < 2 || len(id) > 40 || !idPattern.MatchString(id) {
+		return Errorf("id must be 2–40 lowercase letters, digits, underscores or dots; each part must start with a letter")
 	}
 	return nil
 }

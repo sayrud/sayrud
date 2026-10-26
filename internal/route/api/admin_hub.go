@@ -21,6 +21,9 @@ import (
 func downloadFromHub(ctx context.Context, kind, id, version string, maxSize int) (*hub.Package, error) {
 	p, err := hub.Download(ctx.Request().Context(), kind, id, version, requestLang(ctx), maxSize)
 	if err == nil {
+		if !hub.Compatible(appVersion(), p.Release.MinAppVersion) {
+			return nil, i18n.Errorf("hub::incompatible", p.Release.MinAppVersion)
+		}
 		return p, nil
 	}
 	var verifyErr *hub.VerifyError
@@ -85,6 +88,138 @@ func inspectedRelease(p *hub.Package) *dto.HubOrigin {
 // appVersion is the Sayrud version sent to the Hub, without the "v" prefix of the tags.
 func appVersion() string {
 	return strings.TrimPrefix(appconst.BuildVersion, "v")
+}
+
+// hubCatalogError responds the failure of a catalog request, what describes the request in the logs.
+func hubCatalogError(ctx context.Context, err error, what string) error {
+	var hubErr *hub.Error
+	switch {
+	case errors.Is(err, hub.ErrNotFound):
+		return ctx.ApiError(http.StatusNotFound, "hub::not_found")
+	case errors.As(err, &hubErr):
+		return ctx.ApiError(http.StatusBadGateway, "hub::unavailable", hubErr.Message)
+	}
+	logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to " + what)
+	return ctx.ApiServerError()
+}
+
+// validHubKind reports whether kind is a kind of the packages Sayrud installs.
+func validHubKind(kind string) bool {
+	return kind == hub.KindWorkflowPlugin || kind == hub.KindFieldShortcut
+}
+
+// installedHubPackages returns the installations of the packages of the kind by their package id. A field shortcut
+// can be installed several times, the installation from the Hub is preferred.
+func installedHubPackages(ctx context.Context, kind string) (map[string]*dto.HubInstalled, error) {
+	c := ctx.Request().Context()
+	installed := map[string]*dto.HubInstalled{}
+	fromHub := func(signature, id string) bool {
+		st := hub.Origin(signature)
+		return st != nil && st.Kind == kind && st.ID == id
+	}
+
+	if kind == hub.KindWorkflowPlugin {
+		plugins, err := db.WorkflowPlugins.List(c)
+		if err != nil {
+			return nil, errors.Wrap(err, "list workflow plugins")
+		}
+		for _, p := range plugins {
+			installed[p.PluginID] = &dto.HubInstalled{Version: p.Version, FromHub: fromHub(p.HubSignature, p.PluginID), Enabled: p.Enabled}
+		}
+		return installed, nil
+	}
+
+	shortcuts, err := db.FieldShortcuts.List(c)
+	if err != nil {
+		return nil, errors.Wrap(err, "list field shortcuts")
+	}
+	for _, s := range shortcuts {
+		if s.ManifestID == "" {
+			continue
+		}
+		current := installed[s.ManifestID]
+		next := &dto.HubInstalled{Version: s.Version, FromHub: fromHub(s.HubSignature, s.ManifestID), UID: s.UID, Enabled: s.Enabled}
+		if current == nil || (next.FromHub && !current.FromHub) {
+			installed[s.ManifestID] = next
+		}
+	}
+	return installed, nil
+}
+
+// ListHubPackages
+// @Summary Browse the Sayrud Hub catalog
+// @Description Requires the admin. Search the packages available on Sayrud Hub, with their installation in Sayrud.
+// @Produce json
+// @Param kind query string true "Kind" Enums(workflow_plugin, field_shortcut)
+// @Param q query string false "Matches the id, names, descriptions and tags"
+// @Param category query string false "Category of the workflow plugins" Enums(data, logic, integration)
+// @Param sort query string false "Order, new by default" Enums(popular, recent, new)
+// @Param page query int false "Page number, starting from 1"
+// @Param pageSize query int false "Page size, at most 100"
+// @Success 200 {object} dto.HubPackagesResp
+// @Failure 400 {string} string "Invalid kind"
+// @Failure 403 {string} string "Not an admin"
+// @Failure 500 {string} string "Internal server error"
+// @Failure 502 {string} string "Sayrud Hub can not be reached"
+// @ID listAdminHubPackages
+// @Router /admin/hub/packages [get]
+func (adminRoute) ListHubPackages(ctx context.Context) error {
+	kind := ctx.Query("kind")
+	if !validHubKind(kind) {
+		return ctx.ApiError(http.StatusBadRequest, "hub::invalid_kind")
+	}
+	opts := hub.ListOptions{Kind: kind, Keyword: strings.TrimSpace(ctx.Query("q")), Page: ctx.QueryInt("page"), PageSize: ctx.QueryInt("pageSize")}
+	// The unknown values fall back to the defaults instead of failing on the Hub.
+	if sort := ctx.Query("sort"); sort == hub.SortPopular || sort == hub.SortRecent || sort == hub.SortNew {
+		opts.Sort = sort
+	}
+	if category := ctx.Query("category"); kind == hub.KindWorkflowPlugin && (category == "data" || category == "logic" || category == "integration") {
+		opts.Category = category
+	}
+
+	catalog, err := hub.ListPackages(ctx.Request().Context(), opts, requestLang(ctx))
+	if err != nil {
+		return hubCatalogError(ctx, err, "list Sayrud Hub packages")
+	}
+	installed, err := installedHubPackages(ctx, kind)
+	if err != nil {
+		return hubCatalogError(ctx, err, "list installed packages")
+	}
+	resp := dto.HubPackagesResp{Packages: make([]*dto.HubPackage, 0, len(catalog.Packages)), Total: catalog.Total, URL: hub.CatalogURL(kind)}
+	for _, p := range catalog.Packages {
+		resp.Packages = append(resp.Packages, dto.ToHubPackage(p, installed[p.ID]))
+	}
+	return ctx.ApiSuccess(resp)
+}
+
+// GetHubPackage
+// @Summary Get a package of the Sayrud Hub catalog
+// @Description Requires the admin. Get the package with its readme, its latest release, which is the one installed, and its installation in Sayrud.
+// @Produce json
+// @Param kind path string true "Kind" Enums(workflow_plugin, field_shortcut)
+// @Param id path string true "Package ID"
+// @Success 200 {object} dto.HubPackageDetail
+// @Failure 400 {string} string "Invalid kind"
+// @Failure 403 {string} string "Not an admin"
+// @Failure 404 {string} string "Package not found"
+// @Failure 500 {string} string "Internal server error"
+// @Failure 502 {string} string "Sayrud Hub can not be reached"
+// @ID getAdminHubPackage
+// @Router /admin/hub/packages/{kind}/{id} [get]
+func (adminRoute) GetHubPackage(ctx context.Context) error {
+	kind := ctx.Param("kind")
+	if !validHubKind(kind) {
+		return ctx.ApiError(http.StatusBadRequest, "hub::invalid_kind")
+	}
+	p, err := hub.GetPackage(ctx.Request().Context(), kind, ctx.Param("id"), requestLang(ctx))
+	if err != nil {
+		return hubCatalogError(ctx, err, "get Sayrud Hub package")
+	}
+	installed, err := installedHubPackages(ctx, kind)
+	if err != nil {
+		return hubCatalogError(ctx, err, "list installed packages")
+	}
+	return ctx.ApiSuccess(dto.ToHubPackageDetail(p, installed[p.ID], appVersion()))
 }
 
 // CheckHubUpdates

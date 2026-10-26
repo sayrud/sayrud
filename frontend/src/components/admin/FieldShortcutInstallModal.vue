@@ -22,6 +22,10 @@ const props = defineProps<{
   upgrade?: AdminFieldShortcut | null
   /** Downloads the latest release of the upgraded shortcut from Sayrud Hub instead of asking for a source. */
   fromHub?: boolean
+  /** Installs the latest release of this Sayrud Hub package, picked in its catalog. */
+  hubID?: string
+  /** Name of the Sayrud Hub package, shown while its release is downloaded. */
+  hubName?: string
 }>()
 const visible = defineModel<boolean>('visible', { required: true })
 const emit = defineEmits<{ installed: [shortcut: AdminFieldShortcut] }>()
@@ -44,6 +48,7 @@ const inspection = ref<AdminFieldShortcut | null>(null)
 const inspectionFields = computed(() => (inspection.value ? shortcutFields(inspection.value) : []))
 
 const busy = computed(() => reading.value || inspecting.value || installing.value)
+const hubPackage = computed(() => props.hubID || (props.fromHub ? props.upgrade?.id : undefined))
 const canInspect = computed(() => {
   if (source.value === 'file') return !!file.value
   if (source.value === 'url') return /^https?:\/\/\S+$/i.test(url.value.trim())
@@ -66,7 +71,7 @@ watch(
     inspecting.value = false
     installing.value = false
 
-    hubMode.value = open && !!props.fromHub && !!props.upgrade?.id
+    hubMode.value = open && !!hubPackage.value
     if (open) {
       code.value = props.upgrade?.code ?? SHORTCUT_STARTER
       language.value = props.upgrade?.language ?? 'javascript'
@@ -133,14 +138,15 @@ async function inspect() {
 }
 
 async function inspectHub() {
-  if (!props.upgrade?.id || busy.value) return
+  const hubID = hubPackage.value
+  if (!hubID || busy.value) return
 
   const request = requestId
   inspecting.value = true
   error.value = ''
 
   try {
-    const result = await adminShortcutsApi.inspect({ hubID: props.upgrade.id })
+    const result = await adminShortcutsApi.inspect({ hubID })
     if (request !== requestId) return
 
     inspection.value = result
@@ -193,7 +199,7 @@ async function install() {
       v-if="step === 1 && hubMode"
       :loading="inspecting"
       :error="error"
-      :name="upgrade ? text(upgrade.name) : ''"
+      :name="upgrade ? text(upgrade.name) : (hubName ?? '')"
       @retry="inspectHub"
       @choose-source="chooseSource"
     />
@@ -252,7 +258,7 @@ async function install() {
 
     <div v-else-if="inspection" class="review-step">
       <div class="review-head">
-        <WorkflowPluginIcon :icon="inspection.permissions.ai ? 'sparkles' : 'zap'" color="var(--color-primary)" :size="44" />
+        <WorkflowPluginIcon :icon="inspection.icon || (inspection.permissions.ai ? 'sparkles' : 'zap')" color="var(--color-primary)" :size="44" />
         <div class="review-title">
           <div class="review-name">
             <span>{{ text(inspection.name) }}</span>

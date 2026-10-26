@@ -154,6 +154,8 @@ export interface AdminFieldShortcut {
   homepage: string;
   /** Hub is the Sayrud Hub release the shortcut is installed from, omitted if installed from elsewhere. */
   hub?: HubOrigin;
+  /** Icon is an optional Lucide icon name, empty for the default shortcut icon. */
+  icon?: string;
   /** ID is the source package identifier, empty if not declared; UID identifies this installation. */
   id: string;
   /** Language is the language of the saved source. */
@@ -496,6 +498,8 @@ export interface FieldShortcutManifest {
   available: boolean;
   /** Description tells what the shortcut does. */
   description: I18NLocalText;
+  /** Icon is an optional Lucide icon name, empty for the default shortcut icon. */
+  icon?: string;
   /** ID is the UID of a custom shortcut. */
   id: string;
   /** Kind is how the shortcut is executed, by a custom script. */
@@ -515,6 +519,20 @@ export interface FieldShortcutPermissions {
   ai: boolean;
 }
 
+export interface HubInstalled {
+  /** Enabled reports whether the installed module can be used. */
+  enabled: boolean;
+  /**
+   * FromHub reports whether it is installed from Sayrud Hub; a module installed from elsewhere with the same id is
+   * never replaced from the catalog.
+   */
+  fromHub: boolean;
+  /** UID identifies the installed field shortcut, empty for a workflow plugin, which is identified by its id. */
+  uid?: string;
+  /** Version is the installed version. */
+  version: string;
+}
+
 export interface HubOrigin {
   /** Changelog is the release notes, only returned when inspecting a release. */
   changelog?: string;
@@ -525,12 +543,109 @@ export interface HubOrigin {
   version: string;
 }
 
+export interface HubPackage {
+  author: string;
+  /** Category is data, logic or integration of a workflow plugin, empty for a field shortcut. */
+  category: string;
+  color: string;
+  description: string;
+  downloads: number;
+  homepage: string;
+  /** Icon is a Lucide icon name or a data:image URL, empty for the default icon. */
+  icon: string;
+  id: string;
+  /** Installed is omitted if the package is not installed. */
+  installed?: HubInstalled;
+  kind: "workflow_plugin" | "field_shortcut";
+  /** LatestVersion is the version installed from the catalog, empty if no release is available. */
+  latestVersion: string;
+  name: string;
+  /** Official reports whether the package is published by the Sayrud team. */
+  official: boolean;
+  /** Publisher is the user name of the Hub account publishing the package, empty if the account is removed. */
+  publisher: string;
+  releasedAt?: string;
+  tags: string[];
+  /** URL is the page of the package on Sayrud Hub. */
+  url: string;
+}
+
+export interface HubPackageDetail {
+  author: string;
+  /** Category is data, logic or integration of a workflow plugin, empty for a field shortcut. */
+  category: string;
+  color: string;
+  description: string;
+  downloads: number;
+  homepage: string;
+  /** Icon is a Lucide icon name or a data:image URL, empty for the default icon. */
+  icon: string;
+  id: string;
+  /** Installed is omitted if the package is not installed. */
+  installed?: HubInstalled;
+  kind: "workflow_plugin" | "field_shortcut";
+  /** Latest is omitted if no release is available. */
+  latest?: HubReleaseDetail;
+  /** LatestVersion is the version installed from the catalog, empty if no release is available. */
+  latestVersion: string;
+  name: string;
+  /** Official reports whether the package is published by the Sayrud team. */
+  official: boolean;
+  /** Publisher is the user name of the Hub account publishing the package, empty if the account is removed. */
+  publisher: string;
+  /** Readme is in Markdown. */
+  readme: string;
+  releasedAt?: string;
+  tags: string[];
+  /** URL is the page of the package on Sayrud Hub. */
+  url: string;
+}
+
+export interface HubPackagesResp {
+  packages: HubPackage[];
+  total: number;
+  /** URL is the catalog page of Sayrud Hub listing the packages of the kind. */
+  url: string;
+}
+
+export interface HubPermissions {
+  /** AI reports whether a field shortcut calls the configured AI model. */
+  ai: boolean;
+  /** Credentials are the labels of the credentials the module asks for. */
+  credentials: string[];
+  /** Fetch are the hosts the module can request, including their subdomains; * allows any public host. */
+  fetch: string[];
+}
+
 export interface HubRelease {
   /** MinAppVersion is the lowest Sayrud version the release works with, empty if not declared. */
   minAppVersion: string;
   prerelease: boolean;
   publishedAt?: string;
   version: string;
+}
+
+export interface HubReleaseDetail {
+  changelog: string;
+  /** Compatible reports whether the release works with this Sayrud version. */
+  compatible: boolean;
+  /** HasPreview reports whether a workflow plugin supports the simulated debugging. */
+  hasPreview: boolean;
+  language: "javascript" | "typescript";
+  /** MinAppVersion is the lowest Sayrud version the release works with, empty if not declared. */
+  minAppVersion: string;
+  permissions: HubPermissions;
+  prerelease: boolean;
+  publishedAt?: string;
+  /** ResultType is the type of the fields a field shortcut can be attached to, empty for a workflow plugin. */
+  resultType?: string;
+  /** Size is the length of the source in bytes. */
+  size: number;
+  /** Timeout is the execution limit in seconds. */
+  timeout: number;
+  version: string;
+  yankReason?: string;
+  yanked: boolean;
 }
 
 export interface HubUpdate {
@@ -948,6 +1063,8 @@ export interface SaveFieldShortcut {
   enabled: boolean;
   /** Homepage is the project website or support page. */
   homepage?: string;
+  /** Icon is an optional Lucide icon name, e.g. tag; empty uses the default shortcut icon. */
+  icon?: string;
   /** ID identifies the source package. It is optional for local scripts and distinct from the installation UID. */
   id?: string;
   /** Language of Code, javascript by default. */
@@ -1952,6 +2069,10 @@ export type UpdateAdminFieldShortcutData = AdminFieldShortcut;
 
 export type DeleteAdminFieldShortcutData = any;
 
+export type ListAdminHubPackagesData = HubPackagesResp;
+
+export type GetAdminHubPackageData = HubPackageDetail;
+
 export type CheckAdminHubUpdatesData = HubUpdatesResp;
 
 export type GetAdminOverviewData = AdminOverview;
@@ -2712,6 +2833,57 @@ export class Api<
       this.request<DeleteAdminFieldShortcutData, string>({
         path: `/admin/field-shortcuts/${shortcutUid}`,
         method: "DELETE",
+        ...params,
+      }),
+
+    /**
+     * @description Requires the admin. Search the packages available on Sayrud Hub, with their installation in Sayrud.
+     *
+     * @name ListAdminHubPackages
+     * @summary Browse the Sayrud Hub catalog
+     * @request GET:/admin/hub/packages
+     */
+    listAdminHubPackages: (
+      query: {
+        /** Kind */
+        kind: "workflow_plugin" | "field_shortcut";
+        /** Matches the id, names, descriptions and tags */
+        q?: string;
+        /** Category of the workflow plugins */
+        category?: "data" | "logic" | "integration";
+        /** Order, new by default */
+        sort?: "popular" | "recent" | "new";
+        /** Page number, starting from 1 */
+        page?: number;
+        /** Page size, at most 100 */
+        pageSize?: number;
+      },
+      params: RequestParams = {},
+    ) =>
+      this.request<ListAdminHubPackagesData, string>({
+        path: `/admin/hub/packages`,
+        method: "GET",
+        query: query,
+        format: "json",
+        ...params,
+      }),
+
+    /**
+     * @description Requires the admin. Get the package with its readme, its latest release, which is the one installed, and its installation in Sayrud.
+     *
+     * @name GetAdminHubPackage
+     * @summary Get a package of the Sayrud Hub catalog
+     * @request GET:/admin/hub/packages/{kind}/{id}
+     */
+    getAdminHubPackage: (
+      kind: "workflow_plugin" | "field_shortcut",
+      id: string,
+      params: RequestParams = {},
+    ) =>
+      this.request<GetAdminHubPackageData, string>({
+        path: `/admin/hub/packages/${kind}/${id}`,
+        method: "GET",
+        format: "json",
         ...params,
       }),
 

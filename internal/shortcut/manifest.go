@@ -22,6 +22,7 @@ const (
 )
 
 var headerNamePattern = regexp.MustCompile("^[!#$%&'*+.^_`|~0-9A-Za-z-]+$")
+var iconPattern = regexp.MustCompile(`^[a-z0-9]+(-[a-z0-9]+)*$`)
 
 // Manifest is the manifest exported by a field shortcut module. The properties shared with the workflow plugins
 // are named, typed and validated the same way, see the manifest package.
@@ -30,6 +31,8 @@ type Manifest struct {
 	ID string `json:"id,omitempty"`
 	// Name is shown in the field editor.
 	Name i18n.LocalText `json:"name"`
+	// Icon is an optional Lucide icon name, e.g. tag; empty uses the default shortcut icon.
+	Icon string `json:"icon,omitempty"`
 	// Version is the version of the shortcut, e.g. 1.0.0.
 	Version string `json:"version"`
 	// Description tells the members what the shortcut does.
@@ -106,6 +109,9 @@ func (m *Manifest) Normalize() error {
 	}
 	if err := manifest.CheckHomepage(m.Homepage); err != nil {
 		return err
+	}
+	if m.Icon != "" && (len(m.Icon) > 40 || !iconPattern.MatchString(m.Icon)) {
+		return manifest.Errorf("icon must be a Lucide icon name of at most 40 characters, such as tag")
 	}
 	if err := manifest.CheckText(m.Name, "name", true); err != nil {
 		return err

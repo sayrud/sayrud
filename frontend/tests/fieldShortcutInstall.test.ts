@@ -158,7 +158,7 @@ test('upgrading replaces the selected shortcut with reviewed source and preserve
     credentials: [{ key: 'api', label: 'API Key', type: 'bearer', hasValue: true }],
   } as AdminFieldShortcut
   const preview = {
-    id: 'uppercase_text', homepage: 'https://example.com/support', name: 'Replacement', version: '2.3.0', description: 'Updated description', resultType: 'text',
+    id: 'uppercase_text', homepage: 'https://example.com/support', name: 'Replacement', icon: 'tag', version: '2.3.0', description: 'Updated description', resultType: 'text',
     code: 'reviewed source', language: 'typescript', enabled: true,
     sections: [{ fields: [{ key: 'text', label: { '': 'Text' }, widget: 'text', required: true }] }],
     permissions: { fetch: ['api.example.com'], ai: true }, credentials: [{ key: 'api', label: { en: 'Updated API Key', 'zh-CN': '新 API 密钥' }, type: 'bearer', hasValue: false }],
@@ -183,7 +183,7 @@ test('upgrading replaces the selected shortcut with reviewed source and preserve
   assert.deepEqual(writes, [{
     uid: original.uid,
     body: {
-      id: preview.id, homepage: preview.homepage, name: preview.name, version: '2.3.0', description: preview.description, resultType: 'text',
+      id: preview.id, homepage: preview.homepage, name: preview.name, icon: 'tag', version: '2.3.0', description: preview.description, resultType: 'text',
       timeout: 60, permissions: { fetch: ['api.example.com'], ai: true },
       credentials: [{ key: 'api', label: { en: 'Updated API Key', 'zh-CN': '新 API 密钥' }, type: 'bearer', name: undefined }],
       sections: preview.sections, code: preview.code, language: 'typescript', enabled: false,

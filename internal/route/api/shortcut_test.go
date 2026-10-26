@@ -16,6 +16,7 @@ func TestToManifest(t *testing.T) {
 	payload, err := json.Marshal(toManifest(custom, false))
 	require.NoError(t, err)
 	require.JSONEq(t, `{"id":"fscAAAAAAA","kind":"script","name":{"":"Shortcut"},"description":{"en":"Description"},"resultTypes":["text"],"sections":[],"permissions":{"ai":false},"available":false}`, string(payload))
+	custom.Icon = "tag"
 
 	for _, tc := range []struct {
 		enabled, aiEnabled, configured, available bool
@@ -28,6 +29,7 @@ func TestToManifest(t *testing.T) {
 	} {
 		custom.Enabled, custom.AIEnabled = tc.enabled, tc.aiEnabled
 		manifest := toManifest(custom, tc.configured)
+		require.Equal(t, "tag", manifest.Icon)
 		require.Equal(t, tc.aiEnabled, manifest.Permissions.AI)
 		require.Equal(t, tc.available, manifest.Available, "%+v", tc)
 	}

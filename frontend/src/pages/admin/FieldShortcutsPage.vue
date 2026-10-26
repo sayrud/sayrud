@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Message, Modal, type TableColumnData } from '@arco-design/web-vue'
-import { CircleArrowUp, CloudDownload, Download, Ellipsis, Trash2 } from '@lucide/vue'
+import { CircleArrowUp, CloudDownload, Download, Ellipsis, Store, Trash2 } from '@lucide/vue'
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
@@ -102,6 +102,10 @@ function edit(s: AdminFieldShortcut) {
   router.push({ name: 'admin-field-shortcut-edit', params: { shortcutUID: s.uid } })
 }
 
+function browseHub() {
+  router.push({ name: 'admin-hub-field-shortcuts' })
+}
+
 function openInstall() {
   upgradeTarget.value = null
   installFromHub.value = false
@@ -165,6 +169,10 @@ onMounted(() => {
     <PageHeader :title="t('shortcutAdmin.title')" :description="t('shortcutAdmin.pageDescription')">
       <template #extra>
         <HubCheckButton v-if="fromHub" kind="field_shortcut" />
+        <a-button @click="browseHub">
+          <template #icon><Store :size="16" /></template>
+          {{ t('hubCatalog.browseShortcuts') }}
+        </a-button>
         <a-button type="primary" @click="openInstall">
           <template #icon><Download :size="16" /></template>
           {{ t('shortcutAdmin.install') }}
@@ -193,7 +201,7 @@ onMounted(() => {
       >
         <template #name="{ record }">
           <div class="name-cell">
-            <WorkflowPluginIcon :icon="record.permissions.ai ? 'sparkles' : 'zap'" color="var(--color-primary)" :size="32" />
+            <WorkflowPluginIcon :icon="record.icon || (record.permissions.ai ? 'sparkles' : 'zap')" color="var(--color-primary)" :size="32" />
             <div class="name-text">
               <div class="name-row">
                 <span class="name ellipsis">{{ text(record.name) }}</span>
@@ -264,10 +272,16 @@ onMounted(() => {
         <StateIllustration name="feature-upgrade" :width="160" />
         <div class="empty-title">{{ t('shortcutAdmin.empty') }}</div>
         <div class="text-desc empty-desc">{{ t('shortcutAdmin.emptyDescription') }}</div>
-        <a-button type="primary" @click="openInstall">
-          <template #icon><Download :size="16" /></template>
-          {{ t('shortcutAdmin.install') }}
-        </a-button>
+        <a-space wrap>
+          <a-button type="primary" @click="openInstall">
+            <template #icon><Download :size="16" /></template>
+            {{ t('shortcutAdmin.install') }}
+          </a-button>
+          <a-button @click="browseHub">
+            <template #icon><Store :size="16" /></template>
+            {{ t('hubCatalog.browseShortcuts') }}
+          </a-button>
+        </a-space>
       </div>
 
       <div v-if="pagination.total > 0" class="pagination-footer">

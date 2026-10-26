@@ -26,7 +26,7 @@ import (
 const installableShortcut = `
 export const manifest = {
   id: "uppercase_text", homepage: "https://example.com/uppercase",
-  name: "Uppercase", version: "1.2.3", resultType: "text",
+  name: "Uppercase", icon: "tag", version: "1.2.3", resultType: "text",
   permissions: {fetch: ["API.EXAMPLE.COM"], ai: true},
   credentials: [{key: "api", label: "API Key", type: "bearer", value: "ignored-secret"}],
   sections: [{fields: [{key: "text", label: "Text", widget: "text", required: true}]}]
@@ -59,11 +59,21 @@ func TestInspectTypeScriptShortcut(t *testing.T) {
 	require.Equal(t, "typescript", resp.Language)
 }
 
+func TestInspectFieldShortcutNamespacedID(t *testing.T) {
+	source := strings.Replace(installableShortcut, `id: "uppercase_text"`, `id: "com.sayrud.smart_classification"`, 1)
+	s, err := inspectFieldShortcut(stdcontext.Background(), source, sandbox.JavaScript)
+	require.NoError(t, err)
+	require.Equal(t, "com.sayrud.smart_classification", s.ManifestID)
+	require.Equal(t, s.ManifestID, dto.ToAdminFieldShortcut(s, nil, 0).ID)
+}
+
 func TestInspectFieldShortcut(t *testing.T) {
 	s, err := inspectFieldShortcut(stdcontext.Background(), installableShortcut, sandbox.JavaScript)
 	require.NoError(t, err)
 	require.Equal(t, "uppercase_text", s.ManifestID)
 	require.Equal(t, "https://example.com/uppercase", s.Homepage)
+	require.Equal(t, "tag", s.Icon)
+	require.Equal(t, "tag", dto.ToAdminFieldShortcut(s, nil, 0).Icon)
 	require.Equal(t, i18n.LocalText{"": "Uppercase"}, s.Name)
 	require.Equal(t, "1.2.3", s.Version)
 	require.Equal(t, db.TextFieldType, s.ResultType)

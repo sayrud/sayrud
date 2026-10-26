@@ -815,6 +815,169 @@ const docTemplate = `{
                 }
             }
         },
+        "/admin/hub/packages": {
+            "get": {
+                "description": "Requires the admin. Search the packages available on Sayrud Hub, with their installation in Sayrud.",
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "Browse the Sayrud Hub catalog",
+                "operationId": "listAdminHubPackages",
+                "parameters": [
+                    {
+                        "enum": [
+                            "workflow_plugin",
+                            "field_shortcut"
+                        ],
+                        "type": "string",
+                        "description": "Kind",
+                        "name": "kind",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Matches the id, names, descriptions and tags",
+                        "name": "q",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "data",
+                            "logic",
+                            "integration"
+                        ],
+                        "type": "string",
+                        "description": "Category of the workflow plugins",
+                        "name": "category",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "popular",
+                            "recent",
+                            "new"
+                        ],
+                        "type": "string",
+                        "description": "Order, new by default",
+                        "name": "sort",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Page number, starting from 1",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Page size, at most 100",
+                        "name": "pageSize",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/HubPackagesResp"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid kind",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "403": {
+                        "description": "Not an admin",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "502": {
+                        "description": "Sayrud Hub can not be reached",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/hub/packages/{kind}/{id}": {
+            "get": {
+                "description": "Requires the admin. Get the package with its readme, its latest release, which is the one installed, and its installation in Sayrud.",
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "Get a package of the Sayrud Hub catalog",
+                "operationId": "getAdminHubPackage",
+                "parameters": [
+                    {
+                        "enum": [
+                            "workflow_plugin",
+                            "field_shortcut"
+                        ],
+                        "type": "string",
+                        "description": "Kind",
+                        "name": "kind",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Package ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/HubPackageDetail"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid kind",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "403": {
+                        "description": "Not an admin",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "404": {
+                        "description": "Package not found",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "502": {
+                        "description": "Sayrud Hub can not be reached",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
         "/admin/hub/updates": {
             "get": {
                 "description": "Requires the admin. Only the packages installed from the Hub are sent to it, the result is reused for an hour unless refresh is true.\nThe packages without an update, a yank or a delisting are omitted.",
@@ -7668,6 +7831,10 @@ const docTemplate = `{
                         }
                     ]
                 },
+                "icon": {
+                    "description": "Icon is an optional Lucide icon name, empty for the default shortcut icon.",
+                    "type": "string"
+                },
                 "id": {
                     "description": "ID is the source package identifier, empty if not declared; UID identifies this installation.",
                     "type": "string"
@@ -8669,6 +8836,10 @@ const docTemplate = `{
                         }
                     ]
                 },
+                "icon": {
+                    "description": "Icon is an optional Lucide icon name, empty for the default shortcut icon.",
+                    "type": "string"
+                },
                 "id": {
                     "description": "ID is the UID of a custom shortcut.",
                     "type": "string"
@@ -8724,6 +8895,32 @@ const docTemplate = `{
                 }
             }
         },
+        "HubInstalled": {
+            "type": "object",
+            "required": [
+                "enabled",
+                "fromHub",
+                "version"
+            ],
+            "properties": {
+                "enabled": {
+                    "description": "Enabled reports whether the installed module can be used.",
+                    "type": "boolean"
+                },
+                "fromHub": {
+                    "description": "FromHub reports whether it is installed from Sayrud Hub; a module installed from elsewhere with the same id is\nnever replaced from the catalog.",
+                    "type": "boolean"
+                },
+                "uid": {
+                    "description": "UID identifies the installed field shortcut, empty for a workflow plugin, which is identified by its id.",
+                    "type": "string"
+                },
+                "version": {
+                    "description": "Version is the installed version.",
+                    "type": "string"
+                }
+            }
+        },
         "HubOrigin": {
             "type": "object",
             "required": [
@@ -8749,6 +8946,252 @@ const docTemplate = `{
                 }
             }
         },
+        "HubPackage": {
+            "type": "object",
+            "required": [
+                "author",
+                "category",
+                "color",
+                "description",
+                "downloads",
+                "homepage",
+                "icon",
+                "id",
+                "kind",
+                "latestVersion",
+                "name",
+                "official",
+                "publisher",
+                "tags",
+                "url"
+            ],
+            "properties": {
+                "author": {
+                    "type": "string"
+                },
+                "category": {
+                    "description": "Category is data, logic or integration of a workflow plugin, empty for a field shortcut.",
+                    "type": "string"
+                },
+                "color": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "downloads": {
+                    "type": "integer"
+                },
+                "homepage": {
+                    "type": "string"
+                },
+                "icon": {
+                    "description": "Icon is a Lucide icon name or a data:image URL, empty for the default icon.",
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "installed": {
+                    "description": "Installed is omitted if the package is not installed.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/HubInstalled"
+                        }
+                    ]
+                },
+                "kind": {
+                    "type": "string",
+                    "enum": [
+                        "workflow_plugin",
+                        "field_shortcut"
+                    ]
+                },
+                "latestVersion": {
+                    "description": "LatestVersion is the version installed from the catalog, empty if no release is available.",
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "official": {
+                    "description": "Official reports whether the package is published by the Sayrud team.",
+                    "type": "boolean"
+                },
+                "publisher": {
+                    "description": "Publisher is the user name of the Hub account publishing the package, empty if the account is removed.",
+                    "type": "string"
+                },
+                "releasedAt": {
+                    "type": "string"
+                },
+                "tags": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "url": {
+                    "description": "URL is the page of the package on Sayrud Hub.",
+                    "type": "string"
+                }
+            }
+        },
+        "HubPackageDetail": {
+            "type": "object",
+            "required": [
+                "author",
+                "category",
+                "color",
+                "description",
+                "downloads",
+                "homepage",
+                "icon",
+                "id",
+                "kind",
+                "latestVersion",
+                "name",
+                "official",
+                "publisher",
+                "readme",
+                "tags",
+                "url"
+            ],
+            "properties": {
+                "author": {
+                    "type": "string"
+                },
+                "category": {
+                    "description": "Category is data, logic or integration of a workflow plugin, empty for a field shortcut.",
+                    "type": "string"
+                },
+                "color": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "downloads": {
+                    "type": "integer"
+                },
+                "homepage": {
+                    "type": "string"
+                },
+                "icon": {
+                    "description": "Icon is a Lucide icon name or a data:image URL, empty for the default icon.",
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "installed": {
+                    "description": "Installed is omitted if the package is not installed.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/HubInstalled"
+                        }
+                    ]
+                },
+                "kind": {
+                    "type": "string",
+                    "enum": [
+                        "workflow_plugin",
+                        "field_shortcut"
+                    ]
+                },
+                "latest": {
+                    "description": "Latest is omitted if no release is available.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/HubReleaseDetail"
+                        }
+                    ]
+                },
+                "latestVersion": {
+                    "description": "LatestVersion is the version installed from the catalog, empty if no release is available.",
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "official": {
+                    "description": "Official reports whether the package is published by the Sayrud team.",
+                    "type": "boolean"
+                },
+                "publisher": {
+                    "description": "Publisher is the user name of the Hub account publishing the package, empty if the account is removed.",
+                    "type": "string"
+                },
+                "readme": {
+                    "description": "Readme is in Markdown.",
+                    "type": "string"
+                },
+                "releasedAt": {
+                    "type": "string"
+                },
+                "tags": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "url": {
+                    "description": "URL is the page of the package on Sayrud Hub.",
+                    "type": "string"
+                }
+            }
+        },
+        "HubPackagesResp": {
+            "type": "object",
+            "required": [
+                "packages",
+                "total",
+                "url"
+            ],
+            "properties": {
+                "packages": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/HubPackage"
+                    }
+                },
+                "total": {
+                    "type": "integer"
+                },
+                "url": {
+                    "description": "URL is the catalog page of Sayrud Hub listing the packages of the kind.",
+                    "type": "string"
+                }
+            }
+        },
+        "HubPermissions": {
+            "type": "object",
+            "required": [
+                "ai",
+                "credentials",
+                "fetch"
+            ],
+            "properties": {
+                "ai": {
+                    "description": "AI reports whether a field shortcut calls the configured AI model.",
+                    "type": "boolean"
+                },
+                "credentials": {
+                    "description": "Credentials are the labels of the credentials the module asks for.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "fetch": {
+                    "description": "Fetch are the hosts the module can request, including their subdomains; * allows any public host.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
         "HubRelease": {
             "type": "object",
             "required": [
@@ -8769,6 +9212,76 @@ const docTemplate = `{
                 },
                 "version": {
                     "type": "string"
+                }
+            }
+        },
+        "HubReleaseDetail": {
+            "type": "object",
+            "required": [
+                "changelog",
+                "compatible",
+                "hasPreview",
+                "language",
+                "minAppVersion",
+                "permissions",
+                "prerelease",
+                "size",
+                "timeout",
+                "version",
+                "yanked"
+            ],
+            "properties": {
+                "changelog": {
+                    "type": "string"
+                },
+                "compatible": {
+                    "description": "Compatible reports whether the release works with this Sayrud version.",
+                    "type": "boolean"
+                },
+                "hasPreview": {
+                    "description": "HasPreview reports whether a workflow plugin supports the simulated debugging.",
+                    "type": "boolean"
+                },
+                "language": {
+                    "type": "string",
+                    "enum": [
+                        "javascript",
+                        "typescript"
+                    ]
+                },
+                "minAppVersion": {
+                    "description": "MinAppVersion is the lowest Sayrud version the release works with, empty if not declared.",
+                    "type": "string"
+                },
+                "permissions": {
+                    "$ref": "#/definitions/HubPermissions"
+                },
+                "prerelease": {
+                    "type": "boolean"
+                },
+                "publishedAt": {
+                    "type": "string"
+                },
+                "resultType": {
+                    "description": "ResultType is the type of the fields a field shortcut can be attached to, empty for a workflow plugin.",
+                    "type": "string"
+                },
+                "size": {
+                    "description": "Size is the length of the source in bytes.",
+                    "type": "integer"
+                },
+                "timeout": {
+                    "description": "Timeout is the execution limit in seconds.",
+                    "type": "integer"
+                },
+                "version": {
+                    "type": "string"
+                },
+                "yankReason": {
+                    "type": "string"
+                },
+                "yanked": {
+                    "type": "boolean"
                 }
             }
         },
@@ -10047,6 +10560,10 @@ const docTemplate = `{
                 },
                 "homepage": {
                     "description": "Homepage is the project website or support page.",
+                    "type": "string"
+                },
+                "icon": {
+                    "description": "Icon is an optional Lucide icon name, e.g. tag; empty uses the default shortcut icon.",
                     "type": "string"
                 },
                 "id": {
