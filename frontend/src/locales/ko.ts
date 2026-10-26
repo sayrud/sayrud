@@ -1255,7 +1255,6 @@ const ko: typeof zhCN = {
     generating: '생성 중…',
   },
   shortcutAdmin: {
-    identifier: '바로가기 ID',
     upgradeSaveHint: '업그레이드 전에 변경 사항을 저장하거나 초기화하세요',
     aiAllowed: '전역 AI 모델을 호출할 수 있습니다',
     aiDenied: '전역 AI 모델을 호출하지 않습니다',
@@ -1428,7 +1427,6 @@ const ko: typeof zhCN = {
     overview: '개요',
     source: '소스 코드',
     test: '테스트',
-    nodeType: '노드 유형',
     category: '분류',
     version: '버전',
     author: '작성자',

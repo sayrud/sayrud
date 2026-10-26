@@ -282,7 +282,7 @@ const format = (v: unknown) => (v === undefined ? 'undefined' : JSON.stringify(v
       <a-breadcrumb-item>
         <RouterLink :to="{ name: 'admin-workflow-plugins' }">{{ t('pluginAdmin.title') }}</RouterLink>
       </a-breadcrumb-item>
-      <a-breadcrumb-item>{{ module ? dslText(module.label) : pluginID || builtinType }}</a-breadcrumb-item>
+      <a-breadcrumb-item>{{ module ? dslText(module.label) : t('pluginAdmin.title') }}</a-breadcrumb-item>
     </a-breadcrumb>
 
     <a-result v-if="notFound" :status="null" title="404" :subtitle="t('pluginAdmin.notFound')">
@@ -341,23 +341,19 @@ const format = (v: unknown) => (v === undefined ? 'undefined' : JSON.stringify(v
                             :value-style="{ overflowWrap: 'anywhere' }"
                             class="info"
                           >
-                            <a-descriptions-item :label="t('pluginAdmin.nodeType')">
-                              <a-typography-text code>{{ module.type }}</a-typography-text>
-                            </a-descriptions-item>
                             <a-descriptions-item :label="t('pluginAdmin.category')">
                               <a-tag size="small" color="arcoblue">{{ CATEGORY_LABELS[module.category]() }}</a-tag>
                             </a-descriptions-item>
                             <template v-if="plugin">
                               <a-descriptions-item :label="t('pluginAdmin.author')">{{ module.plugin?.author || '—' }}</a-descriptions-item>
                               <a-descriptions-item :label="t('pluginAdmin.language')">{{ LANGUAGE_NAMES[plugin.language] }}</a-descriptions-item>
-                              <a-descriptions-item :label="t('pluginAdmin.installedAt')">{{ formatTime(plugin.createdAt) }}</a-descriptions-item>
-                              <a-descriptions-item :label="t('pluginAdmin.updatedAt')">{{ formatTime(plugin.updatedAt) }}</a-descriptions-item>
-                              <a-descriptions-item :label="t('pluginAdmin.homepage')">
-                                <a-link v-if="module.plugin?.homepage" :href="module.plugin.homepage" target="_blank" rel="noopener noreferrer" class="break">
+                              <a-descriptions-item v-if="module.plugin?.homepage" :label="t('pluginAdmin.homepage')">
+                                <a-link :href="module.plugin.homepage" target="_blank" rel="noopener noreferrer" class="break">
                                   {{ module.plugin.homepage }}
                                 </a-link>
-                                <span v-else>—</span>
                               </a-descriptions-item>
+                              <a-descriptions-item :label="t('pluginAdmin.installedAt')">{{ formatTime(plugin.createdAt) }}</a-descriptions-item>
+                              <a-descriptions-item :label="t('pluginAdmin.updatedAt')">{{ formatTime(plugin.updatedAt) }}</a-descriptions-item>
                               <a-descriptions-item v-if="plugin.sourceURL" :label="t('pluginAdmin.sourceURLLabel')">
                                 <a-typography-paragraph :ellipsis="{ rows: 2, showTooltip: true }" class="source-url mono">
                                   {{ plugin.sourceURL }}

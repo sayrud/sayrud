@@ -103,18 +103,30 @@ func TestFieldShortcutVersion(t *testing.T) {
 	ctx := context.Background()
 	store := NewFieldShortcutsStore(newTestDB(t, &CustomFieldShortcut{}))
 	s := &CustomFieldShortcut{
-		Name: i18n.LocalText{"": "Legacy"}, ResultType: TextFieldType, Code: "function execute() { return 'text' }",
+		ManifestID: "version_test", Homepage: "https://example.com/plugin", Name: i18n.LocalText{"": "Legacy"}, ResultType: TextFieldType, Code: "function execute() { return 'text' }",
 		Sections: datatypes.NewJSONType([]ShortcutSection{}), Domains: datatypes.NewJSONType([]string{}), Credentials: datatypes.NewJSONType([]ShortcutCredential{}),
 	}
 	require.NoError(t, store.Create(ctx, s))
 	got, err := store.GetByUID(ctx, s.UID)
 	require.NoError(t, err)
 	require.Equal(t, "1.0.0", got.Version)
+	require.Equal(t, "version_test", got.ManifestID)
+	require.Equal(t, "https://example.com/plugin", got.Homepage)
 
 	got.Version = "2.3.0"
+	got.Homepage = "https://example.com/support"
 	require.NoError(t, store.Update(ctx, got))
 	list, total, err := store.ListAdmin(ctx, ListFieldShortcutsOptions{})
 	require.NoError(t, err)
 	require.Equal(t, int64(1), total)
 	require.Equal(t, "2.3.0", list[0].Version)
+	require.Equal(t, "version_test", list[0].ManifestID)
+	require.Equal(t, "https://example.com/support", list[0].Homepage)
+	require.Equal(t, s.UID, list[0].UID)
+	got.Homepage = ""
+	require.NoError(t, store.Update(ctx, got))
+	got, err = store.GetByUID(ctx, s.UID)
+	require.NoError(t, err)
+	require.Empty(t, got.Homepage)
+	require.Equal(t, "version_test", got.ManifestID)
 }

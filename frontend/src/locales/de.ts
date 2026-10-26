@@ -1255,7 +1255,6 @@ const de: typeof zhCN = {
     generating: 'Wird generiert…',
   },
   shortcutAdmin: {
-    identifier: 'Kurzbefehl-ID',
     upgradeSaveHint: 'Änderungen vor dem Upgrade speichern oder zurücksetzen',
     aiAllowed: 'Darf das globale KI-Modell aufrufen',
     aiDenied: 'Ruft das globale KI-Modell nicht auf',
@@ -1428,7 +1427,6 @@ const de: typeof zhCN = {
     overview: 'Übersicht',
     source: 'Quellcode',
     test: 'Testen',
-    nodeType: 'Knotentyp',
     category: 'Kategorie',
     version: 'Version',
     author: 'Autor',

@@ -3,7 +3,6 @@ package workflow
 import (
 	"encoding/json"
 	"fmt"
-	"net/url"
 	"regexp"
 	"slices"
 	"strings"
@@ -149,7 +148,6 @@ const (
 )
 
 var (
-	pluginIDPattern      = regexp.MustCompile(`^[a-z][a-z0-9_]{1,39}$`)
 	pluginIconPattern    = regexp.MustCompile(`^[a-z0-9]+(-[a-z0-9]+)*$`)
 	pluginDataIconRegexp = regexp.MustCompile(`^data:image/(svg\+xml|png|jpeg|webp);base64,[A-Za-z0-9+/=]+$`)
 	pluginColorPattern   = regexp.MustCompile(`^#[0-9A-Fa-f]{6}$`)
@@ -170,10 +168,10 @@ func ParsePluginManifest(raw []byte) (*PluginManifest, error) {
 var checkText = manifest.CheckText
 
 func (m *PluginManifest) normalize() error {
-	switch {
-	case !pluginIDPattern.MatchString(m.ID):
-		return manifestErrorf("id must be 2–40 lowercase letters, digits or underscores starting with a letter")
-	case utf8.RuneCountInString(m.Author) > 100:
+	if err := manifest.CheckID(m.ID); err != nil {
+		return err
+	}
+	if utf8.RuneCountInString(m.Author) > 100 {
 		return manifestErrorf("author is longer than 100 characters")
 	}
 	if err := manifest.CheckVersion(m.Version); err != nil {
@@ -185,11 +183,8 @@ func (m *PluginManifest) normalize() error {
 	if err := checkText(m.Description, "description", false); err != nil {
 		return err
 	}
-	if m.Homepage != "" {
-		u, err := url.Parse(m.Homepage)
-		if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" || len(m.Homepage) > 500 {
-			return manifestErrorf("homepage must be an http or https URL")
-		}
+	if err := manifest.CheckHomepage(m.Homepage); err != nil {
+		return err
 	}
 	if err := checkIcon(&m.Icon); err != nil {
 		return err

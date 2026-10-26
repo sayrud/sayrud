@@ -193,11 +193,10 @@ const inputs = computed(() => plugin.value?.module.sections.flatMap((s) => s.fie
             <a-tag v-else size="small">{{ t('pluginAdmin.reinstall') }}</a-tag>
           </div>
           <div v-if="plugin.module.description" class="text-desc">{{ plugin.module.description }}</div>
-          <div class="review-meta text-desc">
-            <span class="mono">{{ plugin.module.type }}</span>
-            <template v-if="plugin.module.plugin?.author"><span class="dot">·</span>{{ plugin.module.plugin.author }}</template>
+          <div v-if="plugin.module.plugin?.author || plugin.module.plugin?.homepage" class="review-meta text-desc">
+            <span v-if="plugin.module.plugin?.author">{{ plugin.module.plugin.author }}</span>
             <template v-if="plugin.module.plugin?.homepage">
-              <span class="dot">·</span><a-link :href="plugin.module.plugin.homepage" target="_blank" rel="noopener noreferrer">{{ t('pluginAdmin.homepage') }}</a-link>
+              <span v-if="plugin.module.plugin?.author" class="dot">·</span><a-link :href="plugin.module.plugin.homepage" target="_blank" rel="noopener noreferrer">{{ t('pluginAdmin.homepage') }}</a-link>
             </template>
           </div>
         </div>

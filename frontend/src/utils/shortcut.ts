@@ -23,6 +23,8 @@ export function optionLabel(option: { value: string; label?: LocalText }, langua
 /** Saves the shortcut as is, the manifest properties of the admin view and of the save request have the same names. */
 export function saveBody(s: AdminFieldShortcut, changes: Partial<SaveFieldShortcut> = {}): SaveFieldShortcut {
   return {
+    id: s.id,
+    homepage: s.homepage,
     name: s.name,
     version: s.version,
     description: s.description,

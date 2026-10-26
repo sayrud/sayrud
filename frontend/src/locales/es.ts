@@ -1255,7 +1255,6 @@ const es: typeof zhCN = {
     generating: 'Generando…',
   },
   shortcutAdmin: {
-    identifier: 'ID del atajo',
     upgradeSaveHint: 'Guarda o restablece los cambios antes de actualizar',
     aiAllowed: 'Puede llamar al modelo de IA global',
     aiDenied: 'No llama al modelo de IA global',
@@ -1428,7 +1427,6 @@ const es: typeof zhCN = {
     overview: 'Resumen',
     source: 'Código fuente',
     test: 'Probar',
-    nodeType: 'Tipo de nodo',
     category: 'Categoría',
     version: 'Versión',
     author: 'Autor',

@@ -1253,7 +1253,6 @@ export default {
     generating: '生成中…',
   },
   shortcutAdmin: {
-    identifier: '捷径 ID',
     upgradeSaveHint: '保存或重置当前修改后再升级',
     aiAllowed: '可调用全局 AI 模型',
     aiDenied: '不调用全局 AI 模型',
@@ -1426,7 +1425,6 @@ export default {
     overview: '概览',
     source: '源代码',
     test: '测试运行',
-    nodeType: '节点类型',
     category: '分类',
     version: '版本',
     author: '作者',

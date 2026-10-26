@@ -1255,7 +1255,6 @@ const zhTW: typeof zhCN = {
     generating: '產生中…',
   },
   shortcutAdmin: {
-    identifier: '捷徑 ID',
     upgradeSaveHint: '請先儲存或重設目前的修改，再進行升級',
     aiAllowed: '可呼叫全域 AI 模型',
     aiDenied: '不呼叫全域 AI 模型',
@@ -1428,7 +1427,6 @@ const zhTW: typeof zhCN = {
     overview: '概覽',
     source: '原始碼',
     test: '測試執行',
-    nodeType: '節點類型',
     category: '分類',
     version: '版本',
     author: '作者',

@@ -210,3 +210,42 @@ func TestBuildCustomShortcutFieldOptions(t *testing.T) {
 	_, _, err = buildCustomShortcut(f)
 	requireManifestError(t, err, `field "categories" edits the field options, which needs the resultType single_select or multi_select`)
 }
+
+func TestShortcutPackageMetadataRoundTrip(t *testing.T) {
+	f := saveForm("function execute() { return 'text' }")
+	f.ID, f.Homepage = "package_test", "https://example.com/support"
+	s, _, err := buildCustomShortcut(f)
+	require.NoError(t, err)
+	s.UID = "fscAAAAAAA"
+	payload, err := json.Marshal(dto.ToAdminFieldShortcut(s, nil, 0))
+	require.NoError(t, err)
+	var save form.SaveFieldShortcut
+	require.NoError(t, json.Unmarshal(payload, &save))
+	require.Equal(t, f.ID, save.ID)
+	require.Equal(t, f.Homepage, save.Homepage)
+	saved, _, err := buildCustomShortcut(save)
+	require.NoError(t, err)
+	require.Equal(t, s.ManifestID, saved.ManifestID)
+	require.Equal(t, s.Homepage, saved.Homepage)
+	require.Empty(t, saved.UID, "the manifest id must not replace the installation UID")
+}
+
+func TestShortcutUpdateKeepsPackageID(t *testing.T) {
+	f := flamego.New()
+	f.Use(i18n.Middleware(), appcontext.Contexter(nil))
+	f.Map(&db.CustomFieldShortcut{ManifestID: "original_package", UID: "fscAAAAAAA"})
+	f.Put("/update", form.Bind(form.SaveFieldShortcut{}), Admin.UpdateFieldShortcut)
+	for _, id := range []string{"another_package", ""} {
+		body := saveForm("function execute() { return 'text' }")
+		body.ID = id
+		raw, err := json.Marshal(body)
+		require.NoError(t, err)
+		req := httptest.NewRequest(http.MethodPut, "/update?lang=en", strings.NewReader(string(raw)))
+		req.Header.Set("Content-Type", "application/json")
+		response := httptest.NewRecorder()
+		f.ServeHTTP(response, req)
+		require.Equal(t, http.StatusBadRequest, response.Code, response.Body.String())
+		require.Contains(t, response.Body.String(), "id must stay")
+		require.Contains(t, response.Body.String(), "original_package")
+	}
+}

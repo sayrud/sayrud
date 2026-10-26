@@ -221,6 +221,9 @@ async function install() {
       </div>
 
       <a-descriptions :column="2" layout="vertical" class="review-details">
+        <a-descriptions-item v-if="inspection.homepage" :label="t('pluginAdmin.homepage')">
+          <a-link :href="inspection.homepage" target="_blank" rel="noopener noreferrer">{{ inspection.homepage }}</a-link>
+        </a-descriptions-item>
         <a-descriptions-item :label="t('shortcutAdmin.resultType')">
           <span class="inline">
             <FieldTypeIcon :type="inspection.resultType as FieldType" />

@@ -25,6 +25,7 @@ import (
 
 const installableShortcut = `
 export const manifest = {
+  id: "uppercase_text", homepage: "https://example.com/uppercase",
   name: "Uppercase", version: "1.2.3", resultType: "text",
   permissions: {fetch: ["API.EXAMPLE.COM"], ai: true},
   credentials: [{key: "api", label: "API Key", type: "bearer", value: "ignored-secret"}],
@@ -61,6 +62,8 @@ func TestInspectTypeScriptShortcut(t *testing.T) {
 func TestInspectFieldShortcut(t *testing.T) {
 	s, err := inspectFieldShortcut(stdcontext.Background(), installableShortcut, sandbox.JavaScript)
 	require.NoError(t, err)
+	require.Equal(t, "uppercase_text", s.ManifestID)
+	require.Equal(t, "https://example.com/uppercase", s.Homepage)
 	require.Equal(t, i18n.LocalText{"": "Uppercase"}, s.Name)
 	require.Equal(t, "1.2.3", s.Version)
 	require.Equal(t, db.TextFieldType, s.ResultType)
@@ -87,6 +90,7 @@ func TestInspectFieldShortcut(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "EXAMPLE", result.Value)
 	require.Equal(t, "1.0.0", s.Version)
+	require.Equal(t, "uppercase_text", s.ManifestID)
 
 	_, err = inspectFieldShortcut(stdcontext.Background(), strings.Replace(installableShortcut, `version: "1.2.3", `, "", 1), sandbox.JavaScript)
 	requireManifestError(t, err, "version is required, e.g. 1.0.0")
@@ -260,6 +264,11 @@ func TestFieldShortcutInstallRoutes(t *testing.T) {
 		installed := request("/install", form.InstallFieldShortcut{Source: preview.Code, Language: preview.Language}, http.StatusOK)
 		require.NotEmpty(t, installed.UID)
 		require.Equal(t, preview.Version, installed.Version)
+		require.Equal(t, preview.ID, installed.ID)
+		require.Equal(t, preview.Homepage, installed.Homepage)
+		require.NotEqual(t, installed.ID, installed.UID)
+		require.Equal(t, installed.ID, store.created[0].ManifestID)
+		require.Equal(t, installed.Homepage, store.created[0].Homepage)
 		if len(installed.Credentials) > 0 {
 			require.Equal(t, "API Key", preview.Credentials[0].Label.In("en"))
 			require.Equal(t, "API Key", installed.Credentials[0].Label.In("en"))

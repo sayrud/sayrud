@@ -12,6 +12,7 @@ import (
 )
 
 const validManifest = `{
+  "id": "translate", "homepage": "https://example.com/translate",
   "name": {"en": "Translate", "zh-CN": "翻译"}, "version": "1.0.0", "resultType": "text",
   "permissions": {"fetch": ["*.API.example.com", "*"], "ai": true},
   "credentials": [{"key": "api", "type": "header", "name": "X-Api-Key"}],
@@ -28,6 +29,8 @@ func TestParseManifest(t *testing.T) {
 	m, err := ParseManifest([]byte(validManifest))
 	require.NoError(t, err)
 	require.Equal(t, "翻译", m.Name.In("zh-CN"))
+	require.Equal(t, "translate", m.ID)
+	require.Equal(t, "https://example.com/translate", m.Homepage)
 	require.Equal(t, DefaultTimeout, m.Timeout)
 	require.Equal(t, db.ShortcutPermissions{Fetch: []string{"*", "api.example.com"}, AI: true}, m.Permissions)
 	require.Equal(t, []db.ShortcutSection{
@@ -42,6 +45,8 @@ func TestParseManifest(t *testing.T) {
 
 	m, err = ParseManifest([]byte(`{"name": "Minimal", "version": "1.0.0", "resultType": "number"}`))
 	require.NoError(t, err)
+	require.Empty(t, m.ID, "local scripts can omit the source package identifier")
+	require.Empty(t, m.Homepage)
 	require.Equal(t, []string{}, m.Permissions.Fetch)
 	require.Equal(t, []db.ShortcutCredential{}, m.Credentials)
 	require.Equal(t, []db.ShortcutSection{}, m.Sections)
@@ -50,6 +55,8 @@ func TestParseManifest(t *testing.T) {
 func TestParseManifestErrors(t *testing.T) {
 	replace := func(old, new string) string { return strings.Replace(validManifest, old, new, 1) }
 	for source, want := range map[string]string{
+		replace(`"id": "translate"`, `"id": "invalid-id"`):                  "id must be 2–40 lowercase letters, digits or underscores starting with a letter",
+		replace(`"https://example.com/translate"`, `"javascript:alert(1)"`): "homepage must be an http or https URL",
 		`[]`: "the manifest can not be decoded: json: cannot unmarshal array into Go value of type shortcut.Manifest",
 		replace(`{"en": "Translate", "zh-CN": "翻译"}`, `" "`):                    "name is required",
 		replace(`"version": "1.0.0", `, ``):                                     "version is required, e.g. 1.0.0",

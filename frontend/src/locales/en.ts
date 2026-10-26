@@ -1255,7 +1255,6 @@ const en: typeof zhCN = {
     generating: 'Generating…',
   },
   shortcutAdmin: {
-    identifier: 'Shortcut ID',
     upgradeSaveHint: 'Save or reset your changes before upgrading',
     aiAllowed: 'May call the global AI model',
     aiDenied: 'Does not call the global AI model',
@@ -1428,7 +1427,6 @@ const en: typeof zhCN = {
     overview: 'Overview',
     source: 'Source',
     test: 'Test',
-    nodeType: 'Node type',
     category: 'Category',
     version: 'Version',
     author: 'Author',

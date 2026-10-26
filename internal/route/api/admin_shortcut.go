@@ -149,6 +149,8 @@ func buildCustomShortcut(f form.SaveFieldShortcut) (*db.CustomFieldShortcut, map
 		}
 	}
 	return &db.CustomFieldShortcut{
+		ManifestID:     m.ID,
+		Homepage:       m.Homepage,
 		Name:           m.Name,
 		Version:        m.Version,
 		Description:    m.Description,
@@ -255,6 +257,9 @@ func (adminRoute) UpdateFieldShortcut(ctx context.Context, saved *db.CustomField
 	s, values, err := buildCustomShortcut(f)
 	if err != nil {
 		return saveFieldShortcutError(ctx, err, "validate")
+	}
+	if saved.ManifestID != "" && s.ManifestID != saved.ManifestID {
+		return saveFieldShortcutError(ctx, manifestError(manifest.Errorf("id must stay %q when updating a shortcut", saved.ManifestID)), "validate")
 	}
 	if s.Secrets, err = sealSecrets(saved.Secrets, s.Credentials.Data(), values); err != nil {
 		return saveFieldShortcutError(ctx, err, "seal")

@@ -7571,6 +7571,8 @@ const docTemplate = `{
                 "credentials",
                 "description",
                 "enabled",
+                "homepage",
+                "id",
                 "language",
                 "name",
                 "permissions",
@@ -7609,6 +7611,14 @@ const docTemplate = `{
                 "enabled": {
                     "description": "Enabled reports whether the members can attach and execute the shortcut.",
                     "type": "boolean"
+                },
+                "homepage": {
+                    "description": "Homepage is the project website or support page declared by the source.",
+                    "type": "string"
+                },
+                "id": {
+                    "description": "ID is the source package identifier, empty if not declared; UID identifies this installation.",
+                    "type": "string"
                 },
                 "language": {
                     "description": "Language is the language of the saved source.",
@@ -9837,6 +9847,14 @@ const docTemplate = `{
                 "enabled": {
                     "description": "Enabled reports whether the members can attach and execute the shortcut.",
                     "type": "boolean"
+                },
+                "homepage": {
+                    "description": "Homepage is the project website or support page.",
+                    "type": "string"
+                },
+                "id": {
+                    "description": "ID identifies the source package. It is optional for local scripts and distinct from the installation UID.",
+                    "type": "string"
                 },
                 "language": {
                     "description": "Language of Code, javascript by default.",

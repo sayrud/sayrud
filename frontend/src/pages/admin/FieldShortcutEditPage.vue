@@ -47,6 +47,8 @@ interface CredentialDraft {
 
 /** The manifest properties are named as in the source and in the save request. */
 interface Draft {
+  id: string
+  homepage: string
   name: AdminFieldShortcut['name']
   version: string
   description: AdminFieldShortcut['description']
@@ -62,6 +64,8 @@ interface Draft {
 
 function toDraft(s: AdminFieldShortcut | null): Draft {
   return {
+    id: s?.id ?? '',
+    homepage: s?.homepage ?? '',
     name: s?.name ?? {},
     version: s?.version ?? '1.0.0',
     description: s?.description ?? {},
@@ -173,6 +177,8 @@ async function syncFromCode(): Promise<boolean> {
       return { key: c.key, label: c.label, type: c.type as CredentialType, name: c.name ?? '', value: previous?.value ?? '', hasValue: previous?.hasValue ?? false }
     })
     Object.assign(draft, {
+      id: result.id ?? '',
+      homepage: result.homepage ?? '',
       name: result.name,
       version: result.version,
       description: result.description,
@@ -277,6 +283,8 @@ const paramsInvalid = computed(() => {
 /** The manifest is validated by the server when the source is synchronized and saved. */
 function body(): SaveFieldShortcut {
   return {
+    id: draft.id,
+    homepage: draft.homepage,
     name: draft.name,
     version: draft.version,
     description: draft.description,
@@ -425,7 +433,7 @@ const format = (v: unknown) => (v === undefined ? 'undefined' : JSON.stringify(v
       <a-breadcrumb-item>
         <RouterLink :to="{ name: 'admin-field-shortcuts' }">{{ t('shortcutAdmin.title') }}</RouterLink>
       </a-breadcrumb-item>
-      <a-breadcrumb-item>{{ shortcut ? text(shortcut.name) : uid }}</a-breadcrumb-item>
+      <a-breadcrumb-item>{{ shortcut ? text(shortcut.name) : t('shortcutAdmin.title') }}</a-breadcrumb-item>
     </a-breadcrumb>
 
     <a-result v-if="notFound" :status="null" title="404" :subtitle="t('shortcutAdmin.notFound')">
@@ -482,11 +490,13 @@ const format = (v: unknown) => (v === undefined ? 'undefined' : JSON.stringify(v
                       <section aria-labelledby="shortcut-basic-info">
                         <a-typography-title id="shortcut-basic-info" :heading="6" class="section-heading">{{ t('pluginAdmin.basicInfo') }}</a-typography-title>
                         <a-descriptions :column="1" size="small" :label-style="{ width: '100px' }" :value-style="{ overflowWrap: 'anywhere' }">
-                          <a-descriptions-item :label="t('shortcutAdmin.identifier')"><a-typography-text code>{{ uid }}</a-typography-text></a-descriptions-item>
                           <a-descriptions-item :label="t('shortcutAdmin.resultType')">
                             <span class="type-option"><FieldTypeIcon :type="draft.resultType" /> {{ fieldTypeInfo(draft.resultType).label }}</span>
                           </a-descriptions-item>
                           <a-descriptions-item :label="t('pluginAdmin.language')">{{ LANGUAGE_NAMES[draft.language] }}</a-descriptions-item>
+                          <a-descriptions-item v-if="draft.homepage" :label="t('pluginAdmin.homepage')">
+                            <a-link :href="draft.homepage" target="_blank" rel="noopener noreferrer" class="break">{{ draft.homepage }}</a-link>
+                          </a-descriptions-item>
                           <a-descriptions-item :label="t('pluginAdmin.installedAt')">{{ formatTime(shortcut?.createdAt) }}</a-descriptions-item>
                           <a-descriptions-item :label="t('pluginAdmin.updatedAt')">{{ formatTime(shortcut?.updatedAt) }}</a-descriptions-item>
                         </a-descriptions>

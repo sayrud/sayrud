@@ -150,6 +150,10 @@ export interface AdminFieldShortcut {
   description: I18NLocalText;
   /** Enabled reports whether the members can attach and execute the shortcut. */
   enabled: boolean;
+  /** Homepage is the project website or support page declared by the source. */
+  homepage: string;
+  /** ID is the source package identifier, empty if not declared; UID identifies this installation. */
+  id: string;
   /** Language is the language of the saved source. */
   language: "javascript" | "typescript";
   /** Name is shown in the field editor. */
@@ -886,6 +890,10 @@ export interface SaveFieldShortcut {
   description?: I18NLocalText;
   /** Enabled reports whether the members can attach and execute the shortcut. */
   enabled: boolean;
+  /** Homepage is the project website or support page. */
+  homepage?: string;
+  /** ID identifies the source package. It is optional for local scripts and distinct from the installation UID. */
+  id?: string;
   /** Language of Code, javascript by default. */
   language?: "javascript" | "typescript";
   /** Name is shown in the field editor. */

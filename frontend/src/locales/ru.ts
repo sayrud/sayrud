@@ -1255,7 +1255,6 @@ const ru: typeof zhCN = {
     generating: 'Генерация…',
   },
   shortcutAdmin: {
-    identifier: 'ID ярлыка',
     upgradeSaveHint: 'Сохраните или сбросьте изменения перед обновлением',
     aiAllowed: 'Может вызывать глобальную модель ИИ',
     aiDenied: 'Не вызывает глобальную модель ИИ',
@@ -1428,7 +1427,6 @@ const ru: typeof zhCN = {
     overview: 'Обзор',
     source: 'Исходный код',
     test: 'Тест',
-    nodeType: 'Тип узла',
     category: 'Категория',
     version: 'Версия',
     author: 'Автор',

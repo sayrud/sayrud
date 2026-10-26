@@ -5,6 +5,7 @@ package manifest
 import (
 	"fmt"
 	"net/netip"
+	"net/url"
 	"regexp"
 	"slices"
 	"strings"
@@ -38,12 +39,33 @@ const (
 )
 
 var (
+	idPattern = regexp.MustCompile(`^[a-z][a-z0-9_]{1,39}$`)
 	// VersionPattern is the version of a manifest, e.g. 1.0.0.
 	VersionPattern = regexp.MustCompile(`^[0-9A-Za-z][0-9A-Za-z.+\-]{0,31}$`)
 	// KeyPattern is the key of a form field, an output or a credential.
 	KeyPattern  = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]{0,63}$`)
 	langPattern = regexp.MustCompile(`^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})*$`)
 )
+
+// CheckID checks the source package identifier, independently of a shortcut installation's UID.
+func CheckID(id string) error {
+	if !idPattern.MatchString(id) {
+		return Errorf("id must be 2–40 lowercase letters, digits or underscores starting with a letter")
+	}
+	return nil
+}
+
+// CheckHomepage checks the optional project website shared by both kinds of modules.
+func CheckHomepage(homepage string) error {
+	if homepage == "" {
+		return nil
+	}
+	u, err := url.Parse(homepage)
+	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Hostname() == "" || u.User != nil || len(homepage) > 500 {
+		return Errorf("homepage must be an http or https URL")
+	}
+	return nil
+}
 
 // CheckVersion checks the required version.
 func CheckVersion(version string) error {

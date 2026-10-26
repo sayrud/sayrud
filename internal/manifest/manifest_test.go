@@ -78,3 +78,22 @@ func TestHostAllowed(t *testing.T) {
 	require.True(t, HostAllowed("anything.net", []string{"*"}))
 	require.False(t, HostAllowed("", []string{"*"}))
 }
+
+func TestCheckID(t *testing.T) {
+	for _, id := range []string{"aa", "uppercase_text", "a1", strings.Repeat("a", 40)} {
+		require.NoError(t, CheckID(id), id)
+	}
+	for _, id := range []string{"", "a", "Uppercase", "a-b", "1a", " a1 ", strings.Repeat("a", 41)} {
+		require.EqualError(t, CheckID(id), "id must be 2–40 lowercase letters, digits or underscores starting with a letter", id)
+	}
+}
+
+func TestCheckHomepage(t *testing.T) {
+	const base = "https://example.com/"
+	for _, homepage := range []string{"", base, "http://example.com:8080/support?plugin=test#help", base + strings.Repeat("a", 500-len(base))} {
+		require.NoError(t, CheckHomepage(homepage), homepage)
+	}
+	for _, homepage := range []string{"example.com", "/support", "//example.com", "javascript:alert(1)", "ftp://example.com", "https:///support", "https://:443", "https://user:pass@example.com", "https://user@example.com", "https://example.com/\nsupport", base + strings.Repeat("a", 501-len(base))} {
+		require.EqualError(t, CheckHomepage(homepage), "homepage must be an http or https URL", homepage)
+	}
+}

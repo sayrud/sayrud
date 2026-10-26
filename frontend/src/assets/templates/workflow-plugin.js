@@ -14,6 +14,8 @@ export const manifest = {
   name: { en: "Webhook notification", "zh-CN": "Webhook 通知" },
   description: { en: "Posts a message to a webhook.", "zh-CN": "向 Webhook 发送一条消息。" },
   author: "Your name",
+  // Optional project website or support page.
+  homepage: "",
   // A Lucide icon name (https://lucide.dev/icons) or a base64 data:image URL.
   icon: "send",
   color: "#2f6bff",

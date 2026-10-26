@@ -26,12 +26,16 @@ var headerNamePattern = regexp.MustCompile("^[!#$%&'*+.^_`|~0-9A-Za-z-]+$")
 // Manifest is the manifest exported by a field shortcut module. The properties shared with the workflow plugins
 // are named, typed and validated the same way, see the manifest package.
 type Manifest struct {
+	// ID identifies the source package. It is optional for local scripts and distinct from the installation UID.
+	ID string `json:"id,omitempty"`
 	// Name is shown in the field editor.
 	Name i18n.LocalText `json:"name"`
 	// Version is the version of the shortcut, e.g. 1.0.0.
 	Version string `json:"version"`
 	// Description tells the members what the shortcut does.
 	Description i18n.LocalText `json:"description,omitempty"`
+	// Homepage is the project website or support page.
+	Homepage string `json:"homepage,omitempty"`
 	// ResultType is the type of the fields the shortcut can be attached to.
 	ResultType string `json:"resultType" enums:"text,single_select,multi_select,datetime,number,checkbox"`
 	// Timeout is the time limit of an execution in seconds between 1 and 300, 0 defaults to 30.
@@ -95,6 +99,14 @@ func checkRenamed(raw []byte) error {
 
 // Normalize validates the manifest and fills in the defaults; errors are *manifest.Error.
 func (m *Manifest) Normalize() error {
+	if m.ID != "" {
+		if err := manifest.CheckID(m.ID); err != nil {
+			return err
+		}
+	}
+	if err := manifest.CheckHomepage(m.Homepage); err != nil {
+		return err
+	}
 	if err := manifest.CheckText(m.Name, "name", true); err != nil {
 		return err
 	}

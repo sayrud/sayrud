@@ -76,6 +76,10 @@ type ShortcutPreview struct {
 type AdminFieldShortcut struct {
 	// UID is the identifier the fields refer to the shortcut by.
 	UID string `json:"uid"`
+	// ID is the source package identifier, empty if not declared; UID identifies this installation.
+	ID string `json:"id"`
+	// Homepage is the project website or support page declared by the source.
+	Homepage string `json:"homepage"`
 	// Name is shown in the field editor.
 	Name i18n.LocalText `json:"name"`
 	// Version is the version declared by the shortcut manifest.
@@ -143,6 +147,8 @@ func ToAdminFieldShortcut(s *db.CustomFieldShortcut, valueKeys map[string]bool, 
 
 	return &AdminFieldShortcut{
 		UID:         s.UID,
+		ID:          s.ManifestID,
+		Homepage:    s.Homepage,
 		Name:        s.Name,
 		Version:     version,
 		Description: s.Description,

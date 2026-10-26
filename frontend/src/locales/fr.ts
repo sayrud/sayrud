@@ -1255,7 +1255,6 @@ const fr: typeof zhCN = {
     generating: 'Génération…',
   },
   shortcutAdmin: {
-    identifier: 'ID du raccourci',
     upgradeSaveHint: 'Enregistrez ou réinitialisez vos modifications avant la mise à niveau',
     aiAllowed: 'Peut appeler le modèle IA global',
     aiDenied: 'N’appelle pas le modèle IA global',
@@ -1428,7 +1427,6 @@ const fr: typeof zhCN = {
     overview: 'Aperçu',
     source: 'Code source',
     test: 'Tester',
-    nodeType: 'Type de nœud',
     category: 'Catégorie',
     version: 'Version',
     author: 'Auteur',

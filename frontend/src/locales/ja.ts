@@ -1255,7 +1255,6 @@ const ja: typeof zhCN = {
     generating: '生成中…',
   },
   shortcutAdmin: {
-    identifier: 'ショートカット ID',
     upgradeSaveHint: 'アップグレードする前に変更を保存またはリセットしてください',
     aiAllowed: 'グローバル AI モデルを呼び出せます',
     aiDenied: 'グローバル AI モデルを呼び出しません',
@@ -1428,7 +1427,6 @@ const ja: typeof zhCN = {
     overview: '概要',
     source: 'ソースコード',
     test: 'テスト実行',
-    nodeType: 'ノードタイプ',
     category: 'カテゴリ',
     version: 'バージョン',
     author: '作者',

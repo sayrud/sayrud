@@ -157,6 +157,10 @@ type CustomFieldShortcut struct {
 
 	// UID is "fsc" followed by 7 random characters, the fields refer to the shortcut by it.
 	UID string `gorm:"type:varchar(16);not null;uniqueIndex:idx_field_shortcuts_uid, where:deleted_at IS NULL"`
+	// ManifestID is the source package identifier, empty for local scripts without one; fields still refer to UID.
+	ManifestID string `gorm:"type:varchar(40);not null;default:''"`
+	// Homepage is the project website or support page declared by the source.
+	Homepage string `gorm:"type:text;not null;default:''"`
 	// Name is shown in the field editor.
 	Name i18n.LocalText `gorm:"type:jsonb;not null"`
 	// Version is the manifest version, defaulting to 1.0.0 for existing shortcuts.
@@ -266,6 +270,8 @@ func (db *fieldShortcuts) Create(ctx context.Context, s *CustomFieldShortcut) er
 
 func (db *fieldShortcuts) Update(ctx context.Context, s *CustomFieldShortcut) error {
 	result := db.WithContext(ctx).Model(&CustomFieldShortcut{}).Where("uid = ?", s.UID).Updates(map[string]interface{}{
+		"manifest_id":     s.ManifestID,
+		"homepage":        s.Homepage,
 		"name":            s.Name,
 		"version":         s.Version,
 		"description":     s.Description,

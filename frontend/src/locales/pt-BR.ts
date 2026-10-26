@@ -1255,7 +1255,6 @@ const ptBR: typeof zhCN = {
     generating: 'Gerando…',
   },
   shortcutAdmin: {
-    identifier: 'ID do atalho',
     upgradeSaveHint: 'Salve ou redefina as alterações antes de atualizar',
     aiAllowed: 'Pode chamar o modelo de IA global',
     aiDenied: 'Não chama o modelo de IA global',
@@ -1428,7 +1427,6 @@ const ptBR: typeof zhCN = {
     overview: 'Visão geral',
     source: 'Código-fonte',
     test: 'Testar',
-    nodeType: 'Tipo de nó',
     category: 'Categoria',
     version: 'Versão',
     author: 'Autor',

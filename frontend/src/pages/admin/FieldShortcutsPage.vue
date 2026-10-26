@@ -172,7 +172,7 @@ onMounted(load)
             <WorkflowPluginIcon :icon="record.permissions.ai ? 'sparkles' : 'zap'" color="var(--color-primary)" :size="32" />
             <div class="name-text">
               <div class="name ellipsis">{{ text(record.name) }}</div>
-              <div class="text-desc ellipsis desc">{{ text(record.description) || record.uid }}</div>
+              <div class="text-desc ellipsis desc">{{ text(record.description) || t('pluginAdmin.noDescription') }}</div>
             </div>
           </div>
         </template>
