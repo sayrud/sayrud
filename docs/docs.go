@@ -521,7 +521,7 @@ const docTemplate = `{
         },
         "/admin/field-shortcuts/inspect": {
             "post": {
-                "description": "Requires the admin. Download the source if a URL is given, then validate its exported manifest and execute function without running execute.",
+                "description": "Requires the admin. Download the source if a URL or a Sayrud Hub package is given, then validate its exported manifest and execute function without running execute.\nThe sources of Sayrud Hub are verified by their signature, which is returned to install them.",
                 "consumes": [
                     "application/json"
                 ],
@@ -532,7 +532,7 @@ const docTemplate = `{
                 "operationId": "inspectAdminFieldShortcut",
                 "parameters": [
                     {
-                        "description": "Source or URL",
+                        "description": "Source, URL or Sayrud Hub package",
                         "name": "data",
                         "in": "body",
                         "required": true,
@@ -571,7 +571,7 @@ const docTemplate = `{
         },
         "/admin/field-shortcuts/install": {
             "post": {
-                "description": "Requires the admin. Revalidate the reviewed source and create a new shortcut. Credential values must be configured separately.",
+                "description": "Requires the admin. Revalidate the reviewed source and create a new shortcut. Credential values must be configured separately.\nA Sayrud Hub signature must describe the source.",
                 "consumes": [
                     "application/json"
                 ],
@@ -714,7 +714,7 @@ const docTemplate = `{
                 }
             },
             "put": {
-                "description": "Requires the admin. The empty credential values keep the saved ones.",
+                "description": "Requires the admin. The empty credential values keep the saved ones.\nA Sayrud Hub signature must describe the code; without one, the shortcut stays from the Hub only if its code is unchanged.",
                 "consumes": [
                     "application/json"
                 ],
@@ -808,6 +808,50 @@ const docTemplate = `{
                     },
                     "500": {
                         "description": "Internal server error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/hub/updates": {
+            "get": {
+                "description": "Requires the admin. Only the packages installed from the Hub are sent to it, the result is reused for an hour unless refresh is true.\nThe packages without an update, a yank or a delisting are omitted.",
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "Check the packages installed from Sayrud Hub",
+                "operationId": "checkAdminHubUpdates",
+                "parameters": [
+                    {
+                        "type": "boolean",
+                        "description": "Ask the Hub again instead of reusing the last result",
+                        "name": "refresh",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/HubUpdatesResp"
+                        }
+                    },
+                    "403": {
+                        "description": "Not an admin",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "502": {
+                        "description": "Sayrud Hub can not be reached",
                         "schema": {
                             "type": "string"
                         }
@@ -1554,7 +1598,7 @@ const docTemplate = `{
                 }
             },
             "post": {
-                "description": "Requires the admin. A plugin with the same manifest id is replaced and keeps its enabled state; the workflows use the new version right away.",
+                "description": "Requires the admin. A plugin with the same manifest id is replaced and keeps its enabled state; the workflows use the new version right away.\nA Sayrud Hub signature must describe the source; without one, the plugin stays from the Hub only if its source is unchanged.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1604,7 +1648,7 @@ const docTemplate = `{
         },
         "/admin/workflow-plugins/inspect": {
             "post": {
-                "description": "Requires the admin. Compile the source, or download it from the URL first, and validate the manifest without installing.",
+                "description": "Requires the admin. Compile the source, or download it from the URL or Sayrud Hub first, and validate the manifest without installing.\nThe sources of Sayrud Hub are verified by their signature, which is returned to install them.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1615,7 +1659,7 @@ const docTemplate = `{
                 "operationId": "inspectAdminWorkflowPlugin",
                 "parameters": [
                     {
-                        "description": "Source or URL",
+                        "description": "Source, URL or Sayrud Hub package",
                         "name": "data",
                         "in": "body",
                         "required": true,
@@ -7616,6 +7660,14 @@ const docTemplate = `{
                     "description": "Homepage is the project website or support page declared by the source.",
                     "type": "string"
                 },
+                "hub": {
+                    "description": "Hub is the Sayrud Hub release the shortcut is installed from, omitted if installed from elsewhere.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/HubOrigin"
+                        }
+                    ]
+                },
                 "id": {
                     "description": "ID is the source package identifier, empty if not declared; UID identifies this installation.",
                     "type": "string"
@@ -7654,6 +7706,10 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/ShortcutSection"
                     }
+                },
+                "signature": {
+                    "description": "Signature is the verified Sayrud Hub signature of Code to send back when installing, only returned when inspecting a release.",
+                    "type": "object"
                 },
                 "timeout": {
                     "description": "Timeout is the time limit of an execution in seconds.",
@@ -8668,6 +8724,127 @@ const docTemplate = `{
                 }
             }
         },
+        "HubOrigin": {
+            "type": "object",
+            "required": [
+                "official",
+                "url",
+                "version"
+            ],
+            "properties": {
+                "changelog": {
+                    "description": "Changelog is the release notes, only returned when inspecting a release.",
+                    "type": "string"
+                },
+                "official": {
+                    "description": "Official reports whether the package is published by the Sayrud team.",
+                    "type": "boolean"
+                },
+                "url": {
+                    "description": "URL is the page of the package on Sayrud Hub.",
+                    "type": "string"
+                },
+                "version": {
+                    "type": "string"
+                }
+            }
+        },
+        "HubRelease": {
+            "type": "object",
+            "required": [
+                "minAppVersion",
+                "prerelease",
+                "version"
+            ],
+            "properties": {
+                "minAppVersion": {
+                    "description": "MinAppVersion is the lowest Sayrud version the release works with, empty if not declared.",
+                    "type": "string"
+                },
+                "prerelease": {
+                    "type": "boolean"
+                },
+                "publishedAt": {
+                    "type": "string"
+                },
+                "version": {
+                    "type": "string"
+                }
+            }
+        },
+        "HubUpdate": {
+            "type": "object",
+            "required": [
+                "delisted",
+                "id",
+                "kind",
+                "url",
+                "version",
+                "yanked"
+            ],
+            "properties": {
+                "delistReason": {
+                    "type": "string"
+                },
+                "delisted": {
+                    "description": "Delisted reports whether the package has been removed from the catalog.",
+                    "type": "boolean"
+                },
+                "id": {
+                    "description": "ID is the package id, the plugin id or the manifest id of the shortcuts.",
+                    "type": "string"
+                },
+                "kind": {
+                    "type": "string",
+                    "enum": [
+                        "workflow_plugin",
+                        "field_shortcut"
+                    ]
+                },
+                "latest": {
+                    "description": "Latest is the newer release compatible with this Sayrud version, omitted if there is none.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/HubRelease"
+                        }
+                    ]
+                },
+                "url": {
+                    "description": "URL is the page of the package on Sayrud Hub.",
+                    "type": "string"
+                },
+                "version": {
+                    "description": "Version is the installed version.",
+                    "type": "string"
+                },
+                "yankReason": {
+                    "type": "string"
+                },
+                "yanked": {
+                    "description": "Yanked reports whether the installed version has been withdrawn, it should be updated or uninstalled.",
+                    "type": "boolean"
+                }
+            }
+        },
+        "HubUpdatesResp": {
+            "type": "object",
+            "required": [
+                "checkedAt",
+                "packages"
+            ],
+            "properties": {
+                "checkedAt": {
+                    "description": "CheckedAt is the time the Hub was asked, the result is reused for a while.",
+                    "type": "string"
+                },
+                "packages": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/HubUpdate"
+                    }
+                }
+            }
+        },
         "Import": {
             "type": "object",
             "required": [
@@ -8829,6 +9006,10 @@ const docTemplate = `{
         "InspectFieldShortcut": {
             "type": "object",
             "properties": {
+                "hubID": {
+                    "description": "HubID downloads the latest release of the shortcut from Sayrud Hub instead, it takes precedence over Source and URL.",
+                    "type": "string"
+                },
                 "language": {
                     "description": "Language of Source, javascript by default; URL extensions take precedence.",
                     "type": "string",
@@ -8841,7 +9022,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "url": {
-                    "description": "URL is downloaded when Source is empty.",
+                    "description": "URL is downloaded when Source is empty, a source URL of Sayrud Hub is verified by its signature.",
                     "type": "string"
                 }
             }
@@ -8849,6 +9030,10 @@ const docTemplate = `{
         "InspectWorkflowPlugin": {
             "type": "object",
             "properties": {
+                "hubID": {
+                    "description": "HubID downloads the latest release of the plugin from Sayrud Hub instead, it takes precedence over Source and URL.",
+                    "type": "string"
+                },
                 "language": {
                     "description": "Language of Source, javascript by default.",
                     "type": "string",
@@ -8861,7 +9046,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "url": {
-                    "description": "URL is an http or https address of the source.",
+                    "description": "URL is an http or https address of the source, a source URL of Sayrud Hub is verified by its signature.",
                     "type": "string"
                 }
             }
@@ -8902,6 +9087,10 @@ const docTemplate = `{
                         }
                     ]
                 },
+                "signature": {
+                    "description": "Signature is the verified Sayrud Hub signature of Source to send back when installing, empty if Source is not from the Hub.",
+                    "type": "object"
+                },
                 "source": {
                     "description": "Source is the checked source, downloaded when inspecting a URL.",
                     "type": "string"
@@ -8922,6 +9111,10 @@ const docTemplate = `{
                         "typescript"
                     ]
                 },
+                "signature": {
+                    "description": "Signature is the Sayrud Hub signature returned by the inspection, it must describe Source.",
+                    "type": "object"
+                },
                 "source": {
                     "type": "string"
                 }
@@ -8940,6 +9133,10 @@ const docTemplate = `{
                         "javascript",
                         "typescript"
                     ]
+                },
+                "signature": {
+                    "description": "Signature is the Sayrud Hub signature returned by the inspection, it must describe Source.",
+                    "type": "object"
                 },
                 "source": {
                     "type": "string"
@@ -9905,6 +10102,10 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/ShortcutSection"
                     }
+                },
+                "signature": {
+                    "description": "Signature is the Sayrud Hub signature returned by the inspection, it must describe Code; without it the saved one is kept while it still does.",
+                    "type": "object"
                 },
                 "timeout": {
                     "description": "Timeout is the time limit of an execution in seconds between 1 and 300, 0 defaults to 30.",
@@ -12145,6 +12346,14 @@ const docTemplate = `{
                 },
                 "enabled": {
                     "type": "boolean"
+                },
+                "hub": {
+                    "description": "Hub is the Sayrud Hub release the plugin is installed from, omitted if installed from elsewhere.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/HubOrigin"
+                        }
+                    ]
                 },
                 "id": {
                     "description": "ID is the id of the manifest; the steps of the node have the type plugin:\u003cid\u003e.",

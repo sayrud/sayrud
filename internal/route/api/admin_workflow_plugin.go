@@ -1,6 +1,7 @@
 package api
 
 import (
+	"encoding/json"
 	"net/http"
 	"strings"
 	"time"
@@ -14,6 +15,7 @@ import (
 	"github.com/wuhan005/sayrud/internal/db"
 	"github.com/wuhan005/sayrud/internal/dto"
 	"github.com/wuhan005/sayrud/internal/form"
+	"github.com/wuhan005/sayrud/internal/hub"
 	"github.com/wuhan005/sayrud/internal/i18n"
 	"github.com/wuhan005/sayrud/internal/workflow"
 	"github.com/wuhan005/sayrud/internal/workflow/sandbox"
@@ -145,12 +147,18 @@ func installedPlugin(ctx context.Context, id string) (*dto.WorkflowPlugin, error
 	return toWorkflowPlugin(ctx, saved), nil
 }
 
+// pluginExpect is the Sayrud Hub release the plugin source must be described by.
+func pluginExpect(m *workflow.PluginManifest, lang sandbox.Language) hub.Expect {
+	return hub.Expect{Kind: hub.KindWorkflowPlugin, ID: m.ID, Version: m.Version, Language: string(lang)}
+}
+
 // InspectWorkflowPlugin
 // @Summary Check a workflow node plugin before installing
-// @Description Requires the admin. Compile the source, or download it from the URL first, and validate the manifest without installing.
+// @Description Requires the admin. Compile the source, or download it from the URL or Sayrud Hub first, and validate the manifest without installing.
+// @Description The sources of Sayrud Hub are verified by their signature, which is returned to install them.
 // @Accept json
 // @Produce json
-// @Param data body form.InspectWorkflowPlugin true "Source or URL"
+// @Param data body form.InspectWorkflowPlugin true "Source, URL or Sayrud Hub package"
 // @Success 200 {object} dto.InspectWorkflowPluginResp
 // @Failure 400 {string} string "Invalid plugin"
 // @Failure 403 {string} string "Not an admin"
@@ -163,7 +171,17 @@ func (adminRoute) InspectWorkflowPlugin(ctx context.Context, f form.InspectWorkf
 	if err != nil {
 		return respondPluginError(ctx, err, "inspect")
 	}
-	if strings.TrimSpace(source) == "" && strings.TrimSpace(f.URL) != "" {
+	var release *hub.Package
+	if strings.TrimSpace(f.HubID) != "" || strings.TrimSpace(source) == "" {
+		release, err = hubRelease(ctx, hub.KindWorkflowPlugin, f.HubID, f.URL, sandbox.MaxSourceSize)
+		if err != nil {
+			return respondPluginError(ctx, err, "download")
+		}
+	}
+	sourceURL := strings.TrimSpace(f.URL)
+	if release != nil {
+		source, lang, sourceURL = release.Source, sandbox.Language(release.Statement.Language), release.Release.SourceURL
+	} else if strings.TrimSpace(source) == "" && sourceURL != "" {
 		source, lang, err = workflow.DownloadPluginSource(ctx.Request().Context(), f.URL, lang)
 		if err != nil {
 			var downloadErr *workflow.DownloadError
@@ -180,23 +198,34 @@ func (adminRoute) InspectWorkflowPlugin(ctx context.Context, f form.InspectWorkf
 	if err != nil {
 		return respondPluginError(ctx, err, "inspect")
 	}
+	preview := &db.WorkflowPlugin{PluginID: m.ID, Version: m.Version, Language: string(lang), SourceURL: sourceURL, Checksum: workflow.PluginChecksum(source), Enabled: true}
+	if release != nil {
+		// The manifest must be the one the Hub approved, not only the bytes.
+		if preview.HubSignature, err = hubSignature(json.RawMessage(release.Signature), "", pluginExpect(m, lang), source); err != nil {
+			return respondPluginError(ctx, err, "verify")
+		}
+	}
 	installed, err := installedPlugin(ctx, m.ID)
 	if err != nil {
 		return respondPluginError(ctx, err, "get")
 	}
-	preview := &db.WorkflowPlugin{PluginID: m.ID, Version: m.Version, Language: string(lang), SourceURL: strings.TrimSpace(f.URL), Checksum: workflow.PluginChecksum(source), Enabled: true}
 	if installed != nil {
 		preview.Enabled = installed.Enabled
 	}
-	return ctx.ApiSuccess(dto.InspectWorkflowPluginResp{
+	resp := dto.InspectWorkflowPluginResp{
 		Plugin: dto.ToWorkflowPlugin(preview, m, requestLang(ctx)), Installed: installed,
 		Source: source, Language: string(lang), HasPreview: program.Has(sandbox.HookPreview),
-	})
+	}
+	if release != nil {
+		resp.Plugin.Hub, resp.Signature = inspectedRelease(release), json.RawMessage(preview.HubSignature)
+	}
+	return ctx.ApiSuccess(resp)
 }
 
 // InstallWorkflowPlugin
 // @Summary Install or upgrade a workflow node plugin
 // @Description Requires the admin. A plugin with the same manifest id is replaced and keeps its enabled state; the workflows use the new version right away.
+// @Description A Sayrud Hub signature must describe the source; without one, the plugin stays from the Hub only if its source is unchanged.
 // @Accept json
 // @Produce json
 // @Param data body form.InstallWorkflowPlugin true "Source"
@@ -215,9 +244,20 @@ func (adminRoute) InstallWorkflowPlugin(ctx context.Context, f form.InstallWorkf
 	if err != nil {
 		return respondPluginError(ctx, err, "install")
 	}
+	stored := ""
+	if saved, err := db.WorkflowPlugins.GetByPluginID(ctx.Request().Context(), m.ID); err == nil {
+		stored = saved.HubSignature
+	} else if !errors.Is(err, db.ErrWorkflowPluginNotFound) {
+		return respondPluginError(ctx, err, "get")
+	}
+	signature, err := hubSignature(f.Signature, stored, pluginExpect(m, lang), f.Source)
+	if err != nil {
+		return respondPluginError(ctx, err, "install")
+	}
 	p := &db.WorkflowPlugin{
 		PluginID: m.ID, Name: m.Name.In(i18n.LangEn), Version: m.Version, Language: string(lang), Source: f.Source,
 		SourceURL: strings.TrimSpace(f.SourceURL), Checksum: workflow.PluginChecksum(f.Source), Manifest: datatypes.JSON(program.Manifest()), Enabled: true,
+		HubSignature: signature,
 	}
 	if err := db.WorkflowPlugins.Save(ctx.Request().Context(), p); err != nil {
 		return respondPluginError(ctx, err, "save")

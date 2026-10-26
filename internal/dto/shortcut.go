@@ -1,6 +1,7 @@
 package dto
 
 import (
+	"encoding/json"
 	"strings"
 	"time"
 
@@ -104,6 +105,10 @@ type AdminFieldShortcut struct {
 	Enabled bool `json:"enabled"`
 	// UsedBy is the number of the fields using the shortcut.
 	UsedBy int64 `json:"usedBy"`
+	// Hub is the Sayrud Hub release the shortcut is installed from, omitted if installed from elsewhere.
+	Hub *HubOrigin `json:"hub,omitempty"`
+	// Signature is the verified Sayrud Hub signature of Code to send back when installing, only returned when inspecting a release.
+	Signature json.RawMessage `json:"signature,omitempty" swaggertype:"object"`
 	// CreatedAt is the time the shortcut was created.
 	CreatedAt time.Time `json:"createdAt"`
 	// UpdatedAt is the time the shortcut was last updated.
@@ -161,6 +166,7 @@ func ToAdminFieldShortcut(s *db.CustomFieldShortcut, valueKeys map[string]bool, 
 		Language:    language,
 		Enabled:     s.Enabled,
 		UsedBy:      usedBy,
+		Hub:         ToHubOrigin(s.HubSignature),
 		CreatedAt:   s.CreatedAt,
 		UpdatedAt:   s.UpdatedAt,
 	}

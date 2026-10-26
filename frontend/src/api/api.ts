@@ -152,6 +152,8 @@ export interface AdminFieldShortcut {
   enabled: boolean;
   /** Homepage is the project website or support page declared by the source. */
   homepage: string;
+  /** Hub is the Sayrud Hub release the shortcut is installed from, omitted if installed from elsewhere. */
+  hub?: HubOrigin;
   /** ID is the source package identifier, empty if not declared; UID identifies this installation. */
   id: string;
   /** Language is the language of the saved source. */
@@ -164,6 +166,8 @@ export interface AdminFieldShortcut {
   resultType: string;
   /** Sections are the form fields configured in the field editor and passed to execute as the params. */
   sections: ShortcutSection[];
+  /** Signature is the verified Sayrud Hub signature of Code to send back when installing, only returned when inspecting a release. */
+  signature?: object;
   /** Timeout is the time limit of an execution in seconds. */
   timeout: number;
   /** UID is the identifier the fields refer to the shortcut by. */
@@ -511,6 +515,48 @@ export interface FieldShortcutPermissions {
   ai: boolean;
 }
 
+export interface HubOrigin {
+  /** Changelog is the release notes, only returned when inspecting a release. */
+  changelog?: string;
+  /** Official reports whether the package is published by the Sayrud team. */
+  official: boolean;
+  /** URL is the page of the package on Sayrud Hub. */
+  url: string;
+  version: string;
+}
+
+export interface HubRelease {
+  /** MinAppVersion is the lowest Sayrud version the release works with, empty if not declared. */
+  minAppVersion: string;
+  prerelease: boolean;
+  publishedAt?: string;
+  version: string;
+}
+
+export interface HubUpdate {
+  delistReason?: string;
+  /** Delisted reports whether the package has been removed from the catalog. */
+  delisted: boolean;
+  /** ID is the package id, the plugin id or the manifest id of the shortcuts. */
+  id: string;
+  kind: "workflow_plugin" | "field_shortcut";
+  /** Latest is the newer release compatible with this Sayrud version, omitted if there is none. */
+  latest?: HubRelease;
+  /** URL is the page of the package on Sayrud Hub. */
+  url: string;
+  /** Version is the installed version. */
+  version: string;
+  yankReason?: string;
+  /** Yanked reports whether the installed version has been withdrawn, it should be updated or uninstalled. */
+  yanked: boolean;
+}
+
+export interface HubUpdatesResp {
+  /** CheckedAt is the time the Hub was asked, the result is reused for a while. */
+  checkedAt: string;
+  packages: HubUpdate[];
+}
+
 export interface Import {
   /** Done is the number of the records inserted, they are visible only after the import succeeds. */
   done: number;
@@ -570,18 +616,22 @@ export interface ImportUpload {
 }
 
 export interface InspectFieldShortcut {
+  /** HubID downloads the latest release of the shortcut from Sayrud Hub instead, it takes precedence over Source and URL. */
+  hubID?: string;
   /** Language of Source, javascript by default; URL extensions take precedence. */
   language?: "javascript" | "typescript";
   source?: string;
-  /** URL is downloaded when Source is empty. */
+  /** URL is downloaded when Source is empty, a source URL of Sayrud Hub is verified by its signature. */
   url?: string;
 }
 
 export interface InspectWorkflowPlugin {
+  /** HubID downloads the latest release of the plugin from Sayrud Hub instead, it takes precedence over Source and URL. */
+  hubID?: string;
   /** Language of Source, javascript by default. */
   language?: "javascript" | "typescript";
   source?: string;
-  /** URL is an http or https address of the source. */
+  /** URL is an http or https address of the source, a source URL of Sayrud Hub is verified by its signature. */
   url?: string;
 }
 
@@ -593,6 +643,8 @@ export interface InspectWorkflowPluginResp {
   language: "javascript" | "typescript";
   /** Plugin is the plugin as it would be installed. */
   plugin: WorkflowPlugin;
+  /** Signature is the verified Sayrud Hub signature of Source to send back when installing, empty if Source is not from the Hub. */
+  signature?: object;
   /** Source is the checked source, downloaded when inspecting a URL. */
   source: string;
 }
@@ -600,12 +652,16 @@ export interface InspectWorkflowPluginResp {
 export interface InstallFieldShortcut {
   /** Language of Source, javascript by default. */
   language?: "javascript" | "typescript";
+  /** Signature is the Sayrud Hub signature returned by the inspection, it must describe Source. */
+  signature?: object;
   source: string;
 }
 
 export interface InstallWorkflowPlugin {
   /** Language of Source, javascript by default. */
   language?: "javascript" | "typescript";
+  /** Signature is the Sayrud Hub signature returned by the inspection, it must describe Source. */
+  signature?: object;
   source: string;
   /** SourceURL is the address the source was downloaded from, kept for reference. */
   sourceURL?: string;
@@ -912,6 +968,8 @@ export interface SaveFieldShortcut {
   secrets?: Record<string, string>;
   /** Sections are the form fields configured in the field editor and passed to execute as the params. */
   sections: ShortcutSection[];
+  /** Signature is the Sayrud Hub signature returned by the inspection, it must describe Code; without it the saved one is kept while it still does. */
+  signature?: object;
   /** Timeout is the time limit of an execution in seconds between 1 and 300, 0 defaults to 30. */
   timeout?: number;
   /** Version is the version of the shortcut, e.g. 1.0.0. */
@@ -1676,6 +1734,8 @@ export interface WorkflowPlugin {
   /** Domains are the hosts the node can fetch, including their subdomains; * allows any public host. */
   domains: string[];
   enabled: boolean;
+  /** Hub is the Sayrud Hub release the plugin is installed from, omitted if installed from elsewhere. */
+  hub?: HubOrigin;
   /** ID is the id of the manifest; the steps of the node have the type plugin:<id>. */
   id: string;
   /** Language is the source language, javascript or typescript. */
@@ -1891,6 +1951,8 @@ export type GetAdminFieldShortcutData = AdminFieldShortcut;
 export type UpdateAdminFieldShortcutData = AdminFieldShortcut;
 
 export type DeleteAdminFieldShortcutData = any;
+
+export type CheckAdminHubUpdatesData = HubUpdatesResp;
 
 export type GetAdminOverviewData = AdminOverview;
 
@@ -2541,7 +2603,7 @@ export class Api<
       }),
 
     /**
-     * @description Requires the admin. Download the source if a URL is given, then validate its exported manifest and execute function without running execute.
+     * @description Requires the admin. Download the source if a URL or a Sayrud Hub package is given, then validate its exported manifest and execute function without running execute. The sources of Sayrud Hub are verified by their signature, which is returned to install them.
      *
      * @name InspectAdminFieldShortcut
      * @summary Check a field shortcut before installing
@@ -2561,7 +2623,7 @@ export class Api<
       }),
 
     /**
-     * @description Requires the admin. Revalidate the reviewed source and create a new shortcut. Credential values must be configured separately.
+     * @description Requires the admin. Revalidate the reviewed source and create a new shortcut. Credential values must be configured separately. A Sayrud Hub signature must describe the source.
      *
      * @name InstallAdminFieldShortcut
      * @summary Install a field shortcut from a JavaScript or TypeScript module
@@ -2616,7 +2678,7 @@ export class Api<
       }),
 
     /**
-     * @description Requires the admin. The empty credential values keep the saved ones.
+     * @description Requires the admin. The empty credential values keep the saved ones. A Sayrud Hub signature must describe the code; without one, the shortcut stays from the Hub only if its code is unchanged.
      *
      * @name UpdateAdminFieldShortcut
      * @summary Update a custom field shortcut
@@ -2650,6 +2712,28 @@ export class Api<
       this.request<DeleteAdminFieldShortcutData, string>({
         path: `/admin/field-shortcuts/${shortcutUid}`,
         method: "DELETE",
+        ...params,
+      }),
+
+    /**
+     * @description Requires the admin. Only the packages installed from the Hub are sent to it, the result is reused for an hour unless refresh is true. The packages without an update, a yank or a delisting are omitted.
+     *
+     * @name CheckAdminHubUpdates
+     * @summary Check the packages installed from Sayrud Hub
+     * @request GET:/admin/hub/updates
+     */
+    checkAdminHubUpdates: (
+      query?: {
+        /** Ask the Hub again instead of reusing the last result */
+        refresh?: boolean;
+      },
+      params: RequestParams = {},
+    ) =>
+      this.request<CheckAdminHubUpdatesData, string>({
+        path: `/admin/hub/updates`,
+        method: "GET",
+        query: query,
+        format: "json",
         ...params,
       }),
 
@@ -2940,7 +3024,7 @@ export class Api<
       }),
 
     /**
-     * @description Requires the admin. A plugin with the same manifest id is replaced and keeps its enabled state; the workflows use the new version right away.
+     * @description Requires the admin. A plugin with the same manifest id is replaced and keeps its enabled state; the workflows use the new version right away. A Sayrud Hub signature must describe the source; without one, the plugin stays from the Hub only if its source is unchanged.
      *
      * @name InstallAdminWorkflowPlugin
      * @summary Install or upgrade a workflow node plugin
@@ -2960,7 +3044,7 @@ export class Api<
       }),
 
     /**
-     * @description Requires the admin. Compile the source, or download it from the URL first, and validate the manifest without installing.
+     * @description Requires the admin. Compile the source, or download it from the URL or Sayrud Hub first, and validate the manifest without installing. The sources of Sayrud Hub are verified by their signature, which is returned to install them.
      *
      * @name InspectAdminWorkflowPlugin
      * @summary Check a workflow node plugin before installing

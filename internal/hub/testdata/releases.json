@@ -1,0 +1,52 @@
+[
+  {
+    "envelope": {
+      "payloadType": "application/vnd.sayrud.hub.release.v1+json",
+      "payload": "eyJpc3N1ZXIiOiJodHRwczovL2h1Yi5zYXlydWQuY29tIiwia2luZCI6IndvcmtmbG93X3BsdWdpbiIsImlkIjoiZXhhbXBsZSIsInZlcnNpb24iOiIxLjAuMCIsImxhbmd1YWdlIjoiamF2YXNjcmlwdCIsInNoYTI1NiI6IjkxMTQ2Yzk2YThiN2JmZTIzOTM4Y2E0NzFmMTQ0NjAxNGZiNDk4MzRjMWRmZjVhNjM2ZThmNDI4NTA4MDQ0OGYiLCJzaXplIjoxMjUsIm9mZmljaWFsIjp0cnVlLCJpc3N1ZWRBdCI6IjIwMjMtMTEtMTRUMjI6MTM6MjBaIn0=",
+      "signatures": [
+        {
+          "keyid": "760abaa2e8b607a3",
+          "sig": "6xUDuvy+cLvWOQsktumYfRcFEKEkmN755MpEPH5lJZD+d4AKUpzHK+QPUKtcpC6dW8kwjjq3N3bkzJ9an208Bw=="
+        }
+      ]
+    },
+    "publicKey": "hc0qfFcEdtg8y55JIizI8Esi8yAGbTD6xkPkjWZgRIk=",
+    "source": "export const manifest={id:\"example\",version:\"1.0.0\",name:\"Example\",resultType:\"text\"};export function execute(){return \"ok\";}",
+    "statement": {
+      "issuer": "https://hub.sayrud.com",
+      "kind": "workflow_plugin",
+      "id": "example",
+      "version": "1.0.0",
+      "language": "javascript",
+      "sha256": "91146c96a8b7bfe23938ca471f1446014fb49834c1dff5a636e8f4285080448f",
+      "size": 125,
+      "official": true,
+      "issuedAt": "2023-11-14T22:13:20Z"
+    }
+  },
+  {
+    "envelope": {
+      "payloadType": "application/vnd.sayrud.hub.release.v1+json",
+      "payload": "eyJpc3N1ZXIiOiJodHRwczovL2h1Yi5zYXlydWQuY29tIiwia2luZCI6ImZpZWxkX3Nob3J0Y3V0IiwiaWQiOiJleGFtcGxlIiwidmVyc2lvbiI6IjEuMC4wIiwibGFuZ3VhZ2UiOiJqYXZhc2NyaXB0Iiwic2hhMjU2IjoiOTExNDZjOTZhOGI3YmZlMjM5MzhjYTQ3MWYxNDQ2MDE0ZmI0OTgzNGMxZGZmNWE2MzZlOGY0Mjg1MDgwNDQ4ZiIsInNpemUiOjEyNSwib2ZmaWNpYWwiOnRydWUsImlzc3VlZEF0IjoiMjAyMy0xMS0xNFQyMjoxMzoyMFoifQ==",
+      "signatures": [
+        {
+          "keyid": "760abaa2e8b607a3",
+          "sig": "Qe7bLAbAxtoYfOKjieINw2nHbBZ2ua0piliBPBMMvApeY1gEb+ih6AFmJa+xak+LLITK9x/HTA40J1dpDo9ZAA=="
+        }
+      ]
+    },
+    "publicKey": "hc0qfFcEdtg8y55JIizI8Esi8yAGbTD6xkPkjWZgRIk=",
+    "source": "export const manifest={id:\"example\",version:\"1.0.0\",name:\"Example\",resultType:\"text\"};export function execute(){return \"ok\";}",
+    "statement": {
+      "issuer": "https://hub.sayrud.com",
+      "kind": "field_shortcut",
+      "id": "example",
+      "version": "1.0.0",
+      "language": "javascript",
+      "sha256": "91146c96a8b7bfe23938ca471f1446014fb49834c1dff5a636e8f4285080448f",
+      "size": 125,
+      "official": true,
+      "issuedAt": "2023-11-14T22:13:20Z"
+    }
+  }
+]

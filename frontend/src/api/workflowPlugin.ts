@@ -26,12 +26,16 @@ export interface PluginInspection {
   source: string
   language: PluginLanguage
   hasPreview: boolean
+  /** Verified Sayrud Hub signature of the source to send back when installing, absent if the source is not from the Hub. */
+  signature?: object
 }
 
 export interface PluginSource {
   source?: string
   language?: PluginLanguage
   url?: string
+  /** Downloads the latest release of the plugin of this id from Sayrud Hub. */
+  hubID?: string
 }
 
 export interface TestPluginRequest {
@@ -46,8 +50,8 @@ export const workflowPluginsApi = {
   list: async () => (await client.admin.listAdminWorkflowPlugins()).data as unknown as WorkflowPluginList,
   get: async (id: string) => (await client.admin.getAdminWorkflowPlugin(id)).data as unknown as WorkflowPlugin,
   inspect: async (body: PluginSource) => (await client.admin.inspectAdminWorkflowPlugin(body)).data as unknown as PluginInspection,
-  install: async (source: string, language: PluginLanguage, sourceURL?: string) =>
-    (await client.admin.installAdminWorkflowPlugin({ source, language, sourceURL })).data as unknown as WorkflowPlugin,
+  install: async (source: string, language: PluginLanguage, sourceURL?: string, signature?: object) =>
+    (await client.admin.installAdminWorkflowPlugin({ source, language, sourceURL, signature })).data as unknown as WorkflowPlugin,
   setEnabled: async (id: string, enabled: boolean) =>
     (await client.admin.setAdminWorkflowPluginEnabled(id, { enabled })).data as unknown as WorkflowPlugin,
   uninstall: async (id: string) => {

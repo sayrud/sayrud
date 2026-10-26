@@ -253,6 +253,11 @@ definitions:
         description: Homepage is the project website or support page declared by the
           source.
         type: string
+      hub:
+        allOf:
+        - $ref: '#/definitions/HubOrigin'
+        description: Hub is the Sayrud Hub release the shortcut is installed from,
+          omitted if installed from elsewhere.
       id:
         description: ID is the source package identifier, empty if not declared; UID
           identifies this installation.
@@ -282,6 +287,10 @@ definitions:
         items:
           $ref: '#/definitions/ShortcutSection'
         type: array
+      signature:
+        description: Signature is the verified Sayrud Hub signature of Code to send
+          back when installing, only returned when inspecting a release.
+        type: object
       timeout:
         description: Timeout is the time limit of an execution in seconds.
         type: integer
@@ -1043,6 +1052,99 @@ definitions:
     required:
     - ai
     type: object
+  HubOrigin:
+    properties:
+      changelog:
+        description: Changelog is the release notes, only returned when inspecting
+          a release.
+        type: string
+      official:
+        description: Official reports whether the package is published by the Sayrud
+          team.
+        type: boolean
+      url:
+        description: URL is the page of the package on Sayrud Hub.
+        type: string
+      version:
+        type: string
+    required:
+    - official
+    - url
+    - version
+    type: object
+  HubRelease:
+    properties:
+      minAppVersion:
+        description: MinAppVersion is the lowest Sayrud version the release works
+          with, empty if not declared.
+        type: string
+      prerelease:
+        type: boolean
+      publishedAt:
+        type: string
+      version:
+        type: string
+    required:
+    - minAppVersion
+    - prerelease
+    - version
+    type: object
+  HubUpdate:
+    properties:
+      delistReason:
+        type: string
+      delisted:
+        description: Delisted reports whether the package has been removed from the
+          catalog.
+        type: boolean
+      id:
+        description: ID is the package id, the plugin id or the manifest id of the
+          shortcuts.
+        type: string
+      kind:
+        enum:
+        - workflow_plugin
+        - field_shortcut
+        type: string
+      latest:
+        allOf:
+        - $ref: '#/definitions/HubRelease'
+        description: Latest is the newer release compatible with this Sayrud version,
+          omitted if there is none.
+      url:
+        description: URL is the page of the package on Sayrud Hub.
+        type: string
+      version:
+        description: Version is the installed version.
+        type: string
+      yankReason:
+        type: string
+      yanked:
+        description: Yanked reports whether the installed version has been withdrawn,
+          it should be updated or uninstalled.
+        type: boolean
+    required:
+    - delisted
+    - id
+    - kind
+    - url
+    - version
+    - yanked
+    type: object
+  HubUpdatesResp:
+    properties:
+      checkedAt:
+        description: CheckedAt is the time the Hub was asked, the result is reused
+          for a while.
+        type: string
+      packages:
+        items:
+          $ref: '#/definitions/HubUpdate'
+        type: array
+    required:
+    - checkedAt
+    - packages
+    type: object
   Import:
     properties:
       done:
@@ -1165,6 +1267,10 @@ definitions:
     type: object
   InspectFieldShortcut:
     properties:
+      hubID:
+        description: HubID downloads the latest release of the shortcut from Sayrud
+          Hub instead, it takes precedence over Source and URL.
+        type: string
       language:
         description: Language of Source, javascript by default; URL extensions take
           precedence.
@@ -1175,11 +1281,16 @@ definitions:
       source:
         type: string
       url:
-        description: URL is downloaded when Source is empty.
+        description: URL is downloaded when Source is empty, a source URL of Sayrud
+          Hub is verified by its signature.
         type: string
     type: object
   InspectWorkflowPlugin:
     properties:
+      hubID:
+        description: HubID downloads the latest release of the plugin from Sayrud
+          Hub instead, it takes precedence over Source and URL.
+        type: string
       language:
         description: Language of Source, javascript by default.
         enum:
@@ -1189,7 +1300,8 @@ definitions:
       source:
         type: string
       url:
-        description: URL is an http or https address of the source.
+        description: URL is an http or https address of the source, a source URL of
+          Sayrud Hub is verified by its signature.
         type: string
     type: object
   InspectWorkflowPluginResp:
@@ -1212,6 +1324,10 @@ definitions:
         allOf:
         - $ref: '#/definitions/WorkflowPlugin'
         description: Plugin is the plugin as it would be installed.
+      signature:
+        description: Signature is the verified Sayrud Hub signature of Source to send
+          back when installing, empty if Source is not from the Hub.
+        type: object
       source:
         description: Source is the checked source, downloaded when inspecting a URL.
         type: string
@@ -1229,6 +1345,10 @@ definitions:
         - javascript
         - typescript
         type: string
+      signature:
+        description: Signature is the Sayrud Hub signature returned by the inspection,
+          it must describe Source.
+        type: object
       source:
         type: string
     required:
@@ -1242,6 +1362,10 @@ definitions:
         - javascript
         - typescript
         type: string
+      signature:
+        description: Signature is the Sayrud Hub signature returned by the inspection,
+          it must describe Source.
+        type: object
       source:
         type: string
       sourceURL:
@@ -1944,6 +2068,10 @@ definitions:
         items:
           $ref: '#/definitions/ShortcutSection'
         type: array
+      signature:
+        description: Signature is the Sayrud Hub signature returned by the inspection,
+          it must describe Code; without it the saved one is kept while it still does.
+        type: object
       timeout:
         description: Timeout is the time limit of an execution in seconds between
           1 and 300, 0 defaults to 30.
@@ -3618,6 +3746,11 @@ definitions:
         type: array
       enabled:
         type: boolean
+      hub:
+        allOf:
+        - $ref: '#/definitions/HubOrigin'
+        description: Hub is the Sayrud Hub release the plugin is installed from, omitted
+          if installed from elsewhere.
       id:
         description: ID is the id of the manifest; the steps of the node have the
           type plugin:<id>.
@@ -4489,8 +4622,9 @@ paths:
     put:
       consumes:
       - application/json
-      description: Requires the admin. The empty credential values keep the saved
-        ones.
+      description: |-
+        Requires the admin. The empty credential values keep the saved ones.
+        A Sayrud Hub signature must describe the code; without one, the shortcut stays from the Hub only if its code is unchanged.
       operationId: updateAdminFieldShortcut
       parameters:
       - description: Shortcut UID
@@ -4532,11 +4666,12 @@ paths:
     post:
       consumes:
       - application/json
-      description: Requires the admin. Download the source if a URL is given, then
-        validate its exported manifest and execute function without running execute.
+      description: |-
+        Requires the admin. Download the source if a URL or a Sayrud Hub package is given, then validate its exported manifest and execute function without running execute.
+        The sources of Sayrud Hub are verified by their signature, which is returned to install them.
       operationId: inspectAdminFieldShortcut
       parameters:
-      - description: Source or URL
+      - description: Source, URL or Sayrud Hub package
         in: body
         name: data
         required: true
@@ -4566,8 +4701,9 @@ paths:
     post:
       consumes:
       - application/json
-      description: Requires the admin. Revalidate the reviewed source and create a
-        new shortcut. Credential values must be configured separately.
+      description: |-
+        Requires the admin. Revalidate the reviewed source and create a new shortcut. Credential values must be configured separately.
+        A Sayrud Hub signature must describe the source.
       operationId: installAdminFieldShortcut
       parameters:
       - description: Source
@@ -4630,6 +4766,37 @@ paths:
           schema:
             type: string
       summary: Test a custom field shortcut
+  /admin/hub/updates:
+    get:
+      description: |-
+        Requires the admin. Only the packages installed from the Hub are sent to it, the result is reused for an hour unless refresh is true.
+        The packages without an update, a yank or a delisting are omitted.
+      operationId: checkAdminHubUpdates
+      parameters:
+      - description: Ask the Hub again instead of reusing the last result
+        in: query
+        name: refresh
+        type: boolean
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/HubUpdatesResp'
+        "403":
+          description: Not an admin
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+        "502":
+          description: Sayrud Hub can not be reached
+          schema:
+            type: string
+      summary: Check the packages installed from Sayrud Hub
   /admin/overview:
     get:
       description: Requires the admin.
@@ -5132,8 +5299,9 @@ paths:
     post:
       consumes:
       - application/json
-      description: Requires the admin. A plugin with the same manifest id is replaced
-        and keeps its enabled state; the workflows use the new version right away.
+      description: |-
+        Requires the admin. A plugin with the same manifest id is replaced and keeps its enabled state; the workflows use the new version right away.
+        A Sayrud Hub signature must describe the source; without one, the plugin stays from the Hub only if its source is unchanged.
       operationId: installAdminWorkflowPlugin
       parameters:
       - description: Source
@@ -5263,11 +5431,12 @@ paths:
     post:
       consumes:
       - application/json
-      description: Requires the admin. Compile the source, or download it from the
-        URL first, and validate the manifest without installing.
+      description: |-
+        Requires the admin. Compile the source, or download it from the URL or Sayrud Hub first, and validate the manifest without installing.
+        The sources of Sayrud Hub are verified by their signature, which is returned to install them.
       operationId: inspectAdminWorkflowPlugin
       parameters:
-      - description: Source or URL
+      - description: Source, URL or Sayrud Hub package
         in: body
         name: data
         required: true

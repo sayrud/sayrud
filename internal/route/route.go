@@ -184,6 +184,7 @@ func New(opts Options) *flamego.Flame {
 					f.Put("/enabled", form.Bind(form.SetWorkflowPluginEnabled{}), api.Admin.SetWorkflowPluginEnabled)
 				}, api.Admin.WorkflowPluginer)
 			})
+			f.Get("/hub/updates", api.Admin.CheckHubUpdates)
 		}, api.Auth.Authenticator, api.Admin.RequireAdmin)
 
 		f.Group("/projects", func() {

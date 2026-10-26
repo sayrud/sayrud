@@ -6,6 +6,8 @@ import { useI18n } from 'vue-i18n'
 
 import { workflowPluginsApi, type PluginInspection, type PluginLanguage, type WorkflowPlugin } from '@/api/workflowPlugin'
 import PLUGIN_STARTER from '@/assets/templates/workflow-plugin.js?raw'
+import HubFetchState from '@/components/admin/HubFetchState.vue'
+import HubReleaseCard from '@/components/admin/HubReleaseCard.vue'
 import WorkflowPluginIcon from '@/components/admin/WorkflowPluginIcon.vue'
 import WorkflowPluginPermissions from '@/components/admin/WorkflowPluginPermissions.vue'
 import CodeEditor from '@/components/common/CodeEditor.vue'
@@ -19,6 +21,8 @@ const props = defineProps<{
   upgrade?: WorkflowPlugin | null
   /** Opens with the code editor and the starter template. */
   startWithCode?: boolean
+  /** Downloads the latest release of the upgraded plugin from Sayrud Hub instead of asking for a source. */
+  fromHub?: boolean
 }>()
 const visible = defineModel<boolean>('visible', { required: true })
 const emit = defineEmits<{ installed: [plugin: WorkflowPlugin] }>()
@@ -27,6 +31,7 @@ const { t } = useI18n()
 type Source = 'file' | 'url' | 'code'
 
 const step = ref<1 | 2>(1)
+const hubMode = ref(false)
 const source = ref<Source>('file')
 const file = ref<{ name: string; size: number; text: string } | null>(null)
 const url = ref('')
@@ -48,6 +53,8 @@ watch(
     file.value = null
     url.value = props.upgrade?.sourceURL ?? ''
     source.value = props.startWithCode ? 'code' : props.upgrade?.sourceURL ? 'url' : 'file'
+    hubMode.value = !!props.fromHub && !!props.upgrade
+    if (hubMode.value) void inspectHub()
   },
   { immediate: true },
 )
@@ -97,12 +104,31 @@ async function inspect() {
   }
 }
 
+async function inspectHub() {
+  if (!props.upgrade || inspecting.value) return
+  inspecting.value = true
+  error.value = ''
+  try {
+    inspection.value = await workflowPluginsApi.inspect({ hubID: props.upgrade.id })
+    step.value = 2
+  } catch (e) {
+    error.value = e instanceof Error ? e.message : String(e)
+  } finally {
+    inspecting.value = false
+  }
+}
+
+function chooseSource() {
+  hubMode.value = false
+  error.value = ''
+}
+
 async function install() {
   const i = inspection.value
   if (!i || installing.value) return
   installing.value = true
   try {
-    const plugin = await workflowPluginsApi.install(i.source, i.language, source.value === 'url' ? url.value.trim() : undefined)
+    const plugin = await workflowPluginsApi.install(i.source, i.language, i.plugin.sourceURL || undefined, i.signature)
     Message.success(i.installed ? t('pluginAdmin.upgradeSuccess', { name: plugin.module.label }) : t('pluginAdmin.installSuccess', { name: plugin.module.label }))
     emit('installed', plugin)
     visible.value = false
@@ -129,7 +155,16 @@ const inputs = computed(() => plugin.value?.module.sections.flatMap((s) => s.fie
     unmount-on-close
     :title="title"
   >
-    <div v-if="step === 1" class="source-step">
+    <HubFetchState
+      v-if="step === 1 && hubMode"
+      :loading="inspecting"
+      :error="error"
+      :name="upgrade?.module.label ?? ''"
+      @retry="inspectHub"
+      @choose-source="chooseSource"
+    />
+
+    <div v-else-if="step === 1" class="source-step">
       <a-radio-group v-model="source" type="button" size="large" :disabled="busy" class="source-options">
         <a-radio value="file"><span class="inline"><Upload :size="16" />{{ t('pluginAdmin.sourceFile') }}</span></a-radio>
         <a-radio value="url"><span class="inline"><Link2 :size="16" />{{ t('pluginAdmin.sourceURL') }}</span></a-radio>
@@ -202,6 +237,8 @@ const inputs = computed(() => plugin.value?.module.sections.flatMap((s) => s.fie
         </div>
       </div>
 
+      <HubReleaseCard v-if="plugin.hub" :hub="plugin.hub" />
+
       <a-alert v-if="replacesOther" type="warning" class="error">{{ t('pluginAdmin.replacesOther', { id: plugin.id }) }}</a-alert>
 
       <a-descriptions :column="2" layout="vertical" class="review-details">
@@ -229,19 +266,23 @@ const inputs = computed(() => plugin.value?.module.sections.flatMap((s) => s.fie
         </a-descriptions-item>
       </a-descriptions>
 
-      <a-alert type="warning">{{ t('pluginAdmin.trustWarning') }}</a-alert>
+      <a-alert v-if="!plugin.hub?.official" type="warning">{{ t('pluginAdmin.trustWarning') }}</a-alert>
     </div>
 
     <template #footer>
       <a-space>
-        <template v-if="step === 1">
+        <template v-if="step === 1 && hubMode">
+          <a-button :disabled="busy" @click="visible = false">{{ t('common.cancel') }}</a-button>
+        </template>
+        <template v-else-if="step === 1">
           <a-button :disabled="busy" @click="visible = false">{{ t('common.cancel') }}</a-button>
           <a-button type="primary" :disabled="!canInspect" :loading="inspecting" @click="inspect">
             <span class="inline">{{ t('pluginAdmin.next') }}<ArrowRight v-if="!inspecting" :size="15" /></span>
           </a-button>
         </template>
         <template v-else>
-          <a-button :disabled="installing" @click="step = 1">{{ t('pluginAdmin.back') }}</a-button>
+          <a-button v-if="hubMode" :disabled="installing" @click="visible = false">{{ t('common.cancel') }}</a-button>
+          <a-button v-else :disabled="installing" @click="step = 1">{{ t('pluginAdmin.back') }}</a-button>
           <a-button type="primary" :loading="installing" @click="install">
             {{ !installed ? t('pluginAdmin.confirmInstall') : installed.version === plugin?.version ? t('pluginAdmin.reinstall') : t('pluginAdmin.confirmUpgrade') }}
           </a-button>

@@ -1,6 +1,8 @@
 package form
 
 import (
+	"encoding/json"
+
 	"github.com/wuhan005/sayrud/internal/db"
 	"github.com/wuhan005/sayrud/internal/shortcut"
 )
@@ -38,6 +40,8 @@ type SaveFieldShortcut struct {
 	Enabled bool `json:"enabled"`
 	// Secrets are the new credential values keyed by credential key, the omitted or empty ones keep the saved values.
 	Secrets map[string]string `json:"secrets,omitempty"`
+	// Signature is the Sayrud Hub signature returned by the inspection, it must describe Code; without it the saved one is kept while it still does.
+	Signature json.RawMessage `json:"signature,omitempty" swaggertype:"object"`
 } // @name SaveFieldShortcut
 
 // InspectFieldShortcut checks a single JavaScript or TypeScript module before installing it.
@@ -45,8 +49,10 @@ type InspectFieldShortcut struct {
 	Source string `json:"source,omitempty"`
 	// Language of Source, javascript by default; URL extensions take precedence.
 	Language string `json:"language,omitempty" enums:"javascript,typescript"`
-	// URL is downloaded when Source is empty.
+	// URL is downloaded when Source is empty, a source URL of Sayrud Hub is verified by its signature.
 	URL string `json:"url,omitempty"`
+	// HubID downloads the latest release of the shortcut from Sayrud Hub instead, it takes precedence over Source and URL.
+	HubID string `json:"hubID,omitempty"`
 } // @name InspectFieldShortcut
 
 // InstallFieldShortcut installs the exact source reviewed by the admin.
@@ -54,6 +60,8 @@ type InstallFieldShortcut struct {
 	Source string `json:"source"`
 	// Language of Source, javascript by default.
 	Language string `json:"language,omitempty" enums:"javascript,typescript"`
+	// Signature is the Sayrud Hub signature returned by the inspection, it must describe Source.
+	Signature json.RawMessage `json:"signature,omitempty" swaggertype:"object"`
 } // @name InstallFieldShortcut
 
 // TestFieldShortcut runs the unsaved custom shortcut with the parameters.

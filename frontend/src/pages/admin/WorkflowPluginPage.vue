@@ -8,6 +8,10 @@ import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
 
 import { ApiError } from '@/api/client'
 import { workflowPluginsApi, type TestWorkflowPluginResp, type WorkflowPlugin } from '@/api/workflowPlugin'
+import HubBadge from '@/components/admin/HubBadge.vue'
+import HubOriginInfo from '@/components/admin/HubOriginInfo.vue'
+import HubPackageAlert from '@/components/admin/HubPackageAlert.vue'
+import HubPackageStatus from '@/components/admin/HubPackageStatus.vue'
 import WorkflowPluginIcon from '@/components/admin/WorkflowPluginIcon.vue'
 import WorkflowPluginInstallModal from '@/components/admin/WorkflowPluginInstallModal.vue'
 import WorkflowPluginPermissions from '@/components/admin/WorkflowPluginPermissions.vue'
@@ -15,6 +19,7 @@ import CodeEditor from '@/components/common/CodeEditor.vue'
 import StateIllustration from '@/components/common/StateIllustration.vue'
 import SaveBar from '@/components/console/SaveBar.vue'
 import SettingsSection from '@/components/console/SettingsSection.vue'
+import { useHubUpdates } from '@/composables/useHubUpdates'
 import type { FieldWidget, FlowKind, ModuleCategory, ModuleDef } from '@/types/workflow'
 import { dslText } from '@/utils/modules'
 import { LANGUAGE_NAMES, pluginFileName, sampleConfig, versionLabel } from '@/utils/workflowPlugin'
@@ -63,6 +68,19 @@ const testing = ref(false)
 const result = ref<TestWorkflowPluginResp | null>(null)
 
 const installVisible = ref(false)
+const installFromHub = ref(false)
+const hub = useHubUpdates()
+
+function openUpgrade(viaHub = false) {
+  installFromHub.value = viaHub
+  installVisible.value = true
+}
+
+// Updating replaces the source, so the unsaved changes are not lost silently.
+function updateFromHub() {
+  if (dirty.value) Message.warning(t('hub.saveFirst'))
+  else openUpgrade(true)
+}
 
 /** Shortcut of running the test from the editors. */
 const RUN_SHORTCUT = /Mac|iPhone|iPad/.test(navigator.platform) ? '⌘ ↵' : 'Ctrl ↵'
@@ -74,6 +92,7 @@ function fillSample() {
 function reset(p: WorkflowPlugin | null) {
   plugin.value = p
   source.value = p?.source ?? ''
+  if (p?.hub) hub.ensure()
 }
 
 async function load() {
@@ -153,6 +172,7 @@ async function save() {
     }
     const saved = await workflowPluginsApi.install(source.value, p.language)
     reset({ ...saved, source: source.value })
+    if (p.hub && !saved.hub) void hub.check()
     Message.success(t('common.saved'))
   } catch (e) {
     Message.error(e instanceof Error ? e.message : String(e))
@@ -166,6 +186,7 @@ function discard() {
 }
 
 function onUpgraded(saved: WorkflowPlugin) {
+  if (saved.hub || plugin.value?.hub) void hub.check()
   if (saved.id !== plugin.value?.id) {
     router.push({ name: 'admin-workflow-plugin', params: { pluginID: saved.id } })
     return
@@ -299,8 +320,10 @@ const format = (v: unknown) => (v === undefined ? 'undefined' : JSON.stringify(v
           <div class="hero-text">
             <div class="hero-name">
               <span class="ellipsis">{{ dslText(module.label) }}</span>
+              <HubBadge v-if="plugin" :hub="plugin.hub" link :size="18" />
               <a-tag v-if="plugin" size="small" class="mono">{{ versionLabel(plugin.version) }}</a-tag>
               <a-tag v-else size="small" color="arcoblue">{{ t('pluginAdmin.builtinTag') }}</a-tag>
+              <HubPackageStatus v-if="plugin" kind="workflow_plugin" :id="plugin.id" :hub="plugin.hub" class="hero-status" @update="updateFromHub" />
             </div>
             <div class="text-desc hero-desc">{{ dslText(module.description) || t('pluginAdmin.noDescription') }}</div>
           </div>
@@ -313,7 +336,7 @@ const format = (v: unknown) => (v === undefined ? 'undefined' : JSON.stringify(v
               <template #icon><FlaskConical :size="16" /></template>
               {{ t('pluginAdmin.test') }}
             </a-button>
-            <a-button @click="installVisible = true">
+            <a-button @click="openUpgrade()">
               <template #icon><CircleArrowUp :size="16" /></template>
               {{ t('pluginAdmin.upgrade') }}
             </a-button>
@@ -323,6 +346,16 @@ const format = (v: unknown) => (v === undefined ? 'undefined' : JSON.stringify(v
             </a-button>
           </a-space>
         </header>
+
+        <HubPackageAlert
+          v-if="plugin"
+          kind="workflow_plugin"
+          :id="plugin.id"
+          :hub="plugin.hub"
+          :disabled="dirty"
+          :disabled-reason="t('hub.saveFirst')"
+          @update="updateFromHub"
+        />
 
         <div class="workspace" :class="{ single: !plugin || tab === 'overview' }">
           <div class="main">
@@ -347,6 +380,9 @@ const format = (v: unknown) => (v === undefined ? 'undefined' : JSON.stringify(v
                             <template v-if="plugin">
                               <a-descriptions-item :label="t('pluginAdmin.author')">{{ module.plugin?.author || '—' }}</a-descriptions-item>
                               <a-descriptions-item :label="t('pluginAdmin.language')">{{ LANGUAGE_NAMES[plugin.language] }}</a-descriptions-item>
+                              <a-descriptions-item v-if="plugin.hub" :label="t('hub.origin')">
+                                <HubOriginInfo :hub="plugin.hub" />
+                              </a-descriptions-item>
                               <a-descriptions-item v-if="module.plugin?.homepage" :label="t('pluginAdmin.homepage')">
                                 <a-link :href="module.plugin.homepage" target="_blank" rel="noopener noreferrer" class="break">
                                   {{ module.plugin.homepage }}
@@ -443,7 +479,7 @@ const format = (v: unknown) => (v === undefined ? 'undefined' : JSON.stringify(v
                   </template>
                   <div class="pane">
                     <div class="source-toolbar">
-                      <span class="text-desc source-hint">{{ t('pluginAdmin.sourceEditHint') }}</span>
+                      <span class="text-desc source-hint">{{ plugin.hub ? t('hub.editDetaches') : t('pluginAdmin.sourceEditHint') }}</span>
                       <a-space :size="4">
                         <a-button size="small" @click="copySource">
                           <template #icon><Copy :size="14" /></template>
@@ -539,7 +575,7 @@ const format = (v: unknown) => (v === undefined ? 'undefined' : JSON.stringify(v
       </template>
     </a-spin>
 
-    <WorkflowPluginInstallModal v-if="plugin" v-model:visible="installVisible" :upgrade="plugin" @installed="onUpgraded" />
+    <WorkflowPluginInstallModal v-if="plugin" v-model:visible="installVisible" :upgrade="plugin" :from-hub="installFromHub" @installed="onUpgraded" />
   </div>
 </template>
 
@@ -581,6 +617,10 @@ const format = (v: unknown) => (v === undefined ? 'undefined' : JSON.stringify(v
 .hero-desc {
   margin-top: 4px;
   line-height: 1.6;
+}
+.hero-status {
+  font-weight: 400;
+  line-height: normal;
 }
 .status {
   display: flex;

@@ -90,6 +90,7 @@ async function loadEditor(saved = savedShortcut()) {
     '@/api/client': { ApiError: class extends Error {} },
     '@/api/admin': {},
     '@/api/shortcut': { adminShortcutsApi: api },
+    '@/composables/useHubUpdates': { useHubUpdates: () => ({ ensure: assert.fail, check: assert.fail, find: () => undefined }) },
     '@/utils/fieldTypes': {},
     '@/utils/shortcut': shortcut,
     '@/utils/workflowPlugin': workflowPlugin,

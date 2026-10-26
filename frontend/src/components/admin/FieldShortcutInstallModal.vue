@@ -7,6 +7,8 @@ import { useI18n } from 'vue-i18n'
 
 import { adminShortcutsApi, type AdminFieldShortcut } from '@/api/shortcut'
 import SHORTCUT_STARTER from '@/assets/templates/field-shortcut.js?raw'
+import HubFetchState from '@/components/admin/HubFetchState.vue'
+import HubReleaseCard from '@/components/admin/HubReleaseCard.vue'
 import WorkflowPluginIcon from '@/components/admin/WorkflowPluginIcon.vue'
 import CodeEditor from '@/components/common/CodeEditor.vue'
 import FieldTypeIcon from '@/components/field/FieldTypeIcon.vue'
@@ -16,7 +18,11 @@ import { fieldTypeInfo } from '@/utils/fieldTypes'
 import { fieldLabel, saveBody, shortcutFields } from '@/utils/shortcut'
 import { LANGUAGE_NAMES, languageOf, versionLabel, type PluginLanguage } from '@/utils/workflowPlugin'
 
-const props = defineProps<{ upgrade?: AdminFieldShortcut | null }>()
+const props = defineProps<{
+  upgrade?: AdminFieldShortcut | null
+  /** Downloads the latest release of the upgraded shortcut from Sayrud Hub instead of asking for a source. */
+  fromHub?: boolean
+}>()
 const visible = defineModel<boolean>('visible', { required: true })
 const emit = defineEmits<{ installed: [shortcut: AdminFieldShortcut] }>()
 const { t, locale } = useI18n()
@@ -24,6 +30,7 @@ const text = (value: LocalText | undefined) => localText(value, locale.value)
 
 const MAX_SOURCE_SIZE = 200 * 1024
 const step = ref(1)
+const hubMode = ref(false)
 const source = ref<'file' | 'url' | 'code'>('file')
 const file = ref<{ name: string; size: number; text: string } | null>(null)
 const url = ref('')
@@ -59,9 +66,11 @@ watch(
     inspecting.value = false
     installing.value = false
 
+    hubMode.value = open && !!props.fromHub && !!props.upgrade?.id
     if (open) {
       code.value = props.upgrade?.code ?? SHORTCUT_STARTER
       language.value = props.upgrade?.language ?? 'javascript'
+      if (hubMode.value) void inspectHub()
     }
   },
   { immediate: true },
@@ -123,6 +132,31 @@ async function inspect() {
   }
 }
 
+async function inspectHub() {
+  if (!props.upgrade?.id || busy.value) return
+
+  const request = requestId
+  inspecting.value = true
+  error.value = ''
+
+  try {
+    const result = await adminShortcutsApi.inspect({ hubID: props.upgrade.id })
+    if (request !== requestId) return
+
+    inspection.value = result
+    step.value = 2
+  } catch (e) {
+    if (request === requestId) error.value = e instanceof Error ? e.message : String(e)
+  } finally {
+    if (request === requestId) inspecting.value = false
+  }
+}
+
+function chooseSource() {
+  hubMode.value = false
+  error.value = ''
+}
+
 async function install() {
   if (!inspection.value || busy.value) return
 
@@ -132,8 +166,8 @@ async function install() {
     const i = inspection.value
     const upgrade = props.upgrade
     const shortcut = upgrade
-      ? await adminShortcutsApi.update(upgrade.uid, saveBody(i, { enabled: upgrade.enabled }))
-      : await adminShortcutsApi.install(i.code, i.language)
+      ? await adminShortcutsApi.update(upgrade.uid, saveBody(i, { enabled: upgrade.enabled, ...(i.signature && { signature: i.signature }) }))
+      : await adminShortcutsApi.install(i.code, i.language, i.signature)
     Message.success(t(upgrade ? 'pluginAdmin.upgradeSuccess' : 'pluginAdmin.installSuccess', { name: text(shortcut.name) }))
     emit('installed', shortcut)
     visible.value = false
@@ -155,7 +189,16 @@ async function install() {
     unmount-on-close
     :title="upgrade ? t('pluginAdmin.upgradeTitle', { name: upgrade.name }) : t('shortcutAdmin.installTitle')"
   >
-    <div v-if="step === 1" class="source-step">
+    <HubFetchState
+      v-if="step === 1 && hubMode"
+      :loading="inspecting"
+      :error="error"
+      :name="upgrade ? text(upgrade.name) : ''"
+      @retry="inspectHub"
+      @choose-source="chooseSource"
+    />
+
+    <div v-else-if="step === 1" class="source-step">
       <a-radio-group v-model="source" type="button" size="large" :disabled="busy" class="source-options">
         <a-radio value="file"><span class="inline"><Upload :size="16" />{{ t('pluginAdmin.sourceFile') }}</span></a-radio>
         <a-radio value="url"><span class="inline"><Link2 :size="16" />{{ t('pluginAdmin.sourceURL') }}</span></a-radio>
@@ -215,10 +258,15 @@ async function install() {
             <span>{{ text(inspection.name) }}</span>
             <a-tag size="small">{{ versionLabel(inspection.version) }}</a-tag>
             <a-tag size="small">{{ LANGUAGE_NAMES[inspection.language] }}</a-tag>
+            <a-tag v-if="upgrade && upgrade.version !== inspection.version" size="small" color="arcoblue">
+              {{ t('pluginAdmin.upgradeFrom', { from: upgrade.version, to: inspection.version }) }}
+            </a-tag>
           </div>
           <div v-if="text(inspection.description)" class="text-desc">{{ text(inspection.description) }}</div>
         </div>
       </div>
+
+      <HubReleaseCard v-if="inspection.hub" :hub="inspection.hub" />
 
       <a-descriptions :column="2" layout="vertical" class="review-details">
         <a-descriptions-item v-if="inspection.homepage" :label="t('pluginAdmin.homepage')">
@@ -255,19 +303,23 @@ async function install() {
         </a-descriptions-item>
       </a-descriptions>
 
-      <a-alert type="warning">{{ t('shortcutAdmin.trustWarning') }}</a-alert>
+      <a-alert v-if="!inspection.hub?.official" type="warning">{{ t('shortcutAdmin.trustWarning') }}</a-alert>
     </div>
 
     <template #footer>
       <a-space>
-        <template v-if="step === 1">
+        <template v-if="step === 1 && hubMode">
+          <a-button :disabled="busy" @click="visible = false">{{ t('common.cancel') }}</a-button>
+        </template>
+        <template v-else-if="step === 1">
           <a-button :disabled="busy" @click="visible = false">{{ t('common.cancel') }}</a-button>
           <a-button type="primary" :disabled="!canInspect || reading" :loading="inspecting" @click="inspect">
             <span class="inline">{{ t('pluginAdmin.next') }}<ArrowRight v-if="!inspecting" :size="15" /></span>
           </a-button>
         </template>
         <template v-else>
-          <a-button :disabled="installing" @click="step = 1">{{ t('pluginAdmin.back') }}</a-button>
+          <a-button v-if="hubMode" :disabled="installing" @click="visible = false">{{ t('common.cancel') }}</a-button>
+          <a-button v-else :disabled="installing" @click="step = 1">{{ t('pluginAdmin.back') }}</a-button>
           <a-button type="primary" :loading="installing" @click="install">{{ t(upgrade ? 'pluginAdmin.confirmUpgrade' : 'pluginAdmin.confirmInstall') }}</a-button>
         </template>
       </a-space>

@@ -18,12 +18,17 @@ import {
   type TestFieldShortcutResp,
 } from '@/api/shortcut'
 import FieldShortcutInstallModal from '@/components/admin/FieldShortcutInstallModal.vue'
+import HubBadge from '@/components/admin/HubBadge.vue'
+import HubOriginInfo from '@/components/admin/HubOriginInfo.vue'
+import HubPackageAlert from '@/components/admin/HubPackageAlert.vue'
+import HubPackageStatus from '@/components/admin/HubPackageStatus.vue'
 import WorkflowPluginIcon from '@/components/admin/WorkflowPluginIcon.vue'
 import CodeEditor from '@/components/common/CodeEditor.vue'
 import StateIllustration from '@/components/common/StateIllustration.vue'
 import SaveBar from '@/components/console/SaveBar.vue'
 import SettingsSection from '@/components/console/SettingsSection.vue'
 import FieldTypeIcon from '@/components/field/FieldTypeIcon.vue'
+import { useHubUpdates } from '@/composables/useHubUpdates'
 import type { FieldType } from '@/types/bitable'
 import { fieldTypeInfo } from '@/utils/fieldTypes'
 import { fieldLabel, optionLabel, sampleShortcutParams, shortcutFields } from '@/utils/shortcut'
@@ -86,6 +91,8 @@ const loading = ref(false)
 const notFound = ref(false)
 const saving = ref(false)
 const installVisible = ref(false)
+const installFromHub = ref(false)
+const hub = useHubUpdates()
 
 const draft = reactive<Draft>(toDraft(null))
 const baseline = ref(JSON.stringify(draft))
@@ -134,6 +141,7 @@ async function load() {
   try {
     shortcut.value = await adminShortcutsApi.get(uid.value)
     reset(shortcut.value)
+    if (shortcut.value.hub) hub.ensure()
   } catch (e) {
     if (e instanceof ApiError && e.status === 404) notFound.value = true
     else Message.error(e instanceof Error ? e.message : String(e))
@@ -333,6 +341,7 @@ async function save() {
     if (!b) return
 
     const saved = await adminShortcutsApi.update(shortcut.value.uid, b)
+    if (shortcut.value.hub && !saved.hub) void hub.check()
     shortcut.value = saved
     // Use the server response as the baseline, clear credential values, and preserve the test result.
     const result = testResult.value
@@ -354,8 +363,20 @@ function discard() {
 }
 
 function onUpgraded(saved: AdminFieldShortcut) {
+  if (saved.hub || shortcut.value?.hub) void hub.check()
   shortcut.value = saved
   reset(saved)
+}
+
+function openUpgrade(viaHub = false) {
+  installFromHub.value = viaHub
+  installVisible.value = true
+}
+
+// Updating replaces the saved shortcut, so the unsaved changes are not lost silently.
+function updateFromHub() {
+  if (dirty.value) Message.warning(t('shortcutAdmin.upgradeSaveHint'))
+  else openUpgrade(true)
 }
 
 function remove() {
@@ -449,7 +470,9 @@ const format = (v: unknown) => (v === undefined ? 'undefined' : JSON.stringify(v
         <div class="hero-text">
           <div class="hero-name">
             <span class="ellipsis">{{ text(draft.name) }}</span>
+            <HubBadge :hub="shortcut.hub" link :size="18" />
             <a-tag size="small" class="mono">{{ versionLabel(draft.version) }}</a-tag>
+            <HubPackageStatus kind="field_shortcut" :id="shortcut.id" :hub="shortcut.hub" class="hero-status" @update="updateFromHub" />
           </div>
           <div class="text-desc hero-desc">{{ text(draft.description) || t('pluginAdmin.noDescription') }}</div>
         </div>
@@ -465,7 +488,7 @@ const format = (v: unknown) => (v === undefined ? 'undefined' : JSON.stringify(v
             {{ t('shortcutAdmin.test') }}
           </a-button>
           <a-tooltip :content="dirty ? t('shortcutAdmin.upgradeSaveHint') : t('pluginAdmin.upgrade')">
-            <a-button :disabled="dirty || saving || syncing || testing" @click="installVisible = true">
+            <a-button :disabled="dirty || saving || syncing || testing" @click="openUpgrade()">
               <template #icon><CircleArrowUp :size="16" /></template>
               {{ t('pluginAdmin.upgrade') }}
             </a-button>
@@ -476,6 +499,16 @@ const format = (v: unknown) => (v === undefined ? 'undefined' : JSON.stringify(v
           </a-button>
         </a-space>
       </header>
+
+      <HubPackageAlert
+        v-if="shortcut"
+        kind="field_shortcut"
+        :id="shortcut.id"
+        :hub="shortcut.hub"
+        :disabled="dirty || saving || syncing || testing"
+        :disabled-reason="dirty ? t('shortcutAdmin.upgradeSaveHint') : undefined"
+        @update="updateFromHub"
+      />
 
       <a-alert v-if="syncError" type="error" class="sync-error">{{ syncError }}</a-alert>
 
@@ -494,6 +527,9 @@ const format = (v: unknown) => (v === undefined ? 'undefined' : JSON.stringify(v
                             <span class="type-option"><FieldTypeIcon :type="draft.resultType" /> {{ fieldTypeInfo(draft.resultType).label }}</span>
                           </a-descriptions-item>
                           <a-descriptions-item :label="t('pluginAdmin.language')">{{ LANGUAGE_NAMES[draft.language] }}</a-descriptions-item>
+                          <a-descriptions-item v-if="shortcut?.hub" :label="t('hub.origin')">
+                            <HubOriginInfo :hub="shortcut.hub" />
+                          </a-descriptions-item>
                           <a-descriptions-item v-if="draft.homepage" :label="t('pluginAdmin.homepage')">
                             <a-link :href="draft.homepage" target="_blank" rel="noopener noreferrer" class="break">{{ draft.homepage }}</a-link>
                           </a-descriptions-item>
@@ -625,7 +661,7 @@ const format = (v: unknown) => (v === undefined ? 'undefined' : JSON.stringify(v
                 </template>
                 <div class="pane">
                   <div class="source-toolbar">
-                    <span class="text-desc source-hint">{{ t('pluginAdmin.sourceEditHint') }}</span>
+                    <span class="text-desc source-hint">{{ shortcut?.hub ? t('hub.editDetaches') : t('pluginAdmin.sourceEditHint') }}</span>
                     <a-space wrap :size="4">
                       <a-radio-group v-model="draft.language" type="button" size="small" :aria-label="t('pluginAdmin.language')">
                         <a-radio value="javascript">{{ LANGUAGE_NAMES.javascript }}</a-radio>
@@ -713,7 +749,7 @@ const format = (v: unknown) => (v === undefined ? 'undefined' : JSON.stringify(v
       <SaveBar v-if="dirty || tab === 'code'" :dirty="dirty" :saving="saving || syncing" @save="save" @reset="discard" />
     </a-spin>
 
-    <FieldShortcutInstallModal v-if="shortcut" v-model:visible="installVisible" :upgrade="shortcut" @installed="onUpgraded" />
+    <FieldShortcutInstallModal v-if="shortcut" v-model:visible="installVisible" :upgrade="shortcut" :from-hub="installFromHub" @installed="onUpgraded" />
   </div>
 </template>
 
@@ -771,6 +807,10 @@ const format = (v: unknown) => (v === undefined ? 'undefined' : JSON.stringify(v
   margin-top: 4px;
   line-height: 1.6;
   overflow-wrap: anywhere;
+}
+.hero-status {
+  font-weight: 400;
+  line-height: normal;
 }
 .status {
   display: flex;

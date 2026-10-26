@@ -187,6 +187,8 @@ type CustomFieldShortcut struct {
 	TimeoutSeconds int `gorm:"not null;default:30"`
 	// Enabled reports whether the members can attach and execute the shortcut.
 	Enabled bool `gorm:"not null;default:false"`
+	// HubSignature is the JSON of the Sayrud Hub signature envelope describing Code, empty if not installed from the Hub.
+	HubSignature string `gorm:"type:text;not null;default:''"`
 }
 
 // Fields returns the form fields of all the sections.
@@ -285,6 +287,7 @@ func (db *fieldShortcuts) Update(ctx context.Context, s *CustomFieldShortcut) er
 		"secrets":         s.Secrets,
 		"timeout_seconds": s.TimeoutSeconds,
 		"enabled":         s.Enabled,
+		"hub_signature":   s.HubSignature,
 		"updated_at":      dbutil.Now(),
 	})
 	if result.Error != nil {
