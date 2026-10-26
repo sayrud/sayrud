@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"github.com/wuhan005/sayrud/internal/appconst"
 )
 
 const pluginSource = `export const manifest = {id: "slack", version: "1.2.0"}; export function execute() {}`
@@ -18,11 +19,12 @@ const pluginSource = `export const manifest = {id: "slack", version: "1.2.0"}; e
 // fakeHub serves the release of the slack plugin and the update check, signed by a trusted test key.
 type fakeHub struct {
 	*httptest.Server
-	key       ed25519.PrivateKey
-	source    string
-	signature string
-	updates   atomic.Int32
-	lastBody  atomic.Value
+	key           ed25519.PrivateKey
+	source        string
+	signature     string
+	updates       atomic.Int32
+	lastBody      atomic.Value
+	lastUserAgent atomic.Value
 }
 
 func newFakeHub(t *testing.T) *fakeHub {
@@ -66,7 +68,10 @@ func newFakeHub(t *testing.T) *fakeHub {
 		}
 		writeData(w, map[string]interface{}{"packages": list})
 	})
-	h.Server = httptest.NewServer(mux)
+	h.Server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		h.lastUserAgent.Store(r.UserAgent())
+		mux.ServeHTTP(w, r)
+	}))
 	t.Cleanup(h.Close)
 
 	saved := baseURL
@@ -78,6 +83,38 @@ func newFakeHub(t *testing.T) *fakeHub {
 func writeData(w http.ResponseWriter, data interface{}) {
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{"msg": "success", "data": data})
+}
+
+func TestRequestUserAgent(t *testing.T) {
+	previousVersion := appconst.BuildVersion
+	t.Cleanup(func() { appconst.BuildVersion = previousVersion })
+
+	for _, tc := range []struct {
+		name, version, want string
+	}{
+		{"development", "", "Sayrud/dev"},
+		{"release tag", "v1.4.0", "Sayrud/1.4.0"},
+		{"release version", "1.4.0", "Sayrud/1.4.0"},
+		{"prerelease", "v1.5.0-rc.1", "Sayrud/1.5.0-rc.1"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			appconst.BuildVersion = tc.version
+			h := newFakeHub(t)
+			ctx := t.Context()
+
+			_, err := GetRelease(ctx, KindWorkflowPlugin, "slack", LatestVersion, "en")
+			require.NoError(t, err)
+			require.Equal(t, tc.want, h.lastUserAgent.Load(), "release API request")
+
+			_, err = Download(ctx, KindWorkflowPlugin, "slack", LatestVersion, "en", 1<<20)
+			require.NoError(t, err)
+			require.Equal(t, tc.want, h.lastUserAgent.Load(), "source download")
+
+			_, err = CheckUpdates(ctx, "1.4.0", []Installed{{Kind: KindWorkflowPlugin, ID: "slack", Version: "1.0.0"}}, true)
+			require.NoError(t, err)
+			require.Equal(t, tc.want, h.lastUserAgent.Load(), "update API request")
+		})
+	}
 }
 
 func TestDownload(t *testing.T) {

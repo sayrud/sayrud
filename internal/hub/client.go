@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/cockroachdb/errors"
+	"github.com/wuhan005/sayrud/internal/appconst"
 )
 
 const (
@@ -60,6 +61,14 @@ type apiResponse struct {
 	Data json.RawMessage `json:"data"`
 }
 
+func userAgent() string {
+	version := strings.TrimPrefix(appconst.BuildVersion, "v")
+	if version == "" {
+		version = "dev"
+	}
+	return "Sayrud/" + version
+}
+
 // call requests the Hub API and decodes the data of a successful response into out.
 func call(ctx context.Context, method, path, lang string, body, out interface{}) error {
 	var reader io.Reader
@@ -74,6 +83,7 @@ func call(ctx context.Context, method, path, lang string, body, out interface{})
 	if err != nil {
 		return errors.Wrap(err, "new request")
 	}
+	req.Header.Set("User-Agent", userAgent())
 	req.Header.Set("Accept", "application/json")
 	if body != nil {
 		req.Header.Set("Content-Type", "application/json")
@@ -177,6 +187,7 @@ func Download(ctx context.Context, kind, id, version, lang string, maxSize int) 
 	if err != nil {
 		return nil, errors.Wrap(err, "new request")
 	}
+	req.Header.Set("User-Agent", userAgent())
 	resp, err := httpClient.Do(req)
 	if err != nil {
 		return nil, requestError(err)
