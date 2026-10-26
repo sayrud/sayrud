@@ -1296,7 +1296,7 @@ const ru: typeof zhCN = {
     itemWidget: 'Компонент',
     itemRequired: 'Обязательное',
     itemPlaceholder: 'Подсказка',
-    itemHelp: 'Подсказка',
+    itemHelp: 'Справка',
     widgetFieldSelect: 'Поле',
     widgetText: 'Одна строка',
     widgetTextarea: 'Несколько строк',
