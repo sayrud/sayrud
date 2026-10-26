@@ -867,6 +867,9 @@ const format = (v: unknown) => (v === undefined ? 'undefined' : JSON.stringify(v
   flex: none;
   border-radius: 8px;
 }
+.permission-icon :deep(.arco-avatar-text) {
+  display: flex;
+}
 .permission-icon.info {
   color: var(--color-primary);
   background: var(--bg-primary-soft);
@@ -885,12 +888,15 @@ const format = (v: unknown) => (v === undefined ? 'undefined' : JSON.stringify(v
 }
 .permission-body {
   min-width: 0;
-  padding-top: 3px;
   overflow-wrap: anywhere;
 }
 .permission-body :deep(.arco-typography) {
   font-size: 13px;
   line-height: 1.6;
+}
+.permission-body > :deep(.arco-typography:first-child) {
+  display: block;
+  line-height: 1;
 }
 .permission-description {
   display: block;
