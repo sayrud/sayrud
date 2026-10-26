@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Message, type FileItem } from '@arco-design/web-vue'
-import { ArrowRight, CodeXml, FileCode2, Link2, Upload, X } from '@lucide/vue'
+import { ArrowRight, CodeXml, ExternalLink, FileCode2, Link2, Upload, X } from '@lucide/vue'
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
@@ -241,6 +241,9 @@ const inputs = computed(() => plugin.value?.module.sections.flatMap((s) => s.fie
             </template>
           </div>
         </div>
+        <a-link v-if="plugin.hub" :href="plugin.hub.url" target="_blank" rel="noopener noreferrer" class="hub-link">
+          {{ t('hub.viewOnHub') }}<ExternalLink :size="12" />
+        </a-link>
       </div>
 
       <HubReleaseCard v-if="plugin.hub" :hub="plugin.hub" />
@@ -387,10 +390,17 @@ const inputs = computed(() => plugin.value?.module.sections.flatMap((s) => s.fie
   margin-top: 16px;
 }
 .review-head {
-  display: flex;
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) auto;
   align-items: center;
   gap: 12px;
   overflow-wrap: anywhere;
+}
+.hub-link {
+  align-self: start;
+  gap: 4px;
+  font-size: 13px;
+  white-space: nowrap;
 }
 .review-name {
   display: flex;
@@ -446,6 +456,13 @@ const inputs = computed(() => plugin.value?.module.sections.flatMap((s) => s.fie
   overflow-wrap: anywhere;
 }
 @media (max-width: 480px) {
+  .review-head {
+    grid-template-columns: 44px minmax(0, 1fr);
+  }
+  .hub-link {
+    grid-column: 2;
+    justify-self: end;
+  }
   .source-options {
     flex-direction: column;
   }

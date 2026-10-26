@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { localText, type LocalText } from '@/utils/localText'
 import { Message, type FileItem } from '@arco-design/web-vue'
-import { ArrowRight, CodeXml, FileCode2, Link2, Upload, X } from '@lucide/vue'
+import { ArrowRight, CodeXml, ExternalLink, FileCode2, Link2, Upload, X } from '@lucide/vue'
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
@@ -270,6 +270,9 @@ async function install() {
           </div>
           <div v-if="text(inspection.description)" class="text-desc">{{ text(inspection.description) }}</div>
         </div>
+        <a-link v-if="inspection.hub" :href="inspection.hub.url" target="_blank" rel="noopener noreferrer" class="hub-link">
+          {{ t('hub.viewOnHub') }}<ExternalLink :size="12" />
+        </a-link>
       </div>
 
       <HubReleaseCard v-if="inspection.hub" :hub="inspection.hub" />
@@ -286,7 +289,7 @@ async function install() {
         </a-descriptions-item>
         <a-descriptions-item :label="t('shortcutAdmin.timeout')">{{ t('pluginAdmin.timeoutValue', { n: inspection.timeout }) }}</a-descriptions-item>
         <a-descriptions-item :label="t('shortcutAdmin.aiEnabled')">
-          {{ t(inspection.permissions.ai ? 'shortcutAdmin.enabledTag' : 'shortcutAdmin.disabledTag') }}
+          {{ t(inspection.permissions.ai ? 'shortcutAdmin.aiUsed' : 'shortcutAdmin.aiNotUsed') }}
         </a-descriptions-item>
         <a-descriptions-item :label="t('shortcutAdmin.formItems')">
           <div v-if="inspectionFields.length" class="tags">
@@ -420,10 +423,17 @@ async function install() {
   margin-top: 16px;
 }
 .review-head {
-  display: flex;
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) auto;
   align-items: center;
   gap: 12px;
   overflow-wrap: anywhere;
+}
+.hub-link {
+  align-self: start;
+  gap: 4px;
+  font-size: 13px;
+  white-space: nowrap;
 }
 .review-name {
   display: flex;
@@ -452,6 +462,13 @@ async function install() {
   color: var(--color-danger);
 }
 @media (max-width: 480px) {
+  .review-head {
+    grid-template-columns: 44px minmax(0, 1fr);
+  }
+  .hub-link {
+    grid-column: 2;
+    justify-self: end;
+  }
   .source-options {
     flex-direction: column;
   }

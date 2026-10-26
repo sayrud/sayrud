@@ -101,28 +101,27 @@ defineExpose({ reload: load })
             </a-tag>
           </div>
           <div v-if="byline" class="text-desc byline">{{ byline }}</div>
-          <div class="text-desc description">{{ pkg.description || t('pluginAdmin.noDescription') }}</div>
         </div>
+        <div class="actions">
+          <HubPackageAction
+            :pkg="pkg"
+            :latest="latest ?? undefined"
+            size="medium"
+            @install="emit('install', pkg)"
+            @update="emit('update', pkg)"
+            @open="emit('open', pkg)"
+          />
+          <a-button :href="pkg.url" target="_blank" rel="noopener noreferrer">
+            <template #icon><ExternalLink :size="14" /></template>
+            {{ t('hub.viewOnHub') }}
+          </a-button>
+          <a-button v-if="pkg.homepage" :href="pkg.homepage" target="_blank" rel="noopener noreferrer nofollow">
+            <template #icon><House :size="14" /></template>
+            {{ t('pluginAdmin.homepage') }}
+          </a-button>
+        </div>
+        <div class="text-desc description">{{ pkg.description || t('pluginAdmin.noDescription') }}</div>
       </header>
-
-      <div class="actions">
-        <HubPackageAction
-          :pkg="pkg"
-          :latest="latest ?? undefined"
-          size="medium"
-          @install="emit('install', pkg)"
-          @update="emit('update', pkg)"
-          @open="emit('open', pkg)"
-        />
-        <a-button :href="pkg.url" target="_blank" rel="noopener noreferrer">
-          <template #icon><ExternalLink :size="14" /></template>
-          {{ t('hub.viewOnHub') }}
-        </a-button>
-        <a-button v-if="pkg.homepage" :href="pkg.homepage" target="_blank" rel="noopener noreferrer nofollow">
-          <template #icon><House :size="14" /></template>
-          {{ t('pluginAdmin.homepage') }}
-        </a-button>
-      </div>
 
       <a-alert v-if="latest?.yanked" type="error" class="alert">
         {{ latest.yankReason ? t('hub.reason', { reason: latest.yankReason }) : t('hub.yankedHint') }}
@@ -198,9 +197,8 @@ defineExpose({ reload: load })
               <span v-if="!anyHost && !hosts.length" class="text-desc">{{ t('pluginAdmin.networkNone') }}</span>
             </a-descriptions-item>
             <a-descriptions-item v-if="kind === 'field_shortcut'" :label="t('shortcutAdmin.aiEnabled')">
-              <a-tag size="small" :color="latest.permissions.ai ? 'purple' : undefined">
-                {{ latest.permissions.ai ? t('shortcutAdmin.enabledTag') : t('shortcutAdmin.disabledTag') }}
-              </a-tag>
+              <a-tag v-if="latest.permissions.ai" size="small" color="purple">{{ t('shortcutAdmin.aiUsed') }}</a-tag>
+              <template v-else>{{ t('shortcutAdmin.aiNotUsed') }}</template>
             </a-descriptions-item>
             <a-descriptions-item :label="t('shortcutAdmin.credentials')">
               <a-space v-if="latest.permissions.credentials.length" wrap :size="4">
@@ -214,7 +212,6 @@ defineExpose({ reload: load })
             </a-descriptions-item>
           </a-descriptions>
           <a-empty v-else :description="t('hubCatalog.unavailableHint')" />
-          <p class="text-desc hint">{{ t('hubCatalog.permissionsHint') }}</p>
         </a-tab-pane>
 
         <a-tab-pane key="release" :title="t('hubCatalog.release')">
@@ -228,7 +225,7 @@ defineExpose({ reload: load })
               </a-descriptions-item>
               <a-descriptions-item :label="t('hubCatalog.publishedAt')">{{ formatTime(latest.publishedAt) }}</a-descriptions-item>
               <a-descriptions-item :label="t('hubCatalog.minAppVersion')">
-                {{ latest.minAppVersion ? t('hubCatalog.minAppVersionValue', { version: latest.minAppVersion }) : t('hubCatalog.anyVersion') }}
+                {{ latest.minAppVersion ? t('hubCatalog.minAppVersionValue', { version: latest.minAppVersion }) : t('common.unknown') }}
               </a-descriptions-item>
               <a-descriptions-item :label="t('pluginAdmin.language')">{{ LANGUAGE_NAMES[latest.language] }} · {{ attachmentSize(latest.size) }}</a-descriptions-item>
             </a-descriptions>
@@ -249,12 +246,12 @@ defineExpose({ reload: load })
   flex-direction: column;
 }
 .head {
-  display: flex;
-  align-items: flex-start;
-  gap: 16px;
+  display: grid;
+  grid-template-columns: 56px minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 6px 16px;
 }
 .head-text {
-  flex: 1;
   min-width: 0;
 }
 .name-row {
@@ -278,15 +275,16 @@ defineExpose({ reload: load })
   font-size: 13px;
 }
 .description {
-  margin-top: 6px;
+  grid-column: 2 / -1;
   line-height: 1.6;
   overflow-wrap: anywhere;
 }
 .actions {
   display: flex;
   flex-wrap: wrap;
+  justify-content: flex-end;
+  max-width: 320px;
   gap: 8px;
-  margin-top: 20px;
 }
 .alert {
   margin-top: 16px;
@@ -345,10 +343,6 @@ defineExpose({ reload: load })
 .after-any {
   margin-top: 6px;
 }
-.hint {
-  margin: 16px 0 0;
-  font-size: 12px;
-}
 .release {
   margin-bottom: 8px;
 }
@@ -372,6 +366,17 @@ defineExpose({ reload: load })
   font-family: 'SF Mono', Menlo, Consolas, monospace;
 }
 @media (max-width: 560px) {
+  .head {
+    grid-template-columns: 56px minmax(0, 1fr);
+  }
+  .actions {
+    grid-column: 1 / -1;
+    justify-self: end;
+    max-width: 100%;
+  }
+  .description {
+    grid-column: 1 / -1;
+  }
   .stats {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
