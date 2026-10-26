@@ -2,10 +2,8 @@ package api
 
 import (
 	"net/http"
-	"regexp"
 	"strings"
 	"time"
-	"unicode/utf8"
 
 	"github.com/cockroachdb/errors"
 	"github.com/samber/lo"
@@ -18,6 +16,7 @@ import (
 	"github.com/wuhan005/sayrud/internal/dto"
 	"github.com/wuhan005/sayrud/internal/form"
 	"github.com/wuhan005/sayrud/internal/i18n"
+	"github.com/wuhan005/sayrud/internal/manifest"
 	"github.com/wuhan005/sayrud/internal/shortcut"
 	"github.com/wuhan005/sayrud/internal/shortcut/script"
 	"github.com/wuhan005/sayrud/internal/sso"
@@ -118,46 +117,15 @@ func (adminRoute) GetFieldShortcut(ctx context.Context, saved *db.CustomFieldSho
 	return ctx.ApiSuccess(resp)
 }
 
-const (
-	maxShortcutNameLength        = 64
-	maxShortcutDescriptionLength = 500
-	maxShortcutCodeSize          = 200 << 10
-	maxShortcutFormItems         = 20
-	maxShortcutDomains           = 50
-	maxShortcutCredentials       = 20
-	maxShortcutTimeoutSeconds    = 300
-	defaultShortcutTimeout       = 30
-)
+const maxShortcutCodeSize = 200 << 10
 
-var (
-	shortcutKeyPattern     = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9_]{0,31}$`)
-	shortcutVersionPattern = regexp.MustCompile(`^[0-9A-Za-z][0-9A-Za-z.+\-]{0,31}$`)
-	headerNamePattern      = regexp.MustCompile("^[!#$%&'*+.^_`|~0-9A-Za-z-]+$")
-	errSecretKeyMissing    = errors.New("secret key is not configured")
-)
+var errSecretKeyMissing = errors.New("secret key is not configured")
 
 // buildCustomShortcut validates the form and returns the shortcut without the secrets, along with the credential values keyed by key.
+// The invalid manifest errors are *i18n.Error.
 func buildCustomShortcut(f form.SaveFieldShortcut) (*db.CustomFieldShortcut, map[string]string, error) {
-	name := strings.TrimSpace(f.Name)
-	switch {
-	case name == "":
-		return nil, nil, i18n.Errorf("field_shortcut::name_required")
-	case utf8.RuneCountInString(name) > maxShortcutNameLength:
-		return nil, nil, i18n.Errorf("field_shortcut::name_too_long", maxShortcutNameLength)
-	case utf8.RuneCountInString(f.Description) > maxShortcutDescriptionLength:
-		return nil, nil, i18n.Errorf("field_shortcut::description_too_long", maxShortcutDescriptionLength)
-	}
-	version := strings.TrimSpace(f.Version)
-	if version == "" {
-		version = "1.0.0"
-	}
-	if !shortcutVersionPattern.MatchString(version) {
-		return nil, nil, i18n.Errorf("field_shortcut::invalid_version")
-	}
-
-	resultType := db.SLFieldType(f.ResultType)
-	if !resultType.CanHostShortcut() {
-		return nil, nil, i18n.Errorf("field_shortcut::invalid_result_type")
+	if err := f.Normalize(); err != nil {
+		return nil, nil, manifestError(err)
 	}
 	if strings.TrimSpace(f.Code) == "" {
 		return nil, nil, i18n.Errorf("field_shortcut::code_required")
@@ -173,149 +141,36 @@ func buildCustomShortcut(f form.SaveFieldShortcut) (*db.CustomFieldShortcut, map
 		return nil, nil, &i18n.Error{Key: "field_shortcut::compile_error", Args: []interface{}{err.Error()}}
 	}
 
-	formItems, err := normalizeFormItems(f.FormItems)
-	if err != nil {
-		return nil, nil, err
-	}
-	if resultType != db.SingleSelectFieldType && resultType != db.MultiSelectFieldType &&
-		lo.ContainsBy(formItems, func(item db.ShortcutFormItem) bool { return item.Component == db.ShortcutFormFieldOptions }) {
-		return nil, nil, i18n.Errorf("field_shortcut::invalid_result_type")
-	}
-
-	if len(f.Domains) > maxShortcutDomains {
-		return nil, nil, i18n.Errorf("field_shortcut::too_many_domains", maxShortcutDomains)
-	}
-	domains := make([]string, 0, len(f.Domains))
-	for _, d := range f.Domains {
-		normalized, ok := script.NormalizeDomain(d)
-		if !ok {
-			return nil, nil, i18n.Errorf("field_shortcut::invalid_domain", d)
-		}
-		domains = append(domains, normalized)
-	}
-
-	if len(f.Credentials) > maxShortcutCredentials {
-		return nil, nil, i18n.Errorf("field_shortcut::too_many_credentials", maxShortcutCredentials)
-	}
-	credentials := make([]db.ShortcutCredential, 0, len(f.Credentials))
+	m := f.Manifest
 	values := map[string]string{}
-	for _, c := range f.Credentials {
-		key := strings.TrimSpace(c.Key)
-		label := c.Label.Trim()
-		if label.In("en") == "" {
-			label = i18n.LocalText{"": key}
-		}
-
-		credentialType := db.ShortcutCredentialType(c.Type)
-		credentialName := strings.TrimSpace(c.Name)
-		switch {
-		case !shortcutKeyPattern.MatchString(key):
-			return nil, nil, i18n.Errorf("field_shortcut::invalid_credential_key", key)
-		case lo.ContainsBy(credentials, func(other db.ShortcutCredential) bool { return other.Key == key }):
-			return nil, nil, i18n.Errorf("field_shortcut::duplicate_credential_key", key)
-		case !label.Valid(64, true):
-			return nil, nil, i18n.Errorf("field_shortcut::invalid_credential_label", key)
-		case !credentialType.Valid():
-			return nil, nil, i18n.Errorf("field_shortcut::invalid_credential_type", key)
-		case credentialType == db.ShortcutCredentialBearer:
-			credentialName = ""
-		case credentialName == "":
-			return nil, nil, i18n.Errorf("field_shortcut::credential_name_required", key)
-		case credentialType == db.ShortcutCredentialHeader && !headerNamePattern.MatchString(credentialName):
-			return nil, nil, i18n.Errorf("field_shortcut::invalid_credential_name", key)
-		}
-		credentials = append(credentials, db.ShortcutCredential{Key: key, Label: label, Type: credentialType, Name: credentialName})
-		if c.Value != "" {
-			values[key] = c.Value
+	for _, c := range m.Credentials {
+		if v := f.Secrets[c.Key]; v != "" {
+			values[c.Key] = v
 		}
 	}
-
-	timeout := f.TimeoutSeconds
-	if timeout == 0 {
-		timeout = defaultShortcutTimeout
-	}
-	if timeout < 1 || timeout > maxShortcutTimeoutSeconds {
-		return nil, nil, i18n.Errorf("field_shortcut::invalid_timeout", maxShortcutTimeoutSeconds)
-	}
-
 	return &db.CustomFieldShortcut{
-		Name:           name,
-		Version:        version,
-		Description:    strings.TrimSpace(f.Description),
-		ResultType:     resultType,
+		Name:           m.Name,
+		Version:        m.Version,
+		Description:    m.Description,
+		ResultType:     db.SLFieldType(m.ResultType),
 		Code:           f.Code,
 		Language:       string(language),
-		AIEnabled:      f.AIEnabled,
-		FormItems:      datatypes.NewJSONType(formItems),
-		Domains:        datatypes.NewJSONType(lo.Uniq(domains)),
-		Credentials:    datatypes.NewJSONType(credentials),
-		TimeoutSeconds: timeout,
+		AIEnabled:      m.Permissions.AI,
+		Sections:       datatypes.NewJSONType(m.Sections),
+		Domains:        datatypes.NewJSONType(m.Permissions.Fetch),
+		Credentials:    datatypes.NewJSONType(m.Credentials),
+		TimeoutSeconds: m.Timeout,
 		Enabled:        f.Enabled,
 	}, values, nil
 }
 
-func normalizeFormItems(items []db.ShortcutFormItem) ([]db.ShortcutFormItem, error) {
-	if len(items) > maxShortcutFormItems {
-		return nil, i18n.Errorf("field_shortcut::too_many_form_items", maxShortcutFormItems)
+// manifestError shows the *manifest.Error like the invalid manifests of the workflow plugins.
+func manifestError(err error) error {
+	var manifestErr *manifest.Error
+	if errors.As(err, &manifestErr) {
+		return i18n.Errorf("workflow_plugin::invalid_manifest", manifestErr.Message)
 	}
-	result := make([]db.ShortcutFormItem, 0, len(items))
-	for _, item := range items {
-		item.Key = strings.TrimSpace(item.Key)
-		item.Label = item.Label.Trim()
-		item.Placeholder = item.Placeholder.Trim()
-		switch {
-		case !shortcutKeyPattern.MatchString(item.Key):
-			return nil, i18n.Errorf("field_shortcut::invalid_form_key", item.Key)
-		case lo.ContainsBy(result, func(other db.ShortcutFormItem) bool { return other.Key == item.Key }):
-			return nil, i18n.Errorf("field_shortcut::duplicate_form_key", item.Key)
-		case !item.Label.Valid(maxShortcutNameLength, true):
-			return nil, i18n.Errorf("field_shortcut::invalid_form_label", item.Key)
-		case !item.Placeholder.Valid(maxShortcutDescriptionLength, false):
-			return nil, i18n.Errorf("field_shortcut::invalid_form_placeholder", item.Key)
-		case !item.Component.Valid():
-			return nil, i18n.Errorf("field_shortcut::invalid_component", item.Key)
-		}
-
-		if item.Component == db.ShortcutFormFieldSelect {
-			for _, t := range item.FieldTypes {
-				if !t.Check() || t == db.FormulaFieldType {
-					return nil, i18n.Errorf("field_shortcut::invalid_field_types", item.Key)
-				}
-			}
-			item.FieldTypes = lo.Uniq(item.FieldTypes)
-			item.Default = ""
-		} else {
-			item.FieldTypes = nil
-		}
-
-		if item.Component == db.ShortcutFormSelect {
-			values := lo.Map(item.Options, func(o db.ShortcutFormOption, _ int) string { return o.Value })
-			if len(item.Options) == 0 || lo.Contains(values, "") || len(lo.Uniq(values)) != len(values) {
-				return nil, i18n.Errorf("field_shortcut::invalid_options", item.Key)
-			}
-			item.Options = append([]db.ShortcutFormOption(nil), item.Options...)
-			for index := range item.Options {
-				option := &item.Options[index]
-				option.Label = option.Label.Trim()
-				if option.Label.In("en") == "" {
-					option.Label = i18n.LocalText{"": option.Value}
-				}
-				if !option.Label.Valid(maxShortcutDescriptionLength, false) {
-					return nil, i18n.Errorf("field_shortcut::invalid_options", item.Key)
-				}
-			}
-			if item.Default != "" && !lo.Contains(values, item.Default) {
-				return nil, i18n.Errorf("field_shortcut::invalid_options", item.Key)
-			}
-		} else {
-			item.Options = nil
-		}
-		if item.Component == db.ShortcutFormFieldOptions {
-			item.Default = ""
-		}
-		result = append(result, item)
-	}
-	return result, nil
+	return err
 }
 
 // sealSecrets merges the new credential values into the saved ones of the credentials still defined, and encrypts them.

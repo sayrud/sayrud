@@ -110,11 +110,11 @@ const hosts = computed(() => props.domains.filter((d) => d !== '*'))
   flex-direction: column;
   gap: 2px;
   min-width: 0;
-  padding-top: 4px;
   font-size: 13px;
 }
 .perm-title {
   font-weight: 500;
+  line-height: 1;
   color: var(--text-title);
 }
 .perm-tags {

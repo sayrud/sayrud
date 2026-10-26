@@ -5,7 +5,7 @@ import { ArrowRight, CodeXml, FileCode2, Link2, Upload, X } from '@lucide/vue'
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
-import { adminShortcutsApi, type AdminFieldShortcut, type SaveFieldShortcut } from '@/api/shortcut'
+import { adminShortcutsApi, type AdminFieldShortcut } from '@/api/shortcut'
 import SHORTCUT_STARTER from '@/assets/templates/field-shortcut.js?raw'
 import WorkflowPluginIcon from '@/components/admin/WorkflowPluginIcon.vue'
 import CodeEditor from '@/components/common/CodeEditor.vue'
@@ -13,6 +13,7 @@ import FieldTypeIcon from '@/components/field/FieldTypeIcon.vue'
 import type { FieldType } from '@/types/bitable'
 import { attachmentSize } from '@/utils/attachments'
 import { fieldTypeInfo } from '@/utils/fieldTypes'
+import { fieldLabel, saveBody, shortcutFields } from '@/utils/shortcut'
 import { LANGUAGE_NAMES, languageOf, versionLabel, type PluginLanguage } from '@/utils/workflowPlugin'
 
 const props = defineProps<{ upgrade?: AdminFieldShortcut | null }>()
@@ -33,6 +34,7 @@ const reading = ref(false)
 const inspecting = ref(false)
 const installing = ref(false)
 const inspection = ref<AdminFieldShortcut | null>(null)
+const inspectionFields = computed(() => (inspection.value ? shortcutFields(inspection.value) : []))
 
 const busy = computed(() => reading.value || inspecting.value || installing.value)
 const canInspect = computed(() => {
@@ -130,22 +132,9 @@ async function install() {
     const i = inspection.value
     const upgrade = props.upgrade
     const shortcut = upgrade
-      ? await adminShortcutsApi.update(upgrade.uid, {
-          name: i.name,
-          version: i.version,
-          description: i.description,
-          resultType: i.resultType as SaveFieldShortcut['resultType'],
-          code: i.code,
-          language: i.language,
-          formItems: i.formItems,
-          domains: i.domains,
-          credentials: i.credentials.map((c) => ({ key: c.key, label: c.label, type: c.type, name: c.name })),
-          timeoutSeconds: i.timeoutSeconds,
-          aiEnabled: i.aiEnabled,
-          enabled: upgrade.enabled,
-        })
+      ? await adminShortcutsApi.update(upgrade.uid, saveBody(i, { enabled: upgrade.enabled }))
       : await adminShortcutsApi.install(i.code, i.language)
-    Message.success(t(upgrade ? 'pluginAdmin.upgradeSuccess' : 'pluginAdmin.installSuccess', { name: shortcut.name }))
+    Message.success(t(upgrade ? 'pluginAdmin.upgradeSuccess' : 'pluginAdmin.installSuccess', { name: text(shortcut.name) }))
     emit('installed', shortcut)
     visible.value = false
   } catch (e) {
@@ -220,14 +209,14 @@ async function install() {
 
     <div v-else-if="inspection" class="review-step">
       <div class="review-head">
-        <WorkflowPluginIcon :icon="inspection.aiEnabled ? 'sparkles' : 'zap'" color="var(--color-primary)" :size="44" />
+        <WorkflowPluginIcon :icon="inspection.permissions.ai ? 'sparkles' : 'zap'" color="var(--color-primary)" :size="44" />
         <div class="review-title">
           <div class="review-name">
-            <span>{{ inspection.name }}</span>
+            <span>{{ text(inspection.name) }}</span>
             <a-tag size="small">{{ versionLabel(inspection.version) }}</a-tag>
             <a-tag size="small">{{ LANGUAGE_NAMES[inspection.language] }}</a-tag>
           </div>
-          <div v-if="inspection.description" class="text-desc">{{ inspection.description }}</div>
+          <div v-if="text(inspection.description)" class="text-desc">{{ text(inspection.description) }}</div>
         </div>
       </div>
 
@@ -238,19 +227,20 @@ async function install() {
             {{ fieldTypeInfo(inspection.resultType as FieldType).label }}
           </span>
         </a-descriptions-item>
-        <a-descriptions-item :label="t('shortcutAdmin.timeout')">{{ t('pluginAdmin.timeoutValue', { n: inspection.timeoutSeconds }) }}</a-descriptions-item>
+        <a-descriptions-item :label="t('shortcutAdmin.timeout')">{{ t('pluginAdmin.timeoutValue', { n: inspection.timeout }) }}</a-descriptions-item>
         <a-descriptions-item :label="t('shortcutAdmin.aiEnabled')">
-          {{ t(inspection.aiEnabled ? 'shortcutAdmin.enabledTag' : 'shortcutAdmin.disabledTag') }}
+          {{ t(inspection.permissions.ai ? 'shortcutAdmin.enabledTag' : 'shortcutAdmin.disabledTag') }}
         </a-descriptions-item>
         <a-descriptions-item :label="t('shortcutAdmin.formItems')">
-          <div v-if="inspection.formItems.length" class="tags">
-            <a-tag v-for="item in inspection.formItems" :key="item.key" size="small">{{ text(item.label) }}<span v-if="item.required" class="required">*</span></a-tag>
+          <div v-if="inspectionFields.length" class="tags">
+            <a-tag v-for="item in inspectionFields" :key="item.key" size="small">{{ fieldLabel(item, locale) }}<span v-if="item.required" class="required">*</span></a-tag>
           </div>
           <span v-else class="text-desc">{{ t('pluginAdmin.noInputs') }}</span>
         </a-descriptions-item>
         <a-descriptions-item :label="t('shortcutAdmin.domains')" :span="2">
-          <div v-if="inspection.domains.length" class="tags">
-            <a-tag v-for="domain in inspection.domains" :key="domain" size="small">{{ domain }}</a-tag>
+          <div v-if="inspection.permissions.fetch.length" class="tags">
+            <span v-if="inspection.permissions.fetch.includes('*')" class="text-desc">{{ t('pluginAdmin.networkAny') }}</span>
+            <a-tag v-for="host in inspection.permissions.fetch.filter((h) => h !== '*')" :key="host" size="small">{{ host }}</a-tag>
           </div>
           <span v-else class="text-desc">{{ t('pluginAdmin.networkNone') }}</span>
         </a-descriptions-item>

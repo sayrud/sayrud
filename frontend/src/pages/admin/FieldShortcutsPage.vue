@@ -14,9 +14,12 @@ import SettingsSection from '@/components/console/SettingsSection.vue'
 import FieldTypeIcon from '@/components/field/FieldTypeIcon.vue'
 import type { FieldType } from '@/types/bitable'
 import { fieldTypeInfo } from '@/utils/fieldTypes'
+import { saveBody } from '@/utils/shortcut'
+import { localText, type LocalText } from '@/utils/localText'
 import { versionLabel } from '@/utils/workflowPlugin'
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
+const text = (value: LocalText | undefined) => localText(value, locale.value)
 const router = useRouter()
 
 const shortcuts = ref<AdminFieldShortcut[]>([])
@@ -103,20 +106,7 @@ async function toggle(s: AdminFieldShortcut, enabled: boolean) {
   toggling.value = s.uid
 
   try {
-    const saved = await adminShortcutsApi.update(s.uid, {
-      name: s.name,
-      version: s.version,
-      description: s.description,
-      resultType: s.resultType as Parameters<typeof adminShortcutsApi.update>[1]['resultType'],
-      code: s.code,
-      language: s.language,
-      formItems: s.formItems,
-      domains: s.domains,
-      credentials: s.credentials.map((c) => ({ key: c.key, label: c.label, type: c.type, name: c.name })),
-      timeoutSeconds: s.timeoutSeconds,
-      aiEnabled: s.aiEnabled,
-      enabled,
-    })
+    const saved = await adminShortcutsApi.update(s.uid, saveBody(s, { enabled }))
 
     shortcuts.value = shortcuts.value.map((x) => (x.uid === saved.uid ? saved : x))
   } catch (e) {
@@ -128,7 +118,7 @@ async function toggle(s: AdminFieldShortcut, enabled: boolean) {
 
 function uninstall(s: AdminFieldShortcut) {
   Modal.confirm({
-    title: t('shortcutAdmin.uninstallTitle', { name: s.name }),
+    title: t('shortcutAdmin.uninstallTitle', { name: text(s.name) }),
     content: s.usedBy ? t('shortcutAdmin.deleteInUse', { n: s.usedBy }, s.usedBy) : t('shortcutAdmin.deleteContent'),
     okButtonProps: { status: 'danger' },
     okText: t('pluginAdmin.uninstall'),
@@ -179,10 +169,10 @@ onMounted(load)
       >
         <template #name="{ record }">
           <div class="name-cell">
-            <WorkflowPluginIcon :icon="record.aiEnabled ? 'sparkles' : 'zap'" color="var(--color-primary)" :size="32" />
+            <WorkflowPluginIcon :icon="record.permissions.ai ? 'sparkles' : 'zap'" color="var(--color-primary)" :size="32" />
             <div class="name-text">
-              <div class="name ellipsis">{{ record.name }}</div>
-              <div class="text-desc ellipsis desc">{{ record.description || record.uid }}</div>
+              <div class="name ellipsis">{{ text(record.name) }}</div>
+              <div class="text-desc ellipsis desc">{{ text(record.description) || record.uid }}</div>
             </div>
           </div>
         </template>

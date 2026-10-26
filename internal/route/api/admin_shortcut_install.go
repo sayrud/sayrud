@@ -2,7 +2,6 @@ package api
 
 import (
 	stdcontext "context"
-	"encoding/json"
 	"net/http"
 	"strings"
 
@@ -13,6 +12,7 @@ import (
 	"github.com/wuhan005/sayrud/internal/dto"
 	"github.com/wuhan005/sayrud/internal/form"
 	"github.com/wuhan005/sayrud/internal/i18n"
+	"github.com/wuhan005/sayrud/internal/shortcut"
 	"github.com/wuhan005/sayrud/internal/workflow"
 	"github.com/wuhan005/sayrud/internal/workflow/sandbox"
 )
@@ -34,18 +34,12 @@ func inspectFieldShortcut(ctx stdcontext.Context, source string, language sandbo
 		return nil, i18n.Errorf("workflow_plugin::compile_error", truncate(err.Error(), 500))
 	}
 
-	var f form.SaveFieldShortcut
-	if err := json.Unmarshal(program.Manifest(), &f); err != nil {
-		return nil, i18n.Errorf("workflow_plugin::invalid_manifest", truncate(err.Error(), 500))
+	m, err := shortcut.ParseManifest(program.Manifest())
+	if err != nil {
+		return nil, manifestError(err)
 	}
 	// The module supplies definitions only; secrets are configured after installation.
-	for i := range f.Credentials {
-		f.Credentials[i].Value = ""
-	}
-	f.Code = source
-	f.Language = string(language)
-	f.Enabled = true
-	s, _, err := buildCustomShortcut(f)
+	s, _, err := buildCustomShortcut(form.SaveFieldShortcut{Manifest: *m, Code: source, Language: string(language), Enabled: true})
 	return s, err
 }
 

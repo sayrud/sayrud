@@ -65,6 +65,9 @@ func Init() (*gorm.DB, error) {
 		if err := dropTableAppearance(tx); err != nil {
 			return errors.Wrap(err, "drop table appearance")
 		}
+		if err := migrateFieldShortcuts(tx); err != nil {
+			return errors.Wrap(err, "migrate field shortcuts")
+		}
 
 		return tx.AutoMigrate(tables...)
 	}); err != nil {

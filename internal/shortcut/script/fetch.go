@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"net/netip"
 	"net/url"
-	"regexp"
 	"strings"
 	"syscall"
 	"time"
@@ -15,6 +14,7 @@ import (
 	"github.com/cockroachdb/errors"
 
 	"github.com/wuhan005/sayrud/internal/db"
+	"github.com/wuhan005/sayrud/internal/manifest"
 )
 
 const (
@@ -57,7 +57,9 @@ func newFetcher(ctx context.Context, domains []string, credentials []Credential,
 		credentials: make(map[string]Credential, len(credentials)),
 	}
 	for _, d := range domains {
-		if normalized, ok := NormalizeDomain(d); ok {
+		if d == "*" {
+			f.domains = append(f.domains, d)
+		} else if normalized, ok := manifest.NormalizeHost(d); ok {
 			f.domains = append(f.domains, normalized)
 		}
 	}
@@ -85,34 +87,6 @@ func newFetcher(ctx context.Context, domains []string, credentials []Credential,
 	return f
 }
 
-var domainPattern = regexp.MustCompile(`^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)*[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$`)
-
-// NormalizeDomain returns the lowercase host name without the trailing dot, ok is false if it is not a host name or an IP address.
-func NormalizeDomain(domain string) (string, bool) {
-	d := strings.TrimSuffix(strings.ToLower(strings.TrimSpace(domain)), ".")
-	if d == "" || len(d) > 253 {
-		return "", false
-	}
-	if _, err := netip.ParseAddr(d); err == nil {
-		return d, true
-	}
-	return d, domainPattern.MatchString(d)
-}
-
-// HostAllowed reports whether the host equals one of the domains or is a subdomain of it.
-func HostAllowed(host string, domains []string) bool {
-	host = strings.TrimSuffix(strings.ToLower(host), ".")
-	if host == "" {
-		return false
-	}
-	for _, d := range domains {
-		if host == d || strings.HasSuffix(host, "."+d) {
-			return true
-		}
-	}
-	return false
-}
-
 func (f *fetcher) checkURL(u *url.URL) error {
 	if u.Scheme != "http" && u.Scheme != "https" {
 		return errors.Errorf("fetch: unsupported protocol %q", u.Scheme)
@@ -120,7 +94,7 @@ func (f *fetcher) checkURL(u *url.URL) error {
 	if u.User != nil {
 		return errors.New("fetch: credentials in the URL are not allowed")
 	}
-	if !HostAllowed(u.Hostname(), f.domains) {
+	if !manifest.HostAllowed(u.Hostname(), f.domains) {
 		return errors.Errorf("fetch: the host %q is not in the allowed domains", u.Hostname())
 	}
 	return nil

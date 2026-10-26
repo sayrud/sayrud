@@ -3,16 +3,16 @@ import { Plus } from '@lucide/vue'
 import { nextTick, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 
-import type { ShortcutFormItem } from '@/api/shortcut'
+import type { ShortcutField, ShortcutSection } from '@/api/shortcut'
 import type { OptionReference, SelectOption, SLField } from '@/types/bitable'
-import { promptFromDisplay, promptToDisplay, selectableFields } from '@/utils/shortcut'
+import { fieldLabel, optionLabel, promptFromDisplay, promptToDisplay, selectableFields } from '@/utils/shortcut'
 import { localText, type LocalText } from '@/utils/localText'
 import FieldTypeIcon from './FieldTypeIcon.vue'
 import SelectOptionsEditor from './SelectOptionsEditor.vue'
 
-/** Renders the form items of a shortcut, the values are the inputs of FieldShortcut. */
+/** Renders the form sections of a shortcut, the values are the inputs of FieldShortcut. */
 const props = defineProps<{
-  items: ShortcutFormItem[]
+  sections: ShortcutSection[]
   fields: SLField[]
   /** The field being configured, which can not be referenced. */
   fieldUID?: string
@@ -24,6 +24,7 @@ const reference = defineModel<OptionReference | undefined>('reference')
 
 const { t, locale } = useI18n()
 const text = (value: LocalText | undefined) => localText(value, locale.value)
+const label = (item: ShortcutField) => fieldLabel(item, locale.value)
 
 function set(key: string, value: string | undefined) {
   const next = { ...inputs.value }
@@ -41,7 +42,7 @@ function bindPrompt(key: string, el: unknown) {
 }
 
 /** Inserts the field reference at the cursor of the prompt. */
-async function insertField(item: ShortcutFormItem, field: SLField) {
+async function insertField(item: ShortcutField, field: SLField) {
   const display = promptToDisplay(inputs.value[item.key] ?? '', props.fields)
   const el = prompts.value[item.key]
   const start = el?.selectionStart ?? display.length
@@ -57,77 +58,96 @@ async function insertField(item: ShortcutFormItem, field: SLField) {
 
 <template>
   <div class="shortcut-form">
-    <div v-for="item in items" :key="item.key" class="row">
-      <div v-if="item.component !== 'field_options'" class="row-label">
-        {{ text(item.label) }}<span v-if="item.required" class="required">*</span>
-      </div>
+    <section v-for="(section, index) in sections" :key="index" class="section">
+      <div v-if="text(section.title)" class="section-title">{{ text(section.title) }}</div>
+      <div v-if="text(section.description)" class="hint section-description">{{ text(section.description) }}</div>
 
-      <SelectOptionsEditor v-if="item.component === 'field_options'" v-model="options" v-model:reference="reference" :label="text(item.label)" :required="item.required" :field-u-i-d="fieldUID" />
+      <div v-for="item in section.fields" :key="item.key" class="row">
+        <div v-if="item.widget !== 'field_options'" class="row-label">
+          {{ label(item) }}<span v-if="item.required" class="required">*</span>
+        </div>
 
-      <a-select
-        v-else-if="item.component === 'field_select'"
-        :model-value="inputs[item.key] || undefined"
-        :placeholder="text(item.placeholder) || t('shortcut.pickField')"
-        allow-clear
-        allow-search
-        @update:model-value="(v: unknown) => set(item.key, v as string | undefined)"
-      >
-        <a-option v-for="f in selectableFields(item, fields, fieldUID)" :key="f.uid" :value="f.uid" :label="f.label">
-          <span class="field-option"><FieldTypeIcon :type="f.type" /> {{ f.label }}</span>
-        </a-option>
-      </a-select>
+        <SelectOptionsEditor v-if="item.widget === 'field_options'" v-model="options" v-model:reference="reference" :label="label(item)" :required="item.required" :field-u-i-d="fieldUID" />
 
-      <a-select
-        v-else-if="item.component === 'select'"
-        :model-value="inputs[item.key] || undefined"
-        :placeholder="text(item.placeholder) || t('common.selectPlaceholder')"
-        :allow-clear="!item.required"
-        @update:model-value="(v: unknown) => set(item.key, v as string | undefined)"
-      >
-        <a-option v-for="o in item.options ?? []" :key="o.value" :value="o.value">{{ text(o.label) }}</a-option>
-      </a-select>
+        <a-select
+          v-else-if="item.widget === 'field_select'"
+          :model-value="inputs[item.key] || undefined"
+          :placeholder="text(item.placeholder) || t('shortcut.pickField')"
+          allow-clear
+          allow-search
+          @update:model-value="(v: unknown) => set(item.key, v as string | undefined)"
+        >
+          <a-option v-for="f in selectableFields(item, fields, fieldUID)" :key="f.uid" :value="f.uid" :label="f.label">
+            <span class="field-option"><FieldTypeIcon :type="f.type" /> {{ f.label }}</span>
+          </a-option>
+        </a-select>
 
-      <a-input
-        v-else-if="item.component === 'input'"
-        :model-value="inputs[item.key] ?? ''"
-        :placeholder="text(item.placeholder) || t('common.inputPlaceholder')"
-        :max-length="10000"
-        @update:model-value="(v: string) => set(item.key, v)"
-      />
+        <a-select
+          v-else-if="item.widget === 'select'"
+          :model-value="inputs[item.key] || undefined"
+          :placeholder="text(item.placeholder) || t('common.selectPlaceholder')"
+          :allow-clear="!item.required"
+          @update:model-value="(v: unknown) => set(item.key, v as string | undefined)"
+        >
+          <a-option v-for="o in item.options ?? []" :key="o.value" :value="o.value">{{ optionLabel(o, locale) }}</a-option>
+        </a-select>
 
-      <a-textarea
-        v-else-if="item.component === 'textarea'"
-        :model-value="inputs[item.key] ?? ''"
-        :placeholder="text(item.placeholder)"
-        :auto-size="{ minRows: 2, maxRows: 6 }"
-        :max-length="10000"
-        @update:model-value="(v: string) => set(item.key, v)"
-      />
-
-      <template v-else-if="item.component === 'prompt'">
         <a-textarea
-          :ref="(el: unknown) => bindPrompt(item.key, el)"
-          :model-value="promptToDisplay(inputs[item.key] ?? '', fields)"
+          v-else-if="item.widget === 'text' && item.multiline"
+          :model-value="inputs[item.key] ?? ''"
           :placeholder="text(item.placeholder)"
-          :auto-size="{ minRows: 3, maxRows: 8 }"
+          :auto-size="{ minRows: 2, maxRows: 6 }"
           :max-length="10000"
-          @update:model-value="(v: string) => set(item.key, promptFromDisplay(v, fields))"
+          @update:model-value="(v: string) => set(item.key, v)"
         />
-        <a-dropdown trigger="click" position="bl">
-          <button type="button" class="insert-field"><Plus :size="13" /> {{ t('shortcut.insertField') }}</button>
-          <template #content>
-            <a-doption v-for="f in referable()" :key="f.uid" @click="insertField(item, f)">
-              <span class="field-option"><FieldTypeIcon :type="f.type" /> {{ f.label }}</span>
-            </a-doption>
-          </template>
-        </a-dropdown>
-        <div class="hint">{{ t('shortcut.promptHint') }}</div>
-      </template>
-    </div>
+
+        <a-input
+          v-else-if="item.widget === 'text'"
+          :model-value="inputs[item.key] ?? ''"
+          :placeholder="text(item.placeholder) || t('common.inputPlaceholder')"
+          :max-length="10000"
+          @update:model-value="(v: string) => set(item.key, v)"
+        />
+
+        <template v-else-if="item.widget === 'prompt'">
+          <a-textarea
+            :ref="(el: unknown) => bindPrompt(item.key, el)"
+            :model-value="promptToDisplay(inputs[item.key] ?? '', fields)"
+            :placeholder="text(item.placeholder)"
+            :auto-size="{ minRows: 3, maxRows: 8 }"
+            :max-length="10000"
+            @update:model-value="(v: string) => set(item.key, promptFromDisplay(v, fields))"
+          />
+          <a-dropdown trigger="click" position="bl">
+            <button type="button" class="insert-field"><Plus :size="13" /> {{ t('shortcut.insertField') }}</button>
+            <template #content>
+              <a-doption v-for="f in referable()" :key="f.uid" @click="insertField(item, f)">
+                <span class="field-option"><FieldTypeIcon :type="f.type" /> {{ f.label }}</span>
+              </a-doption>
+            </template>
+          </a-dropdown>
+          <div class="hint">{{ t('shortcut.promptHint') }}</div>
+        </template>
+
+        <div v-if="text(item.help)" class="hint">{{ text(item.help) }}</div>
+      </div>
+    </section>
   </div>
 </template>
 
 <style scoped>
+.section + .section {
+  margin-top: 16px;
+}
+.section-title {
+  margin-bottom: 4px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-title);
+}
+.section-description {
+  margin: 0 0 8px;
+}
 .row {
   margin-bottom: 12px;
 }

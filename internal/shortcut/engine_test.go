@@ -64,12 +64,12 @@ func TestEngine(t *testing.T) {
 	hub := collab.NewHub(gormDB)
 	custom := &db.CustomFieldShortcut{
 		UID:        "fscCategry",
-		Name:       "Category",
+		Name:       i18n.LocalText{"": "Category"},
 		ResultType: db.SingleSelectFieldType,
 		Code:       `function execute(params) { return params.source.includes("support") ? "Service" : "Product" }`,
-		FormItems: datatypes.NewJSONType([]db.ShortcutFormItem{
-			{Key: "source", Label: i18n.LocalText{"": "Source"}, Component: db.ShortcutFormFieldSelect, Required: true},
-		}),
+		Sections: datatypes.NewJSONType([]db.ShortcutSection{{Fields: []db.ShortcutField{
+			{Key: "source", Label: i18n.LocalText{"": "Source"}, Widget: db.ShortcutWidgetFieldSelect, Required: true},
+		}}}),
 		Domains:        datatypes.NewJSONType([]string{}),
 		Credentials:    datatypes.NewJSONType([]db.ShortcutCredential{}),
 		TimeoutSeconds: 5,
@@ -224,7 +224,7 @@ func TestEngine(t *testing.T) {
 	// Each custom shortcut supports one result type.
 	const amount = "fldAmountX"
 	amountShortcut := *custom
-	amountShortcut.ID, amountShortcut.UID, amountShortcut.Name = 0, "fscAmountX", "Amount"
+	amountShortcut.ID, amountShortcut.UID, amountShortcut.Name = 0, "fscAmountX", i18n.LocalText{"": "Amount"}
 	amountShortcut.ResultType = db.TextFieldType
 	amountShortcut.Code = `function execute(params) { return String(params.source.length) }`
 	require.NoError(t, gormDB.Create(&amountShortcut).Error)

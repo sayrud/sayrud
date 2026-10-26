@@ -2,12 +2,11 @@ package i18n
 
 import (
 	"bytes"
+	"database/sql/driver"
 	"encoding/json"
 	"fmt"
-	"regexp"
 	"sort"
 	"strings"
-	"unicode/utf8"
 )
 
 // LocalText is a text of a plugin manifest, given as a string or as the translations keyed by language such as en and zh-CN.
@@ -29,6 +28,29 @@ func (t *LocalText) UnmarshalJSON(data []byte) error {
 	}
 	*t = m
 	return nil
+}
+
+// Value stores the translations as a JSON object.
+func (t LocalText) Value() (driver.Value, error) {
+	if t == nil {
+		return "{}", nil
+	}
+	b, err := json.Marshal(map[string]string(t))
+	return string(b), err
+}
+
+// Scan reads the JSON stored by Value, a JSON string is read as the untranslated text.
+func (t *LocalText) Scan(src interface{}) error {
+	switch v := src.(type) {
+	case nil:
+		*t = nil
+		return nil
+	case []byte:
+		return t.UnmarshalJSON(v)
+	case string:
+		return t.UnmarshalJSON([]byte(v))
+	}
+	return fmt.Errorf("can not scan %T into a text", src)
 }
 
 // In returns the text in the language, falling back to the same base language, English, the untranslated string, then any translation.
@@ -57,33 +79,4 @@ func (t LocalText) In(lang string) string {
 		}
 	}
 	return t[keys[0]]
-}
-
-var localTextLanguage = regexp.MustCompile(`^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})*$`)
-
-// Trim copies the translations without surrounding whitespace.
-func (t LocalText) Trim() LocalText {
-	if len(t) == 0 {
-		return nil
-	}
-	result := make(LocalText, len(t))
-	for lang, value := range t {
-		if value = strings.TrimSpace(value); value != "" {
-			result[lang] = value
-		}
-	}
-	return result
-}
-
-// Valid checks every translation, including those outside the current language.
-func (t LocalText) Valid(maxLength int, required bool) bool {
-	if required && strings.TrimSpace(t.In("en")) == "" || len(t) > 20 {
-		return false
-	}
-	for lang, value := range t {
-		if lang != "" && !localTextLanguage.MatchString(lang) || utf8.RuneCountInString(value) > maxLength {
-			return false
-		}
-	}
-	return true
 }

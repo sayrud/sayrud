@@ -140,30 +140,28 @@ export interface AdminCredential {
 }
 
 export interface AdminFieldShortcut {
-  /** AIEnabled allows the script to call the globally configured AI model. */
-  aiEnabled: boolean;
-  /** Code defines `async function execute(params, context)` returning the cell value, with context.ai.complete using the global model when AIEnabled. */
+  /** Code defines `async function execute(params, context)` returning the cell value, with context.ai.complete using the global model when permissions.ai is true. */
   code: string;
   /** CreatedAt is the time the shortcut was created. */
   createdAt: string;
   /** Credentials are the credentials the script can use when fetching. */
   credentials: AdminCredential[];
   /** Description tells the members what the shortcut does. */
-  description: string;
-  /** Domains are the hosts the script can fetch, including their subdomains. */
-  domains: string[];
+  description: I18NLocalText;
   /** Enabled reports whether the members can attach and execute the shortcut. */
   enabled: boolean;
-  /** FormItems are the inputs configured in the field editor and passed to execute as the params. */
-  formItems: ShortcutFormItem[];
   /** Language is the language of the saved source. */
   language: "javascript" | "typescript";
   /** Name is shown in the field editor. */
-  name: string;
+  name: I18NLocalText;
+  /** Permissions are the hosts the script can fetch and whether it can use the globally configured AI model. */
+  permissions: ShortcutPermissions;
   /** ResultType is the type of the fields the shortcut can be attached to. */
   resultType: string;
-  /** TimeoutSeconds is the time limit of an execution. */
-  timeoutSeconds: number;
+  /** Sections are the form fields configured in the field editor and passed to execute as the params. */
+  sections: ShortcutSection[];
+  /** Timeout is the time limit of an execution in seconds. */
+  timeout: number;
   /** UID is the identifier the fields refer to the shortcut by. */
   uid: string;
   /** UpdatedAt is the time the shortcut was last updated. */
@@ -486,22 +484,27 @@ export interface FieldShortcut {
 }
 
 export interface FieldShortcutManifest {
-  /** AIEnabled reports whether the script is allowed to use the globally configured AI model. */
-  aiEnabled: boolean;
   /** Available is false if the shortcut is disabled or its AI configuration is unavailable. */
   available: boolean;
   /** Description tells what the shortcut does. */
-  description: string;
-  /** FormItems are the inputs to configure in the field editor. */
-  formItems: ShortcutFormItem[];
+  description: I18NLocalText;
   /** ID is the UID of a custom shortcut. */
   id: string;
   /** Kind is how the shortcut is executed, by a custom script. */
   kind: "script";
   /** Name is shown in the field editor. */
-  name: string;
+  name: I18NLocalText;
+  /** Permissions are what the members need to know of the shortcut permissions, the hosts are only shown to the admins. */
+  permissions: FieldShortcutPermissions;
   /** ResultTypes are the types of the fields the shortcut can be attached to. */
   resultTypes: string[];
+  /** Sections are the form fields to configure in the field editor. */
+  sections: ShortcutSection[];
+}
+
+export interface FieldShortcutPermissions {
+  /** AI reports whether the script uses the globally configured AI model. */
+  ai: boolean;
 }
 
 export interface Import {
@@ -875,24 +878,20 @@ export interface SaveCredential {
 }
 
 export interface SaveFieldShortcut {
-  /** AIEnabled allows the script to call the globally configured AI model. */
-  aiEnabled: boolean;
-  /** Code defines `async function execute(params, context)`, with context.ai.complete using the global model when AIEnabled. */
+  /** Code defines `async function execute(params, context)`, with context.ai.complete using the global model when permissions.ai is true. */
   code: string;
-  /** Credentials are the credentials the script can use when fetching. */
-  credentials: SaveShortcutCredential[];
-  /** Description tells the members what the shortcut does, at most 500 characters. */
-  description: string;
-  /** Domains are the hosts the script can fetch, including their subdomains. */
-  domains: string[];
+  /** Credentials are the credentials the script can use when fetching, without their values. */
+  credentials: ShortcutCredential[];
+  /** Description tells the members what the shortcut does. */
+  description?: I18NLocalText;
   /** Enabled reports whether the members can attach and execute the shortcut. */
   enabled: boolean;
-  /** FormItems are the inputs configured in the field editor and passed to execute as the params. */
-  formItems: ShortcutFormItem[];
   /** Language of Code, javascript by default. */
   language?: "javascript" | "typescript";
-  /** Name is shown in the field editor, at most 64 characters. */
-  name: string;
+  /** Name is shown in the field editor. */
+  name: I18NLocalText;
+  /** Permissions are the hosts the script can fetch and whether it can use the globally configured AI model. */
+  permissions: ShortcutPermissions;
   /** ResultType is the type of the fields the shortcut can be attached to. */
   resultType:
     | "text"
@@ -901,23 +900,14 @@ export interface SaveFieldShortcut {
     | "datetime"
     | "number"
     | "checkbox";
-  /** TimeoutSeconds is the time limit of an execution between 1 and 300, 0 defaults to 30. */
-  timeoutSeconds: number;
-  /** Version is the manifest version, 1.0.0 when omitted for compatibility. */
-  version?: string;
-}
-
-export interface SaveShortcutCredential {
-  /** Key is the identifier the script passes to context.fetch to use the credential. */
-  key: string;
-  /** Label is the display name, at most 64 characters; defaults to Key when omitted. */
-  label?: I18NLocalText;
-  /** Name is the header or query parameter name, it is ignored by bearer. */
-  name?: string;
-  /** Type is how the credential is put into the request. */
-  type: "bearer" | "header" | "query";
-  /** Value replaces the saved value, empty keeps the saved one. */
-  value?: string;
+  /** Secrets are the new credential values keyed by credential key, the omitted or empty ones keep the saved values. */
+  secrets?: Record<string, string>;
+  /** Sections are the form fields configured in the field editor and passed to execute as the params. */
+  sections: ShortcutSection[];
+  /** Timeout is the time limit of an execution in seconds between 1 and 300, 0 defaults to 30. */
+  timeout?: number;
+  /** Version is the version of the shortcut, e.g. 1.0.0. */
+  version: string;
 }
 
 export interface SaveWorkflowDraft {
@@ -953,36 +943,38 @@ export interface SharedProject {
   tables: SLTable[];
 }
 
-export interface ShortcutFormItem {
-  /** Component is the control to render the item. */
-  component:
-    | "field_select"
-    | "input"
-    | "textarea"
-    | "select"
-    | "field_options"
-    | "prompt";
+export interface ShortcutCredential {
+  /** Key is the identifier the script passes to context.fetch to use the credential. */
+  key: string;
+  /** Label is the display name of the credential, the key if empty. */
+  label?: I18NLocalText;
+  /** Name is the header or query parameter name, it is ignored by bearer. */
+  name?: string;
+  /** Type is how the credential is put into the request. */
+  type: "bearer" | "header" | "query";
+}
+
+export interface ShortcutField {
   /** Default is the initial value when configuring a new field. */
   default?: string;
   /** FieldTypes limits the fields of field_select, empty allows all the fields except formulas. */
   fieldTypes?: string[];
+  /** Help is the description shown below the control. */
+  help?: I18NLocalText;
   /** Key is the key of the configured value in FieldShortcut.Inputs and of the parameter passed to the shortcut. */
   key: string;
-  /** Label is the name of the item shown in the form. */
-  label: I18NLocalText;
+  /** Label is the name of the field shown in the form, the key if empty. */
+  label?: I18NLocalText;
+  /** Multiline shows a text area for text. */
+  multiline?: boolean;
   /** Options are the choices of select. */
-  options?: ShortcutFormOption[];
+  options?: ShortcutOption[];
   /** Placeholder is the hint of the empty input. */
   placeholder?: I18NLocalText;
-  /** Required reports whether the item must be filled in before saving or executing. */
+  /** Required reports whether the field must be filled in before saving or executing. */
   required?: boolean;
-}
-
-export interface ShortcutFormOption {
-  /** Label is the text of the option shown in the form. */
-  label: I18NLocalText;
-  /** Value is the configured value of the option. */
-  value: string;
+  /** Widget is the control to render the field. */
+  widget: "field_select" | "text" | "select" | "field_options" | "prompt";
 }
 
 export interface ShortcutJob {
@@ -996,6 +988,20 @@ export interface ShortcutJob {
   status: "pending" | "running" | "failed" | "done";
 }
 
+export interface ShortcutOption {
+  /** Label is the text of the option shown in the form, the value if empty. */
+  label?: I18NLocalText;
+  /** Value is the configured value of the option. */
+  value: string;
+}
+
+export interface ShortcutPermissions {
+  /** AI allows context.ai.complete to use the globally configured model. */
+  ai: boolean;
+  /** Fetch are the hosts context.fetch can request, including their subdomains; * allows any public host. */
+  fetch: string[];
+}
+
 export interface ShortcutPreview {
   /** Error is the reason of the failure, empty if succeeded. */
   error?: string;
@@ -1003,6 +1009,12 @@ export interface ShortcutPreview {
   recordUID: string;
   /** Value is the cell value of the field, null if empty or failed. */
   value?: object;
+}
+
+export interface ShortcutSection {
+  description?: I18NLocalText;
+  fields: ShortcutField[];
+  title?: I18NLocalText;
 }
 
 export interface SignIn {
@@ -1127,7 +1139,7 @@ export interface TestCredential {
 }
 
 export interface TestFieldShortcut {
-  /** Params are passed to execute as is, keyed by the form item key. */
+  /** Params are passed to execute as is, keyed by the form field key. */
   params: Record<string, any>;
   /** Shortcut is the unsaved shortcut to run. */
   shortcut: SaveFieldShortcut;

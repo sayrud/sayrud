@@ -10,7 +10,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/wuhan005/sayrud/internal/i18n"
-	"github.com/wuhan005/sayrud/internal/shortcut/script"
+	"github.com/wuhan005/sayrud/internal/manifest"
 )
 
 // PluginTypePrefix prefixes the step type and the credential type of an installed plugin, e.g. plugin:slack.
@@ -127,17 +127,9 @@ type PluginOption struct {
 }
 
 // ManifestError is an invalid manifest; Message is shown to the admin as is.
-type ManifestError struct {
-	Message string
-}
+type ManifestError = manifest.Error
 
-func (e *ManifestError) Error() string {
-	return e.Message
-}
-
-func manifestErrorf(format string, args ...interface{}) error {
-	return &ManifestError{Message: fmt.Sprintf(format, args...)}
-}
+var manifestErrorf = manifest.Errorf
 
 // Widgets a plugin can use in the step form and in the credential form.
 var (
@@ -147,14 +139,9 @@ var (
 )
 
 const (
-	maxPluginSections = 20
-	maxPluginFields   = 60
-	maxPluginOutputs  = 50
-	maxPluginOptions  = 100
-	maxPluginText     = 500
-	maxPluginDomains  = 50
-	maxPluginIcon     = 100 << 10
-	maxPluginTimeout  = 60
+	maxPluginOutputs = 50
+	maxPluginIcon    = 100 << 10
+	maxPluginTimeout = 60
 	// defaultPluginTimeout is the time limit of a call in seconds when the manifest does not set one.
 	defaultPluginTimeout = 10
 	defaultPluginColor   = "#6b4ff6"
@@ -163,12 +150,9 @@ const (
 
 var (
 	pluginIDPattern      = regexp.MustCompile(`^[a-z][a-z0-9_]{1,39}$`)
-	pluginVersionPattern = regexp.MustCompile(`^[0-9A-Za-z][0-9A-Za-z.+\-]{0,31}$`)
-	pluginKeyPattern     = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]{0,63}$`)
 	pluginIconPattern    = regexp.MustCompile(`^[a-z0-9]+(-[a-z0-9]+)*$`)
 	pluginDataIconRegexp = regexp.MustCompile(`^data:image/(svg\+xml|png|jpeg|webp);base64,[A-Za-z0-9+/=]+$`)
 	pluginColorPattern   = regexp.MustCompile(`^#[0-9A-Fa-f]{6}$`)
-	pluginLangPattern    = regexp.MustCompile(`^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})*$`)
 )
 
 // ParsePluginManifest decodes and validates the manifest exported by a plugin, filling in the defaults; errors are *ManifestError.
@@ -183,32 +167,17 @@ func ParsePluginManifest(raw []byte) (*PluginManifest, error) {
 	return &m, nil
 }
 
-func checkText(t LocalText, what string, required bool) error {
-	if required && strings.TrimSpace(t.In("en")) == "" {
-		return manifestErrorf("%s is required", what)
-	}
-	if len(t) > 20 {
-		return manifestErrorf("%s has too many translations", what)
-	}
-	for lang, s := range t {
-		if lang != "" && !pluginLangPattern.MatchString(lang) {
-			return manifestErrorf("%s has an invalid language %q", what, lang)
-		}
-		if utf8.RuneCountInString(s) > maxPluginText {
-			return manifestErrorf("%s is longer than %d characters", what, maxPluginText)
-		}
-	}
-	return nil
-}
+var checkText = manifest.CheckText
 
 func (m *PluginManifest) normalize() error {
 	switch {
 	case !pluginIDPattern.MatchString(m.ID):
 		return manifestErrorf("id must be 2–40 lowercase letters, digits or underscores starting with a letter")
-	case !pluginVersionPattern.MatchString(m.Version):
-		return manifestErrorf("version is required, e.g. 1.0.0")
 	case utf8.RuneCountInString(m.Author) > 100:
 		return manifestErrorf("author is longer than 100 characters")
+	}
+	if err := manifest.CheckVersion(m.Version); err != nil {
+		return err
 	}
 	if err := checkText(m.Name, "name", true); err != nil {
 		return err
@@ -260,32 +229,20 @@ func (m *PluginManifest) normalize() error {
 	}
 	m.Flows = flows
 
-	if m.Timeout == 0 {
-		m.Timeout = defaultPluginTimeout
-	} else if m.Timeout < 1 || m.Timeout > maxPluginTimeout {
-		return manifestErrorf("timeout must be 1–%d seconds", maxPluginTimeout)
+	timeout, err := manifest.Timeout(m.Timeout, defaultPluginTimeout, maxPluginTimeout)
+	if err != nil {
+		return err
 	}
+	m.Timeout = timeout
 
-	if len(m.Permissions.Fetch) > maxPluginDomains {
-		return manifestErrorf("permissions.fetch has more than %d hosts", maxPluginDomains)
+	hosts, err := manifest.NormalizeHosts(m.Permissions.Fetch)
+	if err != nil {
+		return err
 	}
-	if len(m.Permissions.Fetch) > 0 && !m.Action {
+	if len(hosts) > 0 && !m.Action {
 		return manifestErrorf("only an action node can fetch, set action to true")
 	}
-	domains := make([]string, 0, len(m.Permissions.Fetch))
-	for _, d := range m.Permissions.Fetch {
-		if d == "*" {
-			domains = append(domains, d)
-			continue
-		}
-		normalized, ok := script.NormalizeDomain(strings.TrimPrefix(d, "*."))
-		if !ok {
-			return manifestErrorf("permissions.fetch has an invalid host %q", d)
-		}
-		domains = append(domains, normalized)
-	}
-	slices.Sort(domains)
-	m.Permissions.Fetch = slices.Compact(domains)
+	m.Permissions.Fetch = hosts
 
 	if m.Credential != nil {
 		if err := m.Credential.normalize(); err != nil {
@@ -293,8 +250,8 @@ func (m *PluginManifest) normalize() error {
 		}
 	}
 
-	if len(m.Sections) > maxPluginSections {
-		return manifestErrorf("there are more than %d sections", maxPluginSections)
+	if len(m.Sections) > manifest.MaxSections {
+		return manifestErrorf("there are more than %d sections", manifest.MaxSections)
 	}
 	keys := map[string]bool{}
 	count := 0
@@ -329,8 +286,8 @@ func (m *PluginManifest) normalize() error {
 			}
 		}
 	}
-	if count > maxPluginFields {
-		return manifestErrorf("there are more than %d fields", maxPluginFields)
+	if count > manifest.MaxFields {
+		return manifestErrorf("there are more than %d fields", manifest.MaxFields)
 	}
 	for _, s := range m.Sections {
 		if s.ShowIf != "" && !keys[s.ShowIf] {
@@ -349,11 +306,10 @@ func (m *PluginManifest) normalize() error {
 	outputs := map[string]bool{}
 	for i := range m.Outputs {
 		o := &m.Outputs[i]
+		if err := manifest.CheckKey(outputs, o.Key, "output"); err != nil {
+			return err
+		}
 		switch {
-		case !pluginKeyPattern.MatchString(o.Key):
-			return manifestErrorf("output %q has an invalid key", o.Key)
-		case outputs[o.Key]:
-			return manifestErrorf("output %q is duplicated", o.Key)
 		case !slices.Contains(pluginOutputKinds, o.Kind):
 			return manifestErrorf("output %q has an invalid kind, use one of %s", o.Key, strings.Join(pluginOutputKinds, ", "))
 		case o.Items != "" && (o.Kind != "array" || !slices.Contains(pluginOutputKinds, o.Items)):
@@ -362,7 +318,6 @@ func (m *PluginManifest) normalize() error {
 		if err := checkText(o.Label, fmt.Sprintf("the label of output %q", o.Key), false); err != nil {
 			return err
 		}
-		outputs[o.Key] = true
 	}
 
 	if b := m.Branches; b != nil {
@@ -427,11 +382,10 @@ func checkIcon(icon *string) error {
 }
 
 func (f *PluginField) normalize(keys map[string]bool) error {
+	if err := manifest.CheckKey(keys, f.Key, "field"); err != nil {
+		return err
+	}
 	switch {
-	case !pluginKeyPattern.MatchString(f.Key):
-		return manifestErrorf("field %q has an invalid key", f.Key)
-	case keys[f.Key]:
-		return manifestErrorf("field %q is duplicated", f.Key)
 	case f.Min != nil && f.Max != nil && *f.Min > *f.Max:
 		return manifestErrorf("field %q has min greater than max", f.Key)
 	case f.MaxLength < 0:
@@ -439,15 +393,14 @@ func (f *PluginField) normalize(keys map[string]bool) error {
 	case len(f.Default) > 0 && !json.Valid(f.Default):
 		return manifestErrorf("field %q has an invalid default", f.Key)
 	}
-	keys[f.Key] = true
 	for what, t := range map[string]LocalText{"label": f.Label, "help": f.Help, "placeholder": f.Placeholder, "prefix": f.Prefix, "suffix": f.Suffix} {
 		if err := checkText(t, fmt.Sprintf("the %s of field %q", what, f.Key), false); err != nil {
 			return err
 		}
 	}
 	if f.Widget == "select" {
-		if len(f.Options) == 0 || len(f.Options) > maxPluginOptions {
-			return manifestErrorf("field %q must have 1–%d options", f.Key, maxPluginOptions)
+		if len(f.Options) == 0 || len(f.Options) > manifest.MaxOptions {
+			return manifestErrorf("field %q must have 1–%d options", f.Key, manifest.MaxOptions)
 		}
 		seen := map[string]bool{}
 		for _, o := range f.Options {
@@ -480,8 +433,8 @@ func (c *PluginCredential) normalize() error {
 	} else if err := checkIcon(&c.Icon); err != nil {
 		return err
 	}
-	if len(c.Sections) == 0 || len(c.Sections) > maxPluginSections {
-		return manifestErrorf("credential must have 1–%d sections", maxPluginSections)
+	if len(c.Sections) == 0 || len(c.Sections) > manifest.MaxSections {
+		return manifestErrorf("credential must have 1–%d sections", manifest.MaxSections)
 	}
 	keys := map[string]bool{}
 	secrets := map[string]bool{}
@@ -563,8 +516,12 @@ func pluginSections(sections []PluginSection, lang string) []SectionDef {
 	for _, s := range sections {
 		fields := make([]FieldDef, 0, len(s.Fields))
 		for _, f := range s.Fields {
+			label := f.Label.In(lang)
+			if strings.TrimSpace(label) == "" {
+				label = f.Key
+			}
 			fd := FieldDef{
-				Key: f.Key, Widget: f.Widget, Label: f.Label.In(lang), Help: f.Help.In(lang), Placeholder: f.Placeholder.In(lang),
+				Key: f.Key, Widget: f.Widget, Label: label, Help: f.Help.In(lang), Placeholder: f.Placeholder.In(lang),
 				Prefix: f.Prefix.In(lang), Suffix: f.Suffix.In(lang), Display: f.Display, Required: f.Required, ShowIf: f.ShowIf,
 				Min: f.Min, Max: f.Max, MaxLength: f.MaxLength, Multiline: f.Multiline, Default: f.Default,
 				CredentialType: f.CredentialType, Secret: f.Secret,
@@ -573,11 +530,24 @@ func pluginSections(sections []PluginSection, lang string) []SectionDef {
 				fd.Widget = "text"
 			}
 			for _, o := range f.Options {
-				fd.Options = append(fd.Options, OptionDef{Value: o.Value, Label: o.Label.In(lang)})
+				optionLabel := o.Label.In(lang)
+				if strings.TrimSpace(optionLabel) == "" {
+					optionLabel = optionText(o.Value)
+				}
+				fd.Options = append(fd.Options, OptionDef{Value: o.Value, Label: optionLabel})
 			}
 			fields = append(fields, fd)
 		}
 		out = append(out, SectionDef{Title: s.Title.In(lang), Description: s.Description.In(lang), ShowIf: s.ShowIf, Fields: fields})
 	}
 	return out
+}
+
+// optionText shows the option value without a label, a string as is and the other values as JSON.
+func optionText(value json.RawMessage) string {
+	var s string
+	if json.Unmarshal(value, &s) == nil {
+		return s
+	}
+	return string(value)
 }

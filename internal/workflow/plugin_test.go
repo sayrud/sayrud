@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/samber/lo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -175,7 +176,7 @@ func TestPluginCredential(t *testing.T) {
 	fields := def.Fields()
 	require.Len(t, fields, 2)
 	assert.False(t, fields[0].Secret)
-	assert.Equal(t, FieldDef{Key: "token", Widget: "text", Required: true, Secret: true}, fields[1])
+	assert.Equal(t, FieldDef{Key: "token", Widget: "text", Label: "token", Required: true, Secret: true}, fields[1], "an empty label shows the key")
 }
 
 func newPluginExecution(actions Actions, preview bool) *execution {
@@ -358,4 +359,13 @@ func TestModulesIn(t *testing.T) {
 	assert.Equal(t, "文本", last.Outputs[0].Label)
 	assert.Equal(t, &SummaryDef{Parts: []string{"value:name"}}, last.Summary)
 	assert.Len(t, modules, len(Modules())+1)
+}
+
+func TestPluginFieldLabelFallback(t *testing.T) {
+	m, err := ParsePluginManifest([]byte(`{"id":"pick","version":"1","name":"Pick","sections":[{"fields":[
+		{"key":"level","widget":"select","options":[{"value":"info"},{"value":2},{"value":"alert","label":{"zh-CN":"告警"}}]}]}]}`))
+	require.NoError(t, err)
+	field := m.ModuleDef("en", 1001, true).Sections[0].Fields[0]
+	assert.Equal(t, "level", field.Label)
+	assert.Equal(t, []string{"info", "2", "告警"}, lo.Map(field.Options, func(o OptionDef, _ int) string { return o.Label }))
 }

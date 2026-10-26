@@ -8,14 +8,13 @@ import { compileScript, parse } from 'vue/compiler-sfc'
 
 import type { AdminFieldShortcut, SaveFieldShortcut, TestFieldShortcutResp } from '../src/api/shortcut.ts'
 import * as shortcut from '../src/utils/shortcut.ts'
-import * as formItems from '../src/utils/shortcutFormItems.ts'
 import * as workflowPlugin from '../src/utils/workflowPlugin.ts'
 import * as localTexts from '../src/utils/localText.ts'
 
 const source = `export const manifest = {
   name: "Original", version: "1.0.0", description: "Description", resultType: "text",
-  formItems: [{key: "text", label: "Text", component: "input", required: true}],
-  domains: [], credentials: [{key: "api", label: "API Key", type: "bearer"}], timeoutSeconds: 30, aiEnabled: false,
+  timeout: 30, permissions: {fetch: [], ai: false}, credentials: [{key: "api", label: "API Key", type: "bearer"}],
+  sections: [{fields: [{key: "text", label: "Text", widget: "text", required: true}]}],
 };
 // keep this execution comment
 export function execute(params) { return params.text.toUpperCase() }`
@@ -31,15 +30,15 @@ async function readManifest(code: string, language = 'javascript') {
 
 function savedShortcut(code = source): AdminFieldShortcut {
   return {
-    uid: 'fscAAAAAAA', name: 'Original', version: '1.0.0', description: 'Description', resultType: 'text', code, language: 'javascript',
-    formItems: [{ key: 'text', label: 'Text', component: 'input', required: true }], domains: [],
-    credentials: [{ key: 'api', label: 'API Key', type: 'bearer', hasValue: true }], timeoutSeconds: 30, aiEnabled: false,
+    uid: 'fscAAAAAAA', name: { '': 'Original' }, version: '1.0.0', description: { '': 'Description' }, resultType: 'text', code, language: 'javascript',
+    timeout: 30, permissions: { fetch: [], ai: false }, credentials: [{ key: 'api', label: { '': 'API Key' }, type: 'bearer', hasValue: true }],
+    sections: [{ fields: [{ key: 'text', label: { '': 'Text' }, widget: 'text', required: true }] }],
     enabled: false, usedBy: 1, createdAt: '', updatedAt: '',
   }
 }
 
 interface Editor {
-  draft: Omit<SaveFieldShortcut, 'formItems' | 'credentials'> & { formItems: string; credentials: { key: string; label: string; type: string; name: string; value: string; hasValue: boolean }[] }
+  draft: Omit<SaveFieldShortcut, 'credentials'> & { credentials: { key: string; label: localTexts.LocalText; type: string; name: string; value: string; hasValue: boolean }[] }
   dirty: vue.ComputedRef<boolean>
   sourceDirty: vue.ComputedRef<boolean>
   availableTabs: vue.ComputedRef<string[]>
@@ -74,7 +73,7 @@ async function loadEditor(saved = savedShortcut()) {
     },
     update: async (_uid: string, body: SaveFieldShortcut) => {
       writes.push(JSON.parse(JSON.stringify(body)))
-      return { ...saved, ...body, credentials: body.credentials.map((c) => ({ key: c.key, label: c.label, type: c.type, name: c.name, hasValue: !!c.value })) } as AdminFieldShortcut
+      return { ...saved, ...body, credentials: body.credentials.map((c) => ({ key: c.key, label: c.label, type: c.type, name: c.name, hasValue: !!body.secrets?.[c.key] })) } as AdminFieldShortcut
     },
     test: async (body: SaveFieldShortcut) => {
       runs.push(JSON.parse(JSON.stringify(body)))
@@ -92,7 +91,6 @@ async function loadEditor(saved = savedShortcut()) {
     '@/api/shortcut': { adminShortcutsApi: api },
     '@/utils/fieldTypes': {},
     '@/utils/shortcut': shortcut,
-    '@/utils/shortcutFormItems': formItems,
     '@/utils/workflowPlugin': workflowPlugin,
     '@/utils/localText': localTexts,
   }
@@ -124,18 +122,19 @@ test('module definitions refresh the overview while credential values and enable
 
   page.draft.code = withManifest(page.draft.code, {
     credentials: [{ key: 'api', label: 'Renamed API Key', type: 'bearer' }],
-    name: 'From code', version: '2.0.0', description: 'From source', formItems: [{ key: 'text', label: 'Code label', component: 'textarea' }], domains: ['api.example.com'], timeoutSeconds: 60, aiEnabled: true,
+    name: 'From code', version: '2.0.0', description: 'From source', sections: [{ title: 'Input', fields: [{ key: 'text', label: 'Code label', widget: 'text', multiline: true }] }],
+    permissions: { fetch: ['api.example.com'], ai: true }, timeout: 60,
   })
   const updatedSource = page.draft.code
   await page.switchTab('overview')
   assert.equal(page.tab.value, 'overview')
-  assert.equal(page.draft.name, 'From code')
+  assert.equal(page.text(page.draft.name), 'From code')
   assert.equal(page.draft.version, '2.0.0')
-  assert.equal(JSON.parse(page.draft.formItems)[0].component, 'textarea')
-  assert.equal(page.draft.timeoutSeconds, 60)
-  assert.equal(page.draft.aiEnabled, true)
+  assert.equal(page.text(page.draft.sections[0]!.title), 'Input')
+  assert.equal(page.draft.sections[0]!.fields[0]!.multiline, true)
+  assert.equal(page.draft.timeout, 60)
   assert.equal(page.draft.enabled, true)
-  assert.deepEqual(page.draft.domains, ['api.example.com'])
+  assert.deepEqual(page.draft.permissions, { fetch: ['api.example.com'], ai: true })
   assert.equal(page.draft.credentials[0]!.label, 'Renamed API Key')
   assert.equal(page.draft.credentials[0]!.value, 'private-value')
   assert.equal(page.draft.credentials[0]!.hasValue, true)
@@ -150,7 +149,10 @@ test('module definitions refresh the overview while credential values and enable
   assert.equal('enabled' in await readManifest(writes[0]!.code), false)
   assert.equal((await readManifest(writes[0]!.code)).version, '2.0.0')
   assert.equal(writes[0]!.credentials[0]!.label, 'Renamed API Key')
-  assert.equal(writes[0]!.credentials[0]!.value, 'private-value')
+  assert.deepEqual(writes[0]!.secrets, { api: 'private-value' })
+  assert.equal(JSON.stringify(writes[0]!.credentials).includes('private-value'), false)
+  assert.deepEqual(writes[0]!.permissions, { fetch: ['api.example.com'], ai: true })
+  assert.equal(writes[0]!.timeout, 60)
   assert.equal(page.dirty.value, false)
   assert.equal(page.sourceDirty.value, false)
 })
@@ -162,7 +164,7 @@ test('editing credentials keeps source expressions intact and removing definitio
   page.draft.credentials[0]!.value = 'private-value'
   await page.save()
   assert.equal(writes[0]!.code, expressionSource)
-  assert.equal(writes[0]!.credentials[0]!.value, 'private-value')
+  assert.deepEqual(writes[0]!.secrets, { api: 'private-value' })
   assert.equal(page.draft.credentials[0]!.value, '')
   assert.equal(page.draft.credentials[0]!.hasValue, true)
 
@@ -180,13 +182,13 @@ test('upgrading from the details page refreshes the saved source, credentials an
   await page.test()
   assert.ok(page.testResult.value)
 
-  const formItems = [{ key: 'content', label: 'Content', component: 'input' as const, default: 'Example' }]
-  const code = withManifest(source, { name: 'Upgraded', version: '2.0.0', formItems, credentials: [{ key: 'token', label: 'Access token', type: 'bearer' }] })
-  page.onUpgraded({ ...savedShortcut(), name: 'Upgraded', version: '2.0.0', code, formItems, credentials: [{ key: 'token', label: 'Access token', type: 'bearer', hasValue: true }] })
-  assert.equal(page.draft.name, 'Upgraded')
+  const sections = [{ fields: [{ key: 'content', label: { '': 'Content' }, widget: 'text' as const, default: 'Example' }] }]
+  const code = withManifest(source, { name: 'Upgraded', version: '2.0.0', sections, credentials: [{ key: 'token', label: 'Access token', type: 'bearer' }] })
+  page.onUpgraded({ ...savedShortcut(), name: { '': 'Upgraded' }, version: '2.0.0', code, sections, credentials: [{ key: 'token', label: { '': 'Access token' }, type: 'bearer', hasValue: true }] })
+  assert.equal(page.text(page.draft.name), 'Upgraded')
   assert.equal(page.draft.version, '2.0.0')
   assert.equal(page.draft.code, code)
-  assert.deepEqual(page.draft.credentials, [{ key: 'token', label: 'Access token', type: 'bearer', name: '', value: '', hasValue: true }])
+  assert.deepEqual(page.draft.credentials, [{ key: 'token', label: { '': 'Access token' }, type: 'bearer', name: '', value: '', hasValue: true }])
   assert.deepEqual(JSON.parse(page.params.value), { content: 'Example' })
   assert.equal(page.testResult.value, null)
   assert.equal(page.dirty.value, false)
@@ -240,7 +242,7 @@ test('invalid source blocks tab changes, saving and testing without overwriting 
   await page.test()
   assert.equal(page.tab.value, 'code')
   assert.equal(page.draft.code, invalid)
-  assert.equal(page.draft.name, 'Original')
+  assert.equal(page.text(page.draft.name), 'Original')
   assert.ok(page.syncError.value)
   assert.equal(writes.length, 0)
   assert.equal(runs.length, 0)
@@ -267,9 +269,9 @@ test('credential definition changes and stale source inspections cannot reuse or
   page.draft.code = withManifest(page.draft.code, { name: 'Pending' })
   const pending = page.switchTab('overview')
   page.draft.code += '\n// newer edit'
-  resolve({ ...savedShortcut(), name: 'Stale' })
+  resolve({ ...savedShortcut(), name: { '': 'Stale' } })
   await pending
-  assert.equal(page.draft.name, 'Original')
+  assert.equal(page.text(page.draft.name), 'Original')
   assert.match(page.draft.code, /\/\/ newer edit/)
   assert.equal(page.tab.value, 'code')
   assert.equal(page.syncError.value, 'shortcutAdmin.manifestSourceChanged')
@@ -297,6 +299,7 @@ test('all shortcuts use the new tabs and source changes require a manifest', asy
   assert.equal(page.syncError.value, '')
   assert.equal(writes[0]!.code, source)
   assert.equal(writes[0]!.name, 'Original')
+  assert.deepEqual(writes[0]!.sections, [{ fields: [{ key: 'text', label: 'Text', widget: 'text', required: true }] }])
 })
 
 test('typed shortcut definitions refresh and save with the selected language', async (t) => {
@@ -312,7 +315,7 @@ test('typed shortcut definitions refresh and save with the selected language', a
 
   page.draft.code = withManifest(page.draft.code, { name: 'Typed code' })
   await page.switchTab('overview')
-  assert.equal(page.draft.name, 'Typed code')
+  assert.equal(page.text(page.draft.name), 'Typed code')
   await page.save()
   assert.equal(writes[0]!.language, 'typescript')
   assert.match(writes[0]!.code, /params: Params/)
@@ -347,17 +350,19 @@ test('localized definitions survive source refresh, credential editing and savin
   t.after(stop)
   const label = { en: 'Text', 'zh-CN': '文本' }
   const credentialLabel = { en: 'API Key', 'zh-CN': 'API 密钥' }
-  const formItems = [{ key: 'text', label, placeholder: { en: 'Type text', 'zh-CN': '填写文本' }, component: 'input' }]
+  const sections = [{ title: { en: 'Input', 'zh-CN': '输入' }, fields: [{ key: 'text', label, placeholder: { en: 'Type text', 'zh-CN': '填写文本' }, help: { en: 'Any text', 'zh-CN': '任意文本' }, widget: 'text' }] }]
   page.draft.credentials[0]!.value = 'private-value'
   await page.switchTab('code')
-  page.draft.code = withManifest(page.draft.code, { formItems, credentials: [{ key: 'api', label: credentialLabel, type: 'bearer' }] })
+  page.draft.code = withManifest(page.draft.code, { name: { en: 'Localized', 'zh-CN': '本地化' }, sections, credentials: [{ key: 'api', label: credentialLabel, type: 'bearer' }] })
   await page.switchTab('overview')
   assert.equal(page.text(label), 'Text')
   locale.value = 'zh-CN'
   assert.equal(page.text(label), '文本')
+  assert.equal(page.text(page.draft.name), '本地化')
   await page.save()
-  assert.deepEqual(writes[0]!.formItems, formItems)
+  assert.deepEqual(writes[0]!.name, { en: 'Localized', 'zh-CN': '本地化' })
+  assert.deepEqual(writes[0]!.sections, sections)
   assert.deepEqual(writes[0]!.credentials[0]!.label, credentialLabel)
-  assert.equal(writes[0]!.credentials[0]!.value, 'private-value')
+  assert.deepEqual(writes[0]!.secrets, { api: 'private-value' })
   assert.equal(writes[0]!.code.includes('private-value'), false)
 })

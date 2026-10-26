@@ -23,11 +23,11 @@ func toManifest(custom *db.CustomFieldShortcut, aiConfigured bool) *dto.FieldSho
 	return &dto.FieldShortcutManifest{
 		ID:          custom.UID,
 		Kind:        "script",
-		AIEnabled:   custom.AIEnabled,
 		Name:        custom.Name,
 		Description: custom.Description,
 		ResultTypes: []string{string(custom.ResultType)},
-		FormItems:   lo.Ternary(custom.FormItems.Data() == nil, []db.ShortcutFormItem{}, custom.FormItems.Data()),
+		Sections:    dto.ShortcutSections(custom),
+		Permissions: dto.FieldShortcutPermissions{AI: custom.AIEnabled},
 		Available:   custom.Enabled && (!custom.AIEnabled || aiConfigured),
 	}
 }

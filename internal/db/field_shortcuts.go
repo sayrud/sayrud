@@ -38,57 +38,84 @@ func NewFieldShortcutsStore(db *gorm.DB) FieldShortcutsStore {
 	return &fieldShortcuts{db}
 }
 
-// ShortcutFormComponent is the control of a shortcut form item.
-type ShortcutFormComponent string
+// ShortcutWidget is the control of a shortcut form field.
+type ShortcutWidget string
 
 const (
-	// ShortcutFormFieldSelect picks a field of the table, the cell value of the record is passed when executing.
-	ShortcutFormFieldSelect ShortcutFormComponent = "field_select"
-	ShortcutFormInput       ShortcutFormComponent = "input"
-	ShortcutFormTextarea    ShortcutFormComponent = "textarea"
-	ShortcutFormSelect      ShortcutFormComponent = "select"
-	// ShortcutFormFieldOptions edits the host select field's options and passes their names as a string array.
-	ShortcutFormFieldOptions ShortcutFormComponent = "field_options"
-	// ShortcutFormPrompt is a text referencing the fields by `{fieldUID}`, which are replaced by the cell texts when executing.
-	ShortcutFormPrompt ShortcutFormComponent = "prompt"
+	// ShortcutWidgetFieldSelect picks a field of the table, the cell value of the record is passed when executing.
+	ShortcutWidgetFieldSelect ShortcutWidget = "field_select"
+	// ShortcutWidgetText is a text input, or a text area if the field is multiline.
+	ShortcutWidgetText   ShortcutWidget = "text"
+	ShortcutWidgetSelect ShortcutWidget = "select"
+	// ShortcutWidgetFieldOptions edits the host select field's options and passes their names as a string array.
+	ShortcutWidgetFieldOptions ShortcutWidget = "field_options"
+	// ShortcutWidgetPrompt is a text referencing the fields by `{fieldUID}`, which are replaced by the cell texts when executing.
+	ShortcutWidgetPrompt ShortcutWidget = "prompt"
 )
 
-// Valid reports whether the component is supported.
-func (c ShortcutFormComponent) Valid() bool {
-	switch c {
-	case ShortcutFormFieldSelect, ShortcutFormInput, ShortcutFormTextarea, ShortcutFormSelect, ShortcutFormFieldOptions, ShortcutFormPrompt:
+// Valid reports whether the widget is supported.
+func (w ShortcutWidget) Valid() bool {
+	switch w {
+	case ShortcutWidgetFieldSelect, ShortcutWidgetText, ShortcutWidgetSelect, ShortcutWidgetFieldOptions, ShortcutWidgetPrompt:
 		return true
 	}
 	return false
 }
 
-// ShortcutFormOption is an option of the select form item.
-type ShortcutFormOption struct {
+// ShortcutOption is an option of the select field.
+type ShortcutOption struct {
 	// Value is the configured value of the option.
 	Value string `json:"value"`
-	// Label is the text of the option shown in the form.
-	Label i18n.LocalText `json:"label"`
-} // @name ShortcutFormOption
+	// Label is the text of the option shown in the form, the value if empty.
+	Label i18n.LocalText `json:"label,omitempty"`
+} // @name ShortcutOption
 
-// ShortcutFormItem describes an input of a shortcut, the field editor renders the form by them.
-type ShortcutFormItem struct {
+// ShortcutField describes an input of a shortcut, the field editor renders the form by them.
+type ShortcutField struct {
 	// Key is the key of the configured value in FieldShortcut.Inputs and of the parameter passed to the shortcut.
 	Key string `json:"key"`
-	// Label is the name of the item shown in the form.
-	Label i18n.LocalText `json:"label"`
-	// Component is the control to render the item.
-	Component ShortcutFormComponent `json:"component" swaggertype:"string" enums:"field_select,input,textarea,select,field_options,prompt"`
-	// Required reports whether the item must be filled in before saving or executing.
-	Required bool `json:"required,omitempty"`
+	// Widget is the control to render the field.
+	Widget ShortcutWidget `json:"widget" swaggertype:"string" enums:"field_select,text,select,field_options,prompt"`
+	// Label is the name of the field shown in the form, the key if empty.
+	Label i18n.LocalText `json:"label,omitempty"`
+	// Help is the description shown below the control.
+	Help i18n.LocalText `json:"help,omitempty"`
 	// Placeholder is the hint of the empty input.
 	Placeholder i18n.LocalText `json:"placeholder,omitempty"`
+	// Required reports whether the field must be filled in before saving or executing.
+	Required bool `json:"required,omitempty"`
+	// Multiline shows a text area for text.
+	Multiline bool `json:"multiline,omitempty"`
 	// FieldTypes limits the fields of field_select, empty allows all the fields except formulas.
 	FieldTypes []SLFieldType `json:"fieldTypes,omitempty" swaggertype:"array,string"`
 	// Options are the choices of select.
-	Options []ShortcutFormOption `json:"options,omitempty"`
+	Options []ShortcutOption `json:"options,omitempty"`
 	// Default is the initial value when configuring a new field.
 	Default string `json:"default,omitempty"`
-} // @name ShortcutFormItem
+} // @name ShortcutField
+
+// DisplayLabel is the label of the field, or its key if the label is empty.
+func (f ShortcutField) DisplayLabel() i18n.LocalText {
+	if strings.TrimSpace(f.Label.In("en")) == "" {
+		return i18n.LocalText{"": f.Key}
+	}
+	return f.Label
+}
+
+// ShortcutSection is a group of the form fields of a shortcut.
+type ShortcutSection struct {
+	Title       i18n.LocalText  `json:"title,omitempty"`
+	Description i18n.LocalText  `json:"description,omitempty"`
+	Fields      []ShortcutField `json:"fields"`
+} // @name ShortcutSection
+
+// ShortcutPermissions are what a shortcut is allowed to reach.
+type ShortcutPermissions struct {
+	// Fetch are the hosts context.fetch can request, including their subdomains; * allows any public host.
+	Fetch []string `json:"fetch"`
+	// AI allows context.ai.complete to use the globally configured model.
+	AI bool `json:"ai"`
+} // @name ShortcutPermissions
 
 // ShortcutCredentialType is how a credential is put into the request.
 type ShortcutCredentialType string
@@ -115,10 +142,10 @@ func (t ShortcutCredentialType) Valid() bool {
 type ShortcutCredential struct {
 	// Key is the identifier the script passes to context.fetch to use the credential.
 	Key string `json:"key"`
-	// Label is the display name of the credential.
-	Label i18n.LocalText `json:"label"`
+	// Label is the display name of the credential, the key if empty.
+	Label i18n.LocalText `json:"label,omitempty"`
 	// Type is how the credential is put into the request.
-	Type ShortcutCredentialType `json:"type"`
+	Type ShortcutCredentialType `json:"type" swaggertype:"string" enums:"bearer,header,query"`
 	// Name is the header or query parameter name, it is ignored by bearer.
 	Name string `json:"name,omitempty"`
 } // @name ShortcutCredential
@@ -131,11 +158,11 @@ type CustomFieldShortcut struct {
 	// UID is "fsc" followed by 7 random characters, the fields refer to the shortcut by it.
 	UID string `gorm:"type:varchar(16);not null;uniqueIndex:idx_field_shortcuts_uid, where:deleted_at IS NULL"`
 	// Name is shown in the field editor.
-	Name string `gorm:"type:varchar(64);not null"`
+	Name i18n.LocalText `gorm:"type:jsonb;not null"`
 	// Version is the manifest version, defaulting to 1.0.0 for existing shortcuts.
 	Version string `gorm:"type:varchar(32);not null;default:1.0.0"`
 	// Description tells the members what the shortcut does, empty if not set.
-	Description string `gorm:"type:text;not null;default:''"`
+	Description i18n.LocalText `gorm:"type:jsonb;not null"`
 	// ResultType is the type of the fields the shortcut can be attached to.
 	ResultType SLFieldType `gorm:"type:varchar(32);not null"`
 	// Code defines `async function execute(params, context)` returning the cell value, with context.ai.complete using the global model when AIEnabled.
@@ -144,8 +171,8 @@ type CustomFieldShortcut struct {
 	Language string `gorm:"type:varchar(16);not null;default:javascript"`
 	// AIEnabled allows the script to call the globally configured AI model.
 	AIEnabled bool `gorm:"not null;default:false"`
-	// FormItems are the inputs configured in the field editor and passed to execute as the params.
-	FormItems datatypes.JSONType[[]ShortcutFormItem] `gorm:"type:jsonb;not null"`
+	// Sections are the form fields configured in the field editor and passed to execute as the params.
+	Sections datatypes.JSONType[[]ShortcutSection] `gorm:"type:jsonb;not null"`
 	// Domains are the hosts the script can fetch, including their subdomains.
 	Domains datatypes.JSONType[[]string] `gorm:"type:jsonb;not null"`
 	// Credentials are the definitions of the credentials without their values.
@@ -156,6 +183,15 @@ type CustomFieldShortcut struct {
 	TimeoutSeconds int `gorm:"not null;default:30"`
 	// Enabled reports whether the members can attach and execute the shortcut.
 	Enabled bool `gorm:"not null;default:false"`
+}
+
+// Fields returns the form fields of all the sections.
+func (s *CustomFieldShortcut) Fields() []ShortcutField {
+	var fields []ShortcutField
+	for _, section := range s.Sections.Data() {
+		fields = append(fields, section.Fields...)
+	}
+	return fields
 }
 
 // TableName keeps the table name short, as there is no built-in shortcut table.
@@ -185,7 +221,7 @@ func (db *fieldShortcuts) List(ctx context.Context) ([]*CustomFieldShortcut, err
 // ListFieldShortcutsOptions are the options of listing shortcuts in the admin console.
 type ListFieldShortcutsOptions struct {
 	dbutil.Pagination
-	// Keyword matches the name or description case-insensitively.
+	// Keyword matches a translation of the name or description case-insensitively.
 	Keyword string
 }
 
@@ -193,7 +229,7 @@ func (db *fieldShortcuts) ListAdmin(ctx context.Context, opts ListFieldShortcuts
 	q := db.WithContext(ctx).Model(&CustomFieldShortcut{})
 	if k := strings.TrimSpace(opts.Keyword); k != "" {
 		pattern := "%" + dbutil.EscapeLike(strings.ToLower(k)) + "%"
-		q = q.Where("LOWER(name) LIKE ? OR LOWER(description) LIKE ?", pattern, pattern)
+		q = q.Where("EXISTS (SELECT 1 FROM jsonb_each_text(name) WHERE LOWER(value) LIKE ?) OR EXISTS (SELECT 1 FROM jsonb_each_text(description) WHERE LOWER(value) LIKE ?)", pattern, pattern)
 	}
 	var total int64
 	if err := q.Count(&total).Error; err != nil {
@@ -237,7 +273,7 @@ func (db *fieldShortcuts) Update(ctx context.Context, s *CustomFieldShortcut) er
 		"code":            s.Code,
 		"language":        s.Language,
 		"ai_enabled":      s.AIEnabled,
-		"form_items":      s.FormItems,
+		"sections":        s.Sections,
 		"domains":         s.Domains,
 		"credentials":     s.Credentials,
 		"secrets":         s.Secrets,

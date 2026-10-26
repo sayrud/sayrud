@@ -12,7 +12,8 @@ import { DATE_FORMATS, defaultMetadata, FIELD_TYPES, fieldTypeInfo, NUMBER_FORMA
 import { formatNumber } from '@/utils/format'
 import { expToDisplay } from '@/utils/formula'
 import { newOptionUID } from '@/utils/id'
-import { legacyOptionNames, missingInput, newShortcut } from '@/utils/shortcut'
+import { legacyOptionNames, missingInput, newShortcut, shortcutFields } from '@/utils/shortcut'
+import { localText, type LocalText } from '@/utils/localText'
 import { referenceComplete } from '@/utils/optionReference'
 import FieldTypeIcon from './FieldTypeIcon.vue'
 import FormulaModal from './FormulaModal.vue'
@@ -20,6 +21,7 @@ import SelectOptionsEditor from './SelectOptionsEditor.vue'
 import ShortcutForm from './ShortcutForm.vue'
 
 const { t, locale } = useI18n()
+const text = (value: LocalText | undefined) => localText(value, locale.value)
 
 const store = useBaseStore()
 const state = computed(() => store.fieldEditor!)
@@ -85,7 +87,7 @@ const filteredTypes = computed(() => {
 
 const filteredShortcuts = computed(() => {
   const k = typeKeyword.value.trim().toLowerCase()
-  return store.shortcutCatalog.filter((m) => !k || m.name.toLowerCase().includes(k) || m.description.toLowerCase().includes(k))
+  return store.shortcutCatalog.filter((m) => !k || text(m.name).toLowerCase().includes(k) || text(m.description).toLowerCase().includes(k))
 })
 
 type MenuEntry = { key: string; type: FieldTypeInfo; shortcut?: never } | { key: string; shortcut: FieldShortcutManifest; type?: never }
@@ -128,11 +130,12 @@ function selectShortcut(m: FieldShortcutManifest) {
   }
   const next = m.resultTypes.includes(type.value) ? type.value : m.resultTypes[0]
   if (next && next !== type.value) changeType(next)
-  if (m.formItems.some((item) => item.component === 'field_options')) {
+  const fields = shortcutFields(m)
+  if (fields.some((item) => item.widget === 'field_options')) {
     if (!options.value.length) {
       options.value = legacyOptionNames(m, shortcut.value!.inputs).map((name, color) => ({ uid: newOptionUID(), name, color }))
     }
-    for (const item of m.formItems) if (item.component === 'field_options') delete shortcut.value!.inputs[item.key]
+    for (const item of fields) if (item.widget === 'field_options') delete shortcut.value!.inputs[item.key]
   }
 }
 
@@ -187,7 +190,7 @@ const optionsReference = computed<OptionReference | undefined>({
   },
 })
 
-const hasOptionsItem = computed(() => manifest.value?.formItems.some((item) => item.component === 'field_options'))
+const hasOptionsItem = computed(() => !!manifest.value && shortcutFields(manifest.value).some((item) => item.widget === 'field_options'))
 
 const missingShortcutInput = computed(() => (shortcut.value && manifest.value ? missingInput(manifest.value, shortcut.value.inputs, locale.value) : null))
 const formulaDisplay = computed(() => expToDisplay(String(md.value.exp ?? ''), store.fields))
@@ -220,7 +223,7 @@ async function save() {
       return
     }
   }
-  const finalLabel = label.value.trim() || uniqueLabel(manifest.value?.name ?? fieldTypeInfo(type.value).label)
+  const finalLabel = label.value.trim() || uniqueLabel(manifest.value ? text(manifest.value.name) : fieldTypeInfo(type.value).label)
   const metadata: Record<string, unknown> = type.value === 'attachment' ? {} : { ...md.value }
   if (type.value === 'single_select' || type.value === 'multi_select') {
     const names = namedOptions.value.map((o) => o.name.trim())
@@ -269,14 +272,14 @@ const numberExample = computed(() => formatNumber(1234.5678, String(md.value.for
     <div class="field-editor" @keydown.enter.ctrl="save" @mousedown="onEditorMouseDown">
       <div class="row">
         <div class="row-label">{{ t('fieldEditor.title') }}</div>
-        <a-input ref="labelInput" v-model="label" :placeholder="manifest?.name ?? fieldTypeInfo(type).label" :max-length="100" @press-enter="save" />
+        <a-input ref="labelInput" v-model="label" :placeholder="manifest ? text(manifest.name) : fieldTypeInfo(type).label" :max-length="100" @press-enter="save" />
       </div>
       <div class="row">
         <div class="row-label">{{ t('fieldEditor.type') }}</div>
         <button ref="typeTrigger" type="button" class="type-trigger" :class="{ open: !!typeMenu }" @click="toggleTypeMenu">
-          <component :is="manifest.aiEnabled ? Sparkles : Zap" v-if="shortcut && manifest" :size="16" class="shortcut-icon" />
+          <component :is="manifest.permissions.ai ? Sparkles : Zap" v-if="shortcut && manifest" :size="16" class="shortcut-icon" />
           <FieldTypeIcon v-else :type="type" :size="16" />
-          <span class="type-trigger-label">{{ shortcut ? (manifest?.name ?? shortcut.id) : fieldTypeInfo(type).label }}</span>
+          <span class="type-trigger-label">{{ shortcut ? (manifest ? text(manifest.name) : shortcut.id) : fieldTypeInfo(type).label }}</span>
           <ChevronRight :size="16" class="type-trigger-arrow" />
         </button>
         <div v-if="typeChanged && store.records.length" class="warn">
@@ -288,8 +291,8 @@ const numberExample = computed(() => formatNumber(1234.5678, String(md.value.for
         <div v-if="!manifest" class="warn shortcut-warn"><TriangleAlert :size="14" /> {{ t('shortcut.missing') }}</div>
         <template v-else>
           <div v-if="!manifest.available" class="warn shortcut-warn"><TriangleAlert :size="14" /> {{ t('shortcut.unavailable') }}</div>
-          <div v-if="manifest.description" class="hint shortcut-description">{{ manifest.description }}</div>
-          <ShortcutForm v-model="shortcut.inputs" v-model:options="options" v-model:reference="optionsReference" :items="manifest.formItems" :fields="store.fields" :field-u-i-d="editing?.uid" />
+          <div v-if="text(manifest.description)" class="hint shortcut-description">{{ text(manifest.description) }}</div>
+          <ShortcutForm v-model="shortcut.inputs" v-model:options="options" v-model:reference="optionsReference" :sections="manifest.sections" :fields="store.fields" :field-u-i-d="editing?.uid" />
         </template>
         <div class="row inline">
           <span>{{ t('shortcut.autoUpdate') }}</span>
@@ -421,12 +424,12 @@ const numberExample = computed(() => formatNumber(1234.5678, String(md.value.for
             :key="m.id"
             class="type-item"
             :class="{ active: filteredTypes.length + i === typeActive, disabled: !m.available }"
-            :title="m.available ? m.description : t('shortcut.unavailable')"
+            :title="m.available ? text(m.description) : t('shortcut.unavailable')"
             @mouseenter="typeActive = filteredTypes.length + i"
             @click="selectShortcut(m)"
           >
-            <component :is="m.aiEnabled ? Sparkles : Zap" :size="16" class="shortcut-icon" />
-            <span class="type-item-label">{{ m.name }}</span>
+            <component :is="m.permissions.ai ? Sparkles : Zap" :size="16" class="shortcut-icon" />
+            <span class="type-item-label">{{ text(m.name) }}</span>
             <Check v-if="shortcut?.id === m.id" :size="15" class="type-check" />
           </div>
           <div v-if="!menuEntries.length" class="type-empty">{{ t('fieldEditor.noType') }}</div>

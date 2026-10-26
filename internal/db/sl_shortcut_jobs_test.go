@@ -13,6 +13,8 @@ import (
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
+
+	"github.com/wuhan005/sayrud/internal/i18n"
 )
 
 // newTestDB connects to the PostgreSQL of the PG* environment variables in a temporary schema, and skips the test if not configured.
@@ -158,11 +160,11 @@ func TestCustomFieldShortcutAIEnabled(t *testing.T) {
 	store := NewFieldShortcutsStore(newTestDB(t, &CustomFieldShortcut{}))
 
 	s := &CustomFieldShortcut{
-		Name:        "Custom AI shortcut",
+		Name:        i18n.LocalText{"": "Custom AI shortcut"},
 		ResultType:  TextFieldType,
 		Code:        "async function execute(params) { return params.text; }",
 		AIEnabled:   true,
-		FormItems:   datatypes.NewJSONType([]ShortcutFormItem{}),
+		Sections:    datatypes.NewJSONType([]ShortcutSection{}),
 		Domains:     datatypes.NewJSONType([]string{}),
 		Credentials: datatypes.NewJSONType([]ShortcutCredential{}),
 	}

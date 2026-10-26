@@ -67,7 +67,7 @@ func Execute(ctx context.Context, custom *db.CustomFieldShortcut, fields []*db.S
 // any field and all of them are empty.
 func resolveInputs(custom *db.CustomFieldShortcut, fields []*db.SLField, field *db.SLField, data map[string]interface{}) (params map[string]interface{}, empty bool, err error) {
 	byUID := lo.KeyBy(fields, func(f *db.SLField) string { return f.UID })
-	params = make(map[string]interface{}, len(custom.FormItems.Data()))
+	params = make(map[string]interface{}, len(custom.Fields()))
 	readsFields, anyFilled := false, false
 
 	read := func(uid string) (interface{}, bool) {
@@ -83,23 +83,23 @@ func resolveInputs(custom *db.CustomFieldShortcut, fields []*db.SLField, field *
 		return value, true
 	}
 
-	for _, item := range custom.FormItems.Data() {
+	for _, item := range custom.Fields() {
 		raw, _ := field.Shortcut.Inputs[item.Key].(string)
-		switch item.Component {
-		case db.ShortcutFormFieldSelect:
+		switch item.Widget {
+		case db.ShortcutWidgetFieldSelect:
 			if raw == "" {
 				if item.Required {
-					return nil, false, newError("shortcut::input_required", item.Label)
+					return nil, false, newError("shortcut::input_required", item.DisplayLabel())
 				}
 				params[item.Key] = nil
 				continue
 			}
 			value, ok := read(raw)
 			if !ok {
-				return nil, false, newError("shortcut::invalid_input_field", item.Label)
+				return nil, false, newError("shortcut::invalid_input_field", item.DisplayLabel())
 			}
 			params[item.Key] = value
-		case db.ShortcutFormPrompt:
+		case db.ShortcutWidgetPrompt:
 			var invalid bool
 			text := fieldRefPattern.ReplaceAllStringFunc(raw, func(m string) string {
 				value, ok := read(m[1 : len(m)-1])
@@ -109,10 +109,10 @@ func resolveInputs(custom *db.CustomFieldShortcut, fields []*db.SLField, field *
 				return InputText(value)
 			})
 			if invalid {
-				return nil, false, newError("shortcut::invalid_input_field", item.Label)
+				return nil, false, newError("shortcut::invalid_input_field", item.DisplayLabel())
 			}
 			params[item.Key] = text
-		case db.ShortcutFormFieldOptions:
+		case db.ShortcutWidgetFieldOptions:
 			params[item.Key] = optionNames(field)
 		default:
 			params[item.Key] = raw

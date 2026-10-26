@@ -13,7 +13,8 @@ import {
   adminShortcutsApi,
   type AdminFieldShortcut,
   type SaveFieldShortcut,
-  type ShortcutFormItem,
+  type ShortcutField,
+  type ShortcutSection,
   type TestFieldShortcutResp,
 } from '@/api/shortcut'
 import FieldShortcutInstallModal from '@/components/admin/FieldShortcutInstallModal.vue'
@@ -25,8 +26,7 @@ import SettingsSection from '@/components/console/SettingsSection.vue'
 import FieldTypeIcon from '@/components/field/FieldTypeIcon.vue'
 import type { FieldType } from '@/types/bitable'
 import { fieldTypeInfo } from '@/utils/fieldTypes'
-import { formComponentKey, formItemIssueKey, formItemIssueName, loadFormItems, validateFormItems, type FormComponent } from '@/utils/shortcutFormItems'
-import { sampleShortcutParams } from '@/utils/shortcut'
+import { fieldLabel, optionLabel, sampleShortcutParams, shortcutFields } from '@/utils/shortcut'
 import { LANGUAGE_NAMES, pluginFileName, versionLabel, type PluginLanguage } from '@/utils/workflowPlugin'
 
 const { t, locale } = useI18n()
@@ -38,42 +38,41 @@ type CredentialType = 'bearer' | 'header' | 'query'
 
 interface CredentialDraft {
   key: string
-  label: Record<string, string>
+  label?: AdminFieldShortcut['credentials'][number]['label']
   type: CredentialType
   name: string
   value: string
   hasValue: boolean
 }
 
+/** The manifest properties are named as in the source and in the save request. */
 interface Draft {
-  name: string
+  name: AdminFieldShortcut['name']
   version: string
-  description: string
+  description: AdminFieldShortcut['description']
   resultType: FieldType
+  timeout: number
+  permissions: AdminFieldShortcut['permissions']
+  credentials: CredentialDraft[]
+  sections: ShortcutSection[]
   code: string
   language: PluginLanguage
-  formItems: string
-  domains: string[]
-  credentials: CredentialDraft[]
-  timeoutSeconds: number
   enabled: boolean
-  aiEnabled: boolean
 }
 
 function toDraft(s: AdminFieldShortcut | null): Draft {
   return {
-    name: s?.name ?? '',
+    name: s?.name ?? {},
     version: s?.version ?? '1.0.0',
-    description: s?.description ?? '',
+    description: s?.description ?? {},
     resultType: (s?.resultType ?? 'text') as FieldType,
+    timeout: s?.timeout ?? 30,
+    permissions: { fetch: [...(s?.permissions.fetch ?? [])], ai: s?.permissions.ai ?? false },
+    credentials: (s?.credentials ?? []).map((c) => ({ key: c.key, label: c.label, type: c.type as CredentialType, name: c.name ?? '', value: '', hasValue: c.hasValue })),
+    sections: JSON.parse(JSON.stringify(s?.sections ?? [])) as ShortcutSection[],
     code: s?.code ?? '',
     language: s?.language ?? 'javascript',
-    formItems: JSON.stringify(s?.formItems ?? [], null, 2),
-    domains: [...(s?.domains ?? [])],
-    credentials: (s?.credentials ?? []).map((c) => ({ key: c.key, label: c.label, type: c.type as CredentialType, name: c.name ?? '', value: '', hasValue: c.hasValue })),
-    timeoutSeconds: s?.timeoutSeconds ?? 30,
     enabled: s?.enabled ?? true,
-    aiEnabled: s?.aiEnabled ?? false,
   }
 }
 
@@ -93,7 +92,7 @@ const syncError = ref('')
 let syncedCode = draft.code
 let syncedLanguage = draft.language
 
-const params = ref(sampleShortcutParams(JSON.parse(draft.formItems) as ShortcutFormItem[]))
+const params = ref(sampleShortcutParams(shortcutFields(draft)))
 const testing = ref(false)
 const testResult = ref<TestFieldShortcutResp | null>(null)
 
@@ -115,7 +114,7 @@ function reset(s: AdminFieldShortcut | null) {
   syncedLanguage = draft.language
   syncError.value = ''
   baseline.value = JSON.stringify(draft)
-  params.value = sampleShortcutParams(JSON.parse(draft.formItems) as ShortcutFormItem[])
+  params.value = sampleShortcutParams(shortcutFields(draft))
   testResult.value = null
 }
 
@@ -142,6 +141,8 @@ watch(uid, load, { immediate: true })
 
 const TABS = ['overview', 'network', 'code'] as const
 type Tab = (typeof TABS)[number]
+const anyHost = computed(() => draft.permissions.fetch.includes('*'))
+const hosts = computed(() => draft.permissions.fetch.filter((host) => host !== '*'))
 const availableTabs = computed(() => TABS.filter((value) => value !== 'network' || draft.credentials.length > 0))
 
 // Keep the active tab in the query so it survives a refresh.
@@ -176,11 +177,10 @@ async function syncFromCode(): Promise<boolean> {
       version: result.version,
       description: result.description,
       resultType: result.resultType,
-      formItems: JSON.stringify(result.formItems, null, 2),
-      domains: [...result.domains],
+      timeout: result.timeout,
+      permissions: result.permissions,
       credentials,
-      timeoutSeconds: result.timeoutSeconds,
-      aiEnabled: result.aiEnabled,
+      sections: result.sections,
     })
     syncedCode = source
     syncedLanguage = language
@@ -228,17 +228,30 @@ function downloadSource() {
 
 const formatTime = (time?: string) => time ? dayjs(time).format('YYYY-MM-DD HH:mm') : '—'
 
-/** Form-item definitions for the overview and test parameters. */
-const parsedFormItems = computed<ShortcutFormItem[] | null>(() => {
-  const loaded = loadFormItems(draft.formItems)
-  if (!loaded.ok) return null
-  return JSON.parse(draft.formItems) as ShortcutFormItem[]
-})
+/** Form fields for the overview and test parameters. */
+const fields = computed<ShortcutField[]>(() => shortcutFields(draft))
+/** The untitled sections are listed without a heading; an empty form shows a single empty table. */
+const overviewSections = computed<ShortcutSection[]>(() => (draft.sections.length ? draft.sections : [{ fields: [] }]))
+
+function widgetLabel(field: ShortcutField) {
+  switch (field.widget) {
+    case 'field_select':
+      return t('shortcutAdmin.widgetFieldSelect')
+    case 'text':
+      return field.multiline ? t('shortcutAdmin.widgetTextarea') : t('shortcutAdmin.widgetText')
+    case 'select':
+      return t('shortcutAdmin.widgetSelect')
+    case 'field_options':
+      return t('shortcutAdmin.widgetFieldOptions')
+    case 'prompt':
+      return t('shortcutAdmin.widgetPrompt')
+  }
+}
 
 const formItemColumns = computed<TableColumnData[]>(() => [
   { title: t('shortcutAdmin.itemLabel'), slotName: 'label' },
   { title: t('shortcutAdmin.itemKey'), slotName: 'key', width: 160 },
-  { title: t('shortcutAdmin.itemComponent'), slotName: 'component', width: 140 },
+  { title: t('shortcutAdmin.itemWidget'), slotName: 'widget', width: 140 },
   { title: t('shortcutAdmin.itemRequired'), slotName: 'required', width: 80, align: 'center' },
 ])
 const credentialColumns = computed<TableColumnData[]>(() => [
@@ -261,44 +274,26 @@ const paramsInvalid = computed(() => {
   }
 })
 
-/** Invalid definitions are corrected in the source. */
-function body(): SaveFieldShortcut | null {
-  const loaded = loadFormItems(draft.formItems)
-  if (!loaded.ok) {
-    Message.warning(t('shortcutAdmin.invalidFormItems'))
-    tab.value = 'code'
-    return null
-  }
-  const issue = validateFormItems(loaded.items)[0]
-  if (issue) {
-    Message.warning(t(formItemIssueKey(issue), { key: formItemIssueName(loaded.items, issue) }))
-    tab.value = 'code'
-    return null
-  }
-  if (loaded.items.some((item) => item.component === 'field_options') && draft.resultType !== 'single_select' && draft.resultType !== 'multi_select') {
-    Message.warning(t('shortcutAdmin.fieldOptionsTypeRequired'))
-    tab.value = 'code'
-    return null
-  }
+/** The manifest is validated by the server when the source is synchronized and saved. */
+function body(): SaveFieldShortcut {
   return {
     name: draft.name,
     version: draft.version,
     description: draft.description,
     resultType: draft.resultType as SaveFieldShortcut['resultType'],
+    timeout: draft.timeout,
+    permissions: draft.permissions,
+    credentials: draft.credentials.map((c) => ({ key: c.key, label: c.label, type: c.type, name: c.type === 'bearer' ? undefined : c.name })),
+    sections: draft.sections,
     code: draft.code,
     language: draft.language,
-    formItems: JSON.parse(draft.formItems) as ShortcutFormItem[],
-    domains: draft.domains,
-    credentials: draft.credentials.map((c) => ({ key: c.key, label: c.label, type: c.type, name: c.type === 'bearer' ? undefined : c.name, value: c.value || undefined })),
-    timeoutSeconds: draft.timeoutSeconds,
     enabled: draft.enabled,
-    aiEnabled: draft.aiEnabled,
+    secrets: Object.fromEntries(draft.credentials.filter((c) => c.value).map((c) => [c.key, c.value])),
   }
 }
 
 function fillSampleParams() {
-  if (parsedFormItems.value) params.value = sampleShortcutParams(parsedFormItems.value)
-  else Message.warning(t('shortcutAdmin.invalidFormItems'))
+  params.value = sampleShortcutParams(fields.value)
 }
 
 async function test() {
@@ -359,7 +354,7 @@ function remove() {
   const s = shortcut.value
   if (!s) return
   Modal.confirm({
-    title: t('shortcutAdmin.uninstallTitle', { name: s.name }),
+    title: t('shortcutAdmin.uninstallTitle', { name: text(s.name) }),
     content: s.usedBy ? t('shortcutAdmin.deleteInUse', { n: s.usedBy }, s.usedBy) : t('shortcutAdmin.deleteContent'),
     okButtonProps: { status: 'danger' },
     okText: t('pluginAdmin.uninstall'),
@@ -430,7 +425,7 @@ const format = (v: unknown) => (v === undefined ? 'undefined' : JSON.stringify(v
       <a-breadcrumb-item>
         <RouterLink :to="{ name: 'admin-field-shortcuts' }">{{ t('shortcutAdmin.title') }}</RouterLink>
       </a-breadcrumb-item>
-      <a-breadcrumb-item>{{ shortcut?.name ?? uid }}</a-breadcrumb-item>
+      <a-breadcrumb-item>{{ shortcut ? text(shortcut.name) : uid }}</a-breadcrumb-item>
     </a-breadcrumb>
 
     <a-result v-if="notFound" :status="null" title="404" :subtitle="t('shortcutAdmin.notFound')">
@@ -442,13 +437,13 @@ const format = (v: unknown) => (v === undefined ? 'undefined' : JSON.stringify(v
 
     <a-spin v-else :loading="loading || syncing" class="spin">
       <header v-if="shortcut" class="hero">
-        <WorkflowPluginIcon :icon="draft.aiEnabled ? 'sparkles' : 'zap'" color="var(--color-primary)" :size="56" :muted="!draft.enabled" />
+        <WorkflowPluginIcon :icon="draft.permissions.ai ? 'sparkles' : 'zap'" color="var(--color-primary)" :size="56" :muted="!draft.enabled" />
         <div class="hero-text">
           <div class="hero-name">
-            <span class="ellipsis">{{ draft.name }}</span>
+            <span class="ellipsis">{{ text(draft.name) }}</span>
             <a-tag size="small" class="mono">{{ versionLabel(draft.version) }}</a-tag>
           </div>
-          <div class="text-desc hero-desc">{{ draft.description || t('pluginAdmin.noDescription') }}</div>
+          <div class="text-desc hero-desc">{{ text(draft.description) || t('pluginAdmin.noDescription') }}</div>
         </div>
         <a-space wrap :size="8" class="hero-actions">
           <a-tooltip :content="t('shortcutAdmin.enabledDescription')">
@@ -503,20 +498,20 @@ const format = (v: unknown) => (v === undefined ? 'undefined' : JSON.stringify(v
                         <a-row :gutter="[20, 24]" class="permission-grid">
                           <a-col :xs="24" :sm="12">
                             <a-space align="start" :size="12" class="permission-item">
-                              <a-avatar :size="28" shape="square" class="permission-icon" :class="draft.domains.length ? 'info' : 'ok'"><Globe :size="15" /></a-avatar>
+                              <a-avatar :size="28" shape="square" class="permission-icon" :class="anyHost ? 'warn' : hosts.length ? 'info' : 'ok'"><Globe :size="15" /></a-avatar>
                               <div class="permission-body">
                                 <a-typography-text bold>{{ t('pluginAdmin.network') }}</a-typography-text>
-                                <a-typography-text type="secondary" class="permission-description">{{ t(draft.domains.length ? 'pluginAdmin.networkDomains' : 'pluginAdmin.networkNone') }}</a-typography-text>
-                                <a-space v-if="draft.domains.length" wrap :size="4" class="permission-tags"><a-tag v-for="domain in draft.domains" :key="domain" size="small" class="mono">{{ domain }}</a-tag></a-space>
+                                <a-typography-text type="secondary" class="permission-description">{{ t(anyHost ? 'pluginAdmin.networkAny' : hosts.length ? 'pluginAdmin.networkDomains' : 'pluginAdmin.networkNone') }}</a-typography-text>
+                                <a-space v-if="hosts.length" wrap :size="4" class="permission-tags"><a-tag v-for="host in hosts" :key="host" size="small" class="mono">{{ host }}</a-tag></a-space>
                               </div>
                             </a-space>
                           </a-col>
                           <a-col :xs="24" :sm="12">
                             <a-space align="start" :size="12" class="permission-item">
-                              <a-avatar :size="28" shape="square" class="permission-icon" :class="draft.aiEnabled ? 'info' : 'neutral'"><Sparkles :size="15" /></a-avatar>
+                              <a-avatar :size="28" shape="square" class="permission-icon" :class="draft.permissions.ai ? 'info' : 'neutral'"><Sparkles :size="15" /></a-avatar>
                               <div class="permission-body">
                                 <a-typography-text bold>{{ t('shortcutAdmin.aiEnabled') }}</a-typography-text>
-                                <a-typography-text type="secondary" class="permission-description">{{ t(draft.aiEnabled ? 'shortcutAdmin.aiAllowed' : 'shortcutAdmin.aiDenied') }}</a-typography-text>
+                                <a-typography-text type="secondary" class="permission-description">{{ t(draft.permissions.ai ? 'shortcutAdmin.aiAllowed' : 'shortcutAdmin.aiDenied') }}</a-typography-text>
                               </div>
                             </a-space>
                           </a-col>
@@ -535,12 +530,12 @@ const format = (v: unknown) => (v === undefined ? 'undefined' : JSON.stringify(v
                               <a-avatar :size="28" shape="square" class="permission-icon info"><Timer :size="15" /></a-avatar>
                               <div class="permission-body">
                                 <a-typography-text bold>{{ t('shortcutAdmin.timeout') }}</a-typography-text>
-                                <a-typography-text type="secondary" class="permission-description">{{ t('pluginAdmin.timeoutValue', { n: draft.timeoutSeconds }) }}</a-typography-text>
+                                <a-typography-text type="secondary" class="permission-description">{{ t('pluginAdmin.timeoutValue', { n: draft.timeout }) }}</a-typography-text>
                               </div>
                             </a-space>
                           </a-col>
                         </a-row>
-                        <a-alert v-if="draft.aiEnabled" :type="aiLoading ? 'info' : aiReady ? 'success' : 'warning'" class="ai-status">
+                        <a-alert v-if="draft.permissions.ai" :type="aiLoading ? 'info' : aiReady ? 'success' : 'warning'" class="ai-status">
                           <a-space wrap>
                             <span>{{ aiStatus }}</span>
                             <RouterLink v-slot="{ href, navigate }" :to="{ name: 'admin-ai' }" custom>
@@ -559,28 +554,33 @@ const format = (v: unknown) => (v === undefined ? 'undefined' : JSON.stringify(v
                       <section aria-labelledby="shortcut-form-items">
                         <a-space :size="8" align="baseline" class="section-heading">
                           <a-typography-title id="shortcut-form-items" :heading="6">{{ t('shortcutAdmin.formItems') }}</a-typography-title>
-                          <a-typography-text type="secondary">{{ parsedFormItems?.length ?? 0 }}</a-typography-text>
+                          <a-typography-text type="secondary">{{ fields.length }}</a-typography-text>
                         </a-space>
-                        <a-table :columns="formItemColumns" :data="parsedFormItems ?? []" :pagination="false" :bordered="false" :expandable="{}" :scroll="{ x: 560 }" size="small" row-key="key" class="definition-table">
-                          <template #label="{ record }"><span class="definition-label">{{ text(record.label) }}</span></template>
-                          <template #key="{ record }"><a-typography-text code>{{ record.key }}</a-typography-text></template>
-                          <template #component="{ record }">{{ t(formComponentKey(record.component as FormComponent)) }}</template>
-                          <template #required="{ record }"><CircleCheck v-if="record.required" :size="15" class="required-icon" /><span v-else class="text-desc">—</span></template>
-                          <template #expand-row="{ record }">
-                            <a-descriptions :column="1" size="small" class="item-details" :label-style="{ width: '100px' }" :value-style="{ overflowWrap: 'anywhere' }">
-                              <a-descriptions-item :label="t('shortcutAdmin.itemPlaceholder')">{{ text(record.placeholder) || '—' }}</a-descriptions-item>
-                              <a-descriptions-item v-if="record.component === 'field_select'" :label="t('shortcutAdmin.fieldTypes')">
-                                <a-space v-if="record.fieldTypes?.length" wrap :size="4"><a-tag v-for="type in record.fieldTypes" :key="type" size="small">{{ fieldTypeInfo(type).label }}</a-tag></a-space>
-                                <span v-else>{{ t('shortcutAdmin.fieldTypesEmpty') }}</span>
-                              </a-descriptions-item>
-                              <a-descriptions-item v-if="record.component === 'select'" :label="t('shortcutAdmin.options')">
-                                <a-space wrap :size="4"><a-tag v-for="option in record.options" :key="option.value" size="small">{{ text(option.label) }} · {{ option.value }}</a-tag></a-space>
-                              </a-descriptions-item>
-                              <a-descriptions-item :label="t('shortcutAdmin.defaultValue')">{{ record.default || '—' }}</a-descriptions-item>
-                            </a-descriptions>
-                          </template>
-                          <template #empty><a-empty :description="t('shortcutAdmin.noFormItems')" /></template>
-                        </a-table>
+                        <template v-for="(section, index) in overviewSections" :key="index">
+                          <div v-if="text(section.title)" class="form-section-title">{{ text(section.title) }}</div>
+                          <div v-if="text(section.description)" class="text-desc form-section-description">{{ text(section.description) }}</div>
+                          <a-table :columns="formItemColumns" :data="section.fields" :pagination="false" :bordered="false" :expandable="{}" :scroll="{ x: 560 }" size="small" row-key="key" class="definition-table">
+                            <template #label="{ record }"><span class="definition-label">{{ fieldLabel(record, locale) }}</span></template>
+                            <template #key="{ record }"><a-typography-text code>{{ record.key }}</a-typography-text></template>
+                            <template #widget="{ record }">{{ widgetLabel(record) }}</template>
+                            <template #required="{ record }"><CircleCheck v-if="record.required" :size="15" class="required-icon" /><span v-else class="text-desc">—</span></template>
+                            <template #expand-row="{ record }">
+                              <a-descriptions :column="1" size="small" class="item-details" :label-style="{ width: '100px' }" :value-style="{ overflowWrap: 'anywhere' }">
+                                <a-descriptions-item :label="t('shortcutAdmin.itemHelp')">{{ text(record.help) || '—' }}</a-descriptions-item>
+                                <a-descriptions-item :label="t('shortcutAdmin.itemPlaceholder')">{{ text(record.placeholder) || '—' }}</a-descriptions-item>
+                                <a-descriptions-item v-if="record.widget === 'field_select'" :label="t('shortcutAdmin.fieldTypes')">
+                                  <a-space v-if="record.fieldTypes?.length" wrap :size="4"><a-tag v-for="type in record.fieldTypes" :key="type" size="small">{{ fieldTypeInfo(type).label }}</a-tag></a-space>
+                                  <span v-else>{{ t('shortcutAdmin.fieldTypesEmpty') }}</span>
+                                </a-descriptions-item>
+                                <a-descriptions-item v-if="record.widget === 'select'" :label="t('shortcutAdmin.options')">
+                                  <a-space wrap :size="4"><a-tag v-for="option in record.options" :key="option.value" size="small">{{ optionLabel(option, locale) }} · {{ option.value }}</a-tag></a-space>
+                                </a-descriptions-item>
+                                <a-descriptions-item :label="t('shortcutAdmin.defaultValue')">{{ record.default || '—' }}</a-descriptions-item>
+                              </a-descriptions>
+                            </template>
+                            <template #empty><a-empty :description="t('shortcutAdmin.noFormItems')" /></template>
+                          </a-table>
+                        </template>
                       </section>
                     </a-col>
                     <a-col v-if="draft.credentials.length" :xs="24" :xl="12">
@@ -845,6 +845,14 @@ const format = (v: unknown) => (v === undefined ? 'undefined' : JSON.stringify(v
 .overview-divider {
   margin: 28px 0;
 }
+.form-section-title {
+  margin: 16px 0 4px;
+  font-weight: 500;
+  color: var(--text-title);
+}
+.form-section-description {
+  margin-bottom: 8px;
+}
 .permission-grid :deep(.arco-col) {
   min-width: 0;
 }
@@ -859,6 +867,9 @@ const format = (v: unknown) => (v === undefined ? 'undefined' : JSON.stringify(v
   flex: none;
   border-radius: 8px;
 }
+.permission-icon :deep(.arco-avatar-text) {
+  display: flex;
+}
 .permission-icon.info {
   color: var(--color-primary);
   background: var(--bg-primary-soft);
@@ -867,18 +878,25 @@ const format = (v: unknown) => (v === undefined ? 'undefined' : JSON.stringify(v
   color: var(--color-success);
   background: rgba(var(--success-6), 0.12);
 }
+.permission-icon.warn {
+  color: var(--color-warning);
+  background: rgba(var(--warning-6), 0.14);
+}
 .permission-icon.neutral {
   color: var(--text-caption);
   background: var(--bg-base);
 }
 .permission-body {
   min-width: 0;
-  padding-top: 3px;
   overflow-wrap: anywhere;
 }
 .permission-body :deep(.arco-typography) {
   font-size: 13px;
   line-height: 1.6;
+}
+.permission-body > :deep(.arco-typography:first-child) {
+  display: block;
+  line-height: 1;
 }
 .permission-description {
   display: block;
