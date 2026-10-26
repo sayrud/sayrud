@@ -1546,7 +1546,7 @@ const ru: typeof zhCN = {
     previewNo: 'Не поддерживается',
     prerelease: 'Предварительный релиз',
     publishedAt: 'Опубликовано',
-    minAppVersion: 'Требуется Sayrud',
+    minAppVersion: 'Минимальная версия Sayrud',
     minAppVersionValue: '{version} или новее',
     noChangelog: 'Для этого релиза нет списка изменений',
   },

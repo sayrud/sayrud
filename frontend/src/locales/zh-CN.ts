@@ -1544,7 +1544,7 @@ export default {
     previewNo: '不支持',
     prerelease: '预发布',
     publishedAt: '发布时间',
-    minAppVersion: '需要 Sayrud',
+    minAppVersion: '最低 Sayrud 版本',
     minAppVersionValue: '{version} 或更高版本',
     noChangelog: '该版本没有更新说明',
   },

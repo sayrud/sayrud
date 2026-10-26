@@ -1546,7 +1546,7 @@ const ja: typeof zhCN = {
     previewNo: '非対応',
     prerelease: 'プレリリース',
     publishedAt: '公開日時',
-    minAppVersion: '必要な Sayrud',
+    minAppVersion: 'Sayrud の最小バージョン',
     minAppVersionValue: '{version} 以降',
     noChangelog: 'このリリースには変更履歴がありません',
   },

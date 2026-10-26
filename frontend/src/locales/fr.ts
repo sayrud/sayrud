@@ -1546,7 +1546,7 @@ const fr: typeof zhCN = {
     previewNo: 'Non pris en charge',
     prerelease: 'Préversion',
     publishedAt: 'Publiée le',
-    minAppVersion: 'Nécessite Sayrud',
+    minAppVersion: 'Version minimale de Sayrud',
     minAppVersionValue: '{version} ou ultérieur',
     noChangelog: 'Aucun journal des modifications pour cette version',
   },

@@ -1546,7 +1546,7 @@ const zhTW: typeof zhCN = {
     previewNo: '不支援',
     prerelease: '預發布',
     publishedAt: '發布時間',
-    minAppVersion: '需要 Sayrud',
+    minAppVersion: '最低 Sayrud 版本',
     minAppVersionValue: '{version} 或更新版本',
     noChangelog: '此版本沒有更新說明',
   },

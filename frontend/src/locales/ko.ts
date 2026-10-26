@@ -1546,7 +1546,7 @@ const ko: typeof zhCN = {
     previewNo: '지원 안 함',
     prerelease: '사전 릴리스',
     publishedAt: '게시일',
-    minAppVersion: '필요한 Sayrud',
+    minAppVersion: '최소 Sayrud 버전',
     minAppVersionValue: '{version} 이상',
     noChangelog: '이 릴리스에는 변경 사항이 없습니다',
   },

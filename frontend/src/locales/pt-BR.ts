@@ -1546,7 +1546,7 @@ const ptBR: typeof zhCN = {
     previewNo: 'Não compatível',
     prerelease: 'Pré-lançamento',
     publishedAt: 'Publicado em',
-    minAppVersion: 'Requer o Sayrud',
+    minAppVersion: 'Versão mínima do Sayrud',
     minAppVersionValue: '{version} ou posterior',
     noChangelog: 'Esta versão não tem registro de alterações',
   },
