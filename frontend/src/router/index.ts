@@ -13,7 +13,7 @@ declare module 'vue-router' {
     public?: boolean
     /** Route name of the highlighted menu item; child pages point to their parent list page. */
     nav?: string
-    /** Use a wider content area for pages with code editors. */
+    /** Use a wider content area for editors and catalogs. */
     wide?: boolean
     /** Kind of the packages listed by the Sayrud Hub catalog page. */
     hubKind?: HubKind
@@ -123,13 +123,13 @@ const router = createRouter({
           path: 'hub/workflow-plugins',
           name: 'admin-hub-workflow-plugins',
           component: () => import('@/pages/admin/HubCatalogPage.vue'),
-          meta: { nav: 'admin-workflow-plugins', hubKind: 'workflow_plugin' },
+          meta: { nav: 'admin-workflow-plugins', hubKind: 'workflow_plugin', wide: true },
         },
         {
           path: 'hub/field-shortcuts',
           name: 'admin-hub-field-shortcuts',
           component: () => import('@/pages/admin/HubCatalogPage.vue'),
-          meta: { nav: 'admin-field-shortcuts', hubKind: 'field_shortcut' },
+          meta: { nav: 'admin-field-shortcuts', hubKind: 'field_shortcut', wide: true },
         },
       ],
     },

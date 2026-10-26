@@ -262,12 +262,14 @@ function onShortcutInstalled(saved: AdminFieldShortcut) {
           </template>
         </a-result>
 
-        <a-grid v-else-if="loading && !packages.length" :cols="{ xs: 1, lg: 2 }" :col-gap="16" :row-gap="16">
-          <a-grid-item v-for="n in 6" :key="n">
+        <a-grid v-else-if="loading && !packages.length" :cols="{ xs: 1, lg: 2, xl: 3, xxl: 4 }" :col-gap="16" :row-gap="16">
+          <a-grid-item v-for="n in 8" :key="n">
             <a-card class="skeleton-card">
               <a-skeleton animation class="skeleton">
                 <a-skeleton-shape size="large" />
-                <a-skeleton-line :rows="3" :widths="['40%', '95%', '30%']" class="skeleton-lines" />
+                <div class="skeleton-lines">
+                  <a-skeleton-line :rows="3" :widths="['40%', '95%', '30%']" />
+                </div>
               </a-skeleton>
             </a-card>
           </a-grid-item>
@@ -281,7 +283,7 @@ function onShortcutInstalled(saved: AdminFieldShortcut) {
         </div>
 
         <a-spin v-else :loading="loading" class="grid-spin">
-          <a-grid :cols="{ xs: 1, lg: 2 }" :col-gap="16" :row-gap="16">
+          <a-grid :cols="{ xs: 1, lg: 2, xl: 3, xxl: 4 }" :col-gap="16" :row-gap="16">
             <a-grid-item v-for="p in packages" :key="p.id">
               <HubPackageCard
                 :pkg="p"
