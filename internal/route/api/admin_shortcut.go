@@ -124,7 +124,7 @@ var errSecretKeyMissing = errors.New("secret key is not configured")
 // buildCustomShortcut validates the form and returns the shortcut without the secrets, along with the credential values keyed by key.
 // The invalid manifest errors are *i18n.Error.
 func buildCustomShortcut(f form.SaveFieldShortcut) (*db.CustomFieldShortcut, map[string]string, error) {
-	if err := f.Manifest.Normalize(); err != nil {
+	if err := f.Normalize(); err != nil {
 		return nil, nil, manifestError(err)
 	}
 	if strings.TrimSpace(f.Code) == "" {
