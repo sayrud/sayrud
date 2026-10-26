@@ -1534,7 +1534,7 @@ const ja: typeof zhCN = {
     incompatibleHint: '最新リリースには Sayrud {version} 以降が必要です',
     unavailableHint: 'まだリリースが公開されていません',
     updateHint: '{from} をインストール済み、{to} が利用可能です',
-    details: 'パッケージの詳細',
+    details: 'プラグインの詳細',
     detailsFailed: '詳細を読み込めませんでした',
     publishedBy: "{'@'}{name} が公開",
     readme: '概要',

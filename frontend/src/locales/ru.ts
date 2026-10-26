@@ -1534,7 +1534,7 @@ const ru: typeof zhCN = {
     incompatibleHint: 'Последний релиз требует Sayrud {version} или новее',
     unavailableHint: 'Релизы ещё не опубликованы',
     updateHint: 'Установлена версия {from}, доступна {to}',
-    details: 'Сведения о пакете',
+    details: 'Сведения о плагине',
     detailsFailed: 'Не удалось загрузить сведения',
     publishedBy: "Опубликовал {'@'}{name}",
     readme: 'Обзор',

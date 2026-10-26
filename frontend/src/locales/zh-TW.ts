@@ -1534,7 +1534,7 @@ const zhTW: typeof zhCN = {
     incompatibleHint: '最新版本需要 Sayrud {version} 或更新版本',
     unavailableHint: '尚未發布任何版本',
     updateHint: '已安裝 {from}，可更新至 {to}',
-    details: '套件詳情',
+    details: '外掛詳情',
     detailsFailed: '無法載入詳情',
     publishedBy: "由 {'@'}{name} 發布",
     readme: '介紹',

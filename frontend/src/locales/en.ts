@@ -1534,7 +1534,7 @@ const en: typeof zhCN = {
     incompatibleHint: 'The latest release requires Sayrud {version} or later',
     unavailableHint: 'No release has been published yet',
     updateHint: 'Version {from} is installed, {to} is available',
-    details: 'Package details',
+    details: 'Plugin details',
     detailsFailed: 'Could not load the details',
     publishedBy: "Published by {'@'}{name}",
     readme: 'Overview',

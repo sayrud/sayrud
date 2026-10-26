@@ -1534,7 +1534,7 @@ const ko: typeof zhCN = {
     incompatibleHint: '최신 릴리스는 Sayrud {version} 이상이 필요합니다',
     unavailableHint: '아직 게시된 릴리스가 없습니다',
     updateHint: '{from} 설치됨, {to} 사용 가능',
-    details: '패키지 상세',
+    details: '플러그인 상세',
     detailsFailed: '상세 정보를 불러오지 못했습니다',
     publishedBy: "{'@'}{name} 게시",
     readme: '개요',

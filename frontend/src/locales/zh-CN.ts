@@ -1532,7 +1532,7 @@ export default {
     incompatibleHint: '最新版本需要 Sayrud {version} 或更高版本',
     unavailableHint: '尚未发布任何版本',
     updateHint: '已安装 {from}，可更新到 {to}',
-    details: '包详情',
+    details: '插件详情',
     detailsFailed: '无法加载详情',
     publishedBy: "由 {'@'}{name} 发布",
     readme: '介绍',

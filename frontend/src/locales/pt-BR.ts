@@ -1534,7 +1534,7 @@ const ptBR: typeof zhCN = {
     incompatibleHint: 'A versão mais recente requer o Sayrud {version} ou posterior',
     unavailableHint: 'Nenhuma versão foi publicada ainda',
     updateHint: 'A versão {from} está instalada, {to} está disponível',
-    details: 'Detalhes do pacote',
+    details: 'Detalhes do plugin',
     detailsFailed: 'Não foi possível carregar os detalhes',
     publishedBy: "Publicado por {'@'}{name}",
     readme: 'Visão geral',

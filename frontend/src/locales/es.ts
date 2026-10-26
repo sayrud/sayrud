@@ -1534,7 +1534,7 @@ const es: typeof zhCN = {
     incompatibleHint: 'La última versión requiere Sayrud {version} o posterior',
     unavailableHint: 'Aún no se ha publicado ninguna versión',
     updateHint: 'La versión {from} está instalada, {to} está disponible',
-    details: 'Detalles del paquete',
+    details: 'Detalles del complemento',
     detailsFailed: 'No se pudieron cargar los detalles',
     publishedBy: "Publicado por {'@'}{name}",
     readme: 'Descripción general',
