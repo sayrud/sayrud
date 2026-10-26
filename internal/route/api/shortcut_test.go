@@ -5,15 +5,17 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gorm.io/datatypes"
 
 	"github.com/wuhan005/sayrud/internal/db"
+	"github.com/wuhan005/sayrud/internal/i18n"
 )
 
 func TestToManifest(t *testing.T) {
-	custom := &db.CustomFieldShortcut{UID: "fscAAAAAAA", Name: "Shortcut", Description: "Description", ResultType: db.TextFieldType}
+	custom := &db.CustomFieldShortcut{UID: "fscAAAAAAA", Domains: datatypes.NewJSONType([]string{"api.example.com"}), Name: i18n.LocalText{"": "Shortcut"}, Description: i18n.LocalText{"en": "Description"}, ResultType: db.TextFieldType}
 	payload, err := json.Marshal(toManifest(custom, false))
 	require.NoError(t, err)
-	require.JSONEq(t, `{"id":"fscAAAAAAA","kind":"script","aiEnabled":false,"name":"Shortcut","description":"Description","resultTypes":["text"],"formItems":[],"available":false}`, string(payload))
+	require.JSONEq(t, `{"id":"fscAAAAAAA","kind":"script","name":{"":"Shortcut"},"description":{"en":"Description"},"resultTypes":["text"],"sections":[],"permissions":{"ai":false},"available":false}`, string(payload))
 
 	for _, tc := range []struct {
 		enabled, aiEnabled, configured, available bool
@@ -26,7 +28,7 @@ func TestToManifest(t *testing.T) {
 	} {
 		custom.Enabled, custom.AIEnabled = tc.enabled, tc.aiEnabled
 		manifest := toManifest(custom, tc.configured)
-		require.Equal(t, tc.aiEnabled, manifest.AIEnabled)
+		require.Equal(t, tc.aiEnabled, manifest.Permissions.AI)
 		require.Equal(t, tc.available, manifest.Available, "%+v", tc)
 	}
 }

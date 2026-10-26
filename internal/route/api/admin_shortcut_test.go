@@ -27,7 +27,8 @@ func TestAdminShortcutLocalizedScriptError(t *testing.T) {
 	for _, language := range []string{"javascript", "typescript"} {
 		body, err := json.Marshal(form.TestFieldShortcut{
 			Shortcut: form.SaveFieldShortcut{
-				Name: "Localized", ResultType: "text", Language: language,
+				Manifest: shortcut.Manifest{Name: i18n.LocalText{"": "Localized"}, Version: "1.0.0", ResultType: "text"},
+				Language: language,
 				Code: `export async function execute() { throw Object.assign(new Error("Request failed"), {
   i18n: {key: "request_failed", messages: {en: "HTTP {status}", "zh-CN": "状态码 {status}"}, params: {status: 429}}
 }); }`,
@@ -49,30 +50,48 @@ func TestAdminShortcutLocalizedScriptError(t *testing.T) {
 	}
 }
 
-func TestBuildCustomShortcutCredentialLabel(t *testing.T) {
+// requireManifestError checks that err shows the invalid manifest message like the workflow plugins.
+func requireManifestError(t *testing.T, err error, message string) {
+	t.Helper()
+	var localized *i18n.Error
+	require.ErrorAs(t, err, &localized)
+	require.Equal(t, "workflow_plugin::invalid_manifest", localized.Key)
+	require.Equal(t, []interface{}{message}, localized.Args)
+}
+
+// saveForm is a valid form of a text shortcut with the code.
+func saveForm(code string) form.SaveFieldShortcut {
+	return form.SaveFieldShortcut{
+		Manifest: shortcut.Manifest{Name: i18n.LocalText{"": "Test"}, Version: "1.0.0", ResultType: "text"},
+		Code:     code,
+	}
+}
+
+func TestBuildCustomShortcutCredentials(t *testing.T) {
 	for _, tc := range []struct {
 		name  string
 		label string
 		want  string
+		err   string
 	}{
-		{name: "display name", label: "  服务访问令牌  ", want: "服务访问令牌"},
+		{name: "display name", label: "服务访问令牌", want: "服务访问令牌"},
 		{name: "omitted", want: "api"},
 		{name: "blank", label: " \n ", want: "api"},
-		{name: "character limit", label: strings.Repeat("令", 64), want: strings.Repeat("令", 64)},
-		{name: "too long", label: strings.Repeat("令", 65)},
+		{name: "character limit", label: strings.Repeat("令", 500), want: strings.Repeat("令", 500)},
+		{name: "too long", label: strings.Repeat("令", 501), err: `the label of credential "api" is longer than 500 characters`},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			s, values, err := buildCustomShortcut(form.SaveFieldShortcut{
-				Name: "Credential label", ResultType: "text", Code: "function execute() { return 'text' }",
-				Credentials: []form.SaveShortcutCredential{{Key: "api", Label: i18n.LocalText{"": tc.label}, Type: "bearer", Value: "private-token"}},
-			})
-			if tc.want == "" {
-				require.Error(t, err)
+			f := saveForm("function execute() { return 'text' }")
+			f.Credentials = []db.ShortcutCredential{{Key: "api", Label: i18n.LocalText{"": tc.label}, Type: "bearer", Name: "ignored"}}
+			f.Secrets = map[string]string{"api": "private-token", "removed": "stale"}
+			s, values, err := buildCustomShortcut(f)
+			if tc.err != "" {
+				requireManifestError(t, err, tc.err)
 				return
 			}
 			require.NoError(t, err)
-			require.Equal(t, tc.want, s.Credentials.Data()[0].Label.In("en"))
-			require.Equal(t, map[string]string{"api": "private-token"}, values)
+			require.Empty(t, s.Credentials.Data()[0].Name, "bearer credentials have no name")
+			require.Equal(t, map[string]string{"api": "private-token"}, values, "only the values of the defined credentials are kept")
 
 			// Credential definitions survive JSON storage without containing their values.
 			raw, err := json.Marshal(s.Credentials)
@@ -106,7 +125,8 @@ func TestBuildCustomShortcutLanguage(t *testing.T) {
 	require.Equal(t, "javascript", legacy.Language)
 
 	for _, language := range []string{"", "javascript", "typescript", "unknown"} {
-		f := form.SaveFieldShortcut{Name: "Typed", ResultType: "text", Language: language, Code: "function execute(params) { return params.text }"}
+		f := saveForm("function execute(params) { return params.text }")
+		f.Language = language
 		if language == "typescript" {
 			f.Code = "export function execute(params: {text: string}): string { return params.text.toUpperCase() }"
 		}
@@ -135,71 +155,58 @@ func TestBuildCustomShortcutLanguage(t *testing.T) {
 func TestBuildCustomShortcutVersion(t *testing.T) {
 	legacy, err := toAdminFieldShortcut(&db.CustomFieldShortcut{}, nil)
 	require.NoError(t, err)
-	require.Equal(t, "1.0.0", legacy.Version)
+	require.Equal(t, "1.0.0", legacy.Version, "the shortcuts saved before the version was added")
 
-	for _, tc := range []struct {
-		version string
-		want    string
-	}{
-		{want: "1.0.0"},
-		{version: " 2.3.0-beta.1+build.4 ", want: "2.3.0-beta.1+build.4"},
-		{version: "invalid version"},
-		{version: "../invalid"},
-		{version: "123456789012345678901234567890123"},
-	} {
-		s, _, err := buildCustomShortcut(form.SaveFieldShortcut{
-			Name: "Versioned", Version: tc.version, ResultType: "text", Code: "function execute() { return 'text' }",
-		})
-		if tc.want == "" {
-			require.Error(t, err)
-			continue
-		}
+	for _, version := range []string{"1.0.0", "2.3.0-beta.1+build.4"} {
+		f := saveForm("function execute() { return 'text' }")
+		f.Version = version
+		s, _, err := buildCustomShortcut(f)
 		require.NoError(t, err)
-		require.Equal(t, tc.want, s.Version)
-		resp, err := toAdminFieldShortcut(s, nil)
-		require.NoError(t, err)
-		require.Equal(t, tc.want, resp.Version)
+		require.Equal(t, version, s.Version)
+	}
+	for _, version := range []string{"", " 2.3.0 ", "invalid version", "../invalid", "123456789012345678901234567890123"} {
+		f := saveForm("function execute() { return 'text' }")
+		f.Version = version
+		_, _, err := buildCustomShortcut(f)
+		requireManifestError(t, err, "version is required, e.g. 1.0.0")
 	}
 }
 
-func TestBuildCustomShortcutAIEnabled(t *testing.T) {
-	for _, enabled := range []bool{true, false} {
-		s, _, err := buildCustomShortcut(form.SaveFieldShortcut{
-			Name:       "Custom AI shortcut",
-			ResultType: "text",
-			Code:       "async function execute(params, context) { return params.text; }",
-			AIEnabled:  enabled,
-		})
+func TestBuildCustomShortcutPermissions(t *testing.T) {
+	for _, ai := range []bool{true, false} {
+		f := saveForm("async function execute(params, context) { return params.text; }")
+		f.Permissions = db.ShortcutPermissions{Fetch: []string{"*.Example.com", "example.com", "api.test.io"}, AI: ai}
+		f.Timeout = 120
+		s, _, err := buildCustomShortcut(f)
 		require.NoError(t, err)
-		require.Equal(t, enabled, s.AIEnabled)
+		require.Equal(t, ai, s.AIEnabled)
+		require.Equal(t, []string{"api.test.io", "example.com"}, s.Domains.Data())
+		require.Equal(t, 120, s.TimeoutSeconds)
 
-		resp, err := toAdminFieldShortcut(s, nil)
+		payload, err := json.Marshal(dto.ToAdminFieldShortcut(s, nil, 0))
 		require.NoError(t, err)
-		require.Equal(t, enabled, resp.AIEnabled)
-
-		payload, err := json.Marshal(resp)
-		require.NoError(t, err)
-		if enabled {
-			require.Contains(t, string(payload), `"aiEnabled":true`)
-		} else {
-			require.Contains(t, string(payload), `"aiEnabled":false`)
-		}
+		require.Contains(t, string(payload), `"permissions":{"fetch":["api.test.io","example.com"],"ai":`+map[bool]string{true: "true", false: "false"}[ai]+`}`)
+		require.Contains(t, string(payload), `"timeout":120`)
 	}
+
+	s, _, err := buildCustomShortcut(saveForm("function execute() { return 'text' }"))
+	require.NoError(t, err)
+	require.Equal(t, 30, s.TimeoutSeconds)
+	require.Equal(t, []string{}, s.Domains.Data())
 }
 
 func TestBuildCustomShortcutFieldOptions(t *testing.T) {
-	f := form.SaveFieldShortcut{
-		Name: "Category", ResultType: "single_select", Code: "function execute(params) { return params.categories[0] }",
-		FormItems: []db.ShortcutFormItem{{Key: "categories", Label: i18n.LocalText{"": "Categories"}, Component: db.ShortcutFormFieldOptions, Required: true,
-			Default: "stale", FieldTypes: []db.SLFieldType{db.TextFieldType}, Options: []db.ShortcutFormOption{{Value: "stale"}}}},
-	}
+	f := saveForm("function execute(params) { return params.categories[0] }")
+	f.ResultType = "single_select"
+	f.Sections = []db.ShortcutSection{{Fields: []db.ShortcutField{{Key: "categories", Label: i18n.LocalText{"": "Categories"}, Widget: db.ShortcutWidgetFieldOptions, Required: true,
+		Default: "stale", FieldTypes: []db.SLFieldType{db.TextFieldType}, Options: []db.ShortcutOption{{Value: "stale"}}}}}}
 	s, _, err := buildCustomShortcut(f)
 	require.NoError(t, err)
-	require.Equal(t, []db.ShortcutFormItem{{Key: "categories", Label: i18n.LocalText{"": "Categories"}, Component: db.ShortcutFormFieldOptions, Required: true}}, s.FormItems.Data())
+	require.Equal(t, []db.ShortcutField{{Key: "categories", Label: i18n.LocalText{"": "Categories"}, Widget: db.ShortcutWidgetFieldOptions, Required: true}}, s.Fields())
 	f.ResultType = "multi_select"
 	_, _, err = buildCustomShortcut(f)
 	require.NoError(t, err)
 	f.ResultType = "text"
 	_, _, err = buildCustomShortcut(f)
-	require.Error(t, err)
+	requireManifestError(t, err, `field "categories" edits the field options, which needs the resultType single_select or multi_select`)
 }

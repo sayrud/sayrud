@@ -7558,30 +7558,25 @@
         "AdminFieldShortcut": {
             "type": "object",
             "required": [
-                "aiEnabled",
                 "code",
                 "createdAt",
                 "credentials",
                 "description",
-                "domains",
                 "enabled",
-                "formItems",
                 "language",
                 "name",
+                "permissions",
                 "resultType",
-                "timeoutSeconds",
+                "sections",
+                "timeout",
                 "uid",
                 "updatedAt",
                 "usedBy",
                 "version"
             ],
             "properties": {
-                "aiEnabled": {
-                    "description": "AIEnabled allows the script to call the globally configured AI model.",
-                    "type": "boolean"
-                },
                 "code": {
-                    "description": "Code defines `async function execute(params, context)` returning the cell value, with context.ai.complete using the global model when AIEnabled.",
+                    "description": "Code defines `async function execute(params, context)` returning the cell value, with context.ai.complete using the global model when permissions.ai is true.",
                     "type": "string"
                 },
                 "createdAt": {
@@ -7597,25 +7592,15 @@
                 },
                 "description": {
                     "description": "Description tells the members what the shortcut does.",
-                    "type": "string"
-                },
-                "domains": {
-                    "description": "Domains are the hosts the script can fetch, including their subdomains.",
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/i18n.LocalText"
+                        }
+                    ]
                 },
                 "enabled": {
                     "description": "Enabled reports whether the members can attach and execute the shortcut.",
                     "type": "boolean"
-                },
-                "formItems": {
-                    "description": "FormItems are the inputs configured in the field editor and passed to execute as the params.",
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/ShortcutFormItem"
-                    }
                 },
                 "language": {
                     "description": "Language is the language of the saved source.",
@@ -7627,14 +7612,33 @@
                 },
                 "name": {
                     "description": "Name is shown in the field editor.",
-                    "type": "string"
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/i18n.LocalText"
+                        }
+                    ]
+                },
+                "permissions": {
+                    "description": "Permissions are the hosts the script can fetch and whether it can use the globally configured AI model.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/ShortcutPermissions"
+                        }
+                    ]
                 },
                 "resultType": {
                     "description": "ResultType is the type of the fields the shortcut can be attached to.",
                     "type": "string"
                 },
-                "timeoutSeconds": {
-                    "description": "TimeoutSeconds is the time limit of an execution.",
+                "sections": {
+                    "description": "Sections are the form fields configured in the field editor and passed to execute as the params.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/ShortcutSection"
+                    }
+                },
+                "timeout": {
+                    "description": "Timeout is the time limit of an execution in seconds.",
                     "type": "integer"
                 },
                 "uid": {
@@ -8569,34 +8573,27 @@
         "FieldShortcutManifest": {
             "type": "object",
             "required": [
-                "aiEnabled",
                 "available",
                 "description",
-                "formItems",
                 "id",
                 "kind",
                 "name",
-                "resultTypes"
+                "permissions",
+                "resultTypes",
+                "sections"
             ],
             "properties": {
-                "aiEnabled": {
-                    "description": "AIEnabled reports whether the script is allowed to use the globally configured AI model.",
-                    "type": "boolean"
-                },
                 "available": {
                     "description": "Available is false if the shortcut is disabled or its AI configuration is unavailable.",
                     "type": "boolean"
                 },
                 "description": {
                     "description": "Description tells what the shortcut does.",
-                    "type": "string"
-                },
-                "formItems": {
-                    "description": "FormItems are the inputs to configure in the field editor.",
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/ShortcutFormItem"
-                    }
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/i18n.LocalText"
+                        }
+                    ]
                 },
                 "id": {
                     "description": "ID is the UID of a custom shortcut.",
@@ -8611,7 +8608,19 @@
                 },
                 "name": {
                     "description": "Name is shown in the field editor.",
-                    "type": "string"
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/i18n.LocalText"
+                        }
+                    ]
+                },
+                "permissions": {
+                    "description": "Permissions are what the members need to know of the shortcut permissions, the hosts are only shown to the admins.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/FieldShortcutPermissions"
+                        }
+                    ]
                 },
                 "resultTypes": {
                     "description": "ResultTypes are the types of the fields the shortcut can be attached to.",
@@ -8619,6 +8628,25 @@
                     "items": {
                         "type": "string"
                     }
+                },
+                "sections": {
+                    "description": "Sections are the form fields to configure in the field editor.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/ShortcutSection"
+                    }
+                }
+            }
+        },
+        "FieldShortcutPermissions": {
+            "type": "object",
+            "required": [
+                "ai"
+            ],
+            "properties": {
+                "ai": {
+                    "description": "AI reports whether the script uses the globally configured AI model.",
+                    "type": "boolean"
                 }
             }
         },
@@ -9769,54 +9797,38 @@
         "SaveFieldShortcut": {
             "type": "object",
             "required": [
-                "aiEnabled",
                 "code",
                 "credentials",
-                "description",
-                "domains",
                 "enabled",
-                "formItems",
                 "name",
+                "permissions",
                 "resultType",
-                "timeoutSeconds"
+                "sections",
+                "version"
             ],
             "properties": {
-                "aiEnabled": {
-                    "description": "AIEnabled allows the script to call the globally configured AI model.",
-                    "type": "boolean"
-                },
                 "code": {
-                    "description": "Code defines `async function execute(params, context)`, with context.ai.complete using the global model when AIEnabled.",
+                    "description": "Code defines `async function execute(params, context)`, with context.ai.complete using the global model when permissions.ai is true.",
                     "type": "string"
                 },
                 "credentials": {
-                    "description": "Credentials are the credentials the script can use when fetching.",
+                    "description": "Credentials are the credentials the script can use when fetching, without their values.",
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/SaveShortcutCredential"
+                        "$ref": "#/definitions/ShortcutCredential"
                     }
                 },
                 "description": {
-                    "description": "Description tells the members what the shortcut does, at most 500 characters.",
-                    "type": "string"
-                },
-                "domains": {
-                    "description": "Domains are the hosts the script can fetch, including their subdomains.",
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
+                    "description": "Description tells the members what the shortcut does.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/i18n.LocalText"
+                        }
+                    ]
                 },
                 "enabled": {
                     "description": "Enabled reports whether the members can attach and execute the shortcut.",
                     "type": "boolean"
-                },
-                "formItems": {
-                    "description": "FormItems are the inputs configured in the field editor and passed to execute as the params.",
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/ShortcutFormItem"
-                    }
                 },
                 "language": {
                     "description": "Language of Code, javascript by default.",
@@ -9827,8 +9839,20 @@
                     ]
                 },
                 "name": {
-                    "description": "Name is shown in the field editor, at most 64 characters.",
-                    "type": "string"
+                    "description": "Name is shown in the field editor.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/i18n.LocalText"
+                        }
+                    ]
+                },
+                "permissions": {
+                    "description": "Permissions are the hosts the script can fetch and whether it can use the globally configured AI model.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/ShortcutPermissions"
+                        }
+                    ]
                 },
                 "resultType": {
                     "description": "ResultType is the type of the fields the shortcut can be attached to.",
@@ -9842,50 +9866,26 @@
                         "checkbox"
                     ]
                 },
-                "timeoutSeconds": {
-                    "description": "TimeoutSeconds is the time limit of an execution between 1 and 300, 0 defaults to 30.",
+                "secrets": {
+                    "description": "Secrets are the new credential values keyed by credential key, the omitted or empty ones keep the saved values.",
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "sections": {
+                    "description": "Sections are the form fields configured in the field editor and passed to execute as the params.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/ShortcutSection"
+                    }
+                },
+                "timeout": {
+                    "description": "Timeout is the time limit of an execution in seconds between 1 and 300, 0 defaults to 30.",
                     "type": "integer"
                 },
                 "version": {
-                    "description": "Version is the manifest version, 1.0.0 when omitted for compatibility.",
-                    "type": "string"
-                }
-            }
-        },
-        "SaveShortcutCredential": {
-            "type": "object",
-            "required": [
-                "key",
-                "type"
-            ],
-            "properties": {
-                "key": {
-                    "description": "Key is the identifier the script passes to context.fetch to use the credential.",
-                    "type": "string"
-                },
-                "label": {
-                    "description": "Label is the display name, at most 64 characters; defaults to Key when omitted.",
-                    "allOf": [
-                        {
-                            "$ref": "#/definitions/i18n.LocalText"
-                        }
-                    ]
-                },
-                "name": {
-                    "description": "Name is the header or query parameter name, it is ignored by bearer.",
-                    "type": "string"
-                },
-                "type": {
-                    "description": "Type is how the credential is put into the request.",
-                    "type": "string",
-                    "enum": [
-                        "bearer",
-                        "header",
-                        "query"
-                    ]
-                },
-                "value": {
-                    "description": "Value replaces the saved value, empty keeps the saved one.",
+                    "description": "Version is the version of the shortcut, e.g. 1.0.0.",
                     "type": "string"
                 }
             }
@@ -9998,26 +9998,47 @@
                 }
             }
         },
-        "ShortcutFormItem": {
+        "ShortcutCredential": {
             "type": "object",
             "required": [
-                "component",
                 "key",
-                "label"
+                "type"
             ],
             "properties": {
-                "component": {
-                    "description": "Component is the control to render the item.",
-                    "type": "string",
-                    "enum": [
-                        "field_select",
-                        "input",
-                        "textarea",
-                        "select",
-                        "field_options",
-                        "prompt"
+                "key": {
+                    "description": "Key is the identifier the script passes to context.fetch to use the credential.",
+                    "type": "string"
+                },
+                "label": {
+                    "description": "Label is the display name of the credential, the key if empty.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/i18n.LocalText"
+                        }
                     ]
                 },
+                "name": {
+                    "description": "Name is the header or query parameter name, it is ignored by bearer.",
+                    "type": "string"
+                },
+                "type": {
+                    "description": "Type is how the credential is put into the request.",
+                    "type": "string",
+                    "enum": [
+                        "bearer",
+                        "header",
+                        "query"
+                    ]
+                }
+            }
+        },
+        "ShortcutField": {
+            "type": "object",
+            "required": [
+                "key",
+                "widget"
+            ],
+            "properties": {
                 "default": {
                     "description": "Default is the initial value when configuring a new field.",
                     "type": "string"
@@ -10029,23 +10050,35 @@
                         "type": "string"
                     }
                 },
-                "key": {
-                    "description": "Key is the key of the configured value in FieldShortcut.Inputs and of the parameter passed to the shortcut.",
-                    "type": "string"
-                },
-                "label": {
-                    "description": "Label is the name of the item shown in the form.",
+                "help": {
+                    "description": "Help is the description shown below the control.",
                     "allOf": [
                         {
                             "$ref": "#/definitions/i18n.LocalText"
                         }
                     ]
                 },
+                "key": {
+                    "description": "Key is the key of the configured value in FieldShortcut.Inputs and of the parameter passed to the shortcut.",
+                    "type": "string"
+                },
+                "label": {
+                    "description": "Label is the name of the field shown in the form, the key if empty.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/i18n.LocalText"
+                        }
+                    ]
+                },
+                "multiline": {
+                    "description": "Multiline shows a text area for text.",
+                    "type": "boolean"
+                },
                 "options": {
                     "description": "Options are the choices of select.",
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/ShortcutFormOption"
+                        "$ref": "#/definitions/ShortcutOption"
                     }
                 },
                 "placeholder": {
@@ -10057,29 +10090,19 @@
                     ]
                 },
                 "required": {
-                    "description": "Required reports whether the item must be filled in before saving or executing.",
+                    "description": "Required reports whether the field must be filled in before saving or executing.",
                     "type": "boolean"
-                }
-            }
-        },
-        "ShortcutFormOption": {
-            "type": "object",
-            "required": [
-                "label",
-                "value"
-            ],
-            "properties": {
-                "label": {
-                    "description": "Label is the text of the option shown in the form.",
-                    "allOf": [
-                        {
-                            "$ref": "#/definitions/i18n.LocalText"
-                        }
-                    ]
                 },
-                "value": {
-                    "description": "Value is the configured value of the option.",
-                    "type": "string"
+                "widget": {
+                    "description": "Widget is the control to render the field.",
+                    "type": "string",
+                    "enum": [
+                        "field_select",
+                        "text",
+                        "select",
+                        "field_options",
+                        "prompt"
+                    ]
                 }
             }
         },
@@ -10115,6 +10138,46 @@
                 }
             }
         },
+        "ShortcutOption": {
+            "type": "object",
+            "required": [
+                "value"
+            ],
+            "properties": {
+                "label": {
+                    "description": "Label is the text of the option shown in the form, the value if empty.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/i18n.LocalText"
+                        }
+                    ]
+                },
+                "value": {
+                    "description": "Value is the configured value of the option.",
+                    "type": "string"
+                }
+            }
+        },
+        "ShortcutPermissions": {
+            "type": "object",
+            "required": [
+                "ai",
+                "fetch"
+            ],
+            "properties": {
+                "ai": {
+                    "description": "AI allows context.ai.complete to use the globally configured model.",
+                    "type": "boolean"
+                },
+                "fetch": {
+                    "description": "Fetch are the hosts context.fetch can request, including their subdomains; * allows any public host.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
         "ShortcutPreview": {
             "type": "object",
             "required": [
@@ -10132,6 +10195,26 @@
                 "value": {
                     "description": "Value is the cell value of the field, null if empty or failed.",
                     "type": "object"
+                }
+            }
+        },
+        "ShortcutSection": {
+            "type": "object",
+            "required": [
+                "fields"
+            ],
+            "properties": {
+                "description": {
+                    "$ref": "#/definitions/i18n.LocalText"
+                },
+                "fields": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/ShortcutField"
+                    }
+                },
+                "title": {
+                    "$ref": "#/definitions/i18n.LocalText"
                 }
             }
         },
@@ -10493,7 +10576,7 @@
             ],
             "properties": {
                 "params": {
-                    "description": "Params are passed to execute as is, keyed by the form item key.",
+                    "description": "Params are passed to execute as is, keyed by the form field key.",
                     "type": "object",
                     "additionalProperties": true
                 },

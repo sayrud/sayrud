@@ -9,25 +9,26 @@ import (
 	"gorm.io/datatypes"
 
 	"github.com/wuhan005/sayrud/internal/dbutil"
+	"github.com/wuhan005/sayrud/internal/i18n"
 )
 
 func TestListAdminFieldShortcuts(t *testing.T) {
 	ctx := context.Background()
 	store := NewFieldShortcutsStore(newTestDB(t, &CustomFieldShortcut{}))
 	shortcuts := []*CustomFieldShortcut{
-		{Name: "Alpha shortcut", Description: "Ordinary description"},
-		{Name: "Second shortcut", Description: "ALPHA in the description"},
-		{Name: "Literal 100%", Description: `Path C:\shortcuts`},
-		{Name: "Under_score"},
-		{Name: "Other shortcut"},
+		{Name: i18n.LocalText{"": "Alpha shortcut"}, Description: i18n.LocalText{"": "Ordinary description"}},
+		{Name: i18n.LocalText{"": "Second shortcut"}, Description: i18n.LocalText{"en": "ALPHA in the description", "zh-CN": "翻译的描述"}},
+		{Name: i18n.LocalText{"": "Literal 100%"}, Description: i18n.LocalText{"": `Path C:\shortcuts`}},
+		{Name: i18n.LocalText{"": "Under_score"}},
+		{Name: i18n.LocalText{"": "Other shortcut"}},
 	}
 	for i := 0; i < 20; i++ {
-		shortcuts = append(shortcuts, &CustomFieldShortcut{Name: fmt.Sprintf("Filler %d", i)})
+		shortcuts = append(shortcuts, &CustomFieldShortcut{Name: i18n.LocalText{"": fmt.Sprintf("Filler %d", i)}})
 	}
 	for _, s := range shortcuts {
 		s.ResultType = TextFieldType
 		s.Code = "async function execute() { return ''; }"
-		s.FormItems = datatypes.NewJSONType([]ShortcutFormItem{})
+		s.Sections = datatypes.NewJSONType([]ShortcutSection{})
 		s.Domains = datatypes.NewJSONType([]string{})
 		s.Credentials = datatypes.NewJSONType([]ShortcutCredential{})
 		require.NoError(t, store.Create(ctx, s))
@@ -53,6 +54,8 @@ func TestListAdminFieldShortcuts(t *testing.T) {
 		{name: "literal percent", keyword: "%", page: 1, total: 1, indices: []int{2}},
 		{name: "literal underscore", keyword: "_", page: 1, total: 1, indices: []int{3}},
 		{name: "literal backslash", keyword: `\`, page: 1, total: 1, indices: []int{2}},
+		{name: "translation", keyword: "翻译", page: 1, total: 1, indices: []int{1}},
+		{name: "language keys are not searched", keyword: "zh", page: 1},
 		{name: "no match", keyword: "missing", page: 1},
 		{name: "past the final page", page: 14, total: 25},
 	} {
@@ -79,8 +82,8 @@ func TestFieldShortcutLanguage(t *testing.T) {
 	ctx := context.Background()
 	store := NewFieldShortcutsStore(newTestDB(t, &CustomFieldShortcut{}))
 	s := &CustomFieldShortcut{
-		Name: "Legacy", ResultType: TextFieldType, Code: "function execute() { return 1 }",
-		FormItems: datatypes.NewJSONType([]ShortcutFormItem{}), Domains: datatypes.NewJSONType([]string{}), Credentials: datatypes.NewJSONType([]ShortcutCredential{}),
+		Name: i18n.LocalText{"": "Legacy"}, ResultType: TextFieldType, Code: "function execute() { return 1 }",
+		Sections: datatypes.NewJSONType([]ShortcutSection{}), Domains: datatypes.NewJSONType([]string{}), Credentials: datatypes.NewJSONType([]ShortcutCredential{}),
 	}
 	require.NoError(t, store.Create(ctx, s))
 	got, err := store.GetByUID(ctx, s.UID)
@@ -100,8 +103,8 @@ func TestFieldShortcutVersion(t *testing.T) {
 	ctx := context.Background()
 	store := NewFieldShortcutsStore(newTestDB(t, &CustomFieldShortcut{}))
 	s := &CustomFieldShortcut{
-		Name: "Legacy", ResultType: TextFieldType, Code: "function execute() { return 'text' }",
-		FormItems: datatypes.NewJSONType([]ShortcutFormItem{}), Domains: datatypes.NewJSONType([]string{}), Credentials: datatypes.NewJSONType([]ShortcutCredential{}),
+		Name: i18n.LocalText{"": "Legacy"}, ResultType: TextFieldType, Code: "function execute() { return 'text' }",
+		Sections: datatypes.NewJSONType([]ShortcutSection{}), Domains: datatypes.NewJSONType([]string{}), Credentials: datatypes.NewJSONType([]ShortcutCredential{}),
 	}
 	require.NoError(t, store.Create(ctx, s))
 	got, err := store.GetByUID(ctx, s.UID)

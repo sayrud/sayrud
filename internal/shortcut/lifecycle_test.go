@@ -12,6 +12,7 @@ import (
 
 	"github.com/wuhan005/sayrud/internal/collab"
 	"github.com/wuhan005/sayrud/internal/db"
+	"github.com/wuhan005/sayrud/internal/i18n"
 )
 
 func TestEngineShutdownDrainsOrReleasesOwnedJobs(t *testing.T) {
@@ -27,8 +28,8 @@ func TestEngineShutdownDrainsOrReleasesOwnedJobs(t *testing.T) {
 			if mode == "cancel" {
 				code = "function execute() { while (true) {} }"
 			}
-			custom := &db.CustomFieldShortcut{UID: "fscAAAAAAA", Name: "Test", ResultType: db.TextFieldType, Code: code, Enabled: true, TimeoutSeconds: 10,
-				FormItems: datatypes.NewJSONType([]db.ShortcutFormItem{}), Domains: datatypes.NewJSONType([]string{}), Credentials: datatypes.NewJSONType([]db.ShortcutCredential{})}
+			custom := &db.CustomFieldShortcut{UID: "fscAAAAAAA", Name: i18n.LocalText{"": "Test"}, ResultType: db.TextFieldType, Code: code, Enabled: true, TimeoutSeconds: 10,
+				Sections: datatypes.NewJSONType([]db.ShortcutSection{{Fields: []db.ShortcutField{}}}), Domains: datatypes.NewJSONType([]string{}), Credentials: datatypes.NewJSONType([]db.ShortcutCredential{})}
 			require.NoError(t, gormDB.Create(custom).Error)
 			field, err := db.NewSLFieldsStore(gormDB).Create(ctx, db.CreateSLFieldOptions{SLTableID: table.ID, Label: "Result", Type: db.TextFieldType, Metadata: map[string]interface{}{}})
 			require.NoError(t, err)

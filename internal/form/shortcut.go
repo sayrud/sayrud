@@ -2,7 +2,7 @@ package form
 
 import (
 	"github.com/wuhan005/sayrud/internal/db"
-	"github.com/wuhan005/sayrud/internal/i18n"
+	"github.com/wuhan005/sayrud/internal/shortcut"
 )
 
 // RunFieldShortcut queues the cells of the field to generate by its shortcut.
@@ -27,32 +27,17 @@ type PreviewFieldShortcut struct {
 	RecordUIDs []string `json:"recordUIDs"`
 } // @name PreviewFieldShortcut
 
-// SaveFieldShortcut creates or updates a custom field shortcut.
+// SaveFieldShortcut creates or updates a custom field shortcut, the manifest properties are the same as those exported by the source.
 type SaveFieldShortcut struct {
-	// Name is shown in the field editor, at most 64 characters.
-	Name string `json:"name"`
-	// Version is the manifest version, 1.0.0 when omitted for compatibility.
-	Version string `json:"version,omitempty"`
-	// Description tells the members what the shortcut does, at most 500 characters.
-	Description string `json:"description"`
-	// ResultType is the type of the fields the shortcut can be attached to.
-	ResultType string `json:"resultType" enums:"text,single_select,multi_select,datetime,number,checkbox"`
-	// Code defines `async function execute(params, context)`, with context.ai.complete using the global model when AIEnabled.
+	shortcut.Manifest
+	// Code defines `async function execute(params, context)`, with context.ai.complete using the global model when permissions.ai is true.
 	Code string `json:"code"`
 	// Language of Code, javascript by default.
 	Language string `json:"language,omitempty" enums:"javascript,typescript"`
-	// AIEnabled allows the script to call the globally configured AI model.
-	AIEnabled bool `json:"aiEnabled"`
-	// FormItems are the inputs configured in the field editor and passed to execute as the params.
-	FormItems []db.ShortcutFormItem `json:"formItems"`
-	// Domains are the hosts the script can fetch, including their subdomains.
-	Domains []string `json:"domains"`
-	// Credentials are the credentials the script can use when fetching.
-	Credentials []SaveShortcutCredential `json:"credentials"`
-	// TimeoutSeconds is the time limit of an execution between 1 and 300, 0 defaults to 30.
-	TimeoutSeconds int `json:"timeoutSeconds"`
 	// Enabled reports whether the members can attach and execute the shortcut.
 	Enabled bool `json:"enabled"`
+	// Secrets are the new credential values keyed by credential key, the omitted or empty ones keep the saved values.
+	Secrets map[string]string `json:"secrets,omitempty"`
 } // @name SaveFieldShortcut
 
 // InspectFieldShortcut checks a single JavaScript or TypeScript module before installing it.
@@ -71,26 +56,12 @@ type InstallFieldShortcut struct {
 	Language string `json:"language,omitempty" enums:"javascript,typescript"`
 } // @name InstallFieldShortcut
 
-// SaveShortcutCredential is a credential of a custom shortcut.
-type SaveShortcutCredential struct {
-	// Key is the identifier the script passes to context.fetch to use the credential.
-	Key string `json:"key"`
-	// Label is the display name, at most 64 characters; defaults to Key when omitted.
-	Label i18n.LocalText `json:"label,omitempty"`
-	// Type is how the credential is put into the request.
-	Type string `json:"type" enums:"bearer,header,query"`
-	// Name is the header or query parameter name, it is ignored by bearer.
-	Name string `json:"name,omitempty"`
-	// Value replaces the saved value, empty keeps the saved one.
-	Value string `json:"value,omitempty"`
-} // @name SaveShortcutCredential
-
 // TestFieldShortcut runs the unsaved custom shortcut with the parameters.
 type TestFieldShortcut struct {
 	// UID is the saved shortcut whose credential values are used if the values are not given.
 	UID string `json:"uid,omitempty"`
 	// Shortcut is the unsaved shortcut to run.
 	Shortcut SaveFieldShortcut `json:"shortcut"`
-	// Params are passed to execute as is, keyed by the form item key.
+	// Params are passed to execute as is, keyed by the form field key.
 	Params map[string]interface{} `json:"params"`
 } // @name TestFieldShortcut

@@ -38,7 +38,7 @@ type Options struct {
 	Params map[string]interface{}
 	// Context is merged into the second argument, e.g. the UIDs of the table and the record.
 	Context map[string]interface{}
-	// Domains are the hosts allowed to fetch, including their subdomains.
+	// Domains are the hosts allowed to fetch, including their subdomains; * allows any public host.
 	Domains []string
 	// Networks permit fetches to otherwise blocked addresses, configured by the admin.
 	Networks []netip.Prefix

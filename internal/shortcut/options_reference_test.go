@@ -48,9 +48,9 @@ func TestReferencedOptionsSyncAndExecute(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	custom := &db.CustomFieldShortcut{UID: "fscRefernc", Name: "Classify", Enabled: true, ResultType: db.SingleSelectFieldType, TimeoutSeconds: 5,
-		Code:      `function execute(p) { return p.categories[0] }`,
-		FormItems: datatypes.NewJSONType([]db.ShortcutFormItem{{Key: "categories", Label: i18n.LocalText{"": "Categories"}, Component: db.ShortcutFormFieldOptions, Required: true}})}
+	custom := &db.CustomFieldShortcut{UID: "fscRefernc", Name: i18n.LocalText{"": "Classify"}, Enabled: true, ResultType: db.SingleSelectFieldType, TimeoutSeconds: 5,
+		Code:     `function execute(p) { return p.categories[0] }`,
+		Sections: datatypes.NewJSONType([]db.ShortcutSection{{Fields: []db.ShortcutField{{Key: "categories", Label: i18n.LocalText{"": "Categories"}, Widget: db.ShortcutWidgetFieldOptions, Required: true}}}})}
 	require.NoError(t, tx.Create(custom).Error)
 	host.Shortcut = &db.FieldShortcut{ID: custom.UID, Inputs: map[string]interface{}{}, AutoUpdate: true}
 	require.NoError(t, fieldsStore.SetShortcut(ctx, host.ID, host.Shortcut))

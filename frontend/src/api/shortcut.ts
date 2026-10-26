@@ -5,13 +5,14 @@ import type {
   AdminFieldShortcut,
   FieldShortcutManifest as ApiManifest,
   SaveFieldShortcut,
-  ShortcutFormItem,
+  ShortcutField,
   ShortcutJob as ApiJob,
+  ShortcutSection,
   TestFieldShortcutResp,
 } from './api'
 import { client } from './client'
 
-export type { AdminFieldShortcut, SaveFieldShortcut, ShortcutFormItem, TestFieldShortcutResp }
+export type { AdminFieldShortcut, SaveFieldShortcut, ShortcutField, ShortcutSection, TestFieldShortcutResp }
 
 export type ShortcutKind = 'script'
 

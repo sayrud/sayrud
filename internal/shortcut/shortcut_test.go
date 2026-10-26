@@ -159,11 +159,11 @@ func TestValidate(t *testing.T) {
 		UID:        "fscAAAAAAA",
 		ResultType: db.SingleSelectFieldType,
 		Code:       `function execute() { return "A" }`,
-		FormItems: datatypes.NewJSONType([]db.ShortcutFormItem{
-			{Key: "source", Label: i18n.LocalText{"": "Source"}, Component: db.ShortcutFormFieldSelect, Required: true},
-			{Key: "language", Label: i18n.LocalText{"": "Language"}, Component: db.ShortcutFormSelect, Options: []db.ShortcutFormOption{{Value: "English", Label: i18n.LocalText{"": "English"}}}},
-			{Key: "prompt", Label: i18n.LocalText{"": "Prompt"}, Component: db.ShortcutFormPrompt},
-		}),
+		Sections: datatypes.NewJSONType([]db.ShortcutSection{{Fields: []db.ShortcutField{
+			{Key: "source", Label: i18n.LocalText{"": "Source"}, Widget: db.ShortcutWidgetFieldSelect, Required: true},
+			{Key: "language", Label: i18n.LocalText{"": "Language"}, Widget: db.ShortcutWidgetSelect, Options: []db.ShortcutOption{{Value: "English", Label: i18n.LocalText{"": "English"}}}},
+			{Key: "prompt", Label: i18n.LocalText{"": "Prompt"}, Widget: db.ShortcutWidgetPrompt},
+		}}}),
 		Enabled: true,
 	}
 
@@ -203,9 +203,9 @@ func TestValidateCycle(t *testing.T) {
 		UID:        "fscAAAAAAA",
 		ResultType: db.TextFieldType,
 		Code:       `function execute(params) { return params.source }`,
-		FormItems: datatypes.NewJSONType([]db.ShortcutFormItem{
-			{Key: "source", Label: i18n.LocalText{"": "Source"}, Component: db.ShortcutFormFieldSelect, Required: true},
-		}),
+		Sections: datatypes.NewJSONType([]db.ShortcutSection{{Fields: []db.ShortcutField{
+			{Key: "source", Label: i18n.LocalText{"": "Source"}, Widget: db.ShortcutWidgetFieldSelect, Required: true},
+		}}}),
 		Enabled: true,
 	}
 
@@ -225,8 +225,8 @@ func TestExecuteFieldOptions(t *testing.T) {
 	target := selectField("fldSSSSSSS", db.SingleSelectFieldType, "A", "B: detail")
 	def := &db.CustomFieldShortcut{
 		UID: "fscAAAAAAA", ResultType: db.SingleSelectFieldType, Enabled: true, TimeoutSeconds: 5,
-		Code:      `function execute(params) { return params.categories[params.categories.length - 1] }`,
-		FormItems: datatypes.NewJSONType([]db.ShortcutFormItem{{Key: "categories", Label: i18n.LocalText{"": "Categories"}, Component: db.ShortcutFormFieldOptions, Required: true}}),
+		Code:     `function execute(params) { return params.categories[params.categories.length - 1] }`,
+		Sections: datatypes.NewJSONType([]db.ShortcutSection{{Fields: []db.ShortcutField{{Key: "categories", Label: i18n.LocalText{"": "Categories"}, Widget: db.ShortcutWidgetFieldOptions, Required: true}}}}),
 	}
 	target.Shortcut = &db.FieldShortcut{ID: def.UID, Inputs: map[string]interface{}{"categories": "stale text"}, AutoUpdate: true}
 	normalized, err := Validate(def, nil, target, target.Shortcut)
@@ -259,9 +259,9 @@ func TestExecutePrompt(t *testing.T) {
 		UID:        "fscAAAAAAA",
 		ResultType: db.TextFieldType,
 		Code:       `function execute(params) { return params.prompt }`,
-		FormItems: datatypes.NewJSONType([]db.ShortcutFormItem{
-			{Key: "prompt", Label: i18n.LocalText{"": "Prompt"}, Component: db.ShortcutFormPrompt, Required: true},
-		}),
+		Sections: datatypes.NewJSONType([]db.ShortcutSection{{Fields: []db.ShortcutField{
+			{Key: "prompt", Label: i18n.LocalText{"": "Prompt"}, Widget: db.ShortcutWidgetPrompt, Required: true},
+		}}}),
 		Enabled: true,
 	}
 
@@ -289,10 +289,10 @@ func TestExecuteScript(t *testing.T) {
 		UID:        "fscAAAAAAA",
 		ResultType: db.NumberFieldType,
 		Code:       `async function execute(params, context) { return params.unit === "chars" ? String(params.text.length) : -1 }`,
-		FormItems: datatypes.NewJSONType([]db.ShortcutFormItem{
-			{Key: "text", Label: i18n.LocalText{"": "Text"}, Component: db.ShortcutFormFieldSelect, Required: true},
-			{Key: "unit", Label: i18n.LocalText{"": "Unit"}, Component: db.ShortcutFormSelect, Options: []db.ShortcutFormOption{{Value: "chars", Label: i18n.LocalText{"": "Chars"}}}},
-		}),
+		Sections: datatypes.NewJSONType([]db.ShortcutSection{{Fields: []db.ShortcutField{
+			{Key: "text", Label: i18n.LocalText{"": "Text"}, Widget: db.ShortcutWidgetFieldSelect, Required: true},
+			{Key: "unit", Label: i18n.LocalText{"": "Unit"}, Widget: db.ShortcutWidgetSelect, Options: []db.ShortcutOption{{Value: "chars", Label: i18n.LocalText{"": "Chars"}}}},
+		}}}),
 		Domains:        datatypes.NewJSONType([]string{}),
 		Credentials:    datatypes.NewJSONType([]db.ShortcutCredential{}),
 		Secrets:        secrets,
@@ -358,7 +358,7 @@ func TestLocalizedScriptErrorSurvivesJobStorage(t *testing.T) {
 
 func TestLocalizedFormValidationError(t *testing.T) {
 	custom := &db.CustomFieldShortcut{UID: "fscAAAAAAA", ResultType: db.TextFieldType,
-		FormItems: datatypes.NewJSONType([]db.ShortcutFormItem{{Key: "text", Label: i18n.LocalText{"en": "Source", "zh-CN": "来源"}, Component: db.ShortcutFormInput, Required: true}})}
+		Sections: datatypes.NewJSONType([]db.ShortcutSection{{Fields: []db.ShortcutField{{Key: "text", Label: i18n.LocalText{"en": "Source", "zh-CN": "来源"}, Widget: db.ShortcutWidgetText, Required: true}}}})}
 	_, err := Validate(custom, nil, field("fldAAAAAAA", db.TextFieldType, nil), &db.FieldShortcut{ID: custom.UID})
 	var validation *Error
 	require.ErrorAs(t, err, &validation)

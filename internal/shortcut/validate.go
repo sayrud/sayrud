@@ -27,18 +27,18 @@ func Validate(custom *db.CustomFieldShortcut, fields []*db.SLField, field *db.SL
 
 	byUID := lo.KeyBy(fields, func(f *db.SLField) string { return f.UID })
 	normalized := &db.FieldShortcut{ID: custom.UID, Inputs: map[string]interface{}{}, AutoUpdate: shortcut.AutoUpdate}
-	for _, item := range custom.FormItems.Data() {
-		if item.Component == db.ShortcutFormFieldOptions {
+	for _, item := range custom.Fields() {
+		if item.Widget == db.ShortcutWidgetFieldOptions {
 			if field.Type != db.SingleSelectFieldType && field.Type != db.MultiSelectFieldType {
 				return nil, newError("shortcut::unsupported_type")
 			}
 			names := optionNames(field)
 			md, _ := field.Metadata.Data().(map[string]interface{})
 			if item.Required && len(names) == 0 && md["optionsReference"] == nil {
-				return nil, newError("shortcut::input_required", item.Label)
+				return nil, newError("shortcut::input_required", item.DisplayLabel())
 			}
 			if len(lo.Uniq(names)) != len(names) {
-				return nil, newError("shortcut::invalid_option", item.Label)
+				return nil, newError("shortcut::invalid_option", item.DisplayLabel())
 			}
 			continue
 		}
@@ -46,29 +46,29 @@ func Validate(custom *db.CustomFieldShortcut, fields []*db.SLField, field *db.SL
 		value := strings.TrimSpace(raw)
 		if value == "" {
 			if item.Required {
-				return nil, newError("shortcut::input_required", item.Label)
+				return nil, newError("shortcut::input_required", item.DisplayLabel())
 			}
 			continue
 		}
 		if utf8.RuneCountInString(value) > maxInputLength {
-			return nil, newError("shortcut::input_too_long", item.Label)
+			return nil, newError("shortcut::input_too_long", item.DisplayLabel())
 		}
 
-		switch item.Component {
-		case db.ShortcutFormFieldSelect:
+		switch item.Widget {
+		case db.ShortcutWidgetFieldSelect:
 			ref, ok := byUID[value]
 			if !ok || ref.UID == field.UID || !inputFieldAllowed(item, ref.Type) {
-				return nil, newError("shortcut::invalid_input_field", item.Label)
+				return nil, newError("shortcut::invalid_input_field", item.DisplayLabel())
 			}
-		case db.ShortcutFormSelect:
-			if !lo.ContainsBy(item.Options, func(o db.ShortcutFormOption) bool { return o.Value == value }) {
-				return nil, newError("shortcut::invalid_option", item.Label)
+		case db.ShortcutWidgetSelect:
+			if !lo.ContainsBy(item.Options, func(o db.ShortcutOption) bool { return o.Value == value }) {
+				return nil, newError("shortcut::invalid_option", item.DisplayLabel())
 			}
-		case db.ShortcutFormPrompt:
+		case db.ShortcutWidgetPrompt:
 			for _, uid := range promptRefs(value) {
 				ref, ok := byUID[uid]
 				if !ok || ref.UID == field.UID || ref.Type == db.FormulaFieldType {
-					return nil, newError("shortcut::invalid_input_field", item.Label)
+					return nil, newError("shortcut::invalid_input_field", item.DisplayLabel())
 				}
 			}
 		}
@@ -82,7 +82,7 @@ func Validate(custom *db.CustomFieldShortcut, fields []*db.SLField, field *db.SL
 }
 
 // inputFieldAllowed reports whether the field type can be picked by the field_select item, formulas can not as they are computed by the browser.
-func inputFieldAllowed(item db.ShortcutFormItem, t db.SLFieldType) bool {
+func inputFieldAllowed(item db.ShortcutField, t db.SLFieldType) bool {
 	if t == db.FormulaFieldType || t.IsUnknown() {
 		return false
 	}

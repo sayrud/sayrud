@@ -388,29 +388,6 @@ func TestDialControlNetworkAllowlist(t *testing.T) {
 	}
 }
 
-func TestHostAllowed(t *testing.T) {
-	domains := []string{"example.com", "api.test.io"}
-	require.True(t, HostAllowed("example.com", domains))
-	require.True(t, HostAllowed("A.Example.com.", domains))
-	require.True(t, HostAllowed("api.test.io", domains))
-	require.False(t, HostAllowed("test.io", domains))
-	require.False(t, HostAllowed("badexample.com", domains))
-	require.False(t, HostAllowed("example.com.evil.net", domains))
-	require.False(t, HostAllowed("", domains))
-}
-
-func TestNormalizeDomain(t *testing.T) {
-	for in, want := range map[string]string{" Example.COM. ": "example.com", "a-b.c": "a-b.c", "1.2.3.4": "1.2.3.4", "::1": "::1"} {
-		got, ok := NormalizeDomain(in)
-		require.True(t, ok, in)
-		require.Equal(t, want, got)
-	}
-	for _, in := range []string{"", "https://example.com", "a_b.com", "-a.com", "example.com/x", "*.example.com"} {
-		_, ok := NormalizeDomain(in)
-		require.False(t, ok, in)
-	}
-}
-
 func TestIsPublicAddr(t *testing.T) {
 	for _, s := range []string{"8.8.8.8", "1.1.1.1", "2606:4700:4700::1111"} {
 		require.True(t, IsPublicAddr(netip.MustParseAddr(s)), s)

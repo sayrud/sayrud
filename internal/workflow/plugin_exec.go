@@ -13,7 +13,7 @@ import (
 	"github.com/cockroachdb/errors"
 
 	"github.com/wuhan005/sayrud/internal/db"
-	"github.com/wuhan005/sayrud/internal/shortcut/script"
+	"github.com/wuhan005/sayrud/internal/manifest"
 	"github.com/wuhan005/sayrud/internal/workflow/sandbox"
 )
 
@@ -287,7 +287,7 @@ func checkPluginFetchURL(u *url.URL, domains []string) error {
 	if u.User != nil {
 		return &ActionError{Message: "fetch: credentials in the URL are not allowed"}
 	}
-	if !PluginHostAllowed(u.Hostname(), domains) {
+	if !manifest.HostAllowed(u.Hostname(), domains) {
 		return &ActionError{Message: fmt.Sprintf("fetch: the host %q is not allowed by the plugin permissions", u.Hostname())}
 	}
 	return nil
@@ -301,16 +301,6 @@ func checkPluginFetchRedirect(r *http.Request, via []*http.Request, domains []st
 		return &ActionError{Message: "fetch: redirect to an insecure URL is not allowed"}
 	}
 	return checkPluginFetchURL(r.URL, domains)
-}
-
-// PluginHostAllowed reports whether a plugin with the allowed hosts can fetch the host; * allows any host.
-func PluginHostAllowed(host string, domains []string) bool {
-	for _, d := range domains {
-		if d == "*" {
-			return true
-		}
-	}
-	return script.HostAllowed(host, domains)
 }
 
 // PluginFetch enforces the allowed domains and system network policy; responses of any status are returned.
