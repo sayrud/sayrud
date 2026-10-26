@@ -1466,7 +1466,7 @@ const ja: typeof zhCN = {
   },
   hub: {
     officialTip: '公式パッケージ（Sayrud Hub で署名検証済み）',
-    verifiedTip: 'Sayrud Hub からインストール（署名検証済み）',
+    verifiedTip: 'Sayrud Hub からインストール',
     updateTo: '{version} に更新',
     reason: '理由：{reason}',
     yanked: '取り下げ済み',

@@ -193,7 +193,7 @@ async function install() {
     :closable="!busy"
     :esc-to-close="!busy"
     unmount-on-close
-    :title="upgrade ? t('pluginAdmin.upgradeTitle', { name: upgrade.name }) : t('shortcutAdmin.installTitle')"
+    :title="upgrade ? t('pluginAdmin.upgradeTitle', { name: text(upgrade.name) }) : t('shortcutAdmin.installTitle')"
   >
     <HubFetchState
       v-if="step === 1 && hubMode"

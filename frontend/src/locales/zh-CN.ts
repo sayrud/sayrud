@@ -1464,7 +1464,7 @@ export default {
   },
   hub: {
     officialTip: '官方发布，已通过 Sayrud Hub 签名验证',
-    verifiedTip: '从 Sayrud Hub 安装，已通过签名验证',
+    verifiedTip: '从 Sayrud Hub 安装',
     updateTo: '更新到 {version}',
     reason: '原因：{reason}',
     yanked: '已撤回',

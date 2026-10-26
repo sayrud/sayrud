@@ -1466,7 +1466,7 @@ const zhTW: typeof zhCN = {
   },
   hub: {
     officialTip: '官方發布，已通過 Sayrud Hub 簽章驗證',
-    verifiedTip: '從 Sayrud Hub 安裝，已通過簽章驗證',
+    verifiedTip: '從 Sayrud Hub 安裝',
     updateTo: '更新至 {version}',
     reason: '原因：{reason}',
     yanked: '已撤回',

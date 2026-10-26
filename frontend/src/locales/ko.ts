@@ -1466,7 +1466,7 @@ const ko: typeof zhCN = {
   },
   hub: {
     officialTip: '공식 패키지, Sayrud Hub 서명 검증 완료',
-    verifiedTip: 'Sayrud Hub에서 설치됨, 서명 검증 완료',
+    verifiedTip: 'Sayrud Hub에서 설치됨',
     updateTo: '{version}(으)로 업데이트',
     reason: '사유: {reason}',
     yanked: '철회됨',

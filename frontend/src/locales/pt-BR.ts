@@ -1466,7 +1466,7 @@ const ptBR: typeof zhCN = {
   },
   hub: {
     officialTip: 'Pacote oficial, verificado pelo Sayrud Hub',
-    verifiedTip: 'Instalado do Sayrud Hub, verificado pela assinatura',
+    verifiedTip: 'Instalado do Sayrud Hub',
     updateTo: 'Atualizar para {version}',
     reason: 'Motivo: {reason}',
     yanked: 'Retirada',

@@ -1466,7 +1466,7 @@ const es: typeof zhCN = {
   },
   hub: {
     officialTip: 'Paquete oficial, verificado por Sayrud Hub',
-    verifiedTip: 'Instalado desde Sayrud Hub, verificado por su firma',
+    verifiedTip: 'Instalado desde Sayrud Hub',
     updateTo: 'Actualizar a {version}',
     reason: 'Motivo: {reason}',
     yanked: 'Retirada',
