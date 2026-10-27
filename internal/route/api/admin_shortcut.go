@@ -153,6 +153,7 @@ func buildCustomShortcut(f form.SaveFieldShortcut) (*db.CustomFieldShortcut, map
 		Homepage:       m.Homepage,
 		Name:           m.Name,
 		Icon:           m.Icon,
+		Color:          m.Color,
 		Version:        m.Version,
 		Description:    m.Description,
 		ResultType:     db.SLFieldType(m.ResultType),

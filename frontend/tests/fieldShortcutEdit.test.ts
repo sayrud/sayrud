@@ -13,7 +13,7 @@ import * as localTexts from '../src/utils/localText.ts'
 
 const source = `export const manifest = {
   id: "original_package", homepage: "https://example.com/original",
-  name: "Original", icon: "tag", version: "1.0.0", description: "Description", resultType: "text",
+  name: "Original", icon: "tag", color: "#3370ff", version: "1.0.0", description: "Description", resultType: "text",
   timeout: 30, permissions: {fetch: [], ai: false}, credentials: [{key: "api", label: "API Key", type: "bearer"}],
   sections: [{fields: [{key: "text", label: "Text", widget: "text", required: true}]}],
 };
@@ -31,7 +31,7 @@ async function readManifest(code: string, language = 'javascript') {
 
 function savedShortcut(code = source): AdminFieldShortcut {
   return {
-    uid: 'fscAAAAAAA', id: 'original_package', homepage: 'https://example.com/original', name: { '': 'Original' }, icon: 'tag', version: '1.0.0', description: { '': 'Description' }, resultType: 'text', code, language: 'javascript',
+    uid: 'fscAAAAAAA', id: 'original_package', homepage: 'https://example.com/original', name: { '': 'Original' }, icon: 'tag', color: '#3370ff', version: '1.0.0', description: { '': 'Description' }, resultType: 'text', code, language: 'javascript',
     timeout: 30, permissions: { fetch: [], ai: false }, credentials: [{ key: 'api', label: { '': 'API Key' }, type: 'bearer', hasValue: true }],
     sections: [{ fields: [{ key: 'text', label: { '': 'Text' }, widget: 'text', required: true }] }],
     enabled: false, usedBy: 1, createdAt: '', updatedAt: '',
@@ -116,6 +116,7 @@ test('module definitions refresh the overview while credential values and enable
   assert.equal(page.draft.id, 'original_package')
   assert.equal(page.draft.homepage, 'https://example.com/original')
   assert.equal(page.draft.icon, 'tag')
+  assert.equal(page.draft.color, '#3370ff')
   assert.deepEqual(page.availableTabs.value, ['overview', 'network', 'code'])
   page.draft.credentials[0]!.value = 'private-value'
   page.draft.enabled = true
@@ -127,7 +128,7 @@ test('module definitions refresh the overview while credential values and enable
 
   page.draft.code = withManifest(page.draft.code, {
     credentials: [{ key: 'api', label: 'Renamed API Key', type: 'bearer' }],
-    homepage: 'https://example.com/support', name: 'From code', icon: 'filter', version: '2.0.0', description: 'From source', sections: [{ title: 'Input', fields: [{ key: 'text', label: 'Code label', widget: 'text', multiline: true }] }],
+    homepage: 'https://example.com/support', name: 'From code', icon: 'filter', color: '#6b4ff6', version: '2.0.0', description: 'From source', sections: [{ title: 'Input', fields: [{ key: 'text', label: 'Code label', widget: 'text', multiline: true }] }],
     permissions: { fetch: ['api.example.com'], ai: true }, timeout: 60,
   })
   const updatedSource = page.draft.code
@@ -138,6 +139,7 @@ test('module definitions refresh the overview while credential values and enable
   assert.equal(page.draft.id, 'original_package')
   assert.equal(page.draft.homepage, 'https://example.com/support')
   assert.equal(page.draft.icon, 'filter')
+  assert.equal(page.draft.color, '#6b4ff6')
   assert.equal(page.text(page.draft.sections[0]!.title), 'Input')
   assert.equal(page.draft.sections[0]!.fields[0]!.multiline, true)
   assert.equal(page.draft.timeout, 60)
@@ -155,6 +157,7 @@ test('module definitions refresh the overview while credential values and enable
   assert.equal(writes[0]!.id, 'original_package')
   assert.equal(writes[0]!.homepage, 'https://example.com/support')
   assert.equal(writes[0]!.icon, 'filter')
+  assert.equal(writes[0]!.color, '#6b4ff6')
   assert.equal(writes[0]!.code, updatedSource)
   assert.equal(page.draft.code.includes('private-value'), false)
   assert.equal('enabled' in await readManifest(writes[0]!.code), false)

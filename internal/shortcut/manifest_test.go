@@ -57,8 +57,8 @@ func TestParseManifest(t *testing.T) {
 func TestParseManifestErrors(t *testing.T) {
 	replace := func(old, new string) string { return strings.Replace(validManifest, old, new, 1) }
 	for source, want := range map[string]string{
-		replace(`"icon": "tag"`, `"icon": "https://example.com/icon.svg"`):  "icon must be a Lucide icon name of at most 40 characters, such as tag",
-		replace(`"icon": "tag"`, `"icon": "`+strings.Repeat("a", 41)+`"`):   "icon must be a Lucide icon name of at most 40 characters, such as tag",
+		replace(`"icon": "tag"`, `"icon": "https://example.com/icon.svg"`):  "icon must be a Lucide icon name such as message-square",
+		replace(`"icon": "tag"`, `"icon": "`+strings.Repeat("a", 41)+`"`):   "icon must be a Lucide icon name such as message-square",
 		replace(`"id": "translate"`, `"id": "invalid-id"`):                  "id must be 2–40 lowercase letters, digits, underscores or dots; each part must start with a letter",
 		replace(`"https://example.com/translate"`, `"javascript:alert(1)"`): "homepage must be an http or https URL",
 		`[]`: "the manifest can not be decoded: json: cannot unmarshal array into Go value of type shortcut.Manifest",
@@ -89,4 +89,26 @@ func TestParseManifestErrors(t *testing.T) {
 		require.ErrorAs(t, err, &manifestErr, want)
 		require.Equal(t, want, manifestErr.Message)
 	}
+}
+
+func TestShortcutAppearance(t *testing.T) {
+	for _, icon := range []string{"tag", "data:image/svg+xml;base64,PHN2Zy8+", "data:image/png;base64,aGVsbG8="} {
+		source := strings.Replace(validManifest, `"icon": "tag"`, `"icon": "`+icon+`", "color": "#6b4fF6"`, 1)
+		m, err := ParseManifest([]byte(source))
+		require.NoError(t, err)
+		require.Equal(t, icon, m.Icon)
+		require.Equal(t, "#6b4fF6", m.Color)
+	}
+	for _, appearance := range []string{
+		`"color": "red"`, `"color": "#fff"`, `"color": "#3370ff;display:none"`,
+		`"icon": "data:text/html;base64,aGVsbG8="`, `"icon": "data:image/svg+xml;base64,***"`,
+		`"icon": "data:image/svg+xml;base64,` + strings.Repeat("a", 100<<10) + `"`,
+	} {
+		_, err := ParseManifest([]byte(strings.Replace(validManifest, `"icon": "tag"`, appearance, 1)))
+		require.Error(t, err)
+	}
+	m, err := ParseManifest([]byte(`{"name":"Legacy","version":"1.0.0","resultType":"text"}`))
+	require.NoError(t, err)
+	require.Empty(t, m.Icon)
+	require.Empty(t, m.Color)
 }

@@ -13,8 +13,10 @@ export const manifest = {
   id: "uppercase_text",
   version: "1.0.0",
   name: { en: "Uppercase text", "zh-CN": "转为大写" },
-  // Optional Lucide icon name, e.g. tag; empty uses the default shortcut icon.
+  // Lucide icon name or a base64 data:image URL; empty uses the default shortcut icon.
   icon: "",
+  // Optional hex color, e.g. #3370ff; empty uses the theme color.
+  color: "",
   description: { en: "Converts the selected field's text to uppercase.", "zh-CN": "将所选字段的文本转为大写。" },
   // Optional project website or support page.
   homepage: "",

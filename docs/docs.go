@@ -7796,6 +7796,10 @@ const docTemplate = `{
                     "description": "Code defines ` + "`" + `async function execute(params, context)` + "`" + ` returning the cell value, with context.ai.complete using the global model when permissions.ai is true.",
                     "type": "string"
                 },
+                "color": {
+                    "description": "Color is an optional hex color, empty for the theme color.",
+                    "type": "string"
+                },
                 "createdAt": {
                     "description": "CreatedAt is the time the shortcut was created.",
                     "type": "string"
@@ -7832,7 +7836,7 @@ const docTemplate = `{
                     ]
                 },
                 "icon": {
-                    "description": "Icon is an optional Lucide icon name, empty for the default shortcut icon.",
+                    "description": "Icon is an optional Lucide icon name or base64 data:image URL.",
                     "type": "string"
                 },
                 "id": {
@@ -8828,6 +8832,10 @@ const docTemplate = `{
                     "description": "Available is false if the shortcut is disabled or its AI configuration is unavailable.",
                     "type": "boolean"
                 },
+                "color": {
+                    "description": "Color is an optional hex color, empty for the theme color.",
+                    "type": "string"
+                },
                 "description": {
                     "description": "Description tells what the shortcut does.",
                     "allOf": [
@@ -8837,7 +8845,7 @@ const docTemplate = `{
                     ]
                 },
                 "icon": {
-                    "description": "Icon is an optional Lucide icon name, empty for the default shortcut icon.",
+                    "description": "Icon is an optional Lucide icon name or base64 data:image URL.",
                     "type": "string"
                 },
                 "id": {
@@ -10539,6 +10547,10 @@ const docTemplate = `{
                     "description": "Code defines ` + "`" + `async function execute(params, context)` + "`" + `, with context.ai.complete using the global model when permissions.ai is true.",
                     "type": "string"
                 },
+                "color": {
+                    "description": "Color is an optional hex color, e.g. #3370ff; empty uses the theme color.",
+                    "type": "string"
+                },
                 "credentials": {
                     "description": "Credentials are the credentials the script can use when fetching, without their values.",
                     "type": "array",
@@ -10563,7 +10575,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "icon": {
-                    "description": "Icon is an optional Lucide icon name, e.g. tag; empty uses the default shortcut icon.",
+                    "description": "Icon is an optional Lucide icon name or base64 data:image URL.",
                     "type": "string"
                 },
                 "id": {

@@ -12,7 +12,7 @@ import { DATE_FORMATS, defaultMetadata, FIELD_TYPES, fieldTypeInfo, NUMBER_FORMA
 import { formatNumber } from '@/utils/format'
 import { expToDisplay } from '@/utils/formula'
 import { newOptionUID } from '@/utils/id'
-import { moduleIcon } from '@/utils/modules'
+import WorkflowPluginIcon from '@/components/admin/WorkflowPluginIcon.vue'
 import { legacyOptionNames, missingInput, newShortcut, shortcutFields } from '@/utils/shortcut'
 import { localText, type LocalText } from '@/utils/localText'
 import { referenceComplete } from '@/utils/optionReference'
@@ -278,7 +278,7 @@ const numberExample = computed(() => formatNumber(1234.5678, String(md.value.for
       <div class="row">
         <div class="row-label">{{ t('fieldEditor.type') }}</div>
         <button ref="typeTrigger" type="button" class="type-trigger" :class="{ open: !!typeMenu }" @click="toggleTypeMenu">
-          <component :is="moduleIcon(manifest.icon || (manifest.permissions.ai ? 'sparkles' : 'zap'))" v-if="shortcut && manifest" :size="16" class="shortcut-icon" />
+          <WorkflowPluginIcon v-if="shortcut && manifest" :icon="manifest.icon || (manifest.permissions.ai ? 'sparkles' : 'zap')" :color="manifest.color || 'var(--color-primary)'" :size="24" class="shortcut-icon" />
           <FieldTypeIcon v-else :type="type" :size="16" />
           <span class="type-trigger-label">{{ shortcut ? (manifest ? text(manifest.name) : shortcut.id) : fieldTypeInfo(type).label }}</span>
           <ChevronRight :size="16" class="type-trigger-arrow" />
@@ -429,7 +429,7 @@ const numberExample = computed(() => formatNumber(1234.5678, String(md.value.for
             @mouseenter="typeActive = filteredTypes.length + i"
             @click="selectShortcut(m)"
           >
-            <component :is="moduleIcon(m.icon || (m.permissions.ai ? 'sparkles' : 'zap'))" :size="16" class="shortcut-icon" />
+            <WorkflowPluginIcon :icon="m.icon || (m.permissions.ai ? 'sparkles' : 'zap')" :color="m.color || 'var(--color-primary)'" :size="24" class="shortcut-icon" />
             <span class="type-item-label">{{ text(m.name) }}</span>
             <Check v-if="shortcut?.id === m.id" :size="15" class="type-check" />
           </div>
@@ -558,7 +558,6 @@ const numberExample = computed(() => formatNumber(1234.5678, String(md.value.for
 }
 .shortcut-icon {
   flex: none;
-  color: var(--color-primary);
 }
 .shortcut-warn {
   margin: -6px 0 12px;

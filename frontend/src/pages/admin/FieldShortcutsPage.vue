@@ -201,7 +201,7 @@ onMounted(() => {
       >
         <template #name="{ record }">
           <div class="name-cell">
-            <WorkflowPluginIcon :icon="record.icon || (record.permissions.ai ? 'sparkles' : 'zap')" color="var(--color-primary)" :size="32" />
+            <WorkflowPluginIcon :icon="record.icon || (record.permissions.ai ? 'sparkles' : 'zap')" :color="record.color || 'var(--color-primary)'" :size="32" />
             <div class="name-text">
               <div class="name-row">
                 <span class="name ellipsis">{{ text(record.name) }}</span>

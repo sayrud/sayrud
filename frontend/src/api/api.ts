@@ -142,6 +142,8 @@ export interface AdminCredential {
 export interface AdminFieldShortcut {
   /** Code defines `async function execute(params, context)` returning the cell value, with context.ai.complete using the global model when permissions.ai is true. */
   code: string;
+  /** Color is an optional hex color, empty for the theme color. */
+  color?: string;
   /** CreatedAt is the time the shortcut was created. */
   createdAt: string;
   /** Credentials are the credentials the script can use when fetching. */
@@ -154,7 +156,7 @@ export interface AdminFieldShortcut {
   homepage: string;
   /** Hub is the Sayrud Hub release the shortcut is installed from, omitted if installed from elsewhere. */
   hub?: HubOrigin;
-  /** Icon is an optional Lucide icon name, empty for the default shortcut icon. */
+  /** Icon is an optional Lucide icon name or base64 data:image URL. */
   icon?: string;
   /** ID is the source package identifier, empty if not declared; UID identifies this installation. */
   id: string;
@@ -496,9 +498,11 @@ export interface FieldShortcut {
 export interface FieldShortcutManifest {
   /** Available is false if the shortcut is disabled or its AI configuration is unavailable. */
   available: boolean;
+  /** Color is an optional hex color, empty for the theme color. */
+  color?: string;
   /** Description tells what the shortcut does. */
   description: I18NLocalText;
-  /** Icon is an optional Lucide icon name, empty for the default shortcut icon. */
+  /** Icon is an optional Lucide icon name or base64 data:image URL. */
   icon?: string;
   /** ID is the UID of a custom shortcut. */
   id: string;
@@ -1055,6 +1059,8 @@ export interface SaveCredential {
 export interface SaveFieldShortcut {
   /** Code defines `async function execute(params, context)`, with context.ai.complete using the global model when permissions.ai is true. */
   code: string;
+  /** Color is an optional hex color, e.g. #3370ff; empty uses the theme color. */
+  color?: string;
   /** Credentials are the credentials the script can use when fetching, without their values. */
   credentials: ShortcutCredential[];
   /** Description tells the members what the shortcut does. */
@@ -1063,7 +1069,7 @@ export interface SaveFieldShortcut {
   enabled: boolean;
   /** Homepage is the project website or support page. */
   homepage?: string;
-  /** Icon is an optional Lucide icon name, e.g. tag; empty uses the default shortcut icon. */
+  /** Icon is an optional Lucide icon name or base64 data:image URL. */
   icon?: string;
   /** ID identifies the source package. It is optional for local scripts and distinct from the installation UID. */
   id?: string;

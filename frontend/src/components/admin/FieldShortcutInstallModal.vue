@@ -258,7 +258,7 @@ async function install() {
 
     <div v-else-if="inspection" class="review-step">
       <div class="review-head">
-        <WorkflowPluginIcon :icon="inspection.icon || (inspection.permissions.ai ? 'sparkles' : 'zap')" color="var(--color-primary)" :size="44" />
+        <WorkflowPluginIcon :icon="inspection.icon || (inspection.permissions.ai ? 'sparkles' : 'zap')" :color="inspection.color || 'var(--color-primary)'" :size="44" />
         <div class="review-title">
           <div class="review-name">
             <span>{{ text(inspection.name) }}</span>
