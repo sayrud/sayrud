@@ -11,7 +11,7 @@ import { useHubUpdates } from '@/composables/useHubUpdates'
 /** Asks Sayrud Hub again for the updates of the packages of the kind, and tells when it last did. */
 const props = defineProps<{ kind: HubKind }>()
 const { t } = useI18n()
-const { available, checkedAt, checking, error, check } = useHubUpdates(props.kind)
+const { available, notices, checkedAt, checking, error, check } = useHubUpdates(props.kind)
 
 const tooltip = computed(() => {
   if (error.value) return t('hub.checkFailed', { message: error.value })
@@ -26,7 +26,7 @@ async function refresh() {
     return
   }
   if (available.value) Message.info(t('hub.updatesFound', { n: available.value }, available.value))
-  else Message.success(t('hub.upToDate'))
+  else if (!notices.value.length) Message.success(t('hub.upToDate'))
 }
 </script>
 

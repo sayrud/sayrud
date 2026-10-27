@@ -10,9 +10,8 @@ const error = ref('')
 let pending: Promise<boolean> | null = null
 let loaded = false
 
-/** Asks the backend for the updates; refresh also makes the backend ask the Hub again. Resolves to whether it succeeded. */
+/** Starts a new check; refresh also makes the backend ask the Hub again. Resolves to whether it succeeded. */
 function check(refresh = false): Promise<boolean> {
-  if (pending && !refresh) return pending
   loaded = true
   checking.value = true
   const request = (pending = hubApi

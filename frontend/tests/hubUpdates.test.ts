@@ -51,7 +51,7 @@ test('update checks are shared, loaded once and matched by kind, id and installe
   const shortcuts = useHubUpdates('field_shortcut')
   plugins.ensure()
   shortcuts.ensure()
-  assert.equal(await plugins.check(), true)
+  await flush()
   assert.deepEqual(calls, [false])
   assert.equal(plugins.checkedAt.value, '2026-10-26T00:00:00Z')
 
@@ -72,7 +72,7 @@ test('update checks are shared, loaded once and matched by kind, id and installe
   assert.deepEqual(calls, [false, true])
 })
 
-test('a refresh supersedes a pending check and failures keep the last result', async () => {
+test('a check after a package mutation supersedes a pending check and failures keep the last result', async () => {
   const pending: ((resp: HubUpdatesResp) => void)[] = []
   let fail = false
   const { useHubUpdates } = loadComposable(async () => {
@@ -82,7 +82,7 @@ test('a refresh supersedes a pending check and failures keep the last result', a
   const hub = useHubUpdates()
 
   const first = hub.check()
-  const second = hub.check(true)
+  const second = hub.check()
   assert.equal(hub.checking.value, true)
   pending[1]!({ packages: [update({ delisted: true })], checkedAt: 'new' })
   await second
@@ -97,6 +97,76 @@ test('a refresh supersedes a pending check and failures keep the last result', a
   assert.equal(hub.error.value, 'Sayrud Hub can not be reached')
   assert.equal(hub.checkedAt.value, 'new')
   assert.equal(hub.notices.value.length, 1)
+})
+
+test('the check button only reports up to date when there are no updates or notices of its kind', async () => {
+  let packages: HubUpdate[] = []
+  const composable = loadComposable(async () => ({ packages, checkedAt: '' }))
+  const messages: string[][] = []
+  const exports = load<{ default: { setup: (...args: unknown[]) => unknown } }>('../src/components/admin/HubCheckButton.vue', {
+    '@arco-design/web-vue': { Message: {
+      info: (key: string) => messages.push(['info', key]),
+      success: (key: string) => messages.push(['success', key]),
+      error: assert.fail,
+    } },
+    '@lucide/vue': {},
+    'vue-i18n': { useI18n: () => ({ t: (key: string) => key }) },
+    '@/composables/useHubUpdates': composable,
+  })
+  const button = exports.default.setup({ kind: 'field_shortcut' }, { expose: () => {} }) as { refresh: () => Promise<void> }
+
+  for (const notice of [{ yanked: true }, { delisted: true }]) {
+    packages = [update({ kind: 'field_shortcut', ...notice })]
+    await button.refresh()
+    assert.deepEqual(messages, [])
+  }
+
+  packages = [update({ kind: 'field_shortcut', yanked: true, latest: { version: '1.1.0', minAppVersion: '', prerelease: false } })]
+  await button.refresh()
+  assert.deepEqual(messages.splice(0), [['info', 'hub.updatesFound']])
+
+  // A notice for a plugin must not suppress the shortcut result.
+  packages = [update({ delisted: true })]
+  await button.refresh()
+  assert.deepEqual(messages.splice(0), [['success', 'hub.upToDate']])
+})
+
+test('uninstalling a Hub plugin refreshes shared notices, including when it is the last Hub plugin', async (t) => {
+  let installed = [{ id: 'acme', hub: origin('1.0.0'), module: { label: 'Acme' } }] as WorkflowPlugin[]
+  let checks = 0
+  const composable = loadComposable(async () => {
+    checks++
+    return { packages: installed.map((p) => update({ id: p.id, delisted: true })), checkedAt: '' }
+  })
+  const exports = load<{ default: { setup: (...args: unknown[]) => unknown } }>('../src/pages/admin/WorkflowPluginsPage.vue', {
+    vue: { ...vue, onMounted: () => {} },
+    '@arco-design/web-vue': { Message: { error: assert.fail } },
+    '@lucide/vue': {},
+    'vue-i18n': { useI18n: () => ({ t: (key: string) => key }) },
+    'vue-router': { useRouter: () => ({}) },
+    '@/api/workflowPlugin': { workflowPluginsApi: { list: async () => ({ plugins: installed, builtins: [] }) } },
+    '@/composables/useHubUpdates': composable,
+    '@/utils/modules': { dslText: (text: string) => text },
+    '@/utils/workflowPlugin': workflowPlugin,
+  })
+  const scope = vue.effectScope()
+  t.after(() => scope.stop())
+  const page = scope.run(() => exports.default.setup({}, { expose: () => {} })) as {
+    load: () => Promise<void>
+    onUninstalled: (id: string) => void
+    plugins: vue.Ref<WorkflowPlugin[]>
+  }
+  const hub = composable.useHubUpdates('workflow_plugin')
+  await page.load()
+  await flush()
+  assert.equal(hub.notices.value.length, 1)
+
+  installed = []
+  page.onUninstalled('acme')
+  await flush()
+  assert.deepEqual(page.plugins.value, [])
+  assert.deepEqual(hub.notices.value, [])
+  assert.equal(checks, 2)
 })
 
 const modalOverrides = (visible: vue.Ref<boolean>, messages: string[]) => ({

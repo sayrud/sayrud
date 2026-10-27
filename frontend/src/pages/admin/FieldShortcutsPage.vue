@@ -36,9 +36,7 @@ const upgradeTarget = ref<AdminFieldShortcut | null>(null)
 const keyword = ref('')
 const pagination = reactive({ current: 1, pageSize: 20, total: 0 })
 
-// The list is paginated, so the shortcuts from the Hub on the other pages are known by the update check.
 const hub = useHubUpdates('field_shortcut')
-const fromHub = computed(() => shortcuts.value.some((s) => s.hub) || hub.updates.value.length > 0)
 const updateOf = (s: AdminFieldShortcut) => hub.find('field_shortcut', s.id, s.hub)?.latest
 const shortcutName = (id: string) => {
   const s = shortcuts.value.find((s) => s.id === id)
@@ -151,6 +149,7 @@ function uninstall(s: AdminFieldShortcut) {
         Message.error(e instanceof Error ? e.message : String(e))
         return false
       }
+      if (s.hub) void hub.check()
       await load()
       Message.success(t('pluginAdmin.uninstalled'))
       return true
@@ -168,7 +167,7 @@ onMounted(() => {
   <div>
     <PageHeader :title="t('shortcutAdmin.title')" :description="t('shortcutAdmin.pageDescription')">
       <template #extra>
-        <HubCheckButton v-if="fromHub" kind="field_shortcut" />
+        <HubCheckButton kind="field_shortcut" />
         <a-button @click="browseHub">
           <template #icon><Store :size="16" /></template>
           {{ t('hubCatalog.browseShortcuts') }}

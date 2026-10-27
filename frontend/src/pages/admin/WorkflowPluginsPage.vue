@@ -130,10 +130,11 @@ function replace(saved: WorkflowPlugin) {
 function onInstalled(saved: WorkflowPlugin) {
   view.value = 'installed'
   replace(saved)
-  if (fromHub.value) void hub.check()
+  if (saved.hub || upgradeTarget.value?.hub) void hub.check()
 }
 
 function onUninstalled(id: string) {
+  if (plugins.value.find((p) => p.id === id)?.hub) void hub.check()
   plugins.value = plugins.value.filter((p) => p.id !== id)
 }
 

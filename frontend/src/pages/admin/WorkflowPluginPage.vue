@@ -209,6 +209,7 @@ function uninstall() {
         Message.error(e instanceof Error ? e.message : String(e))
         return false
       }
+      if (p.hub) void hub.check()
       Message.success(t('pluginAdmin.uninstalled'))
       source.value = p.source ?? ''
       router.replace({ name: 'admin-workflow-plugins' })

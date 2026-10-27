@@ -402,6 +402,7 @@ function remove() {
         Message.error(e instanceof Error ? e.message : String(e))
         return false
       }
+      if (s.hub) void hub.check()
       baseline.value = JSON.stringify(draft)
       Message.success(t('pluginAdmin.uninstalled'))
       router.replace({ name: 'admin-field-shortcuts' })
