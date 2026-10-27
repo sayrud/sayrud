@@ -18,7 +18,7 @@ import SettingsSection from '@/components/console/SettingsSection.vue'
 import { useHubUpdates } from '@/composables/useHubUpdates'
 import type { ModuleCategory, ModuleDef } from '@/types/workflow'
 import { dslText } from '@/utils/modules'
-import { LANGUAGE_NAMES, versionLabel } from '@/utils/workflowPlugin'
+import { versionLabel } from '@/utils/workflowPlugin'
 
 const { t } = useI18n()
 const router = useRouter()
@@ -232,7 +232,6 @@ onMounted(load)
                 <div class="text-desc ellipsis desc" :title="dslText(record.module.description)">
                   {{ dslText(record.module.description) || t('pluginAdmin.noDescription') }}
                 </div>
-                <div v-if="record.language === 'typescript'" class="text-desc desc">{{ LANGUAGE_NAMES.typescript }}</div>
               </div>
             </div>
           </template>

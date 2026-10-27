@@ -234,12 +234,6 @@ const inputs = computed(() => plugin.value?.module.sections.flatMap((s) => s.fie
             <a-tag v-else size="small">{{ t('pluginAdmin.reinstall') }}</a-tag>
           </div>
           <div v-if="plugin.module.description" class="text-desc">{{ plugin.module.description }}</div>
-          <div v-if="plugin.module.plugin?.author || plugin.module.plugin?.homepage" class="review-meta text-desc">
-            <span v-if="plugin.module.plugin?.author">{{ plugin.module.plugin.author }}</span>
-            <template v-if="plugin.module.plugin?.homepage">
-              <span v-if="plugin.module.plugin?.author" class="dot">·</span><a-link :href="plugin.module.plugin.homepage" target="_blank" rel="noopener noreferrer">{{ t('pluginAdmin.homepage') }}</a-link>
-            </template>
-          </div>
         </div>
         <a-link v-if="plugin.hub" :href="plugin.hub.url" target="_blank" rel="noopener noreferrer" class="hub-link">
           {{ t('hub.viewOnHub') }}<ExternalLink :size="12" />
@@ -250,7 +244,7 @@ const inputs = computed(() => plugin.value?.module.sections.flatMap((s) => s.fie
 
       <a-alert v-if="replacesOther" type="warning" class="error">{{ t('pluginAdmin.replacesOther', { id: plugin.id }) }}</a-alert>
 
-      <a-descriptions :column="2" layout="vertical" class="review-details">
+      <a-descriptions :column="2" layout="vertical" :value-style="{ verticalAlign: 'top' }" class="review-details">
         <a-descriptions-item :label="t('pluginAdmin.inputs')">
           <ul v-if="inputs.length" class="io-list">
             <li v-for="f in inputs" :key="f.key">
@@ -409,16 +403,6 @@ const inputs = computed(() => plugin.value?.module.sections.flatMap((s) => s.fie
   gap: 8px;
   margin-bottom: 4px;
   font-size: 17px;
-}
-.review-meta {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  margin-top: 4px;
-  font-size: 12px;
-}
-.dot {
-  margin: 0 6px;
 }
 .review-details {
   margin: 20px 0 8px;
