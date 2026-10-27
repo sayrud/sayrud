@@ -1489,8 +1489,6 @@ const ja: typeof zhCN = {
     alertYankedHint: '別のリリースをインストールするか、アンインストールしてください。',
     alertDelisted: 'このパッケージは Sayrud Hub で掲載終了しました',
     alertDelistedHint: '今後は更新されないため、アンインストールをご検討ください。',
-    verified: 'Sayrud Hub で検証済み',
-    verifiedHint: '署名がこのソースと一致しており、Hub で公開されたリリースと同一です。',
     official: '公式',
     changelog: '{version} の新機能',
     downloading: '{name} の最新リリースをダウンロードしています',

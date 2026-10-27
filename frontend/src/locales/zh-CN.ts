@@ -1487,8 +1487,6 @@ export default {
     alertYankedHint: '请安装其他版本或卸载。',
     alertDelisted: '该包已从 Sayrud Hub 下架',
     alertDelistedHint: '之后不会再有更新，建议卸载。',
-    verified: '已通过 Sayrud Hub 验证',
-    verifiedHint: '签名与源码一致，与 Hub 上发布的版本完全相同。',
     official: '官方',
     changelog: '{version} 更新内容',
     downloading: '正在下载 {name} 的最新版本',

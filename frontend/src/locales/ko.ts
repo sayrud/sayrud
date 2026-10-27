@@ -1489,8 +1489,6 @@ const ko: typeof zhCN = {
     alertYankedHint: '다른 릴리스를 설치하거나 제거하세요.',
     alertDelisted: '이 패키지는 Sayrud Hub에서 게시 중단되었습니다',
     alertDelistedHint: '더 이상 업데이트되지 않으므로 제거를 고려하세요.',
-    verified: 'Sayrud Hub 검증 완료',
-    verifiedHint: '서명이 이 소스와 일치하며 Hub에 게시된 릴리스와 동일합니다.',
     official: '공식',
     changelog: '{version}의 새로운 기능',
     downloading: '{name}의 최신 릴리스를 다운로드하는 중',

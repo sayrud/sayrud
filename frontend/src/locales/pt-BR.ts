@@ -1489,8 +1489,6 @@ const ptBR: typeof zhCN = {
     alertYankedHint: 'Instale outra versão ou desinstale-o.',
     alertDelisted: 'Este pacote foi despublicado do Sayrud Hub',
     alertDelistedHint: 'Ele não receberá mais atualizações, considere desinstalá-lo.',
-    verified: 'Verificado pelo Sayrud Hub',
-    verifiedHint: 'A assinatura corresponde a este código, é exatamente a versão publicada no Hub.',
     official: 'Oficial',
     changelog: 'Novidades da {version}',
     downloading: 'Baixando a versão mais recente de {name}',

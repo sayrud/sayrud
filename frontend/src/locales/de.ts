@@ -1489,8 +1489,6 @@ const de: typeof zhCN = {
     alertYankedHint: 'Installieren Sie eine andere Version oder deinstallieren Sie das Paket.',
     alertDelisted: 'Dieses Paket wurde aus Sayrud Hub entfernt',
     alertDelistedHint: 'Es erhält keine Updates mehr, erwägen Sie die Deinstallation.',
-    verified: 'Von Sayrud Hub verifiziert',
-    verifiedHint: 'Die Signatur passt zu diesem Quellcode, er ist genau die auf dem Hub veröffentlichte Version.',
     official: 'Offiziell',
     changelog: 'Neu in {version}',
     downloading: 'Neueste Version von {name} wird heruntergeladen',

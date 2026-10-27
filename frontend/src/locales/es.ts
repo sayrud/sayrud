@@ -1489,8 +1489,6 @@ const es: typeof zhCN = {
     alertYankedHint: 'Instala otra versión o desinstálalo.',
     alertDelisted: 'Este paquete se ha despublicado de Sayrud Hub',
     alertDelistedHint: 'Ya no recibirá actualizaciones, considera desinstalarlo.',
-    verified: 'Verificado por Sayrud Hub',
-    verifiedHint: 'La firma coincide con este código, es exactamente la versión publicada en el Hub.',
     official: 'Oficial',
     changelog: 'Novedades de {version}',
     downloading: 'Descargando la última versión de {name}',

@@ -1489,8 +1489,6 @@ const ru: typeof zhCN = {
     alertYankedHint: 'Установите другой выпуск или удалите пакет.',
     alertDelisted: 'Этот пакет снят с публикации в Sayrud Hub',
     alertDelistedHint: 'Обновлений больше не будет, рекомендуется удалить его.',
-    verified: 'Проверено Sayrud Hub',
-    verifiedHint: 'Подпись соответствует этому коду, это в точности выпуск, опубликованный в Hub.',
     official: 'Официальный',
     changelog: 'Что нового в {version}',
     downloading: 'Загрузка последнего выпуска {name}',

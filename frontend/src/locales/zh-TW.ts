@@ -1489,8 +1489,6 @@ const zhTW: typeof zhCN = {
     alertYankedHint: '請安裝其他版本或解除安裝。',
     alertDelisted: '此套件已從 Sayrud Hub 下架',
     alertDelistedHint: '之後不會再有更新，建議解除安裝。',
-    verified: '已通過 Sayrud Hub 驗證',
-    verifiedHint: '簽章與原始碼一致，與 Hub 上發布的版本完全相同。',
     official: '官方',
     changelog: '{version} 更新內容',
     downloading: '正在下載 {name} 的最新版本',
