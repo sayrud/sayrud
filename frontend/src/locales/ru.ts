@@ -429,6 +429,7 @@ const ru: typeof zhCN = {
     unknownOS: 'Неизвестная ОС',
   },
   consoleNav: {
+    developerTools: 'Разработка',
     swagger: 'Документация Swagger',
     workflowPlugins: 'Узлы процессов',
     settingsPersonal: 'Личное',

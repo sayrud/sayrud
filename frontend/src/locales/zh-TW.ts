@@ -429,6 +429,7 @@ const zhTW: typeof zhCN = {
     unknownOS: '未知作業系統',
   },
   consoleNav: {
+    developerTools: '開發',
     swagger: 'Swagger 文件',
     workflowPlugins: '工作流程節點',
     settingsPersonal: '個人',

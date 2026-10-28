@@ -429,6 +429,7 @@ const ja: typeof zhCN = {
     unknownOS: '不明な OS',
   },
   consoleNav: {
+    developerTools: '開発',
     swagger: 'Swagger ドキュメント',
     workflowPlugins: 'ワークフローノード',
     settingsPersonal: '個人',

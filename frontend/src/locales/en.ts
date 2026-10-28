@@ -429,6 +429,7 @@ const en: typeof zhCN = {
     unknownOS: 'Unknown OS',
   },
   consoleNav: {
+    developerTools: 'Development',
     swagger: 'Swagger documentation',
     workflowPlugins: 'Workflow nodes',
     settingsPersonal: 'Personal',

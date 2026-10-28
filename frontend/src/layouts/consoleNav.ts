@@ -95,8 +95,13 @@ export const ADMIN_NAV: NavGroup[] = [
       navItem('admin-security', LockKeyhole, () => t('consoleNav.adminSecurity')),
       navItem('admin-sign-in-methods', LogIn, () => t('sso.admin.title')),
       navItem('admin-ai', Sparkles, () => t('consoleNav.aiModel')),
-      navItem('admin-swagger', BookOpen, () => t('consoleNav.swagger'), '/_/admin/swagger/index.html'),
     ],
+  },
+  {
+    get title() {
+      return t('consoleNav.developerTools')
+    },
+    items: [navItem('admin-swagger', BookOpen, () => t('consoleNav.swagger'), '/_/admin/swagger/index.html')],
   },
 ]
 

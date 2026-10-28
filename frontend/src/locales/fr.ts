@@ -429,6 +429,7 @@ const fr: typeof zhCN = {
     unknownOS: 'Système d’exploitation inconnu',
   },
   consoleNav: {
+    developerTools: 'Développement',
     swagger: 'Documentation Swagger',
     workflowPlugins: 'Nœuds de workflow',
     settingsPersonal: 'Personnel',
