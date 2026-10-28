@@ -51,9 +51,9 @@ require (
 	golang.org/x/oauth2 v0.36.0
 	golang.org/x/text v0.42.0
 	google.golang.org/grpc v1.83.2
-	gorm.io/datatypes v1.2.1
+	gorm.io/datatypes v1.2.7
 	gorm.io/driver/postgres v1.5.7
-	gorm.io/gorm v1.25.12
+	gorm.io/gorm v1.30.0
 	gorm.io/plugin/opentelemetry v0.1.8
 )
 
