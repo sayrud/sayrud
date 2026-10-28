@@ -21,6 +21,9 @@ const docTemplate = `{
                 "produces": [
                     "application/json"
                 ],
+                "tags": [
+                    "Admin - AI"
+                ],
                 "summary": "Get the AI model settings",
                 "operationId": "getAdminAISettings",
                 "responses": {
@@ -51,6 +54,9 @@ const docTemplate = `{
                 ],
                 "produces": [
                     "application/json"
+                ],
+                "tags": [
+                    "Admin - AI"
                 ],
                 "summary": "Update the AI model settings",
                 "operationId": "updateAdminAISettings",
@@ -102,6 +108,9 @@ const docTemplate = `{
                 "produces": [
                     "application/json"
                 ],
+                "tags": [
+                    "Admin - AI"
+                ],
                 "summary": "Test the AI model settings",
                 "operationId": "testAdminAISettings",
                 "parameters": [
@@ -149,6 +158,9 @@ const docTemplate = `{
                 "produces": [
                     "application/json"
                 ],
+                "tags": [
+                    "Admin - Sign-in methods"
+                ],
                 "summary": "List the sign-in methods",
                 "operationId": "listAdminAuthProviders",
                 "responses": {
@@ -179,6 +191,9 @@ const docTemplate = `{
                 ],
                 "produces": [
                     "application/json"
+                ],
+                "tags": [
+                    "Admin - Sign-in methods"
                 ],
                 "summary": "Create a sign-in method",
                 "operationId": "createAdminAuthProvider",
@@ -233,6 +248,9 @@ const docTemplate = `{
                 "consumes": [
                     "application/json"
                 ],
+                "tags": [
+                    "Admin - Sign-in methods"
+                ],
                 "summary": "Reorder the sign-in methods",
                 "operationId": "setAdminAuthProviderPositions",
                 "parameters": [
@@ -270,6 +288,9 @@ const docTemplate = `{
                 "description": "Requires the admin. OIDC fetches the discovery document, SAML loads the IdP metadata, LDAP binds the service account and optionally searches the user. OAuth 2.0 is not supported.",
                 "consumes": [
                     "application/json"
+                ],
+                "tags": [
+                    "Admin - Sign-in methods"
                 ],
                 "summary": "Test the connection of a sign-in method",
                 "operationId": "testAdminAuthProvider",
@@ -317,6 +338,9 @@ const docTemplate = `{
                 ],
                 "produces": [
                     "application/json"
+                ],
+                "tags": [
+                    "Admin - Sign-in methods"
                 ],
                 "summary": "Update a sign-in method",
                 "operationId": "updateAdminAuthProvider",
@@ -379,6 +403,9 @@ const docTemplate = `{
             },
             "delete": {
                 "description": "Requires the admin. The bound third-party accounts of the users are unbound.",
+                "tags": [
+                    "Admin - Sign-in methods"
+                ],
                 "summary": "Delete a sign-in method",
                 "operationId": "deleteAdminAuthProvider",
                 "parameters": [
@@ -426,6 +453,9 @@ const docTemplate = `{
                 "description": "Requires the admin. The credential values are not returned.",
                 "produces": [
                     "application/json"
+                ],
+                "tags": [
+                    "Admin - Field shortcuts"
                 ],
                 "summary": "List the custom field shortcuts",
                 "operationId": "listAdminFieldShortcuts",
@@ -478,6 +508,9 @@ const docTemplate = `{
                 "produces": [
                     "application/json"
                 ],
+                "tags": [
+                    "Admin - Field shortcuts"
+                ],
                 "summary": "Create a custom field shortcut",
                 "operationId": "createAdminFieldShortcut",
                 "parameters": [
@@ -527,6 +560,9 @@ const docTemplate = `{
                 ],
                 "produces": [
                     "application/json"
+                ],
+                "tags": [
+                    "Admin - Field shortcuts"
                 ],
                 "summary": "Check a field shortcut before installing",
                 "operationId": "inspectAdminFieldShortcut",
@@ -578,6 +614,9 @@ const docTemplate = `{
                 "produces": [
                     "application/json"
                 ],
+                "tags": [
+                    "Admin - Field shortcuts"
+                ],
                 "summary": "Install a field shortcut from a JavaScript or TypeScript module",
                 "operationId": "installAdminFieldShortcut",
                 "parameters": [
@@ -628,6 +667,9 @@ const docTemplate = `{
                 "produces": [
                     "application/json"
                 ],
+                "tags": [
+                    "Admin - Field shortcuts"
+                ],
                 "summary": "Test a custom field shortcut",
                 "operationId": "testAdminFieldShortcut",
                 "parameters": [
@@ -675,6 +717,9 @@ const docTemplate = `{
                 "produces": [
                     "application/json"
                 ],
+                "tags": [
+                    "Admin - Field shortcuts"
+                ],
                 "summary": "Get a custom field shortcut",
                 "operationId": "getAdminFieldShortcut",
                 "parameters": [
@@ -720,6 +765,9 @@ const docTemplate = `{
                 ],
                 "produces": [
                     "application/json"
+                ],
+                "tags": [
+                    "Admin - Field shortcuts"
                 ],
                 "summary": "Update a custom field shortcut",
                 "operationId": "updateAdminFieldShortcut",
@@ -779,6 +827,9 @@ const docTemplate = `{
                 "produces": [
                     "application/json"
                 ],
+                "tags": [
+                    "Admin - Field shortcuts"
+                ],
                 "summary": "Delete a custom field shortcut",
                 "operationId": "deleteAdminFieldShortcut",
                 "parameters": [
@@ -820,6 +871,9 @@ const docTemplate = `{
                 "description": "Requires the admin. Search the packages available on Sayrud Hub, with their installation in Sayrud.",
                 "produces": [
                     "application/json"
+                ],
+                "tags": [
+                    "Admin - Hub"
                 ],
                 "summary": "Browse the Sayrud Hub catalog",
                 "operationId": "listAdminHubPackages",
@@ -916,6 +970,9 @@ const docTemplate = `{
                 "produces": [
                     "application/json"
                 ],
+                "tags": [
+                    "Admin - Hub"
+                ],
                 "summary": "Get a package of the Sayrud Hub catalog",
                 "operationId": "getAdminHubPackage",
                 "parameters": [
@@ -984,6 +1041,9 @@ const docTemplate = `{
                 "produces": [
                     "application/json"
                 ],
+                "tags": [
+                    "Admin - Hub"
+                ],
                 "summary": "Check the packages installed from Sayrud Hub",
                 "operationId": "checkAdminHubUpdates",
                 "parameters": [
@@ -1028,6 +1088,9 @@ const docTemplate = `{
                 "produces": [
                     "application/json"
                 ],
+                "tags": [
+                    "Admin - Overview"
+                ],
                 "summary": "Get the overview of the system",
                 "operationId": "getAdminOverview",
                 "responses": {
@@ -1057,6 +1120,9 @@ const docTemplate = `{
                 "description": "Requires the admin. The newest projects come first.",
                 "produces": [
                     "application/json"
+                ],
+                "tags": [
+                    "Admin - Projects"
                 ],
                 "summary": "List all the projects",
                 "operationId": "listAdminProjects",
@@ -1105,6 +1171,9 @@ const docTemplate = `{
         "/admin/projects/{projectUID}": {
             "delete": {
                 "description": "Requires the admin.",
+                "tags": [
+                    "Admin - Projects"
+                ],
                 "summary": "Delete a project",
                 "operationId": "deleteAdminProject",
                 "parameters": [
@@ -1146,6 +1215,9 @@ const docTemplate = `{
                 "description": "Requires the admin. The new owner can be any enabled user, the previous owner becomes a manager.",
                 "consumes": [
                     "application/json"
+                ],
+                "tags": [
+                    "Admin - Projects"
                 ],
                 "summary": "Transfer the ownership of a project",
                 "operationId": "transferAdminProject",
@@ -1204,6 +1276,9 @@ const docTemplate = `{
                 "produces": [
                     "application/json"
                 ],
+                "tags": [
+                    "Admin - Settings"
+                ],
                 "summary": "Get the system settings",
                 "operationId": "getSystemSettings",
                 "responses": {
@@ -1234,6 +1309,9 @@ const docTemplate = `{
                 ],
                 "produces": [
                     "application/json"
+                ],
+                "tags": [
+                    "Admin - Settings"
                 ],
                 "summary": "Update the system settings",
                 "operationId": "updateSystemSettings",
@@ -1281,6 +1359,9 @@ const docTemplate = `{
                 "description": "Requires the admin. The newest users come first.",
                 "produces": [
                     "application/json"
+                ],
+                "tags": [
+                    "Admin - Members"
                 ],
                 "summary": "List the users",
                 "operationId": "listAdminUsers",
@@ -1344,6 +1425,9 @@ const docTemplate = `{
                 "produces": [
                     "application/json"
                 ],
+                "tags": [
+                    "Admin - Members"
+                ],
                 "summary": "Create a user",
                 "operationId": "createAdminUser",
                 "parameters": [
@@ -1397,6 +1481,9 @@ const docTemplate = `{
                 "consumes": [
                     "application/json"
                 ],
+                "tags": [
+                    "Admin - Members"
+                ],
                 "summary": "Update the user name of a user",
                 "operationId": "updateAdminUser",
                 "parameters": [
@@ -1449,6 +1536,9 @@ const docTemplate = `{
             },
             "delete": {
                 "description": "Requires the admin. The projects owned by the user are transferred to transferTo, which is required if there are any.",
+                "tags": [
+                    "Admin - Members"
+                ],
                 "summary": "Delete a user",
                 "operationId": "deleteAdminUser",
                 "parameters": [
@@ -1508,6 +1598,9 @@ const docTemplate = `{
                 "description": "Requires the admin. The admin can not revoke itself, and at least one enabled admin is kept.",
                 "consumes": [
                     "application/json"
+                ],
+                "tags": [
+                    "Admin - Members"
                 ],
                 "summary": "Grant or revoke the admin",
                 "operationId": "setAdminUserAdmin",
@@ -1572,6 +1665,9 @@ const docTemplate = `{
                 "consumes": [
                     "application/json"
                 ],
+                "tags": [
+                    "Admin - Members"
+                ],
                 "summary": "Reset the password of a user",
                 "operationId": "resetAdminUserPassword",
                 "parameters": [
@@ -1626,6 +1722,9 @@ const docTemplate = `{
         "/admin/users/{userID}/sessions": {
             "delete": {
                 "description": "Requires the admin. Use the account settings for the admin itself.",
+                "tags": [
+                    "Admin - Members"
+                ],
                 "summary": "Sign out a user everywhere",
                 "operationId": "revokeAdminUserSessions",
                 "parameters": [
@@ -1673,6 +1772,9 @@ const docTemplate = `{
                 "description": "Requires the admin. Disabling signs the user out everywhere. The admin can not disable itself, and at least one enabled admin is kept.",
                 "consumes": [
                     "application/json"
+                ],
+                "tags": [
+                    "Admin - Members"
                 ],
                 "summary": "Disable or enable a user",
                 "operationId": "setAdminUserStatus",
@@ -1737,6 +1839,9 @@ const docTemplate = `{
                 "produces": [
                     "application/json"
                 ],
+                "tags": [
+                    "Admin - Workflow nodes"
+                ],
                 "summary": "List the workflow node plugins",
                 "operationId": "listAdminWorkflowPlugins",
                 "responses": {
@@ -1767,6 +1872,9 @@ const docTemplate = `{
                 ],
                 "produces": [
                     "application/json"
+                ],
+                "tags": [
+                    "Admin - Workflow nodes"
                 ],
                 "summary": "Install or upgrade a workflow node plugin",
                 "operationId": "installAdminWorkflowPlugin",
@@ -1818,6 +1926,9 @@ const docTemplate = `{
                 "produces": [
                     "application/json"
                 ],
+                "tags": [
+                    "Admin - Workflow nodes"
+                ],
                 "summary": "Check a workflow node plugin before installing",
                 "operationId": "inspectAdminWorkflowPlugin",
                 "parameters": [
@@ -1867,6 +1978,9 @@ const docTemplate = `{
                 ],
                 "produces": [
                     "application/json"
+                ],
+                "tags": [
+                    "Admin - Workflow nodes"
                 ],
                 "summary": "Test a workflow node plugin",
                 "operationId": "testAdminWorkflowPlugin",
@@ -1921,6 +2035,9 @@ const docTemplate = `{
                 "produces": [
                     "application/json"
                 ],
+                "tags": [
+                    "Admin - Workflow nodes"
+                ],
                 "summary": "Get a workflow node plugin with its source",
                 "operationId": "getAdminWorkflowPlugin",
                 "parameters": [
@@ -1963,6 +2080,9 @@ const docTemplate = `{
                 "description": "Requires the admin. The workflows using the node keep their steps, which fail until the plugin is installed again.",
                 "produces": [
                     "application/json"
+                ],
+                "tags": [
+                    "Admin - Workflow nodes"
                 ],
                 "summary": "Uninstall a workflow node plugin",
                 "operationId": "uninstallAdminWorkflowPlugin",
@@ -2008,6 +2128,9 @@ const docTemplate = `{
                 ],
                 "produces": [
                     "application/json"
+                ],
+                "tags": [
+                    "Admin - Workflow nodes"
                 ],
                 "summary": "Enable or disable a workflow node plugin",
                 "operationId": "setAdminWorkflowPluginEnabled",
@@ -2062,6 +2185,9 @@ const docTemplate = `{
                 "description": "The projects owned by the user must be deleted or transferred first, and the last admin can not be deleted. Users without a password confirm with their email instead.",
                 "consumes": [
                     "application/json"
+                ],
+                "tags": [
+                    "Account"
                 ],
                 "summary": "Delete the account of the signed-in user",
                 "operationId": "deleteAccount",
@@ -2122,6 +2248,9 @@ const docTemplate = `{
                 "produces": [
                     "application/json"
                 ],
+                "tags": [
+                    "Account"
+                ],
                 "summary": "Upload the avatar of the signed-in user",
                 "operationId": "uploadAvatar",
                 "parameters": [
@@ -2170,6 +2299,9 @@ const docTemplate = `{
                 "produces": [
                     "application/json"
                 ],
+                "tags": [
+                    "Account"
+                ],
                 "summary": "Restore the default avatar of the signed-in user",
                 "operationId": "removeAvatar",
                 "responses": {
@@ -2198,6 +2330,9 @@ const docTemplate = `{
             "get": {
                 "produces": [
                     "application/json"
+                ],
+                "tags": [
+                    "Single sign-on"
                 ],
                 "summary": "List the third-party accounts bound to the signed-in user",
                 "operationId": "listIdentities",
@@ -2229,6 +2364,9 @@ const docTemplate = `{
         "/auth/identities/{identityID}": {
             "delete": {
                 "description": "The last way to sign in can not be unbound if the user has no password.",
+                "tags": [
+                    "Single sign-on"
+                ],
                 "summary": "Unbind a third-party account of the signed-in user",
                 "operationId": "deleteIdentity",
                 "parameters": [
@@ -2278,6 +2416,9 @@ const docTemplate = `{
                 ],
                 "produces": [
                     "application/json"
+                ],
+                "tags": [
+                    "Single sign-on"
                 ],
                 "summary": "Sign in with LDAP",
                 "operationId": "ldapSignIn",
@@ -2357,6 +2498,9 @@ const docTemplate = `{
                 "consumes": [
                     "application/json"
                 ],
+                "tags": [
+                    "Account"
+                ],
                 "summary": "Change the password of the signed-in user",
                 "operationId": "updatePassword",
                 "parameters": [
@@ -2406,6 +2550,9 @@ const docTemplate = `{
                 "produces": [
                     "application/json"
                 ],
+                "tags": [
+                    "Account"
+                ],
                 "summary": "Get the profile of the signed-in user",
                 "operationId": "getProfile",
                 "responses": {
@@ -2435,6 +2582,9 @@ const docTemplate = `{
                 ],
                 "produces": [
                     "application/json"
+                ],
+                "tags": [
+                    "Account"
                 ],
                 "summary": "Update the profile of the signed-in user",
                 "operationId": "updateProfile",
@@ -2483,6 +2633,9 @@ const docTemplate = `{
                 "produces": [
                     "application/json"
                 ],
+                "tags": [
+                    "Account"
+                ],
                 "summary": "List the sign-in sessions of the signed-in user",
                 "operationId": "listSessions",
                 "responses": {
@@ -2510,6 +2663,9 @@ const docTemplate = `{
                 }
             },
             "delete": {
+                "tags": [
+                    "Account"
+                ],
                 "summary": "Sign out all the other sessions of the signed-in user",
                 "operationId": "revokeOtherSessions",
                 "responses": {
@@ -2534,6 +2690,9 @@ const docTemplate = `{
         "/auth/sessions/{sessionID}": {
             "delete": {
                 "description": "The current session can not be revoked here, sign out instead.",
+                "tags": [
+                    "Account"
+                ],
                 "summary": "Sign out a session of the signed-in user",
                 "operationId": "revokeSession",
                 "parameters": [
@@ -2582,6 +2741,9 @@ const docTemplate = `{
                 "produces": [
                     "application/json"
                 ],
+                "tags": [
+                    "Account"
+                ],
                 "summary": "Get the settings of the signed-in user",
                 "operationId": "getUserSettings",
                 "responses": {
@@ -2611,6 +2773,9 @@ const docTemplate = `{
                 ],
                 "produces": [
                     "application/json"
+                ],
+                "tags": [
+                    "Account"
                 ],
                 "summary": "Update the settings of the signed-in user",
                 "operationId": "updateUserSettings",
@@ -2660,6 +2825,9 @@ const docTemplate = `{
                 ],
                 "produces": [
                     "application/json"
+                ],
+                "tags": [
+                    "Authentication"
                 ],
                 "summary": "Sign in with email and password",
                 "operationId": "signIn",
@@ -2717,6 +2885,9 @@ const docTemplate = `{
         "/auth/sign-out": {
             "post": {
                 "description": "Revoke the current session and clear the session cookie.",
+                "tags": [
+                    "Authentication"
+                ],
                 "summary": "Sign out",
                 "operationId": "signOut",
                 "responses": {
@@ -2740,6 +2911,9 @@ const docTemplate = `{
                 ],
                 "produces": [
                     "application/json"
+                ],
+                "tags": [
+                    "Authentication"
                 ],
                 "summary": "Sign up with email and password",
                 "operationId": "signUp",
@@ -2800,6 +2974,9 @@ const docTemplate = `{
                 "consumes": [
                     "application/x-www-form-urlencoded"
                 ],
+                "tags": [
+                    "Single sign-on"
+                ],
                 "summary": "SAML Assertion Consumer Service",
                 "operationId": "ssoACS",
                 "parameters": [
@@ -2821,6 +2998,9 @@ const docTemplate = `{
         "/auth/sso/{slug}/callback": {
             "get": {
                 "description": "Signs in (or binds the account in the link mode) and redirects to the saved path. Failures redirect with the sso_error query.",
+                "tags": [
+                    "Single sign-on"
+                ],
                 "summary": "OAuth 2.0 / OIDC callback",
                 "operationId": "ssoCallback",
                 "parameters": [
@@ -2858,6 +3038,9 @@ const docTemplate = `{
                 "produces": [
                     "text/xml"
                 ],
+                "tags": [
+                    "Single sign-on"
+                ],
                 "summary": "SAML service provider metadata",
                 "operationId": "ssoMetadata",
                 "parameters": [
@@ -2894,6 +3077,9 @@ const docTemplate = `{
         "/auth/sso/{slug}/start": {
             "get": {
                 "description": "Redirects the browser to the identity provider. In the link mode the signed-in user binds the third-party account. Failures redirect to the sign-in page (or the security settings in the link mode) with the sso_error query.",
+                "tags": [
+                    "Single sign-on"
+                ],
                 "summary": "Start a third-party sign-in",
                 "operationId": "startSSO",
                 "parameters": [
@@ -2933,6 +3119,9 @@ const docTemplate = `{
                 "produces": [
                     "image/png"
                 ],
+                "tags": [
+                    "Account"
+                ],
                 "summary": "Get a current uploaded avatar",
                 "operationId": "getAvatar",
                 "parameters": [
@@ -2971,6 +3160,9 @@ const docTemplate = `{
                 "description": "List the projects owned by or shared with the signed-in user, with the number of tables in each project.",
                 "produces": [
                     "application/json"
+                ],
+                "tags": [
+                    "Projects"
                 ],
                 "summary": "List projects",
                 "operationId": "listProjects",
@@ -3027,6 +3219,9 @@ const docTemplate = `{
                 "produces": [
                     "application/json"
                 ],
+                "tags": [
+                    "Projects"
+                ],
                 "summary": "Create a project",
                 "operationId": "createProject",
                 "parameters": [
@@ -3073,6 +3268,9 @@ const docTemplate = `{
                 "produces": [
                     "application/json"
                 ],
+                "tags": [
+                    "Projects"
+                ],
                 "summary": "Get a project",
                 "operationId": "getProject",
                 "parameters": [
@@ -3118,6 +3316,9 @@ const docTemplate = `{
                 ],
                 "produces": [
                     "application/json"
+                ],
+                "tags": [
+                    "Projects"
                 ],
                 "summary": "Update a project",
                 "operationId": "updateProject",
@@ -3174,6 +3375,9 @@ const docTemplate = `{
                 "produces": [
                     "application/json"
                 ],
+                "tags": [
+                    "Projects"
+                ],
                 "summary": "Delete a project",
                 "operationId": "deleteProject",
                 "parameters": [
@@ -3213,6 +3417,9 @@ const docTemplate = `{
         "/projects/{projectUID}/attachments/{fileUID}": {
             "get": {
                 "description": "Read a file uploaded in this project. Project membership is checked on every request.",
+                "tags": [
+                    "Attachments"
+                ],
                 "summary": "Read an attachment",
                 "operationId": "getAttachment",
                 "parameters": [
@@ -3277,6 +3484,9 @@ const docTemplate = `{
                 "produces": [
                     "application/json"
                 ],
+                "tags": [
+                    "Credentials"
+                ],
                 "summary": "List the credentials of a project",
                 "operationId": "listCredentials",
                 "parameters": [
@@ -3331,6 +3541,9 @@ const docTemplate = `{
                 ],
                 "produces": [
                     "application/json"
+                ],
+                "tags": [
+                    "Credentials"
                 ],
                 "summary": "Create a credential in a project",
                 "operationId": "createCredential",
@@ -3395,6 +3608,9 @@ const docTemplate = `{
                 "produces": [
                     "application/json"
                 ],
+                "tags": [
+                    "Credentials"
+                ],
                 "summary": "Test a credential",
                 "operationId": "testCredential",
                 "parameters": [
@@ -3452,6 +3668,9 @@ const docTemplate = `{
                 "produces": [
                     "application/json"
                 ],
+                "tags": [
+                    "Credentials"
+                ],
                 "summary": "Get a project credential",
                 "operationId": "getCredential",
                 "parameters": [
@@ -3504,6 +3723,9 @@ const docTemplate = `{
                 ],
                 "produces": [
                     "application/json"
+                ],
+                "tags": [
+                    "Credentials"
                 ],
                 "summary": "Update a credential",
                 "operationId": "updateCredential",
@@ -3570,6 +3792,9 @@ const docTemplate = `{
                 "produces": [
                     "application/json"
                 ],
+                "tags": [
+                    "Credentials"
+                ],
                 "summary": "Delete a credential",
                 "operationId": "deleteCredential",
                 "parameters": [
@@ -3625,6 +3850,9 @@ const docTemplate = `{
                 "produces": [
                     "application/json"
                 ],
+                "tags": [
+                    "Field shortcuts"
+                ],
                 "summary": "List field shortcuts",
                 "operationId": "listFieldShortcuts",
                 "parameters": [
@@ -3675,6 +3903,9 @@ const docTemplate = `{
                 ],
                 "produces": [
                     "application/json"
+                ],
+                "tags": [
+                    "Imports"
                 ],
                 "summary": "Upload a file to import",
                 "operationId": "uploadImport",
@@ -3745,6 +3976,9 @@ const docTemplate = `{
                 "produces": [
                     "application/json"
                 ],
+                "tags": [
+                    "Imports"
+                ],
                 "summary": "Get the state of an import",
                 "operationId": "getImport",
                 "parameters": [
@@ -3805,6 +4039,9 @@ const docTemplate = `{
                 ],
                 "produces": [
                     "application/json"
+                ],
+                "tags": [
+                    "Imports"
                 ],
                 "summary": "Start an import",
                 "operationId": "startImport",
@@ -3885,6 +4122,9 @@ const docTemplate = `{
                 "produces": [
                     "application/json"
                 ],
+                "tags": [
+                    "Project members"
+                ],
                 "summary": "List the collaborators",
                 "operationId": "listProjectMembers",
                 "parameters": [
@@ -3933,6 +4173,9 @@ const docTemplate = `{
                 ],
                 "produces": [
                     "application/json"
+                ],
+                "tags": [
+                    "Project members"
                 ],
                 "summary": "Add a collaborator",
                 "operationId": "addProjectMember",
@@ -3994,6 +4237,9 @@ const docTemplate = `{
                 "produces": [
                     "application/json"
                 ],
+                "tags": [
+                    "Project members"
+                ],
                 "summary": "Find a user to invite",
                 "operationId": "lookupProjectMemberCandidate",
                 "parameters": [
@@ -4045,6 +4291,9 @@ const docTemplate = `{
                 "description": "Requires the manager role, the owner and the signed-in user itself can not be changed.",
                 "consumes": [
                     "application/json"
+                ],
+                "tags": [
+                    "Project members"
                 ],
                 "summary": "Change the role of a collaborator",
                 "operationId": "updateProjectMember",
@@ -4105,6 +4354,9 @@ const docTemplate = `{
             },
             "delete": {
                 "description": "Requires the manager role, except that a collaborator can remove itself to leave the project. The owner can not be removed.",
+                "tags": [
+                    "Project members"
+                ],
                 "summary": "Remove a collaborator",
                 "operationId": "removeProjectMember",
                 "parameters": [
@@ -4162,6 +4414,9 @@ const docTemplate = `{
                 ],
                 "produces": [
                     "application/json"
+                ],
+                "tags": [
+                    "Projects"
                 ],
                 "summary": "Move a project sidebar item",
                 "operationId": "moveProjectNavigation",
@@ -4226,6 +4481,9 @@ const docTemplate = `{
                 "consumes": [
                     "application/json"
                 ],
+                "tags": [
+                    "Projects"
+                ],
                 "summary": "Transfer the ownership of a project",
                 "operationId": "transferProjectOwner",
                 "parameters": [
@@ -4283,6 +4541,9 @@ const docTemplate = `{
                 "produces": [
                     "application/json"
                 ],
+                "tags": [
+                    "Tables"
+                ],
                 "summary": "List tables",
                 "operationId": "listTables",
                 "parameters": [
@@ -4339,6 +4600,9 @@ const docTemplate = `{
                 ],
                 "produces": [
                     "application/json"
+                ],
+                "tags": [
+                    "Tables"
                 ],
                 "summary": "Create a table",
                 "operationId": "createTable",
@@ -4406,6 +4670,9 @@ const docTemplate = `{
                 "produces": [
                     "application/json"
                 ],
+                "tags": [
+                    "Fields"
+                ],
                 "summary": "List field types",
                 "operationId": "listFieldTypes",
                 "parameters": [
@@ -4446,6 +4713,9 @@ const docTemplate = `{
             "get": {
                 "produces": [
                     "application/json"
+                ],
+                "tags": [
+                    "Tables"
                 ],
                 "summary": "Get a table",
                 "operationId": "getTable",
@@ -4498,6 +4768,9 @@ const docTemplate = `{
                 ],
                 "produces": [
                     "application/json"
+                ],
+                "tags": [
+                    "Tables"
                 ],
                 "summary": "Update a table",
                 "operationId": "updateTable",
@@ -4560,6 +4833,9 @@ const docTemplate = `{
                 "produces": [
                     "application/json"
                 ],
+                "tags": [
+                    "Tables"
+                ],
                 "summary": "Delete a table",
                 "operationId": "deleteTable",
                 "parameters": [
@@ -4608,6 +4884,9 @@ const docTemplate = `{
                 "description": "Return the changesets whose revision is greater than since in revision order, for the client to catch up after missing broadcasts.",
                 "produces": [
                     "application/json"
+                ],
+                "tags": [
+                    "Collaboration"
                 ],
                 "summary": "List the missing changesets",
                 "operationId": "listChangesets",
@@ -4668,6 +4947,9 @@ const docTemplate = `{
                 "produces": [
                     "application/json"
                 ],
+                "tags": [
+                    "Fields"
+                ],
                 "summary": "List fields",
                 "operationId": "listFields",
                 "parameters": [
@@ -4723,6 +5005,9 @@ const docTemplate = `{
                 ],
                 "produces": [
                     "application/json"
+                ],
+                "tags": [
+                    "Fields"
                 ],
                 "summary": "Create fields",
                 "operationId": "createFields",
@@ -4802,6 +5087,9 @@ const docTemplate = `{
                 "produces": [
                     "application/json"
                 ],
+                "tags": [
+                    "Fields"
+                ],
                 "summary": "Resolve referenced select options for a record or draft field",
                 "operationId": "resolveFieldOptions",
                 "parameters": [
@@ -4863,6 +5151,9 @@ const docTemplate = `{
                 ],
                 "produces": [
                     "application/json"
+                ],
+                "tags": [
+                    "Fields"
                 ],
                 "summary": "Update a field",
                 "operationId": "updateField",
@@ -4941,6 +5232,9 @@ const docTemplate = `{
                 "produces": [
                     "application/json"
                 ],
+                "tags": [
+                    "Fields"
+                ],
                 "summary": "Delete a field",
                 "operationId": "deleteField",
                 "parameters": [
@@ -4999,6 +5293,9 @@ const docTemplate = `{
                 ],
                 "produces": [
                     "application/json"
+                ],
+                "tags": [
+                    "Attachments"
                 ],
                 "summary": "Upload an attachment",
                 "operationId": "uploadAttachment",
@@ -5087,6 +5384,9 @@ const docTemplate = `{
                 "produces": [
                     "application/json"
                 ],
+                "tags": [
+                    "Fields"
+                ],
                 "summary": "Move a field",
                 "operationId": "updateFieldPosition",
                 "parameters": [
@@ -5154,6 +5454,9 @@ const docTemplate = `{
                 ],
                 "produces": [
                     "application/json"
+                ],
+                "tags": [
+                    "Field shortcuts"
                 ],
                 "summary": "Generate the cells of a field shortcut",
                 "operationId": "runFieldShortcut",
@@ -5229,6 +5532,9 @@ const docTemplate = `{
                 "produces": [
                     "application/json"
                 ],
+                "tags": [
+                    "Records"
+                ],
                 "summary": "List records",
                 "operationId": "listRecords",
                 "parameters": [
@@ -5292,6 +5598,9 @@ const docTemplate = `{
                 ],
                 "produces": [
                     "application/json"
+                ],
+                "tags": [
+                    "Records"
                 ],
                 "summary": "Create a record",
                 "operationId": "createRecord",
@@ -5362,6 +5671,9 @@ const docTemplate = `{
                 ],
                 "produces": [
                     "application/json"
+                ],
+                "tags": [
+                    "Records"
                 ],
                 "summary": "Create records in batch",
                 "operationId": "batchCreateRecords",
@@ -5436,6 +5748,9 @@ const docTemplate = `{
                 "produces": [
                     "application/json"
                 ],
+                "tags": [
+                    "Records"
+                ],
                 "summary": "Fetch records by UID",
                 "operationId": "fetchRecords",
                 "parameters": [
@@ -5509,6 +5824,9 @@ const docTemplate = `{
                 "produces": [
                     "application/json"
                 ],
+                "tags": [
+                    "Records"
+                ],
                 "summary": "Query records",
                 "operationId": "queryRecords",
                 "parameters": [
@@ -5575,6 +5893,9 @@ const docTemplate = `{
                 "produces": [
                     "application/json"
                 ],
+                "tags": [
+                    "Records"
+                ],
                 "summary": "Get a record",
                 "operationId": "getRecord",
                 "parameters": [
@@ -5633,6 +5954,9 @@ const docTemplate = `{
                 ],
                 "produces": [
                     "application/json"
+                ],
+                "tags": [
+                    "Records"
                 ],
                 "summary": "Update a record",
                 "operationId": "updateRecord",
@@ -5702,6 +6026,9 @@ const docTemplate = `{
                 "produces": [
                     "application/json"
                 ],
+                "tags": [
+                    "Records"
+                ],
                 "summary": "Delete a record",
                 "operationId": "deleteRecord",
                 "parameters": [
@@ -5758,6 +6085,9 @@ const docTemplate = `{
                 "produces": [
                     "application/json"
                 ],
+                "tags": [
+                    "Sharing"
+                ],
                 "summary": "Get link sharing settings",
                 "operationId": "getLinkShare",
                 "parameters": [
@@ -5791,6 +6121,9 @@ const docTemplate = `{
                 ],
                 "produces": [
                     "application/json"
+                ],
+                "tags": [
+                    "Sharing"
                 ],
                 "summary": "Update read-only link sharing settings",
                 "operationId": "updateLinkShare",
@@ -5834,6 +6167,9 @@ const docTemplate = `{
                 "description": "List the cells of the table being generated by the field shortcuts or failed to.",
                 "produces": [
                     "application/json"
+                ],
+                "tags": [
+                    "Field shortcuts"
                 ],
                 "summary": "List the shortcut jobs",
                 "operationId": "listShortcutJobs",
@@ -5892,6 +6228,9 @@ const docTemplate = `{
                 ],
                 "produces": [
                     "application/json"
+                ],
+                "tags": [
+                    "Field shortcuts"
                 ],
                 "summary": "Preview a field shortcut",
                 "operationId": "previewFieldShortcut",
@@ -5963,6 +6302,9 @@ const docTemplate = `{
                 "produces": [
                     "application/json"
                 ],
+                "tags": [
+                    "Collaboration"
+                ],
                 "summary": "Get the table snapshot",
                 "operationId": "getTableSnapshot",
                 "parameters": [
@@ -6013,6 +6355,9 @@ const docTemplate = `{
             "get": {
                 "produces": [
                     "application/json"
+                ],
+                "tags": [
+                    "Views"
                 ],
                 "summary": "List views",
                 "operationId": "listViews",
@@ -6069,6 +6414,9 @@ const docTemplate = `{
                 "produces": [
                     "application/json"
                 ],
+                "tags": [
+                    "Workflows"
+                ],
                 "summary": "List the step modules and credential types",
                 "operationId": "listWorkflowModules",
                 "parameters": [
@@ -6107,6 +6455,9 @@ const docTemplate = `{
                 "description": "List the workflows of the project ordered by sidebar position.",
                 "produces": [
                     "application/json"
+                ],
+                "tags": [
+                    "Workflows"
                 ],
                 "summary": "List workflows",
                 "operationId": "listWorkflows",
@@ -6156,6 +6507,9 @@ const docTemplate = `{
                 ],
                 "produces": [
                     "application/json"
+                ],
+                "tags": [
+                    "Workflows"
                 ],
                 "summary": "Create a workflow",
                 "operationId": "createWorkflow",
@@ -6217,6 +6571,9 @@ const docTemplate = `{
                 "produces": [
                     "application/json"
                 ],
+                "tags": [
+                    "Workflows"
+                ],
                 "summary": "Get a workflow",
                 "operationId": "getWorkflow",
                 "parameters": [
@@ -6269,6 +6626,9 @@ const docTemplate = `{
                 ],
                 "produces": [
                     "application/json"
+                ],
+                "tags": [
+                    "Workflows"
                 ],
                 "summary": "Save the draft of a workflow",
                 "operationId": "saveWorkflowDraft",
@@ -6340,6 +6700,9 @@ const docTemplate = `{
                 "produces": [
                     "application/json"
                 ],
+                "tags": [
+                    "Workflows"
+                ],
                 "summary": "Delete a workflow",
                 "operationId": "deleteWorkflow",
                 "parameters": [
@@ -6391,6 +6754,9 @@ const docTemplate = `{
                 ],
                 "produces": [
                     "application/json"
+                ],
+                "tags": [
+                    "Workflows"
                 ],
                 "summary": "Debug a workflow",
                 "operationId": "debugWorkflow",
@@ -6462,6 +6828,9 @@ const docTemplate = `{
                 "produces": [
                     "application/json"
                 ],
+                "tags": [
+                    "Workflows"
+                ],
                 "summary": "Enable or disable a workflow",
                 "operationId": "setWorkflowEnabled",
                 "parameters": [
@@ -6520,6 +6889,9 @@ const docTemplate = `{
                 "produces": [
                     "application/json"
                 ],
+                "tags": [
+                    "Workflows"
+                ],
                 "summary": "Retry a failed background job",
                 "operationId": "retryWorkflowJob",
                 "parameters": [
@@ -6574,6 +6946,9 @@ const docTemplate = `{
             "get": {
                 "produces": [
                     "application/json"
+                ],
+                "tags": [
+                    "Workflows"
                 ],
                 "summary": "List the API keys of a workflow",
                 "operationId": "listWorkflowKeys",
@@ -6630,6 +7005,9 @@ const docTemplate = `{
                 ],
                 "produces": [
                     "application/json"
+                ],
+                "tags": [
+                    "Workflows"
                 ],
                 "summary": "Create an API key of a workflow",
                 "operationId": "createWorkflowKey",
@@ -6691,6 +7069,9 @@ const docTemplate = `{
                 "produces": [
                     "application/json"
                 ],
+                "tags": [
+                    "Workflows"
+                ],
                 "summary": "Delete an API key of a workflow",
                 "operationId": "deleteWorkflowKey",
                 "parameters": [
@@ -6749,6 +7130,9 @@ const docTemplate = `{
                 ],
                 "produces": [
                     "application/json"
+                ],
+                "tags": [
+                    "Workflows"
                 ],
                 "summary": "Publish a workflow",
                 "operationId": "publishWorkflow",
@@ -6816,6 +7200,9 @@ const docTemplate = `{
                 "produces": [
                     "application/json"
                 ],
+                "tags": [
+                    "Workflows"
+                ],
                 "summary": "List the published versions of a workflow",
                 "operationId": "listWorkflowRevisions",
                 "parameters": [
@@ -6873,6 +7260,9 @@ const docTemplate = `{
                 ],
                 "produces": [
                     "application/json"
+                ],
+                "tags": [
+                    "Workflows"
                 ],
                 "summary": "Roll back a workflow to a published version",
                 "operationId": "rollbackWorkflow",
@@ -6952,6 +7342,9 @@ const docTemplate = `{
             "get": {
                 "produces": [
                     "application/json"
+                ],
+                "tags": [
+                    "Workflows"
                 ],
                 "summary": "List the runs of a workflow",
                 "operationId": "listWorkflowRuns",
@@ -7041,6 +7434,9 @@ const docTemplate = `{
                 "produces": [
                     "application/json"
                 ],
+                "tags": [
+                    "Workflows"
+                ],
                 "summary": "Get a run of a workflow",
                 "operationId": "getWorkflowRun",
                 "parameters": [
@@ -7097,6 +7493,9 @@ const docTemplate = `{
         "/projects/{projectUID}/ws": {
             "get": {
                 "description": "Upgrade to WebSocket to submit changesets and receive the changes of the subscribed tables and the online members.\nMessages are JSON ` + "`" + `{type, reqId, data}` + "`" + `. Client: SUBSCRIBE, UNSUBSCRIBE, USER_CHANGES, PRESENCE, PING.\nServer: HELLO, SUBSCRIBED, ACCEPT_COMMIT, REJECT_COMMIT, NEW_CHANGES, MEMBERS, TABLES_CHANGED, PROJECT_CHANGED, PERMISSION_CHANGED, ERROR, PONG.\nThe changesets of the viewers are rejected.",
+                "tags": [
+                    "Collaboration"
+                ],
                 "summary": "Collaborate on the project over WebSocket",
                 "operationId": "collaborate",
                 "parameters": [
@@ -7132,6 +7531,9 @@ const docTemplate = `{
                 "description": "Returns only an enabled share token. Password verification and read scope remain enforced on all share APIs.",
                 "produces": [
                     "application/json"
+                ],
+                "tags": [
+                    "Sharing"
                 ],
                 "summary": "Resolve public access from the normal project and table URL",
                 "operationId": "resolveLinkShare",
@@ -7177,6 +7579,9 @@ const docTemplate = `{
                 "produces": [
                     "application/json"
                 ],
+                "tags": [
+                    "Sharing"
+                ],
                 "summary": "Open a read-only public share",
                 "operationId": "openLinkShare",
                 "parameters": [
@@ -7200,6 +7605,9 @@ const docTemplate = `{
         },
         "/shares/{shareToken}/tables/{tableUID}/attachments/{fileUID}": {
             "get": {
+                "tags": [
+                    "Sharing"
+                ],
                 "summary": "Read an attachment referenced by a shared table",
                 "operationId": "getSharedAttachment",
                 "parameters": [
@@ -7246,6 +7654,9 @@ const docTemplate = `{
                 "produces": [
                     "application/json"
                 ],
+                "tags": [
+                    "Sharing"
+                ],
                 "summary": "List missing changesets for a public share",
                 "operationId": "listSharedChangesets",
                 "parameters": [
@@ -7286,6 +7697,9 @@ const docTemplate = `{
                 "produces": [
                     "application/json"
                 ],
+                "tags": [
+                    "Sharing"
+                ],
                 "summary": "List fields for a public share",
                 "operationId": "listSharedFields",
                 "parameters": [
@@ -7324,6 +7738,9 @@ const docTemplate = `{
                 ],
                 "produces": [
                     "application/json"
+                ],
+                "tags": [
+                    "Sharing"
                 ],
                 "summary": "Fetch dirty records for a public share",
                 "operationId": "fetchSharedRecords",
@@ -7370,6 +7787,9 @@ const docTemplate = `{
                 "produces": [
                     "application/json"
                 ],
+                "tags": [
+                    "Sharing"
+                ],
                 "summary": "Read a publicly shared table snapshot",
                 "operationId": "getSharedSnapshot",
                 "parameters": [
@@ -7402,6 +7822,9 @@ const docTemplate = `{
             "get": {
                 "produces": [
                     "application/json"
+                ],
+                "tags": [
+                    "Sharing"
                 ],
                 "summary": "List views for a public share",
                 "operationId": "listSharedViews",
@@ -7442,6 +7865,9 @@ const docTemplate = `{
                 "produces": [
                     "application/json"
                 ],
+                "tags": [
+                    "Sharing"
+                ],
                 "summary": "Verify a public link password",
                 "operationId": "unlockLinkShare",
                 "parameters": [
@@ -7476,6 +7902,9 @@ const docTemplate = `{
         "/shares/{shareToken}/ws": {
             "get": {
                 "description": "Receive filtered incremental changesets and scoped collaborator presence. All edits are rejected.\nThe share and password grant are checked at the handshake, on subscription and before delivery.",
+                "tags": [
+                    "Sharing"
+                ],
                 "summary": "Follow a public share over WebSocket",
                 "operationId": "collaborateOnShare",
                 "parameters": [
@@ -7511,6 +7940,9 @@ const docTemplate = `{
                 "description": "Public information used by the sign-in page, such as whether signing up is allowed.",
                 "produces": [
                     "application/json"
+                ],
+                "tags": [
+                    "Site"
                 ],
                 "summary": "Get the site information",
                 "operationId": "getSiteInfo",
@@ -7822,7 +8254,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "label": {
-                    "$ref": "#/definitions/i18n.LocalText"
+                    "$ref": "#/definitions/LocalText"
                 },
                 "name": {
                     "type": "string"
@@ -7882,7 +8314,7 @@ const docTemplate = `{
                     "description": "Description tells the members what the shortcut does.",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/i18n.LocalText"
+                            "$ref": "#/definitions/LocalText"
                         }
                     ]
                 },
@@ -7922,7 +8354,7 @@ const docTemplate = `{
                     "description": "Name is shown in the field editor.",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/i18n.LocalText"
+                            "$ref": "#/definitions/LocalText"
                         }
                     ]
                 },
@@ -8680,7 +9112,7 @@ const docTemplate = `{
                     "description": "Draft debugs the saved draft if empty.",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/workflow.Spec"
+                            "$ref": "#/definitions/WorkflowSpec"
                         }
                     ]
                 },
@@ -8764,7 +9196,7 @@ const docTemplate = `{
                     ],
                     "allOf": [
                         {
-                            "$ref": "#/definitions/db.WorkflowRunStatus"
+                            "$ref": "#/definitions/WorkflowRunStatus"
                         }
                     ]
                 },
@@ -8907,7 +9339,7 @@ const docTemplate = `{
                     "description": "Description tells what the shortcut does.",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/i18n.LocalText"
+                            "$ref": "#/definitions/LocalText"
                         }
                     ]
                 },
@@ -8930,7 +9362,7 @@ const docTemplate = `{
                     "description": "Name is shown in the field editor.",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/i18n.LocalText"
+                            "$ref": "#/definitions/LocalText"
                         }
                     ]
                 },
@@ -9461,7 +9893,7 @@ const docTemplate = `{
                     ],
                     "allOf": [
                         {
-                            "$ref": "#/definitions/db.SLImportStatus"
+                            "$ref": "#/definitions/SLImportStatus"
                         }
                     ]
                 },
@@ -9508,7 +9940,7 @@ const docTemplate = `{
                     ],
                     "allOf": [
                         {
-                            "$ref": "#/definitions/db.SLFieldType"
+                            "$ref": "#/definitions/SLFieldType"
                         }
                     ]
                 },
@@ -9524,7 +9956,7 @@ const docTemplate = `{
                     ],
                     "allOf": [
                         {
-                            "$ref": "#/definitions/db.SLFieldType"
+                            "$ref": "#/definitions/SLFieldType"
                         }
                     ]
                 }
@@ -9975,6 +10407,12 @@ const docTemplate = `{
                         "$ref": "#/definitions/WorkflowRun"
                     }
                 }
+            }
+        },
+        "LocalText": {
+            "type": "object",
+            "additionalProperties": {
+                "type": "string"
             }
         },
         "MoveProjectNavigation": {
@@ -10512,6 +10950,46 @@ const docTemplate = `{
                 }
             }
         },
+        "SLFieldType": {
+            "type": "string",
+            "enum": [
+                "text",
+                "single_select",
+                "multi_select",
+                "datetime",
+                "number",
+                "checkbox",
+                "attachment",
+                "formula",
+                "unknown"
+            ],
+            "x-enum-varnames": [
+                "TextFieldType",
+                "SingleSelectFieldType",
+                "MultiSelectFieldType",
+                "DateTimeFieldType",
+                "NumberFieldType",
+                "CheckboxFieldType",
+                "AttachmentFieldType",
+                "FormulaFieldType",
+                "UnknownFieldType"
+            ]
+        },
+        "SLImportStatus": {
+            "type": "string",
+            "enum": [
+                "pending",
+                "running",
+                "succeeded",
+                "failed"
+            ],
+            "x-enum-varnames": [
+                "SLImportPending",
+                "SLImportRunning",
+                "SLImportSucceeded",
+                "SLImportFailed"
+            ]
+        },
         "SLRecord": {
             "type": "object",
             "required": [
@@ -10678,7 +11156,7 @@ const docTemplate = `{
                     "description": "Description tells the members what the shortcut does.",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/i18n.LocalText"
+                            "$ref": "#/definitions/LocalText"
                         }
                     ]
                 },
@@ -10710,7 +11188,7 @@ const docTemplate = `{
                     "description": "Name is shown in the field editor.",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/i18n.LocalText"
+                            "$ref": "#/definitions/LocalText"
                         }
                     ]
                 },
@@ -10775,7 +11253,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "draft": {
-                    "$ref": "#/definitions/workflow.Spec"
+                    "$ref": "#/definitions/WorkflowSpec"
                 },
                 "draftVersion": {
                     "description": "DraftVersion is the draft version the edit is based on, 409 is returned if someone else has saved it.",
@@ -10885,7 +11363,7 @@ const docTemplate = `{
                     "description": "Label is the display name of the credential, the key if empty.",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/i18n.LocalText"
+                            "$ref": "#/definitions/LocalText"
                         }
                     ]
                 },
@@ -10926,7 +11404,7 @@ const docTemplate = `{
                     "description": "Help is the description shown below the control.",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/i18n.LocalText"
+                            "$ref": "#/definitions/LocalText"
                         }
                     ]
                 },
@@ -10938,7 +11416,7 @@ const docTemplate = `{
                     "description": "Label is the name of the field shown in the form, the key if empty.",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/i18n.LocalText"
+                            "$ref": "#/definitions/LocalText"
                         }
                     ]
                 },
@@ -10957,7 +11435,7 @@ const docTemplate = `{
                     "description": "Placeholder is the hint of the empty input.",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/i18n.LocalText"
+                            "$ref": "#/definitions/LocalText"
                         }
                     ]
                 },
@@ -11020,7 +11498,7 @@ const docTemplate = `{
                     "description": "Label is the text of the option shown in the form, the value if empty.",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/i18n.LocalText"
+                            "$ref": "#/definitions/LocalText"
                         }
                     ]
                 },
@@ -11077,7 +11555,7 @@ const docTemplate = `{
             ],
             "properties": {
                 "description": {
-                    "$ref": "#/definitions/i18n.LocalText"
+                    "$ref": "#/definitions/LocalText"
                 },
                 "fields": {
                     "type": "array",
@@ -11086,7 +11564,7 @@ const docTemplate = `{
                     }
                 },
                 "title": {
-                    "$ref": "#/definitions/i18n.LocalText"
+                    "$ref": "#/definitions/LocalText"
                 }
             }
         },
@@ -12075,7 +12553,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "draft": {
-                    "$ref": "#/definitions/workflow.Spec"
+                    "$ref": "#/definitions/WorkflowSpec"
                 },
                 "draftVersion": {
                     "type": "integer"
@@ -13247,6 +13725,23 @@ const docTemplate = `{
                 }
             }
         },
+        "WorkflowRunStatus": {
+            "type": "string",
+            "enum": [
+                "queued",
+                "running",
+                "succeeded",
+                "failed",
+                "rejected"
+            ],
+            "x-enum-varnames": [
+                "WorkflowRunQueued",
+                "WorkflowRunRunning",
+                "WorkflowRunSucceeded",
+                "WorkflowRunFailed",
+                "WorkflowRunRejected"
+            ]
+        },
         "WorkflowScheduleTrigger": {
             "type": "object",
             "required": [
@@ -13319,6 +13814,37 @@ const docTemplate = `{
                 },
                 "title": {
                     "type": "string"
+                }
+            }
+        },
+        "WorkflowSpec": {
+            "type": "object",
+            "required": [
+                "async",
+                "steps",
+                "trigger"
+            ],
+            "properties": {
+                "async": {
+                    "description": "Async holds the flows an API trigger runs in the background after request events; empty for other triggers.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/WorkflowAsyncFlow"
+                    }
+                },
+                "steps": {
+                    "description": "Steps is the main flow: executed synchronously to build the response for API triggers, and in the background for other triggers.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/WorkflowStep"
+                    }
+                },
+                "timezone": {
+                    "description": "Timezone is the IANA time zone in which formulas handle dates, e.g. Asia/Shanghai; UTC is used when it is empty or invalid.",
+                    "type": "string"
+                },
+                "trigger": {
+                    "$ref": "#/definitions/WorkflowTrigger"
                 }
             }
         },
@@ -13518,100 +14044,6 @@ const docTemplate = `{
                 },
                 "var": {
                     "type": "string"
-                }
-            }
-        },
-        "db.SLFieldType": {
-            "type": "string",
-            "enum": [
-                "text",
-                "single_select",
-                "multi_select",
-                "datetime",
-                "number",
-                "checkbox",
-                "attachment",
-                "formula",
-                "unknown"
-            ],
-            "x-enum-varnames": [
-                "TextFieldType",
-                "SingleSelectFieldType",
-                "MultiSelectFieldType",
-                "DateTimeFieldType",
-                "NumberFieldType",
-                "CheckboxFieldType",
-                "AttachmentFieldType",
-                "FormulaFieldType",
-                "UnknownFieldType"
-            ]
-        },
-        "db.SLImportStatus": {
-            "type": "string",
-            "enum": [
-                "pending",
-                "running",
-                "succeeded",
-                "failed"
-            ],
-            "x-enum-varnames": [
-                "SLImportPending",
-                "SLImportRunning",
-                "SLImportSucceeded",
-                "SLImportFailed"
-            ]
-        },
-        "db.WorkflowRunStatus": {
-            "type": "string",
-            "enum": [
-                "queued",
-                "running",
-                "succeeded",
-                "failed",
-                "rejected"
-            ],
-            "x-enum-varnames": [
-                "WorkflowRunQueued",
-                "WorkflowRunRunning",
-                "WorkflowRunSucceeded",
-                "WorkflowRunFailed",
-                "WorkflowRunRejected"
-            ]
-        },
-        "i18n.LocalText": {
-            "type": "object",
-            "additionalProperties": {
-                "type": "string"
-            }
-        },
-        "workflow.Spec": {
-            "type": "object",
-            "required": [
-                "async",
-                "steps",
-                "trigger"
-            ],
-            "properties": {
-                "async": {
-                    "description": "Async holds the flows an API trigger runs in the background after request events; empty for other triggers.",
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/WorkflowAsyncFlow"
-                    }
-                },
-                "steps": {
-                    "description": "Steps is the main flow: executed synchronously to build the response for API triggers, and in the background for other triggers.",
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/WorkflowStep"
-                    }
-                },
-                "timezone": {
-                    "description": "Timezone is the IANA time zone in which formulas handle dates, e.g. Asia/Shanghai; UTC is used when it is empty or invalid.",
-                    "type": "string"
-                },
-                "trigger": {
-                    "$ref": "#/definitions/WorkflowTrigger"
                 }
             }
         }

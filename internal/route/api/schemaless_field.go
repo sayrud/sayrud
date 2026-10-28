@@ -45,6 +45,7 @@ func (schemalessRoute) Fielder(ctx context.Context, table *db.SLTable) error {
 
 // ListFields
 // @Summary List fields
+// @Tags Fields
 // @Description List all the fields of the table, ordered by position.
 // @Produce json
 // @Param projectUID path string true "Project UID"
@@ -108,6 +109,7 @@ func fieldErrorResponse(err error) (statusCode int, msg string, ok bool) {
 
 // ResolveOptions
 // @Summary Resolve referenced select options for a record or draft field
+// @Tags Fields
 // @Accept json
 // @Produce json
 // @Param projectUID path string true "Project UID"
@@ -165,6 +167,7 @@ func (schemalessRoute) ResolveOptions(ctx context.Context, table *db.SLTable, tx
 
 // CreateFields
 // @Summary Create fields
+// @Tags Fields
 // @Description Create fields in batch, which are appended to the end of the table.
 // @Accept json
 // @Produce json
@@ -235,6 +238,7 @@ func (schemalessRoute) CreateFields(ctx context.Context, hub *collab.Hub, projec
 
 // UpdateField
 // @Summary Update a field
+// @Tags Fields
 // @Description Update the label, type or metadata of the field. Existing record values are kept as is when the type changes.
 // @Accept json
 // @Produce json
@@ -326,6 +330,7 @@ func (schemalessRoute) UpdateField(ctx context.Context, hub *collab.Hub, project
 
 // UpdateFieldPosition
 // @Summary Move a field
+// @Tags Fields
 // @Description Move the field to the zero-based index among the table fields.
 // @Accept json
 // @Produce json
@@ -352,6 +357,7 @@ func (schemalessRoute) UpdateFieldPosition(ctx context.Context, hub *collab.Hub,
 
 // DeleteField
 // @Summary Delete a field
+// @Tags Fields
 // @Produce json
 // @Param projectUID path string true "Project UID"
 // @Param tableUID path string true "Table UID"
@@ -387,6 +393,7 @@ func (schemalessRoute) DeleteField(ctx context.Context, hub *collab.Hub, project
 
 // FieldTypes
 // @Summary List field types
+// @Tags Fields
 // @Description Return the labels of all the field types, keyed by field type.
 // @Produce json
 // @Param projectUID path string true "Project UID"

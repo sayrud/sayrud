@@ -62,6 +62,7 @@ func formAPIKey(saved *db.AISettings, f form.UpdateAISettings) string {
 
 // GetAISettings
 // @Summary Get the AI model settings
+// @Tags Admin - AI
 // @Description Requires the admin. The API key is not returned.
 // @Produce json
 // @Success 200 {object} dto.AdminAISettings
@@ -80,6 +81,7 @@ func (adminRoute) GetAISettings(ctx context.Context) error {
 
 // UpdateAISettings
 // @Summary Update the AI model settings
+// @Tags Admin - AI
 // @Description Requires the admin. The API key is encrypted by auth.secret_key, empty keeps the saved one. It updates the global AI model configuration immediately.
 // @Accept json
 // @Produce json
@@ -124,6 +126,7 @@ func (adminRoute) UpdateAISettings(ctx context.Context, f form.UpdateAISettings)
 
 // TestAISettings
 // @Summary Test the AI model settings
+// @Tags Admin - AI
 // @Description Requires the admin. Send a short message to the unsaved model, the saved API key is used if it is not given.
 // @Accept json
 // @Produce json

@@ -429,6 +429,7 @@ const ko: typeof zhCN = {
     unknownOS: '알 수 없는 운영체제',
   },
   consoleNav: {
+    swagger: 'Swagger 문서',
     workflowPlugins: '워크플로 노드',
     settingsPersonal: '개인',
     profile: '프로필',

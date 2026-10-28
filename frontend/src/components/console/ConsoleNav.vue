@@ -4,7 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 
 import type { NavGroup } from '@/layouts/consoleNav'
 
-defineProps<{ nav: NavGroup[] }>()
+const props = defineProps<{ nav: NavGroup[] }>()
 const emit = defineEmits<{ navigate: [] }>()
 
 const route = useRoute()
@@ -12,7 +12,9 @@ const router = useRouter()
 const selectedKeys = computed(() => [String(route.meta.nav ?? route.name ?? '')])
 
 function go(name: string) {
-  router.push({ name })
+  const item = props.nav.flatMap((group) => group.items).find((item) => item.name === name)
+  if (item?.href) window.open(item.href, '_blank', 'noopener,noreferrer')
+  else router.push({ name })
   emit('navigate')
 }
 </script>

@@ -20,6 +20,7 @@ type accountRoute struct{}
 
 // ListSessions
 // @Summary List the sign-in sessions of the signed-in user
+// @Tags Account
 // @Description The unexpired sessions, the newest first.
 // @Produce json
 // @Success 200 {array} dto.UserSession
@@ -42,6 +43,7 @@ func (accountRoute) ListSessions(ctx context.Context, user *db.User, current *db
 
 // RevokeSession
 // @Summary Sign out a session of the signed-in user
+// @Tags Account
 // @Description The current session can not be revoked here, sign out instead.
 // @Param sessionID path int true "Session ID"
 // @Success 204 "No Content"
@@ -68,6 +70,7 @@ func (accountRoute) RevokeSession(ctx context.Context, user *db.User, current *d
 
 // RevokeOtherSessions
 // @Summary Sign out all the other sessions of the signed-in user
+// @Tags Account
 // @Success 204 "No Content"
 // @Failure 401 {string} string "Not signed in"
 // @Failure 500 {string} string "Internal server error"
@@ -87,6 +90,7 @@ func (accountRoute) RevokeOtherSessions(ctx context.Context, user *db.User) erro
 
 // GetSettings
 // @Summary Get the settings of the signed-in user
+// @Tags Account
 // @Description The personal settings synced across the devices, the unsaved ones take the defaults.
 // @Produce json
 // @Success 200 {object} db.UserSettings
@@ -105,6 +109,7 @@ func (accountRoute) GetSettings(ctx context.Context, user *db.User) error {
 
 // UpdateSettings
 // @Summary Update the settings of the signed-in user
+// @Tags Account
 // @Accept json
 // @Produce json
 // @Param data body form.UpdateUserSettings true "Settings"
@@ -133,6 +138,7 @@ func (accountRoute) UpdateSettings(ctx context.Context, user *db.User, f form.Up
 
 // DeleteAccount
 // @Summary Delete the account of the signed-in user
+// @Tags Account
 // @Description The projects owned by the user must be deleted or transferred first, and the last admin can not be deleted. Users without a password confirm with their email instead.
 // @Accept json
 // @Param data body form.DeleteAccount true "Password or email confirmation"

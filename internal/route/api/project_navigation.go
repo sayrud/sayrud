@@ -20,6 +20,7 @@ type NavigationPosition struct {
 
 // MoveNavigation
 // @Summary Move a project sidebar item
+// @Tags Projects
 // @Description Moves a table or workflow before or after another item, using the latest order. Requires the editor role.
 // @Accept json
 // @Produce json

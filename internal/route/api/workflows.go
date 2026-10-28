@@ -58,6 +58,7 @@ func toWorkflow(ctx context.Context, engine *workflow.Engine, project *db.Projec
 
 // ListWorkflows
 // @Summary List workflows
+// @Tags Workflows
 // @Description List the workflows of the project ordered by sidebar position.
 // @Produce json
 // @Param projectUID path string true "Project UID"
@@ -100,6 +101,7 @@ func uniquePath(list []*db.Workflow, method, path string) string {
 
 // CreateWorkflow
 // @Summary Create a workflow
+// @Tags Workflows
 // @Description Create a workflow with the trigger, an empty trigger creates a blank workflow whose trigger is chosen later.
 // @Description The API trigger starts from a blank template, or the draft which creates or queries the records of a table.
 // @Accept json
@@ -186,6 +188,7 @@ func (workflowRoute) Create(ctx context.Context, engine *workflow.Engine, user *
 
 // GetWorkflow
 // @Summary Get a workflow
+// @Tags Workflows
 // @Description Return the workflow with its draft and the issues to fix before publishing.
 // @Produce json
 // @Param projectUID path string true "Project UID"
@@ -207,6 +210,7 @@ func (workflowRoute) Get(ctx context.Context, engine *workflow.Engine, project *
 
 // SaveWorkflowDraft
 // @Summary Save the draft of a workflow
+// @Tags Workflows
 // @Description Save the draft based on draftVersion, it responds 409 if others saved the draft since. The settings unrelated to the trigger are dropped.
 // @Accept json
 // @Produce json
@@ -249,6 +253,7 @@ func (workflowRoute) SaveDraft(ctx context.Context, engine *workflow.Engine, use
 
 // DeleteWorkflow
 // @Summary Delete a workflow
+// @Tags Workflows
 // @Produce json
 // @Param projectUID path string true "Project UID"
 // @Param workflowUID path string true "Workflow UID"
@@ -268,6 +273,7 @@ func (workflowRoute) Delete(ctx context.Context, wf *db.Workflow) error {
 
 // SetWorkflowEnabled
 // @Summary Enable or disable a workflow
+// @Tags Workflows
 // @Description A disabled workflow ignores its triggers. The schedule restarts from now when it is enabled again, the missed times are skipped.
 // @Accept json
 // @Produce json
@@ -302,6 +308,7 @@ func (workflowRoute) SetEnabled(ctx context.Context, engine *workflow.Engine, wf
 
 // PublishWorkflow
 // @Summary Publish a workflow
+// @Tags Workflows
 // @Description Freeze the draft as a new immutable version which handles the triggers. Nothing is published if issues are returned.
 // @Accept json
 // @Produce json
@@ -371,6 +378,7 @@ func publishSpec(ctx context.Context, engine *workflow.Engine, user *db.User, pr
 
 // RollbackWorkflow
 // @Summary Roll back a workflow to a published version
+// @Tags Workflows
 // @Description Republish the spec of the version as a new version, the draft is overwritten by it.
 // @Accept json
 // @Produce json
@@ -417,6 +425,7 @@ func (workflowRoute) Rollback(ctx context.Context, engine *workflow.Engine, user
 
 // DebugWorkflow
 // @Summary Debug a workflow
+// @Tags Workflows
 // @Description Run the draft. The API trigger runs with the request; the other triggers run with the record (the latest one if not specified) or the current time.
 // @Description dry_run rolls back the writes and skips the asynchronous flows and external actions, live runs them for real and is recorded as a debug run.
 // @Accept json
@@ -505,6 +514,7 @@ func (workflowRoute) Debug(ctx context.Context, engine *workflow.Engine, user *d
 
 // ListWorkflowRevisions
 // @Summary List the published versions of a workflow
+// @Tags Workflows
 // @Produce json
 // @Param projectUID path string true "Project UID"
 // @Param workflowUID path string true "Workflow UID"
@@ -549,6 +559,7 @@ type ListWorkflowRunsResp struct {
 
 // ListWorkflowRuns
 // @Summary List the runs of a workflow
+// @Tags Workflows
 // @Produce json
 // @Param projectUID path string true "Project UID"
 // @Param workflowUID path string true "Workflow UID"
@@ -612,6 +623,7 @@ func (workflowRoute) ListRuns(ctx context.Context, wf *db.Workflow) error {
 
 // GetWorkflowRun
 // @Summary Get a run of a workflow
+// @Tags Workflows
 // @Description Return the request or the trigger data, the response, the step trace and the background jobs of the run.
 // @Produce json
 // @Param projectUID path string true "Project UID"
@@ -643,6 +655,7 @@ func (workflowRoute) GetRun(ctx context.Context, wf *db.Workflow) error {
 
 // RetryWorkflowJob
 // @Summary Retry a failed background job
+// @Tags Workflows
 // @Description Run the failed job again, the steps which succeeded are not run again.
 // @Produce json
 // @Param projectUID path string true "Project UID"
@@ -668,6 +681,7 @@ func (workflowRoute) RetryJob(ctx context.Context, engine *workflow.Engine, wf *
 
 // ListWorkflowKeys
 // @Summary List the API keys of a workflow
+// @Tags Workflows
 // @Produce json
 // @Param projectUID path string true "Project UID"
 // @Param workflowUID path string true "Workflow UID"
@@ -692,6 +706,7 @@ func (workflowRoute) ListKeys(ctx context.Context, wf *db.Workflow) error {
 
 // CreateWorkflowKey
 // @Summary Create an API key of a workflow
+// @Tags Workflows
 // @Description The secret is only returned once.
 // @Accept json
 // @Produce json
@@ -715,6 +730,7 @@ func (workflowRoute) CreateKey(ctx context.Context, user *db.User, wf *db.Workfl
 
 // DeleteWorkflowKey
 // @Summary Delete an API key of a workflow
+// @Tags Workflows
 // @Produce json
 // @Param projectUID path string true "Project UID"
 // @Param workflowUID path string true "Workflow UID"

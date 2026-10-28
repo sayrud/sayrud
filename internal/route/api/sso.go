@@ -106,6 +106,7 @@ func redirectProvider(ctx context.Context, settings *db.SystemSettings) (*db.Aut
 
 // Start
 // @Summary Start a third-party sign-in
+// @Tags Single sign-on
 // @Description Redirects the browser to the identity provider. In the link mode the signed-in user binds the third-party account. Failures redirect to the sign-in page (or the security settings in the link mode) with the sso_error query.
 // @Param slug path string true "Provider slug"
 // @Param mode query string false "login or link, defaults to login" Enums(login, link)
@@ -190,6 +191,7 @@ func takeState(ctx context.Context, provider *db.AuthProvider, token string, req
 
 // Callback
 // @Summary OAuth 2.0 / OIDC callback
+// @Tags Single sign-on
 // @Description Signs in (or binds the account in the link mode) and redirects to the saved path. Failures redirect with the sso_error query.
 // @Param slug path string true "Provider slug"
 // @Param state query string true "State"
@@ -224,6 +226,7 @@ func (ssoRoute) Callback(ctx context.Context) error {
 
 // ACS
 // @Summary SAML Assertion Consumer Service
+// @Tags Single sign-on
 // @Description Receives the SAML response posted by the identity provider, signs in and redirects. Failures redirect with the sso_error query.
 // @Accept x-www-form-urlencoded
 // @Param slug path string true "Provider slug"
@@ -306,6 +309,7 @@ func finishSSO(ctx context.Context, settings *db.SystemSettings, provider *db.Au
 
 // Metadata
 // @Summary SAML service provider metadata
+// @Tags Single sign-on
 // @Description The entity ID of the service provider is the URL of this metadata. Available before the provider is enabled.
 // @Produce xml
 // @Param slug path string true "Provider slug"
@@ -346,6 +350,7 @@ func (ssoRoute) Metadata(ctx context.Context) error {
 
 // LDAPSignIn
 // @Summary Sign in with LDAP
+// @Tags Single sign-on
 // @Accept json
 // @Produce json
 // @Param slug path string true "Provider slug"
@@ -420,6 +425,7 @@ func (ssoRoute) LDAPSignIn(ctx context.Context, f form.LDAPSignIn) error {
 
 // ListIdentities
 // @Summary List the third-party accounts bound to the signed-in user
+// @Tags Single sign-on
 // @Produce json
 // @Success 200 {array} dto.UserIdentity
 // @Failure 401 {string} string "Not signed in"
@@ -453,6 +459,7 @@ func (ssoRoute) ListIdentities(ctx context.Context, user *db.User) error {
 
 // DeleteIdentity
 // @Summary Unbind a third-party account of the signed-in user
+// @Tags Single sign-on
 // @Description The last way to sign in can not be unbound if the user has no password.
 // @Param identityID path int true "Identity ID"
 // @Success 204 "No Content"

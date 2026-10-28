@@ -24,6 +24,7 @@ type collabRoute struct{}
 
 // Serve
 // @Summary Collaborate on the project over WebSocket
+// @Tags Collaboration
 // @Description Upgrade to WebSocket to submit changesets and receive the changes of the subscribed tables and the online members.
 // @Description Messages are JSON `{type, reqId, data}`. Client: SUBSCRIBE, UNSUBSCRIBE, USER_CHANGES, PRESENCE, PING.
 // @Description Server: HELLO, SUBSCRIBED, ACCEPT_COMMIT, REJECT_COMMIT, NEW_CHANGES, MEMBERS, TABLES_CHANGED, PROJECT_CHANGED, PERMISSION_CHANGED, ERROR, PONG.
@@ -58,6 +59,7 @@ func (collabRoute) Serve(ctx context.Context, hub *collab.Hub, project *db.Proje
 
 // GetSnapshot
 // @Summary Get the table snapshot
+// @Tags Collaboration
 // @Description Return the fields, views and all the records of the table consistently at the latest revision.
 // @Produce json
 // @Param projectUID path string true "Project UID"
@@ -124,6 +126,7 @@ const maxChangesetsPerPage = 200
 
 // ListChangesets
 // @Summary List the missing changesets
+// @Tags Collaboration
 // @Description Return the changesets whose revision is greater than since in revision order, for the client to catch up after missing broadcasts.
 // @Produce json
 // @Param projectUID path string true "Project UID"
@@ -169,6 +172,7 @@ func (collabRoute) ListChangesets(ctx context.Context, table *db.SLTable) error 
 
 // ListViews
 // @Summary List views
+// @Tags Views
 // @Produce json
 // @Param projectUID path string true "Project UID"
 // @Param tableUID path string true "Table UID"
@@ -189,6 +193,7 @@ func (collabRoute) ListViews(ctx context.Context, table *db.SLTable) error {
 
 // FetchRecords
 // @Summary Fetch records by UID
+// @Tags Records
 // @Description Return the records with the given UIDs in creation order, the deleted ones are omitted. It is used to reload the dirty records.
 // @Accept json
 // @Produce json

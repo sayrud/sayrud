@@ -45,6 +45,7 @@ func (schemalessRoute) Tabler(ctx context.Context, project *db.Project) error {
 
 // ListTables
 // @Summary List tables
+// @Tags Tables
 // @Description List the tables of the project ordered by sidebar position.
 // @Produce json
 // @Param projectUID path string true "Project UID"
@@ -82,6 +83,7 @@ func (schemalessRoute) ListTables(ctx context.Context, project *db.Project) erro
 
 // CreateTable
 // @Summary Create a table
+// @Tags Tables
 // @Accept json
 // @Produce json
 // @Param projectUID path string true "Project UID"
@@ -112,6 +114,7 @@ func (schemalessRoute) CreateTable(ctx context.Context, hub *collab.Hub, project
 
 // GetTable
 // @Summary Get a table
+// @Tags Tables
 // @Produce json
 // @Param projectUID path string true "Project UID"
 // @Param tableUID path string true "Table UID"
@@ -127,6 +130,7 @@ func (schemalessRoute) GetTable(ctx context.Context, project *db.Project, table 
 
 // UpdateTable
 // @Summary Update a table
+// @Tags Tables
 // @Accept json
 // @Produce json
 // @Param projectUID path string true "Project UID"
@@ -157,6 +161,7 @@ func (schemalessRoute) UpdateTable(ctx context.Context, hub *collab.Hub, project
 
 // DeleteTable
 // @Summary Delete a table
+// @Tags Tables
 // @Produce json
 // @Param projectUID path string true "Project UID"
 // @Param tableUID path string true "Table UID"

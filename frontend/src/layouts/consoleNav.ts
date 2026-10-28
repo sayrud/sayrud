@@ -1,4 +1,5 @@
 import {
+  BookOpen,
   Globe,
   LayoutDashboard,
   LockKeyhole,
@@ -18,10 +19,11 @@ import type { Component } from 'vue'
 import { t } from '@/i18n'
 
 export interface NavItem {
-  /** Route name. */
+  /** Menu key, also the route name for internal pages. */
   name: string
   label: string
   icon: Component
+  href?: string
 }
 
 export interface NavGroup {
@@ -29,10 +31,11 @@ export interface NavGroup {
   items: NavItem[]
 }
 
-function navItem(name: string, icon: Component, label: () => string): NavItem {
+function navItem(name: string, icon: Component, label: () => string, href?: string): NavItem {
   return {
     name,
     icon,
+    href,
     get label() {
       return label()
     },
@@ -92,6 +95,7 @@ export const ADMIN_NAV: NavGroup[] = [
       navItem('admin-security', LockKeyhole, () => t('consoleNav.adminSecurity')),
       navItem('admin-sign-in-methods', LogIn, () => t('sso.admin.title')),
       navItem('admin-ai', Sparkles, () => t('consoleNav.aiModel')),
+      navItem('admin-swagger', BookOpen, () => t('consoleNav.swagger'), '/_/admin/swagger/index.html'),
     ],
   },
 ]

@@ -152,6 +152,7 @@ func installedHubPackages(ctx context.Context, kind string) (map[string]*dto.Hub
 
 // ListHubPackages
 // @Summary Browse the Sayrud Hub catalog
+// @Tags Admin - Hub
 // @Description Requires the admin. Search the packages available on Sayrud Hub, with their installation in Sayrud.
 // @Produce json
 // @Param kind query string true "Kind" Enums(workflow_plugin, field_shortcut)
@@ -198,6 +199,7 @@ func (adminRoute) ListHubPackages(ctx context.Context) error {
 
 // GetHubPackage
 // @Summary Get a package of the Sayrud Hub catalog
+// @Tags Admin - Hub
 // @Description Requires the admin. Get the package with its readme, its latest release, which is the one installed, and its installation in Sayrud.
 // @Produce json
 // @Param kind path string true "Kind" Enums(workflow_plugin, field_shortcut)
@@ -228,6 +230,7 @@ func (adminRoute) GetHubPackage(ctx context.Context) error {
 
 // CheckHubUpdates
 // @Summary Check the packages installed from Sayrud Hub
+// @Tags Admin - Hub
 // @Description Requires the admin. Only the packages installed from the Hub are sent to it, the result is reused for an hour unless refresh is true.
 // @Description The packages without an update, a yank or a delisting are omitted.
 // @Produce json

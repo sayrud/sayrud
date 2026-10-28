@@ -92,6 +92,7 @@ func passwordTooShort(settings *db.SystemSettings, password, key string) error {
 
 // SignUp
 // @Summary Sign up with email and password
+// @Tags Authentication
 // @Description Create an account and sign in. The first user takes over the projects created before accounts were introduced.
 // @Accept json
 // @Produce json
@@ -160,6 +161,7 @@ func (authRoute) SignUp(ctx context.Context, f form.SignUp) error {
 
 // SignIn
 // @Summary Sign in with email and password
+// @Tags Authentication
 // @Accept json
 // @Produce json
 // @Param data body form.SignIn true "Credential"
@@ -211,6 +213,7 @@ func (authRoute) SignIn(ctx context.Context, f form.SignIn) error {
 
 // SignOut
 // @Summary Sign out
+// @Tags Authentication
 // @Description Revoke the current session and clear the session cookie.
 // @Success 204 "No Content"
 // @Failure 500 {string} string "Internal server error"
@@ -229,6 +232,7 @@ func (authRoute) SignOut(ctx context.Context) error {
 
 // Profile
 // @Summary Get the profile of the signed-in user
+// @Tags Account
 // @Produce json
 // @Success 200 {object} dto.Profile
 // @Failure 401 {string} string "Not signed in"
@@ -241,6 +245,7 @@ func (authRoute) Profile(ctx context.Context, user *db.User) error {
 
 // UpdateProfile
 // @Summary Update the profile of the signed-in user
+// @Tags Account
 // @Accept json
 // @Produce json
 // @Param data body form.UpdateProfile true "Profile"
@@ -265,6 +270,7 @@ func (authRoute) UpdateProfile(ctx context.Context, user *db.User, f form.Update
 
 // UpdatePassword
 // @Summary Change the password of the signed-in user
+// @Tags Account
 // @Description The other sessions of the user are signed out.
 // @Accept json
 // @Param data body form.UpdatePassword true "Passwords"

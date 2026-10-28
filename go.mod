@@ -30,6 +30,7 @@ require (
 	github.com/spf13/cast v1.6.0
 	github.com/spf13/viper v1.3.2
 	github.com/stretchr/testify v1.12.1
+	github.com/swaggo/http-swagger/v2 v2.0.2
 	github.com/swaggo/swag v1.16.6
 	github.com/thanhpk/randstr v1.0.6
 	github.com/tj/go-pg-escape v1.1.0
@@ -101,8 +102,8 @@ require (
 	github.com/go-logr/logr v1.4.4 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-openapi/jsonpointer v0.19.5 // indirect
-	github.com/go-openapi/jsonreference v0.19.6 // indirect
-	github.com/go-openapi/spec v0.20.4 // indirect
+	github.com/go-openapi/jsonreference v0.20.0 // indirect
+	github.com/go-openapi/spec v0.20.6 // indirect
 	github.com/go-openapi/swag v0.19.15 // indirect
 	github.com/go-sourcemap/sourcemap v2.1.3+incompatible // indirect
 	github.com/go-sql-driver/mysql v1.8.1 // indirect
@@ -149,6 +150,7 @@ require (
 	github.com/spf13/afero v1.1.2 // indirect
 	github.com/spf13/jwalterweatherman v1.0.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
+	github.com/swaggo/files/v2 v2.0.0 // indirect
 	github.com/tiendc/go-deepcopy v1.7.2 // indirect
 	github.com/uptrace/opentelemetry-go-extra/otelutil v0.3.1 // indirect
 	github.com/xuri/efp v0.0.2 // indirect

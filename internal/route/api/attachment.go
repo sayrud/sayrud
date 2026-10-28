@@ -30,6 +30,7 @@ func (schemalessRoute) LimitAttachmentUpload(ctx context.Context) {
 
 // UploadAttachment
 // @Summary Upload an attachment
+// @Tags Attachments
 // @Description Upload a single file up to 20 MiB for an attachment field. The returned descriptor can be used in record values within this project.
 // @Accept multipart/form-data
 // @Produce json
@@ -85,6 +86,7 @@ func (schemalessRoute) UploadAttachment(ctx context.Context, user *db.User, proj
 
 // Attachment
 // @Summary Read an attachment
+// @Tags Attachments
 // @Description Read a file uploaded in this project. Project membership is checked on every request.
 // @Param projectUID path string true "Project UID"
 // @Param fileUID path string true "Attachment UID"

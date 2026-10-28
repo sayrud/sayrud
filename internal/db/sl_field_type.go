@@ -5,7 +5,7 @@ import (
 )
 
 // SLFieldType is the type of the field values.
-type SLFieldType string
+type SLFieldType string // @name SLFieldType
 
 // AllFieldTypes are all the known field types, in the order shown to the users.
 var AllFieldTypes = []SLFieldType{

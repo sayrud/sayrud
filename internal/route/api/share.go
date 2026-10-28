@@ -41,6 +41,7 @@ func (shareRoute) LimitBody(ctx context.Context) {
 
 // Get
 // @Summary Get link sharing settings
+// @Tags Sharing
 // @Description Requires a project manager. The saved link password is decrypted only for this settings response.
 // @Produce json
 // @Param projectUID path string true "Project UID"
@@ -66,6 +67,7 @@ func (shareRoute) Get(ctx context.Context, project *db.Project, table *db.SLTabl
 
 // Update
 // @Summary Update read-only link sharing settings
+// @Tags Sharing
 // @Accept json
 // @Produce json
 // @Param projectUID path string true "Project UID"
@@ -156,6 +158,7 @@ func validSharePassword(password string) bool {
 
 // Resolve
 // @Summary Resolve public access from the normal project and table URL
+// @Tags Sharing
 // @Description Returns only an enabled share token. Password verification and read scope remain enforced on all share APIs.
 // @Produce json
 // @Param projectUID query string true "Project UID"
@@ -289,6 +292,7 @@ func (shareRoute) RequirePassword(ctx context.Context, share publicShare) error 
 
 // Serve
 // @Summary Follow a public share over WebSocket
+// @Tags Sharing
 // @Description Receive filtered incremental changesets and scoped collaborator presence. All edits are rejected.
 // @Description The share and password grant are checked at the handshake, on subscription and before delivery.
 // @Param shareToken path string true "Share token"
@@ -328,6 +332,7 @@ func (shareRoute) Serve(ctx context.Context, hub *collab.Hub, share publicShare,
 
 // Unlock
 // @Summary Verify a public link password
+// @Tags Sharing
 // @Accept json
 // @Produce json
 // @Param shareToken path string true "Share token"
@@ -368,6 +373,7 @@ func (shareRoute) Unlock(ctx context.Context, share publicShare, f form.UnlockLi
 
 // Open
 // @Summary Open a read-only public share
+// @Tags Sharing
 // @Produce json
 // @Param shareToken path string true "Share token"
 // @Success 200 {object} dto.SharedProject
@@ -415,6 +421,7 @@ func (shareRoute) Tabler(ctx context.Context, share publicShare, project *db.Pro
 
 // Snapshot
 // @Summary Read a publicly shared table snapshot
+// @Tags Sharing
 // @Produce json
 // @Param shareToken path string true "Share token"
 // @Param tableUID path string true "Table UID"
@@ -457,6 +464,7 @@ func prepareSharedRecords(records []*dto.Record, token string) {
 
 // Changesets
 // @Summary List missing changesets for a public share
+// @Tags Sharing
 // @Produce json
 // @Param shareToken path string true "Share token"
 // @Param tableUID path string true "Table UID"
@@ -470,6 +478,7 @@ func (shareRoute) Changesets(ctx context.Context, table *db.SLTable) error {
 
 // Fields
 // @Summary List fields for a public share
+// @Tags Sharing
 // @Produce json
 // @Param shareToken path string true "Share token"
 // @Param tableUID path string true "Table UID"
@@ -482,6 +491,7 @@ func (shareRoute) Fields(ctx context.Context, table *db.SLTable) error {
 
 // Views
 // @Summary List views for a public share
+// @Tags Sharing
 // @Produce json
 // @Param shareToken path string true "Share token"
 // @Param tableUID path string true "Table UID"
@@ -494,6 +504,7 @@ func (shareRoute) Views(ctx context.Context, table *db.SLTable) error {
 
 // FetchRecords
 // @Summary Fetch dirty records for a public share
+// @Tags Sharing
 // @Accept json
 // @Produce json
 // @Param shareToken path string true "Share token"
@@ -508,6 +519,7 @@ func (shareRoute) FetchRecords(ctx context.Context, table *db.SLTable, f form.Fe
 
 // Attachment
 // @Summary Read an attachment referenced by a shared table
+// @Tags Sharing
 // @Param shareToken path string true "Share token"
 // @Param tableUID path string true "Table UID"
 // @Param fileUID path string true "Attachment UID"

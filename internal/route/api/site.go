@@ -14,6 +14,7 @@ type siteRoute struct{}
 
 // Get
 // @Summary Get the site information
+// @Tags Site
 // @Description Public information used by the sign-in page, such as whether signing up is allowed.
 // @Produce json
 // @Success 200 {object} dto.SiteInfo

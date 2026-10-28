@@ -53,6 +53,7 @@ var (
 
 // UploadAvatar
 // @Summary Upload the avatar of the signed-in user
+// @Tags Account
 // @Description Accept a PNG, JPEG or GIF up to 2 MiB and 4096 pixels per edge. Store a static PNG with its longest edge at most 512 pixels.
 // @Accept multipart/form-data
 // @Produce json
@@ -190,6 +191,7 @@ func normalizeAvatar(input []byte) ([]byte, error) {
 
 // RemoveAvatar
 // @Summary Restore the default avatar of the signed-in user
+// @Tags Account
 // @Produce json
 // @Success 200 {object} dto.Profile
 // @Failure 401 {string} string "Not signed in"
@@ -232,6 +234,7 @@ func removePreviousAvatar(ctx stdcontext.Context, userID int64, uid string) {
 
 // Avatar
 // @Summary Get a current uploaded avatar
+// @Tags Account
 // @Produce image/png
 // @Param fileUID path string true "Avatar file UID"
 // @Success 200 {file} file

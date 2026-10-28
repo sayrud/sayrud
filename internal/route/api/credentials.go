@@ -57,6 +57,7 @@ func toCredential(c *db.Credential) *dto.Credential {
 
 // ListCredentials
 // @Summary List the credentials of a project
+// @Tags Credentials
 // @Description The values of the secret fields are not returned. Filter by type with the type query.
 // @Produce json
 // @Param projectUID path string true "Project UID"
@@ -82,6 +83,7 @@ func (credentialRoute) List(ctx context.Context, project *db.Project) error {
 
 // GetCredential
 // @Summary Get a project credential
+// @Tags Credentials
 // @Description Returns the non-secret fields and the names of saved secret fields. Secret values are never returned.
 // @Produce json
 // @Param projectUID path string true "Project UID"
@@ -132,6 +134,7 @@ func respondCredentialError(ctx context.Context, err error) error {
 
 // CreateCredential
 // @Summary Create a credential in a project
+// @Tags Credentials
 // @Description The fields are defined by the DSL of the credential type, the secret fields are encrypted by auth.secret_key.
 // @Accept json
 // @Produce json
@@ -168,6 +171,7 @@ func (credentialRoute) Create(ctx context.Context, user *db.User, project *db.Pr
 
 // UpdateCredential
 // @Summary Update a credential
+// @Tags Credentials
 // @Description Takes effect immediately for the workflows that reference it. The empty secret fields keep the saved values.
 // @Accept json
 // @Produce json
@@ -209,6 +213,7 @@ func (credentialRoute) Update(ctx context.Context, user *db.User, c *db.Credenti
 
 // DeleteCredential
 // @Summary Delete a credential
+// @Tags Credentials
 // @Description A credential referenced by a published workflow can not be deleted.
 // @Produce json
 // @Param projectUID path string true "Project UID"
@@ -237,6 +242,7 @@ func (credentialRoute) Delete(ctx context.Context, project *db.Project, c *db.Cr
 
 // TestCredential
 // @Summary Test a credential
+// @Tags Credentials
 // @Description Run the test action of the credential type (e.g. send a test email) with the unsaved values; the saved secrets of credentialUID are used for the fields not given.
 // @Accept json
 // @Produce json
@@ -304,6 +310,7 @@ func (credentialRoute) Test(ctx context.Context, project *db.Project, f form.Tes
 
 // ListWorkflowModules
 // @Summary List the step modules and credential types
+// @Tags Workflows
 // @Description Return the JSON DSL definitions the editor renders the nodes and the configuration forms with. The texts of the installed plugins are in the language of the request.
 // @Produce json
 // @Param projectUID path string true "Project UID"

@@ -43,7 +43,7 @@ func NewSLImportsStore(db *gorm.DB) SLImportsStore {
 }
 
 // SLImportStatus is the state of an import.
-type SLImportStatus string
+type SLImportStatus string // @name SLImportStatus
 
 const (
 	// SLImportPending is uploaded and waiting for the column mapping.

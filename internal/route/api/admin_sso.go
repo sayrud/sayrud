@@ -34,6 +34,7 @@ func (adminRoute) AuthProviderer(ctx context.Context) error {
 
 // ListAuthProviders
 // @Summary List the sign-in methods
+// @Tags Admin - Sign-in methods
 // @Description Requires the admin. The secrets are not returned.
 // @Produce json
 // @Success 200 {object} dto.ListAdminAuthProvidersResp
@@ -149,6 +150,7 @@ func ensureNotLastEnabled(ctx context.Context, settings *db.SystemSettings) (boo
 
 // CreateAuthProvider
 // @Summary Create a sign-in method
+// @Tags Admin - Sign-in methods
 // @Description Requires the admin and auth.secret_key in the config file. The SAML service provider certificate is generated automatically.
 // @Accept json
 // @Produce json
@@ -203,6 +205,7 @@ func (adminRoute) CreateAuthProvider(ctx context.Context, f form.CreateAuthProvi
 
 // UpdateAuthProvider
 // @Summary Update a sign-in method
+// @Tags Admin - Sign-in methods
 // @Description Requires the admin. The slug and the type can not be changed, the empty secrets keep the saved ones.
 // @Accept json
 // @Produce json
@@ -271,6 +274,7 @@ func (adminRoute) UpdateAuthProvider(ctx context.Context, p *db.AuthProvider, f 
 
 // DeleteAuthProvider
 // @Summary Delete a sign-in method
+// @Tags Admin - Sign-in methods
 // @Description Requires the admin. The bound third-party accounts of the users are unbound.
 // @Param providerID path int true "Provider ID"
 // @Success 204 "No Content"
@@ -305,6 +309,7 @@ func (adminRoute) DeleteAuthProvider(ctx context.Context, p *db.AuthProvider) er
 
 // SetAuthProviderPositions
 // @Summary Reorder the sign-in methods
+// @Tags Admin - Sign-in methods
 // @Description Requires the admin. The sign-in page shows them in this order.
 // @Accept json
 // @Param data body form.SetAuthProviderPositions true "Provider IDs in order"
@@ -323,6 +328,7 @@ func (adminRoute) SetAuthProviderPositions(ctx context.Context, f form.SetAuthPr
 
 // TestAuthProvider
 // @Summary Test the connection of a sign-in method
+// @Tags Admin - Sign-in methods
 // @Description Requires the admin. OIDC fetches the discovery document, SAML loads the IdP metadata, LDAP binds the service account and optionally searches the user. OAuth 2.0 is not supported.
 // @Accept json
 // @Param data body form.TestAuthProvider true "Config to test"

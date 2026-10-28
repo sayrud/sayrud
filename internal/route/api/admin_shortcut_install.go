@@ -52,6 +52,7 @@ func shortcutExpect(s *db.CustomFieldShortcut) hub.Expect {
 
 // InspectFieldShortcut
 // @Summary Check a field shortcut before installing
+// @Tags Admin - Field shortcuts
 // @Description Requires the admin. Download the source if a URL or a Sayrud Hub package is given, then validate its exported manifest and execute function without running execute.
 // @Description The sources of Sayrud Hub are verified by their signature, which is returned to install them.
 // @Accept json
@@ -110,6 +111,7 @@ func (adminRoute) InspectFieldShortcut(ctx context.Context, f form.InspectFieldS
 
 // InstallFieldShortcut
 // @Summary Install a field shortcut from a JavaScript or TypeScript module
+// @Tags Admin - Field shortcuts
 // @Description Requires the admin. Revalidate the reviewed source and create a new shortcut. Credential values must be configured separately.
 // @Description A Sayrud Hub signature must describe the source.
 // @Accept json

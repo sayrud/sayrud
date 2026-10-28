@@ -71,6 +71,7 @@ func (projectRoute) RequireRole(min db.ProjectRole) flamego.Handler {
 
 // ListProjects
 // @Summary List projects
+// @Tags Projects
 // @Description List the projects owned by or shared with the signed-in user, with the number of tables in each project.
 // @Produce json
 // @Param page query int false "Page number, starting from 1"
@@ -148,6 +149,7 @@ func usersByID(ctx context.Context, userIDs []int64) (map[int64]*db.User, error)
 
 // CreateProject
 // @Summary Create a project
+// @Tags Projects
 // @Description Create a project owned by the signed-in user.
 // @Accept json
 // @Produce json
@@ -173,6 +175,7 @@ func (projectRoute) CreateProject(ctx context.Context, user *db.User, f form.Cre
 
 // GetProject
 // @Summary Get a project
+// @Tags Projects
 // @Produce json
 // @Param projectUID path string true "Project UID"
 // @Success 200 {object} dto.Project
@@ -192,6 +195,7 @@ func (projectRoute) GetProject(ctx context.Context, project *db.Project, role db
 
 // UpdateProject
 // @Summary Update a project
+// @Tags Projects
 // @Description Requires the editor role.
 // @Accept json
 // @Produce json
@@ -224,6 +228,7 @@ func (projectRoute) UpdateProject(ctx context.Context, hub *collab.Hub, project 
 
 // DeleteProject
 // @Summary Delete a project
+// @Tags Projects
 // @Description Delete the project along with its collaborators, only the owner can delete it.
 // @Produce json
 // @Param projectUID path string true "Project UID"
@@ -256,6 +261,7 @@ func (projectRoute) DeleteProject(ctx context.Context, hub *collab.Hub, project 
 
 // TransferOwner
 // @Summary Transfer the ownership of a project
+// @Tags Projects
 // @Description Only the owner can transfer it to an existing collaborator, the previous owner becomes a manager.
 // @Accept json
 // @Param projectUID path string true "Project UID"
@@ -319,6 +325,7 @@ func transferProject(ctx context.Context, hub *collab.Hub, project *db.Project, 
 
 // ListMembers
 // @Summary List the collaborators
+// @Tags Project members
 // @Description List the owner and the collaborators of the project, the owner comes first.
 // @Produce json
 // @Param projectUID path string true "Project UID"
@@ -359,6 +366,7 @@ func (projectRoute) ListMembers(ctx context.Context, project *db.Project) error 
 
 // LookupMemberCandidate
 // @Summary Find a user to invite
+// @Tags Project members
 // @Description Find the registered user by the exact email, requires the manager role.
 // @Produce json
 // @Param projectUID path string true "Project UID"
@@ -383,6 +391,7 @@ func (projectRoute) LookupMemberCandidate(ctx context.Context) error {
 
 // AddMember
 // @Summary Add a collaborator
+// @Tags Project members
 // @Description Add the registered user as a collaborator, or change the role if it has been one. Requires the manager role.
 // @Accept json
 // @Produce json
@@ -422,6 +431,7 @@ func (projectRoute) AddMember(ctx context.Context, hub *collab.Hub, project *db.
 
 // UpdateMember
 // @Summary Change the role of a collaborator
+// @Tags Project members
 // @Description Requires the manager role, the owner and the signed-in user itself can not be changed.
 // @Accept json
 // @Param projectUID path string true "Project UID"
@@ -464,6 +474,7 @@ func (projectRoute) UpdateMember(ctx context.Context, hub *collab.Hub, user *db.
 
 // RemoveMember
 // @Summary Remove a collaborator
+// @Tags Project members
 // @Description Requires the manager role, except that a collaborator can remove itself to leave the project. The owner can not be removed.
 // @Param projectUID path string true "Project UID"
 // @Param userID path int true "User ID of the collaborator"

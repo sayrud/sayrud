@@ -6,8 +6,10 @@ import (
 	"github.com/MEDIGO/go-healthz"
 	"github.com/flamego/binding"
 	"github.com/flamego/flamego"
+	httpSwagger "github.com/swaggo/http-swagger/v2"
 	"gorm.io/gorm"
 
+	_ "github.com/wuhan005/sayrud/docs"
 	"github.com/wuhan005/sayrud/frontend"
 	"github.com/wuhan005/sayrud/internal/collab"
 	"github.com/wuhan005/sayrud/internal/conf"
@@ -119,6 +121,7 @@ func New(opts Options) *flamego.Flame {
 
 		f.Group("/admin", func() {
 			f.Get("/overview", api.Admin.Overview)
+			f.Get("/swagger/{path: **}", httpSwagger.Handler(httpSwagger.Layout(httpSwagger.BaseLayout)))
 			f.Group("/users", func() {
 				f.Combo("").
 					Get(api.Admin.ListUsers).

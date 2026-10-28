@@ -427,6 +427,7 @@ export default {
     unknownOS: '未知系统',
   },
   consoleNav: {
+    swagger: 'Swagger 文档',
     workflowPlugins: '工作流节点',
     settingsPersonal: '个人',
     profile: '个人信息',

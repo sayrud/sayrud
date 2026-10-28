@@ -10,7 +10,7 @@
  * ---------------------------------------------------------------
  */
 
-export enum DbWorkflowRunStatus {
+export enum WorkflowRunStatus {
   WorkflowRunQueued = "queued",
   WorkflowRunRunning = "running",
   WorkflowRunSucceeded = "succeeded",
@@ -18,14 +18,14 @@ export enum DbWorkflowRunStatus {
   WorkflowRunRejected = "rejected",
 }
 
-export enum DbSLImportStatus {
+export enum SLImportStatus {
   SLImportPending = "pending",
   SLImportRunning = "running",
   SLImportSucceeded = "succeeded",
   SLImportFailed = "failed",
 }
 
-export enum DbSLFieldType {
+export enum SLFieldType {
   TextFieldType = "text",
   SingleSelectFieldType = "single_select",
   MultiSelectFieldType = "multi_select",
@@ -134,7 +134,7 @@ export interface AdminCreateUser {
 export interface AdminCredential {
   hasValue: boolean;
   key: string;
-  label: I18NLocalText;
+  label: LocalText;
   name?: string;
   type: "bearer" | "header" | "query";
 }
@@ -149,7 +149,7 @@ export interface AdminFieldShortcut {
   /** Credentials are the credentials the script can use when fetching. */
   credentials: AdminCredential[];
   /** Description tells the members what the shortcut does. */
-  description: I18NLocalText;
+  description: LocalText;
   /** Enabled reports whether the members can attach and execute the shortcut. */
   enabled: boolean;
   /** Homepage is the project website or support page declared by the source. */
@@ -163,7 +163,7 @@ export interface AdminFieldShortcut {
   /** Language is the language of the saved source. */
   language: "javascript" | "typescript";
   /** Name is shown in the field editor. */
-  name: I18NLocalText;
+  name: LocalText;
   /** Permissions are the hosts the script can fetch and whether it can use the globally configured AI model. */
   permissions: ShortcutPermissions;
   /** ResultType is the type of the fields the shortcut can be attached to. */
@@ -501,7 +501,7 @@ export interface FieldShortcutManifest {
   /** Color is an optional hex color, empty for the theme color. */
   color?: string;
   /** Description tells what the shortcut does. */
-  description: I18NLocalText;
+  description: LocalText;
   /** Icon is an optional Lucide icon name or base64 data:image URL. */
   icon?: string;
   /** ID is the UID of a custom shortcut. */
@@ -509,7 +509,7 @@ export interface FieldShortcutManifest {
   /** Kind is how the shortcut is executed, by a custom script. */
   kind: "script";
   /** Name is shown in the field editor. */
-  name: I18NLocalText;
+  name: LocalText;
   /** Permissions are what the members need to know of the shortcut permissions, the hosts are only shown to the admins. */
   permissions: FieldShortcutPermissions;
   /** ResultTypes are the types of the fields the shortcut can be attached to. */
@@ -860,6 +860,8 @@ export interface ListWorkflowRunsResp {
   runs: WorkflowRun[];
 }
 
+export type LocalText = Record<string, string>;
+
 export interface MoveProjectNavigation {
   /** After places the item after the target; otherwise it is placed before it. */
   after: boolean;
@@ -1083,7 +1085,7 @@ export interface SaveFieldShortcut {
   /** Credentials are the credentials the script can use when fetching, without their values. */
   credentials: ShortcutCredential[];
   /** Description tells the members what the shortcut does. */
-  description?: I18NLocalText;
+  description?: LocalText;
   /** Enabled reports whether the members can attach and execute the shortcut. */
   enabled: boolean;
   /** Homepage is the project website or support page. */
@@ -1095,7 +1097,7 @@ export interface SaveFieldShortcut {
   /** Language of Code, javascript by default. */
   language?: "javascript" | "typescript";
   /** Name is shown in the field editor. */
-  name: I18NLocalText;
+  name: LocalText;
   /** Permissions are the hosts the script can fetch and whether it can use the globally configured AI model. */
   permissions: ShortcutPermissions;
   /** ResultType is the type of the fields the shortcut can be attached to. */
@@ -1155,7 +1157,7 @@ export interface ShortcutCredential {
   /** Key is the identifier the script passes to context.fetch to use the credential. */
   key: string;
   /** Label is the display name of the credential, the key if empty. */
-  label?: I18NLocalText;
+  label?: LocalText;
   /** Name is the header or query parameter name, it is ignored by bearer. */
   name?: string;
   /** Type is how the credential is put into the request. */
@@ -1168,17 +1170,17 @@ export interface ShortcutField {
   /** FieldTypes limits the fields of field_select, empty allows all the fields except formulas. */
   fieldTypes?: string[];
   /** Help is the description shown below the control. */
-  help?: I18NLocalText;
+  help?: LocalText;
   /** Key is the key of the configured value in FieldShortcut.Inputs and of the parameter passed to the shortcut. */
   key: string;
   /** Label is the name of the field shown in the form, the key if empty. */
-  label?: I18NLocalText;
+  label?: LocalText;
   /** Multiline shows a text area for text. */
   multiline?: boolean;
   /** Options are the choices of select. */
   options?: ShortcutOption[];
   /** Placeholder is the hint of the empty input. */
-  placeholder?: I18NLocalText;
+  placeholder?: LocalText;
   /** Required reports whether the field must be filled in before saving or executing. */
   required?: boolean;
   /** Widget is the control to render the field. */
@@ -1198,7 +1200,7 @@ export interface ShortcutJob {
 
 export interface ShortcutOption {
   /** Label is the text of the option shown in the form, the value if empty. */
-  label?: I18NLocalText;
+  label?: LocalText;
   /** Value is the configured value of the option. */
   value: string;
 }
@@ -1220,9 +1222,9 @@ export interface ShortcutPreview {
 }
 
 export interface ShortcutSection {
-  description?: I18NLocalText;
+  description?: LocalText;
   fields: ShortcutField[];
-  title?: I18NLocalText;
+  title?: LocalText;
 }
 
 export interface SignIn {
@@ -1983,6 +1985,16 @@ export interface WorkflowSectionDef {
   title?: string;
 }
 
+export interface WorkflowSpec {
+  /** Async holds the flows an API trigger runs in the background after request events; empty for other triggers. */
+  async: WorkflowAsyncFlow[];
+  /** Steps is the main flow: executed synchronously to build the response for API triggers, and in the background for other triggers. */
+  steps: WorkflowStep[];
+  /** Timezone is the IANA time zone in which formulas handle dates, e.g. Asia/Shanghai; UTC is used when it is empty or invalid. */
+  timezone?: string;
+  trigger: WorkflowTrigger;
+}
+
 export interface WorkflowStep {
   /** Config is the module configuration defined by the DSL of the type (see ModuleDef), decoded as the matching *XxxConfig. */
   config: object;
@@ -2048,18 +2060,6 @@ export interface WorkflowValue {
   kind: "const" | "var" | "template" | "formula";
   template?: string;
   var?: string;
-}
-
-export type I18NLocalText = Record<string, string>;
-
-export interface WorkflowSpec {
-  /** Async holds the flows an API trigger runs in the background after request events; empty for other triggers. */
-  async: WorkflowAsyncFlow[];
-  /** Steps is the main flow: executed synchronously to build the response for API triggers, and in the background for other triggers. */
-  steps: WorkflowStep[];
-  /** Timezone is the IANA time zone in which formulas handle dates, e.g. Asia/Shanghai; UTC is used when it is empty or invalid. */
-  timezone?: string;
-  trigger: WorkflowTrigger;
 }
 
 export type GetAdminAiSettingsData = AdminAISettings;
@@ -2549,6 +2549,7 @@ export class Api<
     /**
      * @description Requires the admin. The API key is not returned.
      *
+     * @tags Admin - AI
      * @name GetAdminAiSettings
      * @summary Get the AI model settings
      * @request GET:/admin/ai
@@ -2564,6 +2565,7 @@ export class Api<
     /**
      * @description Requires the admin. The API key is encrypted by auth.secret_key, empty keeps the saved one. It updates the global AI model configuration immediately.
      *
+     * @tags Admin - AI
      * @name UpdateAdminAiSettings
      * @summary Update the AI model settings
      * @request PUT:/admin/ai
@@ -2584,6 +2586,7 @@ export class Api<
     /**
      * @description Requires the admin. Send a short message to the unsaved model, the saved API key is used if it is not given.
      *
+     * @tags Admin - AI
      * @name TestAdminAiSettings
      * @summary Test the AI model settings
      * @request POST:/admin/ai/test
@@ -2601,6 +2604,7 @@ export class Api<
     /**
      * @description Requires the admin. The secrets are not returned.
      *
+     * @tags Admin - Sign-in methods
      * @name ListAdminAuthProviders
      * @summary List the sign-in methods
      * @request GET:/admin/auth-providers
@@ -2616,6 +2620,7 @@ export class Api<
     /**
      * @description Requires the admin and auth.secret_key in the config file. The SAML service provider certificate is generated automatically.
      *
+     * @tags Admin - Sign-in methods
      * @name CreateAdminAuthProvider
      * @summary Create a sign-in method
      * @request POST:/admin/auth-providers
@@ -2636,6 +2641,7 @@ export class Api<
     /**
      * @description Requires the admin. The sign-in page shows them in this order.
      *
+     * @tags Admin - Sign-in methods
      * @name SetAdminAuthProviderPositions
      * @summary Reorder the sign-in methods
      * @request PUT:/admin/auth-providers/positions
@@ -2655,6 +2661,7 @@ export class Api<
     /**
      * @description Requires the admin. OIDC fetches the discovery document, SAML loads the IdP metadata, LDAP binds the service account and optionally searches the user. OAuth 2.0 is not supported.
      *
+     * @tags Admin - Sign-in methods
      * @name TestAdminAuthProvider
      * @summary Test the connection of a sign-in method
      * @request POST:/admin/auth-providers/test
@@ -2674,6 +2681,7 @@ export class Api<
     /**
      * @description Requires the admin. The slug and the type can not be changed, the empty secrets keep the saved ones.
      *
+     * @tags Admin - Sign-in methods
      * @name UpdateAdminAuthProvider
      * @summary Update a sign-in method
      * @request PUT:/admin/auth-providers/{providerID}
@@ -2695,6 +2703,7 @@ export class Api<
     /**
      * @description Requires the admin. The bound third-party accounts of the users are unbound.
      *
+     * @tags Admin - Sign-in methods
      * @name DeleteAdminAuthProvider
      * @summary Delete a sign-in method
      * @request DELETE:/admin/auth-providers/{providerID}
@@ -2709,6 +2718,7 @@ export class Api<
     /**
      * @description Requires the admin. The credential values are not returned.
      *
+     * @tags Admin - Field shortcuts
      * @name ListAdminFieldShortcuts
      * @summary List the custom field shortcuts
      * @request GET:/admin/field-shortcuts
@@ -2735,6 +2745,7 @@ export class Api<
     /**
      * @description Requires the admin. The credential values are encrypted by auth.secret_key.
      *
+     * @tags Admin - Field shortcuts
      * @name CreateAdminFieldShortcut
      * @summary Create a custom field shortcut
      * @request POST:/admin/field-shortcuts
@@ -2755,6 +2766,7 @@ export class Api<
     /**
      * @description Requires the admin. Download the source if a URL or a Sayrud Hub package is given, then validate its exported manifest and execute function without running execute. The sources of Sayrud Hub are verified by their signature, which is returned to install them.
      *
+     * @tags Admin - Field shortcuts
      * @name InspectAdminFieldShortcut
      * @summary Check a field shortcut before installing
      * @request POST:/admin/field-shortcuts/inspect
@@ -2775,6 +2787,7 @@ export class Api<
     /**
      * @description Requires the admin. Revalidate the reviewed source and create a new shortcut. Credential values must be configured separately. A Sayrud Hub signature must describe the source.
      *
+     * @tags Admin - Field shortcuts
      * @name InstallAdminFieldShortcut
      * @summary Install a field shortcut from a JavaScript or TypeScript module
      * @request POST:/admin/field-shortcuts/install
@@ -2795,6 +2808,7 @@ export class Api<
     /**
      * @description Requires the admin. Run the unsaved code with the parameters, and return the result and the logs.
      *
+     * @tags Admin - Field shortcuts
      * @name TestAdminFieldShortcut
      * @summary Test a custom field shortcut
      * @request POST:/admin/field-shortcuts/test
@@ -2815,6 +2829,7 @@ export class Api<
     /**
      * @description Requires the admin. The credential values are not returned.
      *
+     * @tags Admin - Field shortcuts
      * @name GetAdminFieldShortcut
      * @summary Get a custom field shortcut
      * @request GET:/admin/field-shortcuts/{shortcutUID}
@@ -2830,6 +2845,7 @@ export class Api<
     /**
      * @description Requires the admin. The empty credential values keep the saved ones. A Sayrud Hub signature must describe the code; without one, the shortcut stays from the Hub only if its code is unchanged.
      *
+     * @tags Admin - Field shortcuts
      * @name UpdateAdminFieldShortcut
      * @summary Update a custom field shortcut
      * @request PUT:/admin/field-shortcuts/{shortcutUID}
@@ -2851,6 +2867,7 @@ export class Api<
     /**
      * @description Requires the admin. The fields using it keep their values, and fail to generate new ones.
      *
+     * @tags Admin - Field shortcuts
      * @name DeleteAdminFieldShortcut
      * @summary Delete a custom field shortcut
      * @request DELETE:/admin/field-shortcuts/{shortcutUID}
@@ -2868,6 +2885,7 @@ export class Api<
     /**
      * @description Requires the admin. Search the packages available on Sayrud Hub, with their installation in Sayrud.
      *
+     * @tags Admin - Hub
      * @name ListAdminHubPackages
      * @summary Browse the Sayrud Hub catalog
      * @request GET:/admin/hub/packages
@@ -2900,6 +2918,7 @@ export class Api<
     /**
      * @description Requires the admin. Get the package with its readme, its latest release, which is the one installed, and its installation in Sayrud.
      *
+     * @tags Admin - Hub
      * @name GetAdminHubPackage
      * @summary Get a package of the Sayrud Hub catalog
      * @request GET:/admin/hub/packages/{kind}/{id}
@@ -2919,6 +2938,7 @@ export class Api<
     /**
      * @description Requires the admin. Only the packages installed from the Hub are sent to it, the result is reused for an hour unless refresh is true. The packages without an update, a yank or a delisting are omitted.
      *
+     * @tags Admin - Hub
      * @name CheckAdminHubUpdates
      * @summary Check the packages installed from Sayrud Hub
      * @request GET:/admin/hub/updates
@@ -2941,6 +2961,7 @@ export class Api<
     /**
      * @description Requires the admin.
      *
+     * @tags Admin - Overview
      * @name GetAdminOverview
      * @summary Get the overview of the system
      * @request GET:/admin/overview
@@ -2956,6 +2977,7 @@ export class Api<
     /**
      * @description Requires the admin. The newest projects come first.
      *
+     * @tags Admin - Projects
      * @name ListAdminProjects
      * @summary List all the projects
      * @request GET:/admin/projects
@@ -2982,6 +3004,7 @@ export class Api<
     /**
      * @description Requires the admin.
      *
+     * @tags Admin - Projects
      * @name DeleteAdminProject
      * @summary Delete a project
      * @request DELETE:/admin/projects/{projectUID}
@@ -2996,6 +3019,7 @@ export class Api<
     /**
      * @description Requires the admin. The new owner can be any enabled user, the previous owner becomes a manager.
      *
+     * @tags Admin - Projects
      * @name TransferAdminProject
      * @summary Transfer the ownership of a project
      * @request PUT:/admin/projects/{projectUID}/owner
@@ -3016,6 +3040,7 @@ export class Api<
     /**
      * @description Requires the admin.
      *
+     * @tags Admin - Settings
      * @name GetSystemSettings
      * @summary Get the system settings
      * @request GET:/admin/settings
@@ -3031,6 +3056,7 @@ export class Api<
     /**
      * @description Requires the admin. The password and session settings apply to the later sign-ups and sign-ins.
      *
+     * @tags Admin - Settings
      * @name UpdateSystemSettings
      * @summary Update the system settings
      * @request PUT:/admin/settings
@@ -3051,6 +3077,7 @@ export class Api<
     /**
      * @description Requires the admin. The newest users come first.
      *
+     * @tags Admin - Members
      * @name ListAdminUsers
      * @summary List the users
      * @request GET:/admin/users
@@ -3079,6 +3106,7 @@ export class Api<
     /**
      * @description Requires the admin. It works even if signing up is disabled.
      *
+     * @tags Admin - Members
      * @name CreateAdminUser
      * @summary Create a user
      * @request POST:/admin/users
@@ -3096,6 +3124,7 @@ export class Api<
     /**
      * @description Requires the admin.
      *
+     * @tags Admin - Members
      * @name UpdateAdminUser
      * @summary Update the user name of a user
      * @request PUT:/admin/users/{userID}
@@ -3116,6 +3145,7 @@ export class Api<
     /**
      * @description Requires the admin. The projects owned by the user are transferred to transferTo, which is required if there are any.
      *
+     * @tags Admin - Members
      * @name DeleteAdminUser
      * @summary Delete a user
      * @request DELETE:/admin/users/{userID}
@@ -3138,6 +3168,7 @@ export class Api<
     /**
      * @description Requires the admin. The admin can not revoke itself, and at least one enabled admin is kept.
      *
+     * @tags Admin - Members
      * @name SetAdminUserAdmin
      * @summary Grant or revoke the admin
      * @request PUT:/admin/users/{userID}/admin
@@ -3158,6 +3189,7 @@ export class Api<
     /**
      * @description Requires the admin. The user is signed out everywhere.
      *
+     * @tags Admin - Members
      * @name ResetAdminUserPassword
      * @summary Reset the password of a user
      * @request PUT:/admin/users/{userID}/password
@@ -3178,6 +3210,7 @@ export class Api<
     /**
      * @description Requires the admin. Use the account settings for the admin itself.
      *
+     * @tags Admin - Members
      * @name RevokeAdminUserSessions
      * @summary Sign out a user everywhere
      * @request DELETE:/admin/users/{userID}/sessions
@@ -3192,6 +3225,7 @@ export class Api<
     /**
      * @description Requires the admin. Disabling signs the user out everywhere. The admin can not disable itself, and at least one enabled admin is kept.
      *
+     * @tags Admin - Members
      * @name SetAdminUserStatus
      * @summary Disable or enable a user
      * @request PUT:/admin/users/{userID}/status
@@ -3212,6 +3246,7 @@ export class Api<
     /**
      * @description Requires the admin. The built-in nodes are listed too, their texts are frontend i18n keys.
      *
+     * @tags Admin - Workflow nodes
      * @name ListAdminWorkflowPlugins
      * @summary List the workflow node plugins
      * @request GET:/admin/workflow-plugins
@@ -3227,6 +3262,7 @@ export class Api<
     /**
      * @description Requires the admin. A plugin with the same manifest id is replaced and keeps its enabled state; the workflows use the new version right away. A Sayrud Hub signature must describe the source; without one, the plugin stays from the Hub only if its source is unchanged.
      *
+     * @tags Admin - Workflow nodes
      * @name InstallAdminWorkflowPlugin
      * @summary Install or upgrade a workflow node plugin
      * @request POST:/admin/workflow-plugins
@@ -3247,6 +3283,7 @@ export class Api<
     /**
      * @description Requires the admin. Compile the source, or download it from the URL or Sayrud Hub first, and validate the manifest without installing. The sources of Sayrud Hub are verified by their signature, which is returned to install them.
      *
+     * @tags Admin - Workflow nodes
      * @name InspectAdminWorkflowPlugin
      * @summary Check a workflow node plugin before installing
      * @request POST:/admin/workflow-plugins/inspect
@@ -3267,6 +3304,7 @@ export class Api<
     /**
      * @description Requires the admin. Run execute of the unsaved source or of the installed plugin with the config as is, and return the result and the logs. Requests are sent for real.
      *
+     * @tags Admin - Workflow nodes
      * @name TestAdminWorkflowPlugin
      * @summary Test a workflow node plugin
      * @request POST:/admin/workflow-plugins/test
@@ -3287,6 +3325,7 @@ export class Api<
     /**
      * @description Requires the admin.
      *
+     * @tags Admin - Workflow nodes
      * @name GetAdminWorkflowPlugin
      * @summary Get a workflow node plugin with its source
      * @request GET:/admin/workflow-plugins/{pluginID}
@@ -3302,6 +3341,7 @@ export class Api<
     /**
      * @description Requires the admin. The workflows using the node keep their steps, which fail until the plugin is installed again.
      *
+     * @tags Admin - Workflow nodes
      * @name UninstallAdminWorkflowPlugin
      * @summary Uninstall a workflow node plugin
      * @request DELETE:/admin/workflow-plugins/{pluginID}
@@ -3319,6 +3359,7 @@ export class Api<
     /**
      * @description Requires the admin. A disabled node can not be added, published or executed, its steps are kept.
      *
+     * @tags Admin - Workflow nodes
      * @name SetAdminWorkflowPluginEnabled
      * @summary Enable or disable a workflow node plugin
      * @request PUT:/admin/workflow-plugins/{pluginID}/enabled
@@ -3341,6 +3382,7 @@ export class Api<
     /**
      * @description The projects owned by the user must be deleted or transferred first, and the last admin can not be deleted. Users without a password confirm with their email instead.
      *
+     * @tags Account
      * @name DeleteAccount
      * @summary Delete the account of the signed-in user
      * @request DELETE:/auth/account
@@ -3357,6 +3399,7 @@ export class Api<
     /**
      * @description Accept a PNG, JPEG or GIF up to 2 MiB and 4096 pixels per edge. Store a static PNG with its longest edge at most 512 pixels.
      *
+     * @tags Account
      * @name UploadAvatar
      * @summary Upload the avatar of the signed-in user
      * @request POST:/auth/avatar
@@ -3374,6 +3417,7 @@ export class Api<
     /**
      * No description
      *
+     * @tags Account
      * @name RemoveAvatar
      * @summary Restore the default avatar of the signed-in user
      * @request DELETE:/auth/avatar
@@ -3389,6 +3433,7 @@ export class Api<
     /**
      * No description
      *
+     * @tags Single sign-on
      * @name ListIdentities
      * @summary List the third-party accounts bound to the signed-in user
      * @request GET:/auth/identities
@@ -3404,6 +3449,7 @@ export class Api<
     /**
      * @description The last way to sign in can not be unbound if the user has no password.
      *
+     * @tags Single sign-on
      * @name DeleteIdentity
      * @summary Unbind a third-party account of the signed-in user
      * @request DELETE:/auth/identities/{identityID}
@@ -3418,6 +3464,7 @@ export class Api<
     /**
      * No description
      *
+     * @tags Single sign-on
      * @name LdapSignIn
      * @summary Sign in with LDAP
      * @request POST:/auth/ldap/{slug}/sign-in
@@ -3435,6 +3482,7 @@ export class Api<
     /**
      * @description The other sessions of the user are signed out.
      *
+     * @tags Account
      * @name UpdatePassword
      * @summary Change the password of the signed-in user
      * @request PUT:/auth/password
@@ -3451,6 +3499,7 @@ export class Api<
     /**
      * No description
      *
+     * @tags Account
      * @name GetProfile
      * @summary Get the profile of the signed-in user
      * @request GET:/auth/profile
@@ -3466,6 +3515,7 @@ export class Api<
     /**
      * No description
      *
+     * @tags Account
      * @name UpdateProfile
      * @summary Update the profile of the signed-in user
      * @request PUT:/auth/profile
@@ -3483,6 +3533,7 @@ export class Api<
     /**
      * @description The unexpired sessions, the newest first.
      *
+     * @tags Account
      * @name ListSessions
      * @summary List the sign-in sessions of the signed-in user
      * @request GET:/auth/sessions
@@ -3498,6 +3549,7 @@ export class Api<
     /**
      * No description
      *
+     * @tags Account
      * @name RevokeOtherSessions
      * @summary Sign out all the other sessions of the signed-in user
      * @request DELETE:/auth/sessions
@@ -3512,6 +3564,7 @@ export class Api<
     /**
      * @description The current session can not be revoked here, sign out instead.
      *
+     * @tags Account
      * @name RevokeSession
      * @summary Sign out a session of the signed-in user
      * @request DELETE:/auth/sessions/{sessionID}
@@ -3526,6 +3579,7 @@ export class Api<
     /**
      * @description The personal settings synced across the devices, the unsaved ones take the defaults.
      *
+     * @tags Account
      * @name GetUserSettings
      * @summary Get the settings of the signed-in user
      * @request GET:/auth/settings
@@ -3541,6 +3595,7 @@ export class Api<
     /**
      * No description
      *
+     * @tags Account
      * @name UpdateUserSettings
      * @summary Update the settings of the signed-in user
      * @request PUT:/auth/settings
@@ -3561,6 +3616,7 @@ export class Api<
     /**
      * No description
      *
+     * @tags Authentication
      * @name SignIn
      * @summary Sign in with email and password
      * @request POST:/auth/sign-in
@@ -3578,6 +3634,7 @@ export class Api<
     /**
      * @description Revoke the current session and clear the session cookie.
      *
+     * @tags Authentication
      * @name SignOut
      * @summary Sign out
      * @request POST:/auth/sign-out
@@ -3592,6 +3649,7 @@ export class Api<
     /**
      * @description Create an account and sign in. The first user takes over the projects created before accounts were introduced.
      *
+     * @tags Authentication
      * @name SignUp
      * @summary Sign up with email and password
      * @request POST:/auth/sign-up
@@ -3609,6 +3667,7 @@ export class Api<
     /**
      * @description Receives the SAML response posted by the identity provider, signs in and redirects. Failures redirect with the sso_error query.
      *
+     * @tags Single sign-on
      * @name SsoAcs
      * @summary SAML Assertion Consumer Service
      * @request POST:/auth/sso/{slug}/acs
@@ -3624,6 +3683,7 @@ export class Api<
     /**
      * @description Signs in (or binds the account in the link mode) and redirects to the saved path. Failures redirect with the sso_error query.
      *
+     * @tags Single sign-on
      * @name SsoCallback
      * @summary OAuth 2.0 / OIDC callback
      * @request GET:/auth/sso/{slug}/callback
@@ -3648,6 +3708,7 @@ export class Api<
     /**
      * @description The entity ID of the service provider is the URL of this metadata. Available before the provider is enabled.
      *
+     * @tags Single sign-on
      * @name SsoMetadata
      * @summary SAML service provider metadata
      * @request GET:/auth/sso/{slug}/metadata
@@ -3662,6 +3723,7 @@ export class Api<
     /**
      * @description Redirects the browser to the identity provider. In the link mode the signed-in user binds the third-party account. Failures redirect to the sign-in page (or the security settings in the link mode) with the sso_error query.
      *
+     * @tags Single sign-on
      * @name StartSso
      * @summary Start a third-party sign-in
      * @request GET:/auth/sso/{slug}/start
@@ -3687,6 +3749,7 @@ export class Api<
     /**
      * No description
      *
+     * @tags Account
      * @name GetAvatar
      * @summary Get a current uploaded avatar
      * @request GET:/avatars/{fileUID}
@@ -3703,6 +3766,7 @@ export class Api<
     /**
      * @description List the projects owned by or shared with the signed-in user, with the number of tables in each project.
      *
+     * @tags Projects
      * @name ListProjects
      * @summary List projects
      * @request GET:/projects
@@ -3729,6 +3793,7 @@ export class Api<
     /**
      * @description Create a project owned by the signed-in user.
      *
+     * @tags Projects
      * @name CreateProject
      * @summary Create a project
      * @request POST:/projects
@@ -3746,6 +3811,7 @@ export class Api<
     /**
      * No description
      *
+     * @tags Projects
      * @name GetProject
      * @summary Get a project
      * @request GET:/projects/{projectUID}
@@ -3761,6 +3827,7 @@ export class Api<
     /**
      * @description Requires the editor role.
      *
+     * @tags Projects
      * @name UpdateProject
      * @summary Update a project
      * @request PUT:/projects/{projectUID}
@@ -3781,6 +3848,7 @@ export class Api<
     /**
      * @description Delete the project along with its collaborators, only the owner can delete it.
      *
+     * @tags Projects
      * @name DeleteProject
      * @summary Delete a project
      * @request DELETE:/projects/{projectUID}
@@ -3795,6 +3863,7 @@ export class Api<
     /**
      * @description Read a file uploaded in this project. Project membership is checked on every request.
      *
+     * @tags Attachments
      * @name GetAttachment
      * @summary Read an attachment
      * @request GET:/projects/{projectUID}/attachments/{fileUID}
@@ -3818,6 +3887,7 @@ export class Api<
     /**
      * @description The values of the secret fields are not returned. Filter by type with the type query.
      *
+     * @tags Credentials
      * @name ListCredentials
      * @summary List the credentials of a project
      * @request GET:/projects/{projectUID}/credentials
@@ -3841,6 +3911,7 @@ export class Api<
     /**
      * @description The fields are defined by the DSL of the credential type, the secret fields are encrypted by auth.secret_key.
      *
+     * @tags Credentials
      * @name CreateCredential
      * @summary Create a credential in a project
      * @request POST:/projects/{projectUID}/credentials
@@ -3862,6 +3933,7 @@ export class Api<
     /**
      * @description Run the test action of the credential type (e.g. send a test email) with the unsaved values; the saved secrets of credentialUID are used for the fields not given.
      *
+     * @tags Credentials
      * @name TestCredential
      * @summary Test a credential
      * @request POST:/projects/{projectUID}/credentials/test
@@ -3882,6 +3954,7 @@ export class Api<
     /**
      * @description Returns the non-secret fields and the names of saved secret fields. Secret values are never returned.
      *
+     * @tags Credentials
      * @name GetCredential
      * @summary Get a project credential
      * @request GET:/projects/{projectUID}/credentials/{credentialUID}
@@ -3901,6 +3974,7 @@ export class Api<
     /**
      * @description Takes effect immediately for the workflows that reference it. The empty secret fields keep the saved values.
      *
+     * @tags Credentials
      * @name UpdateCredential
      * @summary Update a credential
      * @request PUT:/projects/{projectUID}/credentials/{credentialUID}
@@ -3923,6 +3997,7 @@ export class Api<
     /**
      * @description A credential referenced by a published workflow can not be deleted.
      *
+     * @tags Credentials
      * @name DeleteCredential
      * @summary Delete a credential
      * @request DELETE:/projects/{projectUID}/credentials/{credentialUID}
@@ -3941,6 +4016,7 @@ export class Api<
     /**
      * @description List the enabled custom shortcuts, with the forms to configure them.
      *
+     * @tags Field shortcuts
      * @name ListFieldShortcuts
      * @summary List field shortcuts
      * @request GET:/projects/{projectUID}/field-shortcuts
@@ -3956,6 +4032,7 @@ export class Api<
     /**
      * @description Upload an Excel (.xlsx) or CSV file up to 20 MiB. The response previews the visible sheets with the inferred column types; the file is kept for 24 hours to start the import.
      *
+     * @tags Imports
      * @name UploadImport
      * @summary Upload a file to import
      * @request POST:/projects/{projectUID}/imports
@@ -3977,6 +4054,7 @@ export class Api<
     /**
      * No description
      *
+     * @tags Imports
      * @name GetImport
      * @summary Get the state of an import
      * @request GET:/projects/{projectUID}/imports/{importUID}
@@ -3996,6 +4074,7 @@ export class Api<
     /**
      * @description Import a sheet of the uploaded file in the background, into the table or a new table. The fields, options and records are written in a single transaction, so a failed import changes nothing. Poll the import for the progress.
      *
+     * @tags Imports
      * @name StartImport
      * @summary Start an import
      * @request POST:/projects/{projectUID}/imports/{importUID}/start
@@ -4018,6 +4097,7 @@ export class Api<
     /**
      * @description List the owner and the collaborators of the project, the owner comes first.
      *
+     * @tags Project members
      * @name ListProjectMembers
      * @summary List the collaborators
      * @request GET:/projects/{projectUID}/members
@@ -4033,6 +4113,7 @@ export class Api<
     /**
      * @description Add the registered user as a collaborator, or change the role if it has been one. Requires the manager role.
      *
+     * @tags Project members
      * @name AddProjectMember
      * @summary Add a collaborator
      * @request POST:/projects/{projectUID}/members
@@ -4054,6 +4135,7 @@ export class Api<
     /**
      * @description Find the registered user by the exact email, requires the manager role.
      *
+     * @tags Project members
      * @name LookupProjectMemberCandidate
      * @summary Find a user to invite
      * @request GET:/projects/{projectUID}/members/lookup
@@ -4077,6 +4159,7 @@ export class Api<
     /**
      * @description Requires the manager role, the owner and the signed-in user itself can not be changed.
      *
+     * @tags Project members
      * @name UpdateProjectMember
      * @summary Change the role of a collaborator
      * @request PUT:/projects/{projectUID}/members/{userID}
@@ -4098,6 +4181,7 @@ export class Api<
     /**
      * @description Requires the manager role, except that a collaborator can remove itself to leave the project. The owner can not be removed.
      *
+     * @tags Project members
      * @name RemoveProjectMember
      * @summary Remove a collaborator
      * @request DELETE:/projects/{projectUID}/members/{userID}
@@ -4116,6 +4200,7 @@ export class Api<
     /**
      * @description Moves a table or workflow before or after another item, using the latest order. Requires the editor role.
      *
+     * @tags Projects
      * @name MoveProjectNavigation
      * @summary Move a project sidebar item
      * @request PUT:/projects/{projectUID}/navigation/move
@@ -4137,6 +4222,7 @@ export class Api<
     /**
      * @description Only the owner can transfer it to an existing collaborator, the previous owner becomes a manager.
      *
+     * @tags Projects
      * @name TransferProjectOwner
      * @summary Transfer the ownership of a project
      * @request PUT:/projects/{projectUID}/owner
@@ -4157,6 +4243,7 @@ export class Api<
     /**
      * @description List the tables of the project ordered by sidebar position.
      *
+     * @tags Tables
      * @name ListTables
      * @summary List tables
      * @request GET:/projects/{projectUID}/tables
@@ -4182,6 +4269,7 @@ export class Api<
     /**
      * No description
      *
+     * @tags Tables
      * @name CreateTable
      * @summary Create a table
      * @request POST:/projects/{projectUID}/tables
@@ -4203,6 +4291,7 @@ export class Api<
     /**
      * @description Return the labels of all the field types, keyed by field type.
      *
+     * @tags Fields
      * @name ListFieldTypes
      * @summary List field types
      * @request GET:/projects/{projectUID}/tables/types
@@ -4218,6 +4307,7 @@ export class Api<
     /**
      * No description
      *
+     * @tags Tables
      * @name GetTable
      * @summary Get a table
      * @request GET:/projects/{projectUID}/tables/{tableUID}
@@ -4237,6 +4327,7 @@ export class Api<
     /**
      * No description
      *
+     * @tags Tables
      * @name UpdateTable
      * @summary Update a table
      * @request PUT:/projects/{projectUID}/tables/{tableUID}
@@ -4258,6 +4349,7 @@ export class Api<
     /**
      * No description
      *
+     * @tags Tables
      * @name DeleteTable
      * @summary Delete a table
      * @request DELETE:/projects/{projectUID}/tables/{tableUID}
@@ -4276,6 +4368,7 @@ export class Api<
     /**
      * @description Return the changesets whose revision is greater than since in revision order, for the client to catch up after missing broadcasts.
      *
+     * @tags Collaboration
      * @name ListChangesets
      * @summary List the missing changesets
      * @request GET:/projects/{projectUID}/tables/{tableUID}/changesets
@@ -4300,6 +4393,7 @@ export class Api<
     /**
      * @description List all the fields of the table, ordered by position.
      *
+     * @tags Fields
      * @name ListFields
      * @summary List fields
      * @request GET:/projects/{projectUID}/tables/{tableUID}/fields
@@ -4319,6 +4413,7 @@ export class Api<
     /**
      * @description Create fields in batch, which are appended to the end of the table.
      *
+     * @tags Fields
      * @name CreateFields
      * @summary Create fields
      * @request POST:/projects/{projectUID}/tables/{tableUID}/fields
@@ -4341,6 +4436,7 @@ export class Api<
     /**
      * No description
      *
+     * @tags Fields
      * @name ResolveFieldOptions
      * @summary Resolve referenced select options for a record or draft field
      * @request POST:/projects/{projectUID}/tables/{tableUID}/fields/options/resolve
@@ -4363,6 +4459,7 @@ export class Api<
     /**
      * @description Update the label, type or metadata of the field. Existing record values are kept as is when the type changes.
      *
+     * @tags Fields
      * @name UpdateField
      * @summary Update a field
      * @request PUT:/projects/{projectUID}/tables/{tableUID}/fields/{fieldUID}
@@ -4386,6 +4483,7 @@ export class Api<
     /**
      * No description
      *
+     * @tags Fields
      * @name DeleteField
      * @summary Delete a field
      * @request DELETE:/projects/{projectUID}/tables/{tableUID}/fields/{fieldUID}
@@ -4405,6 +4503,7 @@ export class Api<
     /**
      * @description Upload a single file up to 20 MiB for an attachment field. The returned descriptor can be used in record values within this project.
      *
+     * @tags Attachments
      * @name UploadAttachment
      * @summary Upload an attachment
      * @request POST:/projects/{projectUID}/tables/{tableUID}/fields/{fieldUID}/attachments
@@ -4428,6 +4527,7 @@ export class Api<
     /**
      * @description Move the field to the zero-based index among the table fields.
      *
+     * @tags Fields
      * @name UpdateFieldPosition
      * @summary Move a field
      * @request PUT:/projects/{projectUID}/tables/{tableUID}/fields/{fieldUID}/position
@@ -4450,6 +4550,7 @@ export class Api<
     /**
      * @description Queue the cells of the field to generate by its shortcut in the background, the progress is sent by the SHORTCUT_JOBS WebSocket messages.
      *
+     * @tags Field shortcuts
      * @name RunFieldShortcut
      * @summary Generate the cells of a field shortcut
      * @request POST:/projects/{projectUID}/tables/{tableUID}/fields/{fieldUID}/shortcut/run
@@ -4473,6 +4574,7 @@ export class Api<
     /**
      * @description List the records of the table, the newest first.
      *
+     * @tags Records
      * @name ListRecords
      * @summary List records
      * @request GET:/projects/{projectUID}/tables/{tableUID}/records
@@ -4499,6 +4601,7 @@ export class Api<
     /**
      * No description
      *
+     * @tags Records
      * @name CreateRecord
      * @summary Create a record
      * @request POST:/projects/{projectUID}/tables/{tableUID}/records
@@ -4521,6 +4624,7 @@ export class Api<
     /**
      * @description Create multiple records atomically, none is created if any data is invalid.
      *
+     * @tags Records
      * @name BatchCreateRecords
      * @summary Create records in batch
      * @request POST:/projects/{projectUID}/tables/{tableUID}/records/batch
@@ -4543,6 +4647,7 @@ export class Api<
     /**
      * @description Return the records with the given UIDs in creation order, the deleted ones are omitted. It is used to reload the dirty records.
      *
+     * @tags Records
      * @name FetchRecords
      * @summary Fetch records by UID
      * @request POST:/projects/{projectUID}/tables/{tableUID}/records/fetch
@@ -4565,6 +4670,7 @@ export class Api<
     /**
      * @description Filter, group and sort the records of the table. Formula fields cannot be queried.
      *
+     * @tags Records
      * @name QueryRecords
      * @summary Query records
      * @request POST:/projects/{projectUID}/tables/{tableUID}/records/query
@@ -4587,6 +4693,7 @@ export class Api<
     /**
      * No description
      *
+     * @tags Records
      * @name GetRecord
      * @summary Get a record
      * @request GET:/projects/{projectUID}/tables/{tableUID}/records/{recordUID}
@@ -4607,6 +4714,7 @@ export class Api<
     /**
      * No description
      *
+     * @tags Records
      * @name UpdateRecord
      * @summary Update a record
      * @request PUT:/projects/{projectUID}/tables/{tableUID}/records/{recordUID}
@@ -4629,6 +4737,7 @@ export class Api<
     /**
      * No description
      *
+     * @tags Records
      * @name DeleteRecord
      * @summary Delete a record
      * @request DELETE:/projects/{projectUID}/tables/{tableUID}/records/{recordUID}
@@ -4648,6 +4757,7 @@ export class Api<
     /**
      * @description Requires a project manager. The saved link password is decrypted only for this settings response.
      *
+     * @tags Sharing
      * @name GetLinkShare
      * @summary Get link sharing settings
      * @request GET:/projects/{projectUID}/tables/{tableUID}/share
@@ -4667,6 +4777,7 @@ export class Api<
     /**
      * No description
      *
+     * @tags Sharing
      * @name UpdateLinkShare
      * @summary Update read-only link sharing settings
      * @request PUT:/projects/{projectUID}/tables/{tableUID}/share
@@ -4689,6 +4800,7 @@ export class Api<
     /**
      * @description List the cells of the table being generated by the field shortcuts or failed to.
      *
+     * @tags Field shortcuts
      * @name ListShortcutJobs
      * @summary List the shortcut jobs
      * @request GET:/projects/{projectUID}/tables/{tableUID}/shortcut-jobs
@@ -4708,6 +4820,7 @@ export class Api<
     /**
      * @description Execute the unsaved shortcut config of the field on at most 3 records, the results are not written back.
      *
+     * @tags Field shortcuts
      * @name PreviewFieldShortcut
      * @summary Preview a field shortcut
      * @request POST:/projects/{projectUID}/tables/{tableUID}/shortcuts/preview
@@ -4730,6 +4843,7 @@ export class Api<
     /**
      * @description Return the fields, views and all the records of the table consistently at the latest revision.
      *
+     * @tags Collaboration
      * @name GetTableSnapshot
      * @summary Get the table snapshot
      * @request GET:/projects/{projectUID}/tables/{tableUID}/snapshot
@@ -4749,6 +4863,7 @@ export class Api<
     /**
      * No description
      *
+     * @tags Views
      * @name ListViews
      * @summary List views
      * @request GET:/projects/{projectUID}/tables/{tableUID}/views
@@ -4768,6 +4883,7 @@ export class Api<
     /**
      * @description Return the JSON DSL definitions the editor renders the nodes and the configuration forms with. The texts of the installed plugins are in the language of the request.
      *
+     * @tags Workflows
      * @name ListWorkflowModules
      * @summary List the step modules and credential types
      * @request GET:/projects/{projectUID}/workflow-modules
@@ -4783,6 +4899,7 @@ export class Api<
     /**
      * @description List the workflows of the project ordered by sidebar position.
      *
+     * @tags Workflows
      * @name ListWorkflows
      * @summary List workflows
      * @request GET:/projects/{projectUID}/workflows
@@ -4798,6 +4915,7 @@ export class Api<
     /**
      * @description Create a workflow with the trigger, an empty trigger creates a blank workflow whose trigger is chosen later. The API trigger starts from a blank template, or the draft which creates or queries the records of a table.
      *
+     * @tags Workflows
      * @name CreateWorkflow
      * @summary Create a workflow
      * @request POST:/projects/{projectUID}/workflows
@@ -4819,6 +4937,7 @@ export class Api<
     /**
      * @description Return the workflow with its draft and the issues to fix before publishing.
      *
+     * @tags Workflows
      * @name GetWorkflow
      * @summary Get a workflow
      * @request GET:/projects/{projectUID}/workflows/{workflowUID}
@@ -4838,6 +4957,7 @@ export class Api<
     /**
      * @description Save the draft based on draftVersion, it responds 409 if others saved the draft since. The settings unrelated to the trigger are dropped.
      *
+     * @tags Workflows
      * @name SaveWorkflowDraft
      * @summary Save the draft of a workflow
      * @request PUT:/projects/{projectUID}/workflows/{workflowUID}
@@ -4860,6 +4980,7 @@ export class Api<
     /**
      * No description
      *
+     * @tags Workflows
      * @name DeleteWorkflow
      * @summary Delete a workflow
      * @request DELETE:/projects/{projectUID}/workflows/{workflowUID}
@@ -4878,6 +4999,7 @@ export class Api<
     /**
      * @description Run the draft. The API trigger runs with the request; the other triggers run with the record (the latest one if not specified) or the current time. dry_run rolls back the writes and skips the asynchronous flows and external actions, live runs them for real and is recorded as a debug run.
      *
+     * @tags Workflows
      * @name DebugWorkflow
      * @summary Debug a workflow
      * @request POST:/projects/{projectUID}/workflows/{workflowUID}/debug
@@ -4900,6 +5022,7 @@ export class Api<
     /**
      * @description A disabled workflow ignores its triggers. The schedule restarts from now when it is enabled again, the missed times are skipped.
      *
+     * @tags Workflows
      * @name SetWorkflowEnabled
      * @summary Enable or disable a workflow
      * @request PUT:/projects/{projectUID}/workflows/{workflowUID}/enabled
@@ -4921,6 +5044,7 @@ export class Api<
     /**
      * @description Run the failed job again, the steps which succeeded are not run again.
      *
+     * @tags Workflows
      * @name RetryWorkflowJob
      * @summary Retry a failed background job
      * @request POST:/projects/{projectUID}/workflows/{workflowUID}/jobs/{jobID}/retry
@@ -4940,6 +5064,7 @@ export class Api<
     /**
      * No description
      *
+     * @tags Workflows
      * @name ListWorkflowKeys
      * @summary List the API keys of a workflow
      * @request GET:/projects/{projectUID}/workflows/{workflowUID}/keys
@@ -4959,6 +5084,7 @@ export class Api<
     /**
      * @description The secret is only returned once.
      *
+     * @tags Workflows
      * @name CreateWorkflowKey
      * @summary Create an API key of a workflow
      * @request POST:/projects/{projectUID}/workflows/{workflowUID}/keys
@@ -4981,6 +5107,7 @@ export class Api<
     /**
      * No description
      *
+     * @tags Workflows
      * @name DeleteWorkflowKey
      * @summary Delete an API key of a workflow
      * @request DELETE:/projects/{projectUID}/workflows/{workflowUID}/keys/{keyID}
@@ -5000,6 +5127,7 @@ export class Api<
     /**
      * @description Freeze the draft as a new immutable version which handles the triggers. Nothing is published if issues are returned.
      *
+     * @tags Workflows
      * @name PublishWorkflow
      * @summary Publish a workflow
      * @request POST:/projects/{projectUID}/workflows/{workflowUID}/publish
@@ -5022,6 +5150,7 @@ export class Api<
     /**
      * No description
      *
+     * @tags Workflows
      * @name ListWorkflowRevisions
      * @summary List the published versions of a workflow
      * @request GET:/projects/{projectUID}/workflows/{workflowUID}/revisions
@@ -5041,6 +5170,7 @@ export class Api<
     /**
      * @description Republish the spec of the version as a new version, the draft is overwritten by it.
      *
+     * @tags Workflows
      * @name RollbackWorkflow
      * @summary Roll back a workflow to a published version
      * @request POST:/projects/{projectUID}/workflows/{workflowUID}/revisions/{version}/rollback
@@ -5064,6 +5194,7 @@ export class Api<
     /**
      * No description
      *
+     * @tags Workflows
      * @name ListWorkflowRuns
      * @summary List the runs of a workflow
      * @request GET:/projects/{projectUID}/workflows/{workflowUID}/runs
@@ -5098,6 +5229,7 @@ export class Api<
     /**
      * @description Return the request or the trigger data, the response, the step trace and the background jobs of the run.
      *
+     * @tags Workflows
      * @name GetWorkflowRun
      * @summary Get a run of a workflow
      * @request GET:/projects/{projectUID}/workflows/{workflowUID}/runs/{runUID}
@@ -5118,6 +5250,7 @@ export class Api<
     /**
      * @description Upgrade to WebSocket to submit changesets and receive the changes of the subscribed tables and the online members. Messages are JSON `{type, reqId, data}`. Client: SUBSCRIBE, UNSUBSCRIBE, USER_CHANGES, PRESENCE, PING. Server: HELLO, SUBSCRIBED, ACCEPT_COMMIT, REJECT_COMMIT, NEW_CHANGES, MEMBERS, TABLES_CHANGED, PROJECT_CHANGED, PERMISSION_CHANGED, ERROR, PONG. The changesets of the viewers are rejected.
      *
+     * @tags Collaboration
      * @name Collaborate
      * @summary Collaborate on the project over WebSocket
      * @request GET:/projects/{projectUID}/ws
@@ -5133,6 +5266,7 @@ export class Api<
     /**
      * @description Returns only an enabled share token. Password verification and read scope remain enforced on all share APIs.
      *
+     * @tags Sharing
      * @name ResolveLinkShare
      * @summary Resolve public access from the normal project and table URL
      * @request GET:/shares/resolve
@@ -5159,6 +5293,7 @@ export class Api<
     /**
      * No description
      *
+     * @tags Sharing
      * @name OpenLinkShare
      * @summary Open a read-only public share
      * @request GET:/shares/{shareToken}
@@ -5174,6 +5309,7 @@ export class Api<
     /**
      * No description
      *
+     * @tags Sharing
      * @name GetSharedAttachment
      * @summary Read an attachment referenced by a shared table
      * @request GET:/shares/{shareToken}/tables/{tableUID}/attachments/{fileUID}
@@ -5198,6 +5334,7 @@ export class Api<
     /**
      * No description
      *
+     * @tags Sharing
      * @name ListSharedChangesets
      * @summary List missing changesets for a public share
      * @request GET:/shares/{shareToken}/tables/{tableUID}/changesets
@@ -5222,6 +5359,7 @@ export class Api<
     /**
      * No description
      *
+     * @tags Sharing
      * @name ListSharedFields
      * @summary List fields for a public share
      * @request GET:/shares/{shareToken}/tables/{tableUID}/fields
@@ -5241,6 +5379,7 @@ export class Api<
     /**
      * No description
      *
+     * @tags Sharing
      * @name FetchSharedRecords
      * @summary Fetch dirty records for a public share
      * @request POST:/shares/{shareToken}/tables/{tableUID}/records/fetch
@@ -5263,6 +5402,7 @@ export class Api<
     /**
      * No description
      *
+     * @tags Sharing
      * @name GetSharedSnapshot
      * @summary Read a publicly shared table snapshot
      * @request GET:/shares/{shareToken}/tables/{tableUID}/snapshot
@@ -5282,6 +5422,7 @@ export class Api<
     /**
      * No description
      *
+     * @tags Sharing
      * @name ListSharedViews
      * @summary List views for a public share
      * @request GET:/shares/{shareToken}/tables/{tableUID}/views
@@ -5301,6 +5442,7 @@ export class Api<
     /**
      * No description
      *
+     * @tags Sharing
      * @name UnlockLinkShare
      * @summary Verify a public link password
      * @request POST:/shares/{shareToken}/unlock
@@ -5322,6 +5464,7 @@ export class Api<
     /**
      * @description Receive filtered incremental changesets and scoped collaborator presence. All edits are rejected. The share and password grant are checked at the handshake, on subscription and before delivery.
      *
+     * @tags Sharing
      * @name CollaborateOnShare
      * @summary Follow a public share over WebSocket
      * @request GET:/shares/{shareToken}/ws
@@ -5337,6 +5480,7 @@ export class Api<
     /**
      * @description Public information used by the sign-in page, such as whether signing up is allowed.
      *
+     * @tags Site
      * @name GetSiteInfo
      * @summary Get the site information
      * @request GET:/site

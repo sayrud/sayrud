@@ -46,6 +46,7 @@ func (schemalessRoute) Recorder(ctx context.Context, table *db.SLTable) error {
 
 // ListRecords
 // @Summary List records
+// @Tags Records
 // @Description List the records of the table, the newest first.
 // @Produce json
 // @Param projectUID path string true "Project UID"
@@ -75,6 +76,7 @@ func (schemalessRoute) ListRecords(ctx context.Context, table *db.SLTable) error
 
 // QueryRecords
 // @Summary Query records
+// @Tags Records
 // @Description Filter, group and sort the records of the table. Formula fields cannot be queried.
 // @Accept json
 // @Produce json
@@ -137,6 +139,7 @@ func (schemalessRoute) QueryRecords(ctx context.Context, table *db.SLTable, f fo
 
 // GetRecord
 // @Summary Get a record
+// @Tags Records
 // @Produce json
 // @Param projectUID path string true "Project UID"
 // @Param tableUID path string true "Table UID"
@@ -167,6 +170,7 @@ func recordErrorResponse(err error) (statusCode int, msg string, ok bool) {
 
 // CreateRecord
 // @Summary Create a record
+// @Tags Records
 // @Accept json
 // @Produce json
 // @Param projectUID path string true "Project UID"
@@ -207,6 +211,7 @@ func (schemalessRoute) CreateRecord(ctx context.Context, hub *collab.Hub, projec
 
 // BatchCreateRecords
 // @Summary Create records in batch
+// @Tags Records
 // @Description Create multiple records atomically, none is created if any data is invalid.
 // @Accept json
 // @Produce json
@@ -257,6 +262,7 @@ func (schemalessRoute) BatchCreateRecords(ctx context.Context, hub *collab.Hub, 
 
 // UpdateRecord
 // @Summary Update a record
+// @Tags Records
 // @Accept json
 // @Produce json
 // @Param projectUID path string true "Project UID"
@@ -305,6 +311,7 @@ func (schemalessRoute) UpdateRecord(ctx context.Context, hub *collab.Hub, projec
 
 // DeleteRecord
 // @Summary Delete a record
+// @Tags Records
 // @Produce json
 // @Param projectUID path string true "Project UID"
 // @Param tableUID path string true "Table UID"

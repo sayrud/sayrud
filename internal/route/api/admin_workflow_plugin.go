@@ -54,6 +54,7 @@ func toWorkflowPlugin(ctx context.Context, p *db.WorkflowPlugin) *dto.WorkflowPl
 
 // ListWorkflowPlugins
 // @Summary List the workflow node plugins
+// @Tags Admin - Workflow nodes
 // @Description Requires the admin. The built-in nodes are listed too, their texts are frontend i18n keys.
 // @Produce json
 // @Success 200 {object} dto.ListWorkflowPluginsResp
@@ -76,6 +77,7 @@ func (adminRoute) ListWorkflowPlugins(ctx context.Context) error {
 
 // GetWorkflowPlugin
 // @Summary Get a workflow node plugin with its source
+// @Tags Admin - Workflow nodes
 // @Description Requires the admin.
 // @Produce json
 // @Param pluginID path string true "Plugin ID"
@@ -154,6 +156,7 @@ func pluginExpect(m *workflow.PluginManifest, lang sandbox.Language) hub.Expect 
 
 // InspectWorkflowPlugin
 // @Summary Check a workflow node plugin before installing
+// @Tags Admin - Workflow nodes
 // @Description Requires the admin. Compile the source, or download it from the URL or Sayrud Hub first, and validate the manifest without installing.
 // @Description The sources of Sayrud Hub are verified by their signature, which is returned to install them.
 // @Accept json
@@ -224,6 +227,7 @@ func (adminRoute) InspectWorkflowPlugin(ctx context.Context, f form.InspectWorkf
 
 // InstallWorkflowPlugin
 // @Summary Install or upgrade a workflow node plugin
+// @Tags Admin - Workflow nodes
 // @Description Requires the admin. A plugin with the same manifest id is replaced and keeps its enabled state; the workflows use the new version right away.
 // @Description A Sayrud Hub signature must describe the source; without one, the plugin stays from the Hub only if its source is unchanged.
 // @Accept json
@@ -268,6 +272,7 @@ func (adminRoute) InstallWorkflowPlugin(ctx context.Context, f form.InstallWorkf
 
 // SetWorkflowPluginEnabled
 // @Summary Enable or disable a workflow node plugin
+// @Tags Admin - Workflow nodes
 // @Description Requires the admin. A disabled node can not be added, published or executed, its steps are kept.
 // @Accept json
 // @Produce json
@@ -293,6 +298,7 @@ func (adminRoute) SetWorkflowPluginEnabled(ctx context.Context, p *db.WorkflowPl
 
 // UninstallWorkflowPlugin
 // @Summary Uninstall a workflow node plugin
+// @Tags Admin - Workflow nodes
 // @Description Requires the admin. The workflows using the node keep their steps, which fail until the plugin is installed again.
 // @Produce json
 // @Param pluginID path string true "Plugin ID"
@@ -312,6 +318,7 @@ func (adminRoute) UninstallWorkflowPlugin(ctx context.Context, p *db.WorkflowPlu
 
 // TestWorkflowPlugin
 // @Summary Test a workflow node plugin
+// @Tags Admin - Workflow nodes
 // @Description Requires the admin. Run execute of the unsaved source or of the installed plugin with the config as is, and return the result and the logs. Requests are sent for real.
 // @Accept json
 // @Produce json

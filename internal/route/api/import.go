@@ -89,6 +89,7 @@ func readError(ctx context.Context, err error) error {
 
 // Upload
 // @Summary Upload a file to import
+// @Tags Imports
 // @Description Upload an Excel (.xlsx) or CSV file up to 20 MiB. The response previews the visible sheets with the inferred column types; the file is kept for 24 hours to start the import.
 // @Accept multipart/form-data
 // @Produce json
@@ -206,6 +207,7 @@ func (importRoute) toImport(ctx context.Context, item *db.SLImport) *dto.Import 
 
 // Get
 // @Summary Get the state of an import
+// @Tags Imports
 // @Produce json
 // @Param projectUID path string true "Project UID"
 // @Param importUID path string true "Import UID"
@@ -222,6 +224,7 @@ func (r importRoute) Get(ctx context.Context, item *db.SLImport) error {
 
 // Start
 // @Summary Start an import
+// @Tags Imports
 // @Description Import a sheet of the uploaded file in the background, into the table or a new table. The fields, options and records are written in a single transaction, so a failed import changes nothing. Poll the import for the progress.
 // @Accept json
 // @Produce json

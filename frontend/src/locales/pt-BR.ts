@@ -429,6 +429,7 @@ const ptBR: typeof zhCN = {
     unknownOS: 'Sistema operacional desconhecido',
   },
   consoleNav: {
+    swagger: 'Documentação do Swagger',
     workflowPlugins: 'Nós de fluxo',
     settingsPersonal: 'Pessoal',
     profile: 'Perfil',

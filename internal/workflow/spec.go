@@ -14,7 +14,7 @@ type Spec struct {
 	Async []AsyncFlow `json:"async"`
 	// Timezone is the IANA time zone in which formulas handle dates, e.g. Asia/Shanghai; UTC is used when it is empty or invalid.
 	Timezone string `json:"timezone,omitempty"`
-}
+} // @name WorkflowSpec
 
 // FormulaTimezone returns the time zone of the formulas: the schedule trigger's time zone takes precedence over Timezone.
 func (s *Spec) FormulaTimezone() string {
@@ -22,7 +22,7 @@ func (s *Spec) FormulaTimezone() string {
 		return s.Trigger.Schedule.Timezone
 	}
 	return s.Timezone
-} // @name WorkflowSpec
+}
 
 // Trigger types.
 const (

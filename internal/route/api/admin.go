@@ -75,6 +75,7 @@ func (adminRoute) Projecter(ctx context.Context) error {
 
 // Overview
 // @Summary Get the overview of the system
+// @Tags Admin - Overview
 // @Description Requires the admin.
 // @Produce json
 // @Success 200 {object} dto.AdminOverview
@@ -162,6 +163,7 @@ func toAdminUsers(ctx context.Context, users []*db.User) ([]*dto.AdminUser, erro
 
 // ListUsers
 // @Summary List the users
+// @Tags Admin - Members
 // @Description Requires the admin. The newest users come first.
 // @Produce json
 // @Param page query int false "Page number, starting from 1"
@@ -193,6 +195,7 @@ func (adminRoute) ListUsers(ctx context.Context) error {
 
 // CreateUser
 // @Summary Create a user
+// @Tags Admin - Members
 // @Description Requires the admin. It works even if signing up is disabled.
 // @Accept json
 // @Produce json
@@ -237,6 +240,7 @@ func (adminRoute) CreateUser(ctx context.Context, f form.AdminCreateUser) error 
 
 // UpdateUser
 // @Summary Update the user name of a user
+// @Tags Admin - Members
 // @Description Requires the admin.
 // @Accept json
 // @Param userID path int true "User ID"
@@ -262,6 +266,7 @@ func (adminRoute) UpdateUser(ctx context.Context, target *adminTarget, f form.Ad
 
 // SetUserAdmin
 // @Summary Grant or revoke the admin
+// @Tags Admin - Members
 // @Description Requires the admin. The admin can not revoke itself, and at least one enabled admin is kept.
 // @Accept json
 // @Param userID path int true "User ID"
@@ -293,6 +298,7 @@ func (adminRoute) SetUserAdmin(ctx context.Context, user *db.User, target *admin
 
 // SetUserStatus
 // @Summary Disable or enable a user
+// @Tags Admin - Members
 // @Description Requires the admin. Disabling signs the user out everywhere. The admin can not disable itself, and at least one enabled admin is kept.
 // @Accept json
 // @Param userID path int true "User ID"
@@ -326,6 +332,7 @@ func (adminRoute) SetUserStatus(ctx context.Context, hub *collab.Hub, user *db.U
 
 // ResetUserPassword
 // @Summary Reset the password of a user
+// @Tags Admin - Members
 // @Description Requires the admin. The user is signed out everywhere.
 // @Accept json
 // @Param userID path int true "User ID"
@@ -359,6 +366,7 @@ func (adminRoute) ResetUserPassword(ctx context.Context, hub *collab.Hub, target
 
 // RevokeUserSessions
 // @Summary Sign out a user everywhere
+// @Tags Admin - Members
 // @Description Requires the admin. Use the account settings for the admin itself.
 // @Param userID path int true "User ID"
 // @Success 204 "No Content"
@@ -382,6 +390,7 @@ func (adminRoute) RevokeUserSessions(ctx context.Context, hub *collab.Hub, user 
 
 // DeleteUser
 // @Summary Delete a user
+// @Tags Admin - Members
 // @Description Requires the admin. The projects owned by the user are transferred to transferTo, which is required if there are any.
 // @Param userID path int true "User ID"
 // @Param transferTo query int false "User ID to receive the owned projects"
@@ -426,6 +435,7 @@ func (adminRoute) DeleteUser(ctx context.Context, hub *collab.Hub, user *db.User
 
 // ListProjects
 // @Summary List all the projects
+// @Tags Admin - Projects
 // @Description Requires the admin. The newest projects come first.
 // @Produce json
 // @Param page query int false "Page number, starting from 1"
@@ -491,6 +501,7 @@ func (adminRoute) ListProjects(ctx context.Context) error {
 
 // TransferProject
 // @Summary Transfer the ownership of a project
+// @Tags Admin - Projects
 // @Description Requires the admin. The new owner can be any enabled user, the previous owner becomes a manager.
 // @Accept json
 // @Param projectUID path string true "Project UID"
@@ -521,6 +532,7 @@ func (adminRoute) TransferProject(ctx context.Context, hub *collab.Hub, project 
 
 // DeleteProject
 // @Summary Delete a project
+// @Tags Admin - Projects
 // @Description Requires the admin.
 // @Param projectUID path string true "Project UID"
 // @Success 204 "No Content"
@@ -535,6 +547,7 @@ func (adminRoute) DeleteProject(ctx context.Context, hub *collab.Hub, project *d
 
 // GetSettings
 // @Summary Get the system settings
+// @Tags Admin - Settings
 // @Description Requires the admin.
 // @Produce json
 // @Success 200 {object} db.SystemSettings
@@ -552,6 +565,7 @@ func (adminRoute) GetSettings(ctx context.Context) error {
 
 // UpdateSettings
 // @Summary Update the system settings
+// @Tags Admin - Settings
 // @Description Requires the admin. The password and session settings apply to the later sign-ups and sign-ins.
 // @Accept json
 // @Produce json

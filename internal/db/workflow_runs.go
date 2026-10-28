@@ -40,7 +40,7 @@ func NewWorkflowRunsStore(db *gorm.DB) WorkflowRunsStore {
 }
 
 // WorkflowRunStatus is the status of a run.
-type WorkflowRunStatus string
+type WorkflowRunStatus string // @name WorkflowRunStatus
 
 const (
 	// WorkflowRunQueued is a run waiting for background execution.

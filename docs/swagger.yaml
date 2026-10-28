@@ -211,7 +211,7 @@ definitions:
       key:
         type: string
       label:
-        $ref: '#/definitions/i18n.LocalText'
+        $ref: '#/definitions/LocalText'
       name:
         type: string
       type:
@@ -246,7 +246,7 @@ definitions:
         type: array
       description:
         allOf:
-        - $ref: '#/definitions/i18n.LocalText'
+        - $ref: '#/definitions/LocalText'
         description: Description tells the members what the shortcut does.
       enabled:
         description: Enabled reports whether the members can attach and execute the
@@ -276,7 +276,7 @@ definitions:
         type: string
       name:
         allOf:
-        - $ref: '#/definitions/i18n.LocalText'
+        - $ref: '#/definitions/LocalText'
         description: Name is shown in the field editor.
       permissions:
         allOf:
@@ -852,7 +852,7 @@ definitions:
         type: object
       draft:
         allOf:
-        - $ref: '#/definitions/workflow.Spec'
+        - $ref: '#/definitions/WorkflowSpec'
         description: Draft debugs the saved draft if empty.
       headers:
         additionalProperties:
@@ -902,7 +902,7 @@ definitions:
         type: string
       status:
         allOf:
-        - $ref: '#/definitions/db.WorkflowRunStatus'
+        - $ref: '#/definitions/WorkflowRunStatus'
         enum:
         - queued
         - succeeded
@@ -1012,7 +1012,7 @@ definitions:
         type: string
       description:
         allOf:
-        - $ref: '#/definitions/i18n.LocalText'
+        - $ref: '#/definitions/LocalText'
         description: Description tells what the shortcut does.
       icon:
         description: Icon is an optional Lucide icon name or base64 data:image URL.
@@ -1027,7 +1027,7 @@ definitions:
         type: string
       name:
         allOf:
-        - $ref: '#/definitions/i18n.LocalText'
+        - $ref: '#/definitions/LocalText'
         description: Name is shown in the field editor.
       permissions:
         allOf:
@@ -1435,7 +1435,7 @@ definitions:
         type: string
       status:
         allOf:
-        - $ref: '#/definitions/db.SLImportStatus'
+        - $ref: '#/definitions/SLImportStatus'
         description: Status is the state of the import, a running import without progress
           for a minute is reported as failed.
         enum:
@@ -1470,7 +1470,7 @@ definitions:
         type: boolean
       type:
         allOf:
-        - $ref: '#/definitions/db.SLFieldType'
+        - $ref: '#/definitions/SLFieldType'
         description: Type is inferred from the rows after the first row.
         enum:
         - text
@@ -1481,7 +1481,7 @@ definitions:
         - checkbox
       typeWithoutHeader:
         allOf:
-        - $ref: '#/definitions/db.SLFieldType'
+        - $ref: '#/definitions/SLFieldType'
         description: TypeWithoutHeader is inferred from all the rows.
         enum:
         - text
@@ -1825,6 +1825,10 @@ definitions:
     required:
     - nextCursor
     - runs
+    type: object
+  LocalText:
+    additionalProperties:
+      type: string
     type: object
   MoveProjectNavigation:
     properties:
@@ -2221,6 +2225,40 @@ definitions:
     - uid
     - updatedAt
     type: object
+  SLFieldType:
+    enum:
+    - text
+    - single_select
+    - multi_select
+    - datetime
+    - number
+    - checkbox
+    - attachment
+    - formula
+    - unknown
+    type: string
+    x-enum-varnames:
+    - TextFieldType
+    - SingleSelectFieldType
+    - MultiSelectFieldType
+    - DateTimeFieldType
+    - NumberFieldType
+    - CheckboxFieldType
+    - AttachmentFieldType
+    - FormulaFieldType
+    - UnknownFieldType
+  SLImportStatus:
+    enum:
+    - pending
+    - running
+    - succeeded
+    - failed
+    type: string
+    x-enum-varnames:
+    - SLImportPending
+    - SLImportRunning
+    - SLImportSucceeded
+    - SLImportFailed
   SLRecord:
     properties:
       createdAt:
@@ -2338,7 +2376,7 @@ definitions:
         type: array
       description:
         allOf:
-        - $ref: '#/definitions/i18n.LocalText'
+        - $ref: '#/definitions/LocalText'
         description: Description tells the members what the shortcut does.
       enabled:
         description: Enabled reports whether the members can attach and execute the
@@ -2362,7 +2400,7 @@ definitions:
         type: string
       name:
         allOf:
-        - $ref: '#/definitions/i18n.LocalText'
+        - $ref: '#/definitions/LocalText'
         description: Name is shown in the field editor.
       permissions:
         allOf:
@@ -2418,7 +2456,7 @@ definitions:
       description:
         type: string
       draft:
-        $ref: '#/definitions/workflow.Spec'
+        $ref: '#/definitions/WorkflowSpec'
       draftVersion:
         description: DraftVersion is the draft version the edit is based on, 409 is
           returned if someone else has saved it.
@@ -2495,7 +2533,7 @@ definitions:
         type: string
       label:
         allOf:
-        - $ref: '#/definitions/i18n.LocalText'
+        - $ref: '#/definitions/LocalText'
         description: Label is the display name of the credential, the key if empty.
       name:
         description: Name is the header or query parameter name, it is ignored by
@@ -2525,7 +2563,7 @@ definitions:
         type: array
       help:
         allOf:
-        - $ref: '#/definitions/i18n.LocalText'
+        - $ref: '#/definitions/LocalText'
         description: Help is the description shown below the control.
       key:
         description: Key is the key of the configured value in FieldShortcut.Inputs
@@ -2533,7 +2571,7 @@ definitions:
         type: string
       label:
         allOf:
-        - $ref: '#/definitions/i18n.LocalText'
+        - $ref: '#/definitions/LocalText'
         description: Label is the name of the field shown in the form, the key if
           empty.
       multiline:
@@ -2546,7 +2584,7 @@ definitions:
         type: array
       placeholder:
         allOf:
-        - $ref: '#/definitions/i18n.LocalText'
+        - $ref: '#/definitions/LocalText'
         description: Placeholder is the hint of the empty input.
       required:
         description: Required reports whether the field must be filled in before saving
@@ -2595,7 +2633,7 @@ definitions:
     properties:
       label:
         allOf:
-        - $ref: '#/definitions/i18n.LocalText'
+        - $ref: '#/definitions/LocalText'
         description: Label is the text of the option shown in the form, the value
           if empty.
       value:
@@ -2637,13 +2675,13 @@ definitions:
   ShortcutSection:
     properties:
       description:
-        $ref: '#/definitions/i18n.LocalText'
+        $ref: '#/definitions/LocalText'
       fields:
         items:
           $ref: '#/definitions/ShortcutField'
         type: array
       title:
-        $ref: '#/definitions/i18n.LocalText'
+        $ref: '#/definitions/LocalText'
     required:
     - fields
     type: object
@@ -3369,7 +3407,7 @@ definitions:
       description:
         type: string
       draft:
-        $ref: '#/definitions/workflow.Spec'
+        $ref: '#/definitions/WorkflowSpec'
       draftVersion:
         type: integer
       enabled:
@@ -4271,6 +4309,20 @@ definitions:
     - uid
     - version
     type: object
+  WorkflowRunStatus:
+    enum:
+    - queued
+    - running
+    - succeeded
+    - failed
+    - rejected
+    type: string
+    x-enum-varnames:
+    - WorkflowRunQueued
+    - WorkflowRunRunning
+    - WorkflowRunSucceeded
+    - WorkflowRunFailed
+    - WorkflowRunRejected
   WorkflowScheduleTrigger:
     properties:
       interval:
@@ -4323,6 +4375,31 @@ definitions:
         type: string
     required:
     - fields
+    type: object
+  WorkflowSpec:
+    properties:
+      async:
+        description: Async holds the flows an API trigger runs in the background after
+          request events; empty for other triggers.
+        items:
+          $ref: '#/definitions/WorkflowAsyncFlow'
+        type: array
+      steps:
+        description: 'Steps is the main flow: executed synchronously to build the
+          response for API triggers, and in the background for other triggers.'
+        items:
+          $ref: '#/definitions/WorkflowStep'
+        type: array
+      timezone:
+        description: Timezone is the IANA time zone in which formulas handle dates,
+          e.g. Asia/Shanghai; UTC is used when it is empty or invalid.
+        type: string
+      trigger:
+        $ref: '#/definitions/WorkflowTrigger'
+    required:
+    - async
+    - steps
+    - trigger
     type: object
   WorkflowStep:
     properties:
@@ -4465,83 +4542,6 @@ definitions:
     required:
     - kind
     type: object
-  db.SLFieldType:
-    enum:
-    - text
-    - single_select
-    - multi_select
-    - datetime
-    - number
-    - checkbox
-    - attachment
-    - formula
-    - unknown
-    type: string
-    x-enum-varnames:
-    - TextFieldType
-    - SingleSelectFieldType
-    - MultiSelectFieldType
-    - DateTimeFieldType
-    - NumberFieldType
-    - CheckboxFieldType
-    - AttachmentFieldType
-    - FormulaFieldType
-    - UnknownFieldType
-  db.SLImportStatus:
-    enum:
-    - pending
-    - running
-    - succeeded
-    - failed
-    type: string
-    x-enum-varnames:
-    - SLImportPending
-    - SLImportRunning
-    - SLImportSucceeded
-    - SLImportFailed
-  db.WorkflowRunStatus:
-    enum:
-    - queued
-    - running
-    - succeeded
-    - failed
-    - rejected
-    type: string
-    x-enum-varnames:
-    - WorkflowRunQueued
-    - WorkflowRunRunning
-    - WorkflowRunSucceeded
-    - WorkflowRunFailed
-    - WorkflowRunRejected
-  i18n.LocalText:
-    additionalProperties:
-      type: string
-    type: object
-  workflow.Spec:
-    properties:
-      async:
-        description: Async holds the flows an API trigger runs in the background after
-          request events; empty for other triggers.
-        items:
-          $ref: '#/definitions/WorkflowAsyncFlow'
-        type: array
-      steps:
-        description: 'Steps is the main flow: executed synchronously to build the
-          response for API triggers, and in the background for other triggers.'
-        items:
-          $ref: '#/definitions/WorkflowStep'
-        type: array
-      timezone:
-        description: Timezone is the IANA time zone in which formulas handle dates,
-          e.g. Asia/Shanghai; UTC is used when it is empty or invalid.
-        type: string
-      trigger:
-        $ref: '#/definitions/WorkflowTrigger'
-    required:
-    - async
-    - steps
-    - trigger
-    type: object
 info:
   contact: {}
   title: Sayrud API
@@ -4567,6 +4567,8 @@ paths:
           schema:
             type: string
       summary: Get the AI model settings
+      tags:
+      - Admin - AI
     put:
       consumes:
       - application/json
@@ -4600,6 +4602,8 @@ paths:
           schema:
             type: string
       summary: Update the AI model settings
+      tags:
+      - Admin - AI
   /admin/ai/test:
     post:
       consumes:
@@ -4634,6 +4638,8 @@ paths:
           schema:
             type: string
       summary: Test the AI model settings
+      tags:
+      - Admin - AI
   /admin/auth-providers:
     get:
       description: Requires the admin. The secrets are not returned.
@@ -4654,6 +4660,8 @@ paths:
           schema:
             type: string
       summary: List the sign-in methods
+      tags:
+      - Admin - Sign-in methods
     post:
       consumes:
       - application/json
@@ -4691,6 +4699,8 @@ paths:
           schema:
             type: string
       summary: Create a sign-in method
+      tags:
+      - Admin - Sign-in methods
   /admin/auth-providers/{providerID}:
     delete:
       description: Requires the admin. The bound third-party accounts of the users
@@ -4723,6 +4733,8 @@ paths:
           schema:
             type: string
       summary: Delete a sign-in method
+      tags:
+      - Admin - Sign-in methods
     put:
       consumes:
       - application/json
@@ -4770,6 +4782,8 @@ paths:
           schema:
             type: string
       summary: Update a sign-in method
+      tags:
+      - Admin - Sign-in methods
   /admin/auth-providers/positions:
     put:
       consumes:
@@ -4795,6 +4809,8 @@ paths:
           schema:
             type: string
       summary: Reorder the sign-in methods
+      tags:
+      - Admin - Sign-in methods
   /admin/auth-providers/test:
     post:
       consumes:
@@ -4826,6 +4842,8 @@ paths:
           schema:
             type: string
       summary: Test the connection of a sign-in method
+      tags:
+      - Admin - Sign-in methods
   /admin/field-shortcuts:
     get:
       description: Requires the admin. The credential values are not returned.
@@ -4859,6 +4877,8 @@ paths:
           schema:
             type: string
       summary: List the custom field shortcuts
+      tags:
+      - Admin - Field shortcuts
     post:
       consumes:
       - application/json
@@ -4891,6 +4911,8 @@ paths:
           schema:
             type: string
       summary: Create a custom field shortcut
+      tags:
+      - Admin - Field shortcuts
   /admin/field-shortcuts/{shortcutUID}:
     delete:
       description: Requires the admin. The fields using it keep their values, and
@@ -4920,6 +4942,8 @@ paths:
           schema:
             type: string
       summary: Delete a custom field shortcut
+      tags:
+      - Admin - Field shortcuts
     get:
       description: Requires the admin. The credential values are not returned.
       operationId: getAdminFieldShortcut
@@ -4949,6 +4973,8 @@ paths:
           schema:
             type: string
       summary: Get a custom field shortcut
+      tags:
+      - Admin - Field shortcuts
     put:
       consumes:
       - application/json
@@ -4992,6 +5018,8 @@ paths:
           schema:
             type: string
       summary: Update a custom field shortcut
+      tags:
+      - Admin - Field shortcuts
   /admin/field-shortcuts/inspect:
     post:
       consumes:
@@ -5027,6 +5055,8 @@ paths:
           schema:
             type: string
       summary: Check a field shortcut before installing
+      tags:
+      - Admin - Field shortcuts
   /admin/field-shortcuts/install:
     post:
       consumes:
@@ -5062,6 +5092,8 @@ paths:
           schema:
             type: string
       summary: Install a field shortcut from a JavaScript or TypeScript module
+      tags:
+      - Admin - Field shortcuts
   /admin/field-shortcuts/test:
     post:
       consumes:
@@ -5096,6 +5128,8 @@ paths:
           schema:
             type: string
       summary: Test a custom field shortcut
+      tags:
+      - Admin - Field shortcuts
   /admin/hub/packages:
     get:
       description: Requires the admin. Search the packages available on Sayrud Hub,
@@ -5162,6 +5196,8 @@ paths:
           schema:
             type: string
       summary: Browse the Sayrud Hub catalog
+      tags:
+      - Admin - Hub
   /admin/hub/packages/{kind}/{id}:
     get:
       description: Requires the admin. Get the package with its readme, its latest
@@ -5209,6 +5245,8 @@ paths:
           schema:
             type: string
       summary: Get a package of the Sayrud Hub catalog
+      tags:
+      - Admin - Hub
   /admin/hub/updates:
     get:
       description: |-
@@ -5240,6 +5278,8 @@ paths:
           schema:
             type: string
       summary: Check the packages installed from Sayrud Hub
+      tags:
+      - Admin - Hub
   /admin/overview:
     get:
       description: Requires the admin.
@@ -5260,6 +5300,8 @@ paths:
           schema:
             type: string
       summary: Get the overview of the system
+      tags:
+      - Admin - Overview
   /admin/projects:
     get:
       description: Requires the admin. The newest projects come first.
@@ -5293,6 +5335,8 @@ paths:
           schema:
             type: string
       summary: List all the projects
+      tags:
+      - Admin - Projects
   /admin/projects/{projectUID}:
     delete:
       description: Requires the admin.
@@ -5319,6 +5363,8 @@ paths:
           schema:
             type: string
       summary: Delete a project
+      tags:
+      - Admin - Projects
   /admin/projects/{projectUID}/owner:
     put:
       consumes:
@@ -5358,6 +5404,8 @@ paths:
           schema:
             type: string
       summary: Transfer the ownership of a project
+      tags:
+      - Admin - Projects
   /admin/settings:
     get:
       description: Requires the admin.
@@ -5378,6 +5426,8 @@ paths:
           schema:
             type: string
       summary: Get the system settings
+      tags:
+      - Admin - Settings
     put:
       consumes:
       - application/json
@@ -5411,6 +5461,8 @@ paths:
           schema:
             type: string
       summary: Update the system settings
+      tags:
+      - Admin - Settings
   /admin/users:
     get:
       description: Requires the admin. The newest users come first.
@@ -5452,6 +5504,8 @@ paths:
           schema:
             type: string
       summary: List the users
+      tags:
+      - Admin - Members
     post:
       consumes:
       - application/json
@@ -5488,6 +5542,8 @@ paths:
           schema:
             type: string
       summary: Create a user
+      tags:
+      - Admin - Members
   /admin/users/{userID}:
     delete:
       description: Requires the admin. The projects owned by the user are transferred
@@ -5527,6 +5583,8 @@ paths:
           schema:
             type: string
       summary: Delete a user
+      tags:
+      - Admin - Members
     put:
       consumes:
       - application/json
@@ -5564,6 +5622,8 @@ paths:
           schema:
             type: string
       summary: Update the user name of a user
+      tags:
+      - Admin - Members
   /admin/users/{userID}/admin:
     put:
       consumes:
@@ -5607,6 +5667,8 @@ paths:
           schema:
             type: string
       summary: Grant or revoke the admin
+      tags:
+      - Admin - Members
   /admin/users/{userID}/password:
     put:
       consumes:
@@ -5645,6 +5707,8 @@ paths:
           schema:
             type: string
       summary: Reset the password of a user
+      tags:
+      - Admin - Members
   /admin/users/{userID}/sessions:
     delete:
       description: Requires the admin. Use the account settings for the admin itself.
@@ -5675,6 +5739,8 @@ paths:
           schema:
             type: string
       summary: Sign out a user everywhere
+      tags:
+      - Admin - Members
   /admin/users/{userID}/status:
     put:
       consumes:
@@ -5718,6 +5784,8 @@ paths:
           schema:
             type: string
       summary: Disable or enable a user
+      tags:
+      - Admin - Members
   /admin/workflow-plugins:
     get:
       description: Requires the admin. The built-in nodes are listed too, their texts
@@ -5739,6 +5807,8 @@ paths:
           schema:
             type: string
       summary: List the workflow node plugins
+      tags:
+      - Admin - Workflow nodes
     post:
       consumes:
       - application/json
@@ -5773,6 +5843,8 @@ paths:
           schema:
             type: string
       summary: Install or upgrade a workflow node plugin
+      tags:
+      - Admin - Workflow nodes
   /admin/workflow-plugins/{pluginID}:
     delete:
       description: Requires the admin. The workflows using the node keep their steps,
@@ -5802,6 +5874,8 @@ paths:
           schema:
             type: string
       summary: Uninstall a workflow node plugin
+      tags:
+      - Admin - Workflow nodes
     get:
       description: Requires the admin.
       operationId: getAdminWorkflowPlugin
@@ -5831,6 +5905,8 @@ paths:
           schema:
             type: string
       summary: Get a workflow node plugin with its source
+      tags:
+      - Admin - Workflow nodes
   /admin/workflow-plugins/{pluginID}/enabled:
     put:
       consumes:
@@ -5870,6 +5946,8 @@ paths:
           schema:
             type: string
       summary: Enable or disable a workflow node plugin
+      tags:
+      - Admin - Workflow nodes
   /admin/workflow-plugins/inspect:
     post:
       consumes:
@@ -5905,6 +5983,8 @@ paths:
           schema:
             type: string
       summary: Check a workflow node plugin before installing
+      tags:
+      - Admin - Workflow nodes
   /admin/workflow-plugins/test:
     post:
       consumes:
@@ -5944,6 +6024,8 @@ paths:
           schema:
             type: string
       summary: Test a workflow node plugin
+      tags:
+      - Admin - Workflow nodes
   /auth/account:
     delete:
       consumes:
@@ -5983,6 +6065,8 @@ paths:
           schema:
             type: string
       summary: Delete the account of the signed-in user
+      tags:
+      - Account
   /auth/avatar:
     delete:
       operationId: removeAvatar
@@ -6002,6 +6086,8 @@ paths:
           schema:
             type: string
       summary: Restore the default avatar of the signed-in user
+      tags:
+      - Account
     post:
       consumes:
       - multipart/form-data
@@ -6038,6 +6124,8 @@ paths:
           schema:
             type: string
       summary: Upload the avatar of the signed-in user
+      tags:
+      - Account
   /auth/identities:
     get:
       operationId: listIdentities
@@ -6059,6 +6147,8 @@ paths:
           schema:
             type: string
       summary: List the third-party accounts bound to the signed-in user
+      tags:
+      - Single sign-on
   /auth/identities/{identityID}:
     delete:
       description: The last way to sign in can not be unbound if the user has no password.
@@ -6089,6 +6179,8 @@ paths:
           schema:
             type: string
       summary: Unbind a third-party account of the signed-in user
+      tags:
+      - Single sign-on
   /auth/ldap/{slug}/sign-in:
     post:
       consumes:
@@ -6142,6 +6234,8 @@ paths:
           schema:
             type: string
       summary: Sign in with LDAP
+      tags:
+      - Single sign-on
   /auth/password:
     put:
       consumes:
@@ -6176,6 +6270,8 @@ paths:
           schema:
             type: string
       summary: Change the password of the signed-in user
+      tags:
+      - Account
   /auth/profile:
     get:
       operationId: getProfile
@@ -6195,6 +6291,8 @@ paths:
           schema:
             type: string
       summary: Get the profile of the signed-in user
+      tags:
+      - Account
     put:
       consumes:
       - application/json
@@ -6226,6 +6324,8 @@ paths:
           schema:
             type: string
       summary: Update the profile of the signed-in user
+      tags:
+      - Account
   /auth/sessions:
     delete:
       operationId: revokeOtherSessions
@@ -6241,6 +6341,8 @@ paths:
           schema:
             type: string
       summary: Sign out all the other sessions of the signed-in user
+      tags:
+      - Account
     get:
       description: The unexpired sessions, the newest first.
       operationId: listSessions
@@ -6262,6 +6364,8 @@ paths:
           schema:
             type: string
       summary: List the sign-in sessions of the signed-in user
+      tags:
+      - Account
   /auth/sessions/{sessionID}:
     delete:
       description: The current session can not be revoked here, sign out instead.
@@ -6292,6 +6396,8 @@ paths:
           schema:
             type: string
       summary: Sign out a session of the signed-in user
+      tags:
+      - Account
   /auth/settings:
     get:
       description: The personal settings synced across the devices, the unsaved ones
@@ -6313,6 +6419,8 @@ paths:
           schema:
             type: string
       summary: Get the settings of the signed-in user
+      tags:
+      - Account
     put:
       consumes:
       - application/json
@@ -6344,6 +6452,8 @@ paths:
           schema:
             type: string
       summary: Update the settings of the signed-in user
+      tags:
+      - Account
   /auth/sign-in:
     post:
       consumes:
@@ -6384,6 +6494,8 @@ paths:
           schema:
             type: string
       summary: Sign in with email and password
+      tags:
+      - Authentication
   /auth/sign-out:
     post:
       description: Revoke the current session and clear the session cookie.
@@ -6396,6 +6508,8 @@ paths:
           schema:
             type: string
       summary: Sign out
+      tags:
+      - Authentication
   /auth/sign-up:
     post:
       consumes:
@@ -6438,6 +6552,8 @@ paths:
           schema:
             type: string
       summary: Sign up with email and password
+      tags:
+      - Authentication
   /auth/sso/{slug}/acs:
     post:
       consumes:
@@ -6455,6 +6571,8 @@ paths:
         "302":
           description: Redirect after signing in
       summary: SAML Assertion Consumer Service
+      tags:
+      - Single sign-on
   /auth/sso/{slug}/callback:
     get:
       description: Signs in (or binds the account in the link mode) and redirects
@@ -6479,6 +6597,8 @@ paths:
         "302":
           description: Redirect after signing in
       summary: OAuth 2.0 / OIDC callback
+      tags:
+      - Single sign-on
   /auth/sso/{slug}/metadata:
     get:
       description: The entity ID of the service provider is the URL of this metadata.
@@ -6506,6 +6626,8 @@ paths:
           schema:
             type: string
       summary: SAML service provider metadata
+      tags:
+      - Single sign-on
   /auth/sso/{slug}/start:
     get:
       description: Redirects the browser to the identity provider. In the link mode
@@ -6534,6 +6656,8 @@ paths:
         "302":
           description: Redirect to the identity provider
       summary: Start a third-party sign-in
+      tags:
+      - Single sign-on
   /avatars/{fileUID}:
     get:
       operationId: getAvatar
@@ -6559,6 +6683,8 @@ paths:
           schema:
             type: string
       summary: Get a current uploaded avatar
+      tags:
+      - Account
   /projects:
     get:
       description: List the projects owned by or shared with the signed-in user, with
@@ -6597,6 +6723,8 @@ paths:
           schema:
             type: string
       summary: List projects
+      tags:
+      - Projects
     post:
       consumes:
       - application/json
@@ -6629,6 +6757,8 @@ paths:
           schema:
             type: string
       summary: Create a project
+      tags:
+      - Projects
   /projects/{projectUID}:
     delete:
       description: Delete the project along with its collaborators, only the owner
@@ -6658,6 +6788,8 @@ paths:
           schema:
             type: string
       summary: Delete a project
+      tags:
+      - Projects
     get:
       operationId: getProject
       parameters:
@@ -6686,6 +6818,8 @@ paths:
           schema:
             type: string
       summary: Get a project
+      tags:
+      - Projects
     put:
       consumes:
       - application/json
@@ -6725,6 +6859,8 @@ paths:
           schema:
             type: string
       summary: Update a project
+      tags:
+      - Projects
   /projects/{projectUID}/attachments/{fileUID}:
     get:
       description: Read a file uploaded in this project. Project membership is checked
@@ -6767,6 +6903,8 @@ paths:
           schema:
             type: string
       summary: Read an attachment
+      tags:
+      - Attachments
   /projects/{projectUID}/credentials:
     get:
       description: The values of the secret fields are not returned. Filter by type
@@ -6804,6 +6942,8 @@ paths:
           schema:
             type: string
       summary: List the credentials of a project
+      tags:
+      - Credentials
     post:
       consumes:
       - application/json
@@ -6846,6 +6986,8 @@ paths:
           schema:
             type: string
       summary: Create a credential in a project
+      tags:
+      - Credentials
   /projects/{projectUID}/credentials/{credentialUID}:
     delete:
       description: A credential referenced by a published workflow can not be deleted.
@@ -6883,6 +7025,8 @@ paths:
           schema:
             type: string
       summary: Delete a credential
+      tags:
+      - Credentials
     get:
       description: Returns the non-secret fields and the names of saved secret fields.
         Secret values are never returned.
@@ -6918,6 +7062,8 @@ paths:
           schema:
             type: string
       summary: Get a project credential
+      tags:
+      - Credentials
     put:
       consumes:
       - application/json
@@ -6965,6 +7111,8 @@ paths:
           schema:
             type: string
       summary: Update a credential
+      tags:
+      - Credentials
   /projects/{projectUID}/credentials/test:
     post:
       consumes:
@@ -7007,6 +7155,8 @@ paths:
           schema:
             type: string
       summary: Test a credential
+      tags:
+      - Credentials
   /projects/{projectUID}/field-shortcuts:
     get:
       description: List the enabled custom shortcuts, with the forms to configure
@@ -7040,6 +7190,8 @@ paths:
           schema:
             type: string
       summary: List field shortcuts
+      tags:
+      - Field shortcuts
   /projects/{projectUID}/imports:
     post:
       consumes:
@@ -7091,6 +7243,8 @@ paths:
           schema:
             type: string
       summary: Upload a file to import
+      tags:
+      - Imports
   /projects/{projectUID}/imports/{importUID}:
     get:
       operationId: getImport
@@ -7129,6 +7283,8 @@ paths:
           schema:
             type: string
       summary: Get the state of an import
+      tags:
+      - Imports
   /projects/{projectUID}/imports/{importUID}/start:
     post:
       consumes:
@@ -7186,6 +7342,8 @@ paths:
           schema:
             type: string
       summary: Start an import
+      tags:
+      - Imports
   /projects/{projectUID}/members:
     get:
       description: List the owner and the collaborators of the project, the owner
@@ -7219,6 +7377,8 @@ paths:
           schema:
             type: string
       summary: List the collaborators
+      tags:
+      - Project members
     post:
       consumes:
       - application/json
@@ -7261,6 +7421,8 @@ paths:
           schema:
             type: string
       summary: Add a collaborator
+      tags:
+      - Project members
   /projects/{projectUID}/members/{userID}:
     delete:
       description: Requires the manager role, except that a collaborator can remove
@@ -7297,6 +7459,8 @@ paths:
           schema:
             type: string
       summary: Remove a collaborator
+      tags:
+      - Project members
     put:
       consumes:
       - application/json
@@ -7340,6 +7504,8 @@ paths:
           schema:
             type: string
       summary: Change the role of a collaborator
+      tags:
+      - Project members
   /projects/{projectUID}/members/lookup:
     get:
       description: Find the registered user by the exact email, requires the manager
@@ -7376,6 +7542,8 @@ paths:
           schema:
             type: string
       summary: Find a user to invite
+      tags:
+      - Project members
   /projects/{projectUID}/navigation/move:
     put:
       consumes:
@@ -7421,6 +7589,8 @@ paths:
           schema:
             type: string
       summary: Move a project sidebar item
+      tags:
+      - Projects
   /projects/{projectUID}/owner:
     put:
       consumes:
@@ -7460,6 +7630,8 @@ paths:
           schema:
             type: string
       summary: Transfer the ownership of a project
+      tags:
+      - Projects
   /projects/{projectUID}/tables:
     get:
       description: List the tables of the project ordered by sidebar position.
@@ -7498,6 +7670,8 @@ paths:
           schema:
             type: string
       summary: List tables
+      tags:
+      - Tables
     post:
       consumes:
       - application/json
@@ -7542,6 +7716,8 @@ paths:
           schema:
             type: string
       summary: Create a table
+      tags:
+      - Tables
   /projects/{projectUID}/tables/{tableUID}:
     delete:
       operationId: deleteTable
@@ -7574,6 +7750,8 @@ paths:
           schema:
             type: string
       summary: Delete a table
+      tags:
+      - Tables
     get:
       operationId: getTable
       parameters:
@@ -7607,6 +7785,8 @@ paths:
           schema:
             type: string
       summary: Get a table
+      tags:
+      - Tables
     put:
       consumes:
       - application/json
@@ -7650,6 +7830,8 @@ paths:
           schema:
             type: string
       summary: Update a table
+      tags:
+      - Tables
   /projects/{projectUID}/tables/{tableUID}/changesets:
     get:
       description: Return the changesets whose revision is greater than since in revision
@@ -7691,6 +7873,8 @@ paths:
           schema:
             type: string
       summary: List the missing changesets
+      tags:
+      - Collaboration
   /projects/{projectUID}/tables/{tableUID}/fields:
     get:
       description: List all the fields of the table, ordered by position.
@@ -7728,6 +7912,8 @@ paths:
           schema:
             type: string
       summary: List fields
+      tags:
+      - Fields
     post:
       consumes:
       - application/json
@@ -7780,6 +7966,8 @@ paths:
           schema:
             type: string
       summary: Create fields
+      tags:
+      - Fields
   /projects/{projectUID}/tables/{tableUID}/fields/{fieldUID}:
     delete:
       operationId: deleteField
@@ -7817,6 +8005,8 @@ paths:
           schema:
             type: string
       summary: Delete a field
+      tags:
+      - Fields
     put:
       consumes:
       - application/json
@@ -7873,6 +8063,8 @@ paths:
           schema:
             type: string
       summary: Update a field
+      tags:
+      - Fields
   /projects/{projectUID}/tables/{tableUID}/fields/{fieldUID}/attachments:
     post:
       consumes:
@@ -7933,6 +8125,8 @@ paths:
           schema:
             type: string
       summary: Upload an attachment
+      tags:
+      - Attachments
   /projects/{projectUID}/tables/{tableUID}/fields/{fieldUID}/position:
     put:
       consumes:
@@ -7979,6 +8173,8 @@ paths:
           schema:
             type: string
       summary: Move a field
+      tags:
+      - Fields
   /projects/{projectUID}/tables/{tableUID}/fields/{fieldUID}/shortcut/run:
     post:
       consumes:
@@ -8032,6 +8228,8 @@ paths:
           schema:
             type: string
       summary: Generate the cells of a field shortcut
+      tags:
+      - Field shortcuts
   /projects/{projectUID}/tables/{tableUID}/fields/options/resolve:
     post:
       consumes:
@@ -8073,6 +8271,8 @@ paths:
           schema:
             type: string
       summary: Resolve referenced select options for a record or draft field
+      tags:
+      - Fields
   /projects/{projectUID}/tables/{tableUID}/records:
     get:
       description: List the records of the table, the newest first.
@@ -8116,6 +8316,8 @@ paths:
           schema:
             type: string
       summary: List records
+      tags:
+      - Records
     post:
       consumes:
       - application/json
@@ -8161,6 +8363,8 @@ paths:
           schema:
             type: string
       summary: Create a record
+      tags:
+      - Records
   /projects/{projectUID}/tables/{tableUID}/records/{recordUID}:
     delete:
       operationId: deleteRecord
@@ -8198,6 +8402,8 @@ paths:
           schema:
             type: string
       summary: Delete a record
+      tags:
+      - Records
     get:
       operationId: getRecord
       parameters:
@@ -8236,6 +8442,8 @@ paths:
           schema:
             type: string
       summary: Get a record
+      tags:
+      - Records
     put:
       consumes:
       - application/json
@@ -8284,6 +8492,8 @@ paths:
           schema:
             type: string
       summary: Update a record
+      tags:
+      - Records
   /projects/{projectUID}/tables/{tableUID}/records/batch:
     post:
       consumes:
@@ -8334,6 +8544,8 @@ paths:
           schema:
             type: string
       summary: Create records in batch
+      tags:
+      - Records
   /projects/{projectUID}/tables/{tableUID}/records/fetch:
     post:
       consumes:
@@ -8384,6 +8596,8 @@ paths:
           schema:
             type: string
       summary: Fetch records by UID
+      tags:
+      - Records
   /projects/{projectUID}/tables/{tableUID}/records/query:
     post:
       consumes:
@@ -8432,6 +8646,8 @@ paths:
           schema:
             type: string
       summary: Query records
+      tags:
+      - Records
   /projects/{projectUID}/tables/{tableUID}/share:
     get:
       description: Requires a project manager. The saved link password is decrypted
@@ -8456,6 +8672,8 @@ paths:
           schema:
             $ref: '#/definitions/LinkShare'
       summary: Get link sharing settings
+      tags:
+      - Sharing
     put:
       consumes:
       - application/json
@@ -8485,6 +8703,8 @@ paths:
           schema:
             $ref: '#/definitions/LinkShare'
       summary: Update read-only link sharing settings
+      tags:
+      - Sharing
   /projects/{projectUID}/tables/{tableUID}/shortcut-jobs:
     get:
       description: List the cells of the table being generated by the field shortcuts
@@ -8523,6 +8743,8 @@ paths:
           schema:
             type: string
       summary: List the shortcut jobs
+      tags:
+      - Field shortcuts
   /projects/{projectUID}/tables/{tableUID}/shortcuts/preview:
     post:
       consumes:
@@ -8573,6 +8795,8 @@ paths:
           schema:
             type: string
       summary: Preview a field shortcut
+      tags:
+      - Field shortcuts
   /projects/{projectUID}/tables/{tableUID}/snapshot:
     get:
       description: Return the fields, views and all the records of the table consistently
@@ -8609,6 +8833,8 @@ paths:
           schema:
             type: string
       summary: Get the table snapshot
+      tags:
+      - Collaboration
   /projects/{projectUID}/tables/{tableUID}/views:
     get:
       operationId: listViews
@@ -8645,6 +8871,8 @@ paths:
           schema:
             type: string
       summary: List views
+      tags:
+      - Views
   /projects/{projectUID}/tables/types:
     get:
       description: Return the labels of all the field types, keyed by field type.
@@ -8673,6 +8901,8 @@ paths:
           schema:
             type: string
       summary: List field types
+      tags:
+      - Fields
   /projects/{projectUID}/workflow-modules:
     get:
       description: Return the JSON DSL definitions the editor renders the nodes and
@@ -8701,6 +8931,8 @@ paths:
           schema:
             type: string
       summary: List the step modules and credential types
+      tags:
+      - Workflows
   /projects/{projectUID}/workflows:
     get:
       description: List the workflows of the project ordered by sidebar position.
@@ -8733,6 +8965,8 @@ paths:
           schema:
             type: string
       summary: List workflows
+      tags:
+      - Workflows
     post:
       consumes:
       - application/json
@@ -8776,6 +9010,8 @@ paths:
           schema:
             type: string
       summary: Create a workflow
+      tags:
+      - Workflows
   /projects/{projectUID}/workflows/{workflowUID}:
     delete:
       operationId: deleteWorkflow
@@ -8808,6 +9044,8 @@ paths:
           schema:
             type: string
       summary: Delete a workflow
+      tags:
+      - Workflows
     get:
       description: Return the workflow with its draft and the issues to fix before
         publishing.
@@ -8843,6 +9081,8 @@ paths:
           schema:
             type: string
       summary: Get a workflow
+      tags:
+      - Workflows
     put:
       consumes:
       - application/json
@@ -8894,6 +9134,8 @@ paths:
           schema:
             type: string
       summary: Save the draft of a workflow
+      tags:
+      - Workflows
   /projects/{projectUID}/workflows/{workflowUID}/debug:
     post:
       consumes:
@@ -8943,6 +9185,8 @@ paths:
           schema:
             type: string
       summary: Debug a workflow
+      tags:
+      - Workflows
   /projects/{projectUID}/workflows/{workflowUID}/enabled:
     put:
       consumes:
@@ -8985,6 +9229,8 @@ paths:
           schema:
             type: string
       summary: Enable or disable a workflow
+      tags:
+      - Workflows
   /projects/{projectUID}/workflows/{workflowUID}/jobs/{jobID}/retry:
     post:
       description: Run the failed job again, the steps which succeeded are not run
@@ -9024,6 +9270,8 @@ paths:
           schema:
             type: string
       summary: Retry a failed background job
+      tags:
+      - Workflows
   /projects/{projectUID}/workflows/{workflowUID}/keys:
     get:
       operationId: listWorkflowKeys
@@ -9060,6 +9308,8 @@ paths:
           schema:
             type: string
       summary: List the API keys of a workflow
+      tags:
+      - Workflows
     post:
       consumes:
       - application/json
@@ -9102,6 +9352,8 @@ paths:
           schema:
             type: string
       summary: Create an API key of a workflow
+      tags:
+      - Workflows
   /projects/{projectUID}/workflows/{workflowUID}/keys/{keyID}:
     delete:
       operationId: deleteWorkflowKey
@@ -9139,6 +9391,8 @@ paths:
           schema:
             type: string
       summary: Delete an API key of a workflow
+      tags:
+      - Workflows
   /projects/{projectUID}/workflows/{workflowUID}/publish:
     post:
       consumes:
@@ -9187,6 +9441,8 @@ paths:
           schema:
             type: string
       summary: Publish a workflow
+      tags:
+      - Workflows
   /projects/{projectUID}/workflows/{workflowUID}/revisions:
     get:
       operationId: listWorkflowRevisions
@@ -9223,6 +9479,8 @@ paths:
           schema:
             type: string
       summary: List the published versions of a workflow
+      tags:
+      - Workflows
   /projects/{projectUID}/workflows/{workflowUID}/revisions/{version}/rollback:
     post:
       consumes:
@@ -9280,6 +9538,8 @@ paths:
           schema:
             type: string
       summary: Roll back a workflow to a published version
+      tags:
+      - Workflows
   /projects/{projectUID}/workflows/{workflowUID}/runs:
     get:
       operationId: listWorkflowRuns
@@ -9339,6 +9599,8 @@ paths:
           schema:
             type: string
       summary: List the runs of a workflow
+      tags:
+      - Workflows
   /projects/{projectUID}/workflows/{workflowUID}/runs/{runUID}:
     get:
       description: Return the request or the trigger data, the response, the step
@@ -9380,6 +9642,8 @@ paths:
           schema:
             type: string
       summary: Get a run of a workflow
+      tags:
+      - Workflows
   /projects/{projectUID}/ws:
     get:
       description: |-
@@ -9406,6 +9670,8 @@ paths:
           schema:
             type: string
       summary: Collaborate on the project over WebSocket
+      tags:
+      - Collaboration
   /shares/{shareToken}:
     get:
       operationId: openLinkShare
@@ -9423,6 +9689,8 @@ paths:
           schema:
             $ref: '#/definitions/SharedProject'
       summary: Open a read-only public share
+      tags:
+      - Sharing
   /shares/{shareToken}/tables/{tableUID}/attachments/{fileUID}:
     get:
       operationId: getSharedAttachment
@@ -9452,6 +9720,8 @@ paths:
           schema:
             type: file
       summary: Read an attachment referenced by a shared table
+      tags:
+      - Sharing
   /shares/{shareToken}/tables/{tableUID}/changesets:
     get:
       operationId: listSharedChangesets
@@ -9479,6 +9749,8 @@ paths:
           schema:
             $ref: '#/definitions/ListChangesetsResp'
       summary: List missing changesets for a public share
+      tags:
+      - Sharing
   /shares/{shareToken}/tables/{tableUID}/fields:
     get:
       operationId: listSharedFields
@@ -9503,6 +9775,8 @@ paths:
               $ref: '#/definitions/SLField'
             type: array
       summary: List fields for a public share
+      tags:
+      - Sharing
   /shares/{shareToken}/tables/{tableUID}/records/fetch:
     post:
       consumes:
@@ -9535,6 +9809,8 @@ paths:
               $ref: '#/definitions/SLRecord'
             type: array
       summary: Fetch dirty records for a public share
+      tags:
+      - Sharing
   /shares/{shareToken}/tables/{tableUID}/snapshot:
     get:
       operationId: getSharedSnapshot
@@ -9557,6 +9833,8 @@ paths:
           schema:
             $ref: '#/definitions/TableSnapshot'
       summary: Read a publicly shared table snapshot
+      tags:
+      - Sharing
   /shares/{shareToken}/tables/{tableUID}/views:
     get:
       operationId: listSharedViews
@@ -9581,6 +9859,8 @@ paths:
               $ref: '#/definitions/SLView'
             type: array
       summary: List views for a public share
+      tags:
+      - Sharing
   /shares/{shareToken}/unlock:
     post:
       consumes:
@@ -9607,6 +9887,8 @@ paths:
             additionalProperties: true
             type: object
       summary: Verify a public link password
+      tags:
+      - Sharing
   /shares/{shareToken}/ws:
     get:
       description: |-
@@ -9631,6 +9913,8 @@ paths:
           schema:
             type: string
       summary: Follow a public share over WebSocket
+      tags:
+      - Sharing
   /shares/resolve:
     get:
       description: Returns only an enabled share token. Password verification and
@@ -9663,6 +9947,8 @@ paths:
           schema:
             type: string
       summary: Resolve public access from the normal project and table URL
+      tags:
+      - Sharing
   /site:
     get:
       description: Public information used by the sign-in page, such as whether signing
@@ -9680,4 +9966,6 @@ paths:
           schema:
             type: string
       summary: Get the site information
+      tags:
+      - Site
 swagger: "2.0"

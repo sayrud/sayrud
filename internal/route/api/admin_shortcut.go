@@ -52,6 +52,7 @@ func toAdminFieldShortcut(s *db.CustomFieldShortcut, counts map[string]int64) (*
 
 // ListFieldShortcuts
 // @Summary List the custom field shortcuts
+// @Tags Admin - Field shortcuts
 // @Description Requires the admin. The credential values are not returned.
 // @Produce json
 // @Param page query int false "Page number, starting from 1"
@@ -92,6 +93,7 @@ func (adminRoute) ListFieldShortcuts(ctx context.Context) error {
 
 // GetFieldShortcut
 // @Summary Get a custom field shortcut
+// @Tags Admin - Field shortcuts
 // @Description Requires the admin. The credential values are not returned.
 // @Produce json
 // @Param shortcutUID path string true "Shortcut UID"
@@ -211,6 +213,7 @@ func saveFieldShortcutError(ctx context.Context, err error, action string) error
 
 // CreateFieldShortcut
 // @Summary Create a custom field shortcut
+// @Tags Admin - Field shortcuts
 // @Description Requires the admin. The credential values are encrypted by auth.secret_key.
 // @Accept json
 // @Produce json
@@ -245,6 +248,7 @@ func (adminRoute) CreateFieldShortcut(ctx context.Context, f form.SaveFieldShort
 
 // UpdateFieldShortcut
 // @Summary Update a custom field shortcut
+// @Tags Admin - Field shortcuts
 // @Description Requires the admin. The empty credential values keep the saved ones.
 // @Description A Sayrud Hub signature must describe the code; without one, the shortcut stays from the Hub only if its code is unchanged.
 // @Accept json
@@ -294,6 +298,7 @@ func (adminRoute) UpdateFieldShortcut(ctx context.Context, saved *db.CustomField
 
 // DeleteFieldShortcut
 // @Summary Delete a custom field shortcut
+// @Tags Admin - Field shortcuts
 // @Description Requires the admin. The fields using it keep their values, and fail to generate new ones.
 // @Produce json
 // @Param shortcutUID path string true "Shortcut UID"
@@ -313,6 +318,7 @@ func (adminRoute) DeleteFieldShortcut(ctx context.Context, saved *db.CustomField
 
 // TestFieldShortcut
 // @Summary Test a custom field shortcut
+// @Tags Admin - Field shortcuts
 // @Description Requires the admin. Run the unsaved code with the parameters, and return the result and the logs.
 // @Accept json
 // @Produce json

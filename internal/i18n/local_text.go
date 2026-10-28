@@ -10,7 +10,7 @@ import (
 )
 
 // LocalText is a text of a plugin manifest, given as a string or as the translations keyed by language such as en and zh-CN.
-type LocalText map[string]string
+type LocalText map[string]string // @name LocalText
 
 func (t *LocalText) UnmarshalJSON(data []byte) error {
 	if bytes.Equal(bytes.TrimSpace(data), []byte("null")) {
