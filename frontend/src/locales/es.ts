@@ -827,6 +827,9 @@ const es: typeof zhCN = {
     create: 'Nueva tabla',
     collapse: 'Contraer barra lateral',
     resize: 'Ajustar el ancho de la barra lateral',
+    reorder: 'Arrastra {name} o usa las flechas arriba y abajo para reordenar',
+    reordered: '{name} se movió a la posición {position} de {total}',
+    reorderFailed: 'No se pudo guardar el orden. Se restauró el anterior. Inténtalo de nuevo.',
   },
   import: {
     menuNewTable: 'Importar Excel / CSV',

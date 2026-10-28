@@ -20,6 +20,11 @@ test('shortcut job refreshes never overwrite newer requests, pushes or table ses
   const sockets: Socket[] = []
   const tableLoads = new Map<string, Promise<void>>()
   const locale = ref('zh-CN')
+  const navigationLoads: string[] = []
+  let tableRequests = 0
+  let deferTables = false
+  const tableResponses: ((value: { tables: { uid: string; position: number }[] }) => void)[] = []
+
   class Socket {
     reconnects = 0
     handlers = new Map<string, Set<(data: unknown) => void>>()
@@ -35,6 +40,7 @@ test('shortcut job refreshes never overwrite newer requests, pushes or table ses
     close() {}
     send() {}
   }
+
   class Sync {
     loading = ref(false)
     pendingCount = ref(0)
@@ -44,11 +50,15 @@ test('shortcut job refreshes never overwrite newer requests, pushes or table ses
     async start() { await tableLoads.get(this.tableUID) }
     dispose() {}
   }
+
   const dependencies: Record<string, unknown> = {
     '@arco-design/web-vue': { Message: { error: assert.fail } },
     '@/api/bitable': {
       projectsApi: { get: async (uid: string) => ({ uid, role: 'editor' }) },
-      tablesApi: { list: async () => ({ tables: [] }) },
+      tablesApi: { list: async () => {
+        tableRequests++
+        return deferTables ? new Promise((resolve) => tableResponses.push(resolve)) : { tables: [] }
+      } },
     },
     '@/api/shortcut': { shortcutsApi: {
       list: async () => [],
@@ -57,6 +67,7 @@ test('shortcut job refreshes never overwrite newer requests, pushes or table ses
     '@/collab/socket': { ProjectSocket: Socket },
     '@/collab/tableSync': { TableSync: Sync },
     '@/stores/auth': { useAuthStore: () => ({}) },
+    '@/stores/projectWorkflows': { useProjectWorkflowsStore: () => ({ load: async (uid: string) => { navigationLoads.push(uid) } }) },
     '@/i18n': { i18n: { global: { locale } }, t: (key: string) => key },
     '@/utils/role': { roleAtLeast: () => true },
   }
@@ -69,6 +80,22 @@ test('shortcut job refreshes never overwrite newer requests, pushes or table ses
   const status = () => store.shortcutJob('record', 'field')?.status
 
   await store.openProject('project')
+  const beforeNavigation = tableRequests
+  emit('NAVIGATION_CHANGED')
+  await settle()
+  assert.equal(tableRequests, beforeNavigation + 1)
+  assert.deepEqual(navigationLoads, ['project'])
+
+  deferTables = true
+  emit('NAVIGATION_CHANGED')
+  emit('NAVIGATION_CHANGED')
+  tableResponses[1]!({ tables: [{ uid: 'fresh', position: 2 }] })
+  await settle()
+  tableResponses[0]!({ tables: [{ uid: 'stale', position: 0 }] })
+  await settle()
+  assert.equal(store.tables[0]?.uid, 'fresh', 'an earlier navigation fetch cannot undo a newer order')
+  deferTables = false
+
   await store.openTable('table')
   emit('PONG')
   await respond(1, job('running'))

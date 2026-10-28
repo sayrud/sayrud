@@ -47,6 +47,8 @@ type ProjectsStore interface {
 	// TransferOwner transfers the project to newOwnerID: its collaborator record is removed, and the previous owner becomes a manager if it still exists.
 	// It returns ErrProjectNotFound if the project does not exist.
 	TransferOwner(ctx context.Context, projectID, newOwnerID int64) error
+	// MoveNavigation moves a table or workflow relative to another item in the project.
+	MoveNavigation(ctx context.Context, projectID int64, uid, targetUID string, after bool) ([]NavigationPosition, error)
 }
 
 func NewProjectsStore(db *gorm.DB) ProjectsStore {

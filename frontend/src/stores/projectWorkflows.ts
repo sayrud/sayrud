@@ -9,22 +9,26 @@ export const useProjectWorkflowsStore = defineStore('projectWorkflows', () => {
   const projectUID = ref('')
   const list = ref<WorkflowListItem[]>([])
   const loading = ref(false)
+  let loadVersion = 0
 
   async function load(pid: string) {
+    const version = ++loadVersion
+    if (projectUID.value !== pid) list.value = []
+
     projectUID.value = pid
     loading.value = true
+
     try {
-      const items = await workflowsApi.list(pid)
-      if (projectUID.value === pid) list.value = items
-    } catch {
-      if (projectUID.value === pid) list.value = []
+      const items = await workflowsApi.list(pid).catch(() => null)
+      if (items && version === loadVersion && projectUID.value === pid) list.value = items
     } finally {
-      loading.value = false
+      if (version === loadVersion) loading.value = false
     }
   }
 
   function upsert(item: WorkflowListItem) {
     const i = list.value.findIndex((a) => a.uid === item.uid)
+
     if (i >= 0) list.value[i] = { ...list.value[i]!, ...item }
     else list.value.unshift(item)
   }
@@ -39,6 +43,8 @@ export const useProjectWorkflowsStore = defineStore('projectWorkflows', () => {
   }
 
   function clear() {
+    loadVersion++
+    loading.value = false
     projectUID.value = ''
     list.value = []
   }

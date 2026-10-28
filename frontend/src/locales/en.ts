@@ -827,6 +827,9 @@ const en: typeof zhCN = {
     create: 'New table',
     collapse: 'Collapse sidebar',
     resize: 'Adjust sidebar width',
+    reorder: 'Drag {name} to reorder, or use the up and down arrow keys',
+    reordered: '{name} moved to position {position} of {total}',
+    reorderFailed: 'Could not save the order. The previous order was restored. Please try again.',
   },
   import: {
     menuNewTable: 'Import Excel / CSV',

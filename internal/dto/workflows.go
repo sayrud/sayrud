@@ -13,6 +13,7 @@ type WorkflowListItem struct {
 	UID         string `json:"uid"`
 	Name        string `json:"name"`
 	Description string `json:"description"`
+	Position    int    `json:"position"`
 	// TriggerType is the trigger type of the draft, PublishedTriggerType is the trigger type of the published revision, empty if unpublished.
 	TriggerType          string `json:"triggerType" enums:",api,record_created,record_updated,record_matched,record_deleted,date_reached,schedule"`
 	PublishedTriggerType string `json:"publishedTriggerType"`
@@ -37,6 +38,7 @@ type WorkflowListItem struct {
 func ToWorkflowListItem(w *db.Workflow) *WorkflowListItem {
 	item := &WorkflowListItem{
 		UID: w.UID, Name: w.Name, Description: w.Description, PublishedTriggerType: w.TriggerType,
+		Position:        w.Position,
 		PublishedMethod: w.Method, PublishedPath: w.Path, Enabled: w.Enabled,
 		PublishedVersion: w.PublishedVersion, PublishedAt: w.PublishedAt,
 		HasUnpublishedChanges: w.PublishedRevisionID == 0 || w.PublishedDraftVersion != w.DraftVersion,

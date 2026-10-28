@@ -17,6 +17,7 @@ import { ProjectSocket } from '@/collab/socket'
 import { TableSync } from '@/collab/tableSync'
 import type { Action, Member, Operation } from '@/collab/types'
 import { useAuthStore } from '@/stores/auth'
+import { useProjectWorkflowsStore } from '@/stores/projectWorkflows'
 import type {
   CellValue,
   FieldMetadata,
@@ -145,6 +146,7 @@ export const useBaseStore = defineStore('base', () => {
   const activeSync = shallowRef<TableSync | null>(null)
   const syncs = new Map<string, TableSync>()
   let projectOffs: (() => void)[] = []
+  let tableListVersion = 0
 
   const undoStack = ref<HistoryEntry[]>([])
   const redoStack = ref<HistoryEntry[]>([])
@@ -274,14 +276,25 @@ export const useBaseStore = defineStore('base', () => {
 
     const projectUID = pid()
     const connection = socket.value
+    const version = ++tableListVersion
 
     try {
       const list = await tablesApi.list(projectUID)
 
-      if (project.value?.uid === projectUID && socket.value === connection) tableList.value = list.tables
+      if (version === tableListVersion && project.value?.uid === projectUID && socket.value === connection) tableList.value = list.tables
     } catch (e) {
-      toastError(e)
+      if (version === tableListVersion && project.value?.uid === projectUID && socket.value === connection) toastError(e)
     }
+  }
+
+  async function refreshNavigation() {
+    const projectUID = project.value?.uid
+    if (!projectUID) return
+
+    await Promise.all([
+      refreshTables(),
+      canEdit.value ? useProjectWorkflowsStore().load(projectUID) : Promise.resolve(),
+    ])
   }
 
   function closeProject() {
@@ -352,10 +365,13 @@ export const useBaseStore = defineStore('base', () => {
       s.on('open', sendPresence),
       // The job changes are not replayed after reconnecting.
       s.on('open', () => void loadShortcutJobs()),
+      // Navigation notifications are not replayed after reconnecting.
+      s.on('open', () => void refreshNavigation()),
       // Recover job notifications lost while an otherwise healthy socket stayed open.
       s.on('PONG', () => void loadShortcutJobs()),
       s.on<ShortcutJobsMessage>('SHORTCUT_JOBS', onShortcutJobs),
       s.on('TABLES_CHANGED', () => void refreshTables()),
+      s.on('NAVIGATION_CHANGED', () => void refreshNavigation()),
       s.on('PROJECT_CHANGED', async () => {
         try {
           const updated = await projectsApi.get(projectUID)
@@ -414,6 +430,7 @@ export const useBaseStore = defineStore('base', () => {
       s.on('open', () => void refreshShared()),
       s.on('close', () => void refreshShared()),
       s.on('TABLES_CHANGED', () => void refreshShared()),
+      s.on('NAVIGATION_CHANGED', () => void refreshShared()),
       s.on('PROJECT_CHANGED', () => void refreshShared()),
       s.on('SHARE_CHANGED', () => {
         if (socket.value !== s) return
@@ -1098,6 +1115,7 @@ export const useBaseStore = defineStore('base', () => {
     peerCells,
     setCellPresence,
     openProject,
+    refreshNavigation,
     openSharedProject,
     closeProject,
     renameProject,

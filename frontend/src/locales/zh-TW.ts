@@ -827,6 +827,9 @@ const zhTW: typeof zhCN = {
     create: '新增資料表',
     collapse: '收合側邊欄',
     resize: '調整側邊欄寬度',
+    reorder: '拖曳「{name}」排序，也可用上下方向鍵調整',
+    reordered: '「{name}」已移至第 {position} 項，共 {total} 項',
+    reorderFailed: '排序儲存失敗，已恢復原順序，請重試',
   },
   import: {
     menuNewTable: '匯入 Excel / CSV',

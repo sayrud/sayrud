@@ -58,6 +58,7 @@ func toWorkflow(ctx context.Context, engine *workflow.Engine, project *db.Projec
 
 // ListWorkflows
 // @Summary List workflows
+// @Description List the workflows of the project ordered by sidebar position.
 // @Produce json
 // @Param projectUID path string true "Project UID"
 // @Success 200 {array} dto.WorkflowListItem

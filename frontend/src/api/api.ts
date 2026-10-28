@@ -860,6 +860,20 @@ export interface ListWorkflowRunsResp {
   runs: WorkflowRun[];
 }
 
+export interface MoveProjectNavigation {
+  /** After places the item after the target; otherwise it is placed before it. */
+  after: boolean;
+  /** @maxLength 64 */
+  targetUID: string;
+  /** @maxLength 64 */
+  uid: string;
+}
+
+export interface NavigationPosition {
+  position: number;
+  uid: string;
+}
+
 export interface Operation {
   actions: Action[];
   command: string;
@@ -1034,6 +1048,7 @@ export interface SLRecord {
 export interface SLTable {
   createdAt: string;
   name: string;
+  position: number;
   projectUID: string;
   uid: string;
   updatedAt: string;
@@ -1568,6 +1583,7 @@ export interface Workflow {
   method: string;
   name: string;
   path: string;
+  position: number;
   publishedAt: string;
   /** PublishedMethod and PublishedPath are the API entry being served, empty if unpublished or for other triggers. */
   publishedMethod: string;
@@ -1722,6 +1738,7 @@ export interface WorkflowListItem {
   method: string;
   name: string;
   path: string;
+  position: number;
   publishedAt: string;
   /** PublishedMethod and PublishedPath are the API entry being served, empty if unpublished or for other triggers. */
   publishedMethod: string;
@@ -2221,6 +2238,8 @@ export type LookupProjectMemberCandidateData = UserBrief;
 export type UpdateProjectMemberData = any;
 
 export type RemoveProjectMemberData = any;
+
+export type MoveProjectNavigationData = NavigationPosition[];
 
 export type TransferProjectOwnerData = any;
 
@@ -4095,6 +4114,27 @@ export class Api<
       }),
 
     /**
+     * @description Moves a table or workflow before or after another item, using the latest order. Requires the editor role.
+     *
+     * @name MoveProjectNavigation
+     * @summary Move a project sidebar item
+     * @request PUT:/projects/{projectUID}/navigation/move
+     */
+    moveProjectNavigation: (
+      projectUid: string,
+      data: MoveProjectNavigation,
+      params: RequestParams = {},
+    ) =>
+      this.request<MoveProjectNavigationData, string>({
+        path: `/projects/${projectUid}/navigation/move`,
+        method: "PUT",
+        body: data,
+        type: ContentType.Json,
+        format: "json",
+        ...params,
+      }),
+
+    /**
      * @description Only the owner can transfer it to an existing collaborator, the previous owner becomes a manager.
      *
      * @name TransferProjectOwner
@@ -4115,7 +4155,7 @@ export class Api<
       }),
 
     /**
-     * @description List the tables of the project.
+     * @description List the tables of the project ordered by sidebar position.
      *
      * @name ListTables
      * @summary List tables
@@ -4741,7 +4781,7 @@ export class Api<
       }),
 
     /**
-     * No description
+     * @description List the workflows of the project ordered by sidebar position.
      *
      * @name ListWorkflows
      * @summary List workflows

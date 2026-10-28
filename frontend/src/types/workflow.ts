@@ -289,6 +289,7 @@ export interface WorkflowIssue {
 export interface WorkflowListItem {
   uid: string
   name: string
+  position: number
   description: string
   triggerType: TriggerType | ''
   publishedTriggerType: string

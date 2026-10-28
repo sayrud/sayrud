@@ -24,7 +24,7 @@ var Workflows WorkflowsStore
 
 // WorkflowsStore is the persistent interface for project workflows.
 type WorkflowsStore interface {
-	// List returns the workflows of the project, the newest first.
+	// List returns the workflows of the project ordered by position.
 	List(ctx context.Context, projectID int64) ([]*Workflow, error)
 	// GetByUID returns the workflow with the given UID, it returns ErrWorkflowNotFound if it does not exist.
 	GetByUID(ctx context.Context, workflowUID string) (*Workflow, error)
@@ -65,9 +65,13 @@ type Workflow struct {
 	// UID is the public identifier of the workflow, "wfl" followed by 13 random characters.
 	UID string `gorm:"uniqueIndex:idx_workflows_uid, where:deleted_at IS NULL"`
 	// ProjectID is the project the workflow belongs to.
-	ProjectID int64 `gorm:"not null;uniqueIndex:idx_workflows_route, where:deleted_at IS NULL AND path <> ''"`
+	ProjectID int64 `gorm:"not null;uniqueIndex:idx_workflows_route, where:deleted_at IS NULL AND path <> '';index:idx_workflows_project_position,priority:1"`
 	// Name is the display name of the workflow.
 	Name string `gorm:"not null;default:''"`
+
+	// Position is the sidebar order shared by tables and workflows in the project.
+	Position int `gorm:"not null;default:0;index:idx_workflows_project_position,priority:2"`
+
 	// Description is the optional description.
 	Description string `gorm:"not null;default:''"`
 
@@ -121,7 +125,7 @@ var (
 
 func (db *workflows) List(ctx context.Context, projectID int64) ([]*Workflow, error) {
 	var list []*Workflow
-	if err := db.WithContext(ctx).Where("project_id = ?", projectID).Order("id DESC").Find(&list).Error; err != nil {
+	if err := db.WithContext(ctx).Where("project_id = ?", projectID).Order("position ASC, id DESC").Find(&list).Error; err != nil {
 		return nil, errors.Wrap(err, "find")
 	}
 	return list, nil
@@ -195,9 +199,19 @@ func (db *workflows) Create(ctx context.Context, opts CreateWorkflowOptions) (*W
 		CreatedBy:    opts.UserID,
 		UpdatedBy:    opts.UserID,
 	}
-	if err := db.WithContext(ctx).Create(w).Error; err != nil {
+
+	if err := db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		position, err := nextProjectNavigationPosition(ctx, tx, opts.ProjectID)
+		if err != nil {
+			return err
+		}
+
+		w.Position = position
+		return tx.Create(w).Error
+	}); err != nil {
 		return nil, errors.Wrap(err, "create")
 	}
+
 	return w, nil
 }
 

@@ -202,6 +202,7 @@ func New(opts Options) *flamego.Flame {
 					Put(canEdit, form.Bind(form.UpdateProject{}), api.Project.UpdateProject).
 					Delete(isOwner, api.Project.DeleteProject)
 				f.Put("/owner", isOwner, form.Bind(form.TransferProjectOwner{}), api.Project.TransferOwner)
+				f.Put("/navigation/move", canEdit, form.Bind(form.MoveProjectNavigation{}), api.Project.MoveNavigation)
 
 				f.Group("/members", func() {
 					f.Combo("").

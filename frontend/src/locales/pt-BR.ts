@@ -827,6 +827,9 @@ const ptBR: typeof zhCN = {
     create: 'Nova tabela',
     collapse: 'Recolher barra lateral',
     resize: 'Ajustar largura da barra lateral',
+    reorder: 'Arraste {name} ou use as setas para cima e para baixo para reordenar',
+    reordered: '{name} movido para a posição {position} de {total}',
+    reorderFailed: 'Não foi possível salvar a ordem. A ordem anterior foi restaurada. Tente novamente.',
   },
   import: {
     menuNewTable: 'Importar Excel / CSV',

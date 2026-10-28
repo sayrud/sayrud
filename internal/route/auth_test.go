@@ -21,6 +21,7 @@ func TestAPIRequiresSignIn(t *testing.T) {
 		{http.MethodDelete, "/_/auth/avatar"},
 		{http.MethodGet, "/_/projects"},
 		{http.MethodPost, "/_/projects"},
+		{http.MethodPut, "/_/projects/prjabc/navigation/move"},
 		{http.MethodGet, "/_/projects/prjabc/tables"},
 		{http.MethodGet, "/_/projects/prjabc/members"},
 		{http.MethodGet, "/_/projects/prjabc/credentials"},

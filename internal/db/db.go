@@ -69,6 +69,10 @@ func Init() (*gorm.DB, error) {
 			return errors.Wrap(err, "migrate field shortcuts")
 		}
 
+		if err := initializeProjectNavigationPositions(tx); err != nil {
+			return errors.Wrap(err, "initialize project navigation positions")
+		}
+
 		return tx.AutoMigrate(tables...)
 	}); err != nil {
 		return nil, errors.Wrap(err, "auto migrate")

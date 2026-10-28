@@ -4154,6 +4154,72 @@ const docTemplate = `{
                 }
             }
         },
+        "/projects/{projectUID}/navigation/move": {
+            "put": {
+                "description": "Moves a table or workflow before or after another item, using the latest order. Requires the editor role.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "Move a project sidebar item",
+                "operationId": "moveProjectNavigation",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Project UID",
+                        "name": "projectUID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Item and target",
+                        "name": "data",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/MoveProjectNavigation"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/NavigationPosition"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request body or item outside the project",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "403": {
+                        "description": "Permission denied",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "404": {
+                        "description": "Project not found",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
         "/projects/{projectUID}/owner": {
             "put": {
                 "description": "Only the owner can transfer it to an existing collaborator, the previous owner becomes a manager.",
@@ -4213,7 +4279,7 @@ const docTemplate = `{
         },
         "/projects/{projectUID}/tables": {
             "get": {
-                "description": "List the tables of the project.",
+                "description": "List the tables of the project ordered by sidebar position.",
                 "produces": [
                     "application/json"
                 ],
@@ -6038,6 +6104,7 @@ const docTemplate = `{
         },
         "/projects/{projectUID}/workflows": {
             "get": {
+                "description": "List the workflows of the project ordered by sidebar position.",
                 "produces": [
                     "application/json"
                 ],
@@ -9910,6 +9977,43 @@ const docTemplate = `{
                 }
             }
         },
+        "MoveProjectNavigation": {
+            "type": "object",
+            "required": [
+                "after",
+                "targetUID",
+                "uid"
+            ],
+            "properties": {
+                "after": {
+                    "description": "After places the item after the target; otherwise it is placed before it.",
+                    "type": "boolean"
+                },
+                "targetUID": {
+                    "type": "string",
+                    "maxLength": 64
+                },
+                "uid": {
+                    "type": "string",
+                    "maxLength": 64
+                }
+            }
+        },
+        "NavigationPosition": {
+            "type": "object",
+            "required": [
+                "position",
+                "uid"
+            ],
+            "properties": {
+                "position": {
+                    "type": "integer"
+                },
+                "uid": {
+                    "type": "string"
+                }
+            }
+        },
         "Operation": {
             "type": "object",
             "required": [
@@ -10442,6 +10546,7 @@ const docTemplate = `{
             "required": [
                 "createdAt",
                 "name",
+                "position",
                 "projectUID",
                 "uid",
                 "updatedAt"
@@ -10452,6 +10557,9 @@ const docTemplate = `{
                 },
                 "name": {
                     "type": "string"
+                },
+                "position": {
+                    "type": "integer"
                 },
                 "projectUID": {
                     "type": "string"
@@ -11945,6 +12053,7 @@ const docTemplate = `{
                 "method",
                 "name",
                 "path",
+                "position",
                 "publishedAt",
                 "publishedMethod",
                 "publishedPath",
@@ -11994,6 +12103,9 @@ const docTemplate = `{
                 },
                 "path": {
                     "type": "string"
+                },
+                "position": {
+                    "type": "integer"
                 },
                 "publishedAt": {
                     "type": "string"
@@ -12427,6 +12539,7 @@ const docTemplate = `{
                 "method",
                 "name",
                 "path",
+                "position",
                 "publishedAt",
                 "publishedMethod",
                 "publishedPath",
@@ -12463,6 +12576,9 @@ const docTemplate = `{
                 },
                 "path": {
                     "type": "string"
+                },
+                "position": {
+                    "type": "integer"
                 },
                 "publishedAt": {
                     "type": "string"

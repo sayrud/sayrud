@@ -10,9 +10,11 @@ import (
 
 func TestSharePersistenceAndAttachmentScope(t *testing.T) {
 	ctx := context.Background()
-	database := newTestDB(t, &SLTable{}, &SLField{}, &SLRecord{})
+	database := newTestDB(t, &Project{}, &SLTable{}, &SLField{}, &SLRecord{}, &Workflow{})
+	project, err := NewProjectsStore(database).Create(ctx, CreateProjectOptions{Name: "Shared"})
+	require.NoError(t, err)
 	tables, records := NewSLTablesStore(database), NewSLRecordsStore(database)
-	table, err := tables.Create(ctx, 1, CreateSLTableOptions{Name: "Shared"})
+	table, err := tables.Create(ctx, project.ID, CreateSLTableOptions{Name: "Shared"})
 	require.NoError(t, err)
 
 	token, hash, sealed, enabled, children := "random-token", "hashed-password", "encrypted-password", true, true

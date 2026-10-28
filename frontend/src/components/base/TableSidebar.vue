@@ -1,16 +1,18 @@
 <script setup lang="ts">
 import { Message, Modal } from '@arco-design/web-vue'
-import { ChevronsLeft, Copy, Ellipsis, FileUp, Link, Pencil, Plus, Search, Table2, Trash, Workflow as WorkflowIcon, X } from '@lucide/vue'
-import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
+import { ChevronsLeft, Copy, Ellipsis, FileUp, Link, LoaderCircle, Pencil, Plus, Search, Table2, Trash, Workflow as WorkflowIcon, X } from '@lucide/vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import { apiEndpoint, workflowsApi } from '@/api/workflow'
+import { projectsApi } from '@/api/bitable'
 import { openMenu } from '@/composables/useContextMenu'
 import { useBaseStore } from '@/stores/base'
 import { useProjectWorkflowsStore } from '@/stores/projectWorkflows'
 import { browserTimezone } from '@/stores/workflowEditor'
 import type { Workflow, WorkflowListItem } from '@/types/workflow'
 import { METHOD_COLORS, triggerMetaOf } from '@/utils/workflow'
+import { moveSidebarItem, orderSidebarItems } from '@/utils/sidebarOrder'
 import AppearanceIcon from '@/components/common/AppearanceIcon.vue'
 import ImportDialog from './ImportDialog.vue'
 
@@ -65,6 +67,7 @@ onMounted(() => {
 })
 onBeforeUnmount(() => {
   stopResize()
+  endDrag()
   sizeObserver?.disconnect()
 })
 
@@ -81,14 +84,172 @@ function openImport(tableUID = '') {
   importVisible.value = true
 }
 
-const tables = computed(() => {
+interface SidebarItem { uid: string; name: string; position: number; workflow?: WorkflowListItem }
+
+const listElement = ref<HTMLElement>()
+const pendingOrder = ref<{ projectUID: string; uids: string[]; movedUID: string } | null>(null)
+const savingOrder = computed(() => !!pendingOrder.value && pendingOrder.value.projectUID === store.project?.uid)
+const canReorder = computed(() => store.canEdit && !savingOrder.value && !renaming.value)
+
+const allItems = computed(() => orderSidebarItems<SidebarItem>([
+  ...store.tables.map((table) => ({ uid: table.uid, name: table.name, position: table.position })),
+  ...workflows.list.map((workflow) => ({ uid: workflow.uid, name: workflow.name, position: workflow.position, workflow })),
+], savingOrder.value ? pendingOrder.value!.uids : undefined))
+
+const items = computed(() => {
   const k = keyword.value.trim().toLowerCase()
-  return k ? store.tables.filter((tb) => tb.name.toLowerCase().includes(k)) : store.tables
+  return k ? allItems.value.filter((item) => `${item.name} ${item.workflow?.path ?? ''}`.toLowerCase().includes(k)) : allItems.value
 })
-const workflowItems = computed(() => {
-  const k = keyword.value.trim().toLowerCase()
-  return k ? workflows.list.filter((w) => `${w.name} ${w.path}`.toLowerCase().includes(k)) : workflows.list
-})
+
+const draggingUID = ref('')
+const dropTarget = ref<{ uid: string; after: boolean } | null>(null)
+const announcement = ref('')
+let dragBlocked = false
+let scrollFrame = 0
+let scrollSpeed = 0
+let dragY = 0
+
+function stopDragScroll() {
+  cancelAnimationFrame(scrollFrame)
+  scrollFrame = scrollSpeed = 0
+}
+
+function endDrag() {
+  draggingUID.value = ''
+  dropTarget.value = null
+  stopDragScroll()
+}
+
+watch([() => store.project?.uid, () => store.canEdit, keyword, renaming], endDrag)
+
+function blockInteractiveDrag(e: PointerEvent) {
+  dragBlocked = !!(e.target as HTMLElement).closest('input, .more')
+}
+
+function startDrag(e: DragEvent, uid: string) {
+  if (!canReorder.value || dragBlocked || !e.dataTransfer) {
+    e.preventDefault()
+    return
+  }
+
+  draggingUID.value = uid
+  e.dataTransfer.effectAllowed = 'move'
+  e.dataTransfer.setData('text/plain', uid)
+}
+
+function updateDropTarget() {
+  const rows = listElement.value?.querySelectorAll<HTMLElement>('[data-sidebar-uid]')
+  if (!rows?.length) return
+
+  const row = [...rows].find((row) => dragY < row.getBoundingClientRect().bottom) ?? rows[rows.length - 1]!
+  const uid = row.dataset.sidebarUid!
+  const bounds = row.getBoundingClientRect()
+  dropTarget.value = uid === draggingUID.value ? null : { uid, after: dragY >= bounds.top + bounds.height / 2 }
+}
+
+function scrollWhileDragging() {
+  const list = listElement.value
+  if (!list || !draggingUID.value || !scrollSpeed) {
+    scrollFrame = 0
+    return
+  }
+
+  list.scrollTop += scrollSpeed
+  updateDropTarget()
+  scrollFrame = requestAnimationFrame(scrollWhileDragging)
+}
+
+function dragOver(e: DragEvent) {
+  if (!draggingUID.value || !canReorder.value) return
+
+  e.preventDefault()
+  if (e.dataTransfer) e.dataTransfer.dropEffect = 'move'
+
+  dragY = e.clientY
+  updateDropTarget()
+
+  const bounds = listElement.value!.getBoundingClientRect()
+  scrollSpeed = dragY < bounds.top + 28 ? -8 : dragY > bounds.bottom - 28 ? 8 : 0
+  if (scrollSpeed && !scrollFrame) scrollFrame = requestAnimationFrame(scrollWhileDragging)
+}
+
+function leaveList(e: DragEvent) {
+  if (e.relatedTarget instanceof Node && listElement.value?.contains(e.relatedTarget)) return
+
+  dropTarget.value = null
+  stopDragScroll()
+}
+
+async function saveOrder(uid: string, target: string, after: boolean) {
+  const projectUID = store.project?.uid
+  if (!projectUID || !canReorder.value) return
+
+  const current = allItems.value.map((item) => item.uid)
+  const uids = moveSidebarItem(current, uid, target, after)
+  if (uids.every((value, i) => value === current[i])) return
+
+  const name = allItems.value.find((item) => item.uid === uid)!.name
+  pendingOrder.value = { projectUID, uids, movedUID: uid }
+
+  try {
+    const positions = await projectsApi.moveNavigation(projectUID, uid, target, after)
+    if (store.project?.uid !== projectUID) return
+
+    const byUID = new Map(positions.map((item) => [item.uid, item.position]))
+    for (const item of [...store.tables, ...workflows.list]) {
+      const position = byUID.get(item.uid)
+      if (position !== undefined) item.position = position
+    }
+
+    await store.refreshNavigation()
+    if (store.project?.uid !== projectUID) return
+
+    const latest = orderSidebarItems([...store.tables, ...workflows.list])
+    const index = latest.findIndex((item) => item.uid === uid)
+    if (index >= 0) announcement.value = t('tableSidebar.reordered', { name, position: index + 1, total: latest.length })
+  } catch {
+    if (store.project?.uid === projectUID) Message.error(t('tableSidebar.reorderFailed'))
+  } finally {
+    if (pendingOrder.value?.projectUID === projectUID) pendingOrder.value = null
+  }
+}
+
+function drop(e: DragEvent) {
+  if (!draggingUID.value) return
+
+  e.preventDefault()
+  dragY = e.clientY
+  updateDropTarget()
+  const uid = draggingUID.value
+  const target = dropTarget.value
+
+  endDrag()
+
+  if (target) void saveOrder(uid, target.uid, target.after)
+}
+
+function moveWithKey(uid: string, offset: number, e?: KeyboardEvent) {
+  const index = items.value.findIndex((item) => item.uid === uid)
+  const target = items.value[index + offset]
+  if (!target || !canReorder.value) return
+
+  const handle = e?.currentTarget as HTMLElement | undefined
+  void saveOrder(uid, target.uid, offset > 0)
+
+  if (handle) void nextTick(() => handle.focus())
+}
+
+function selectItem(item: SidebarItem) {
+  if (draggingUID.value) return
+
+  if (item.workflow) emit('selectWorkflow', item.uid)
+  else emit('select', item.uid)
+}
+
+function openItemActions(e: MouseEvent, item: SidebarItem) {
+  if (item.workflow) openWorkflowActions(e, item.workflow)
+  else openActions(e, item.uid, item.name)
+}
 
 /** Create a blank workflow right away and open its canvas; the trigger type is chosen in the canvas. */
 async function createWorkflow() {
@@ -272,19 +433,55 @@ function openActions(e: MouseEvent, uid: string, name: string) {
         <button class="icon-btn" @click="emit('collapse')"><ChevronsLeft :size="17" /></button>
       </a-tooltip>
     </div>
-    <div class="table-list">
+    <div
+      ref="listElement"
+      class="table-list"
+      :class="{ reordering: draggingUID }"
+      :aria-busy="savingOrder"
+      @dragenter="dragOver"
+      @dragover="dragOver"
+      @dragleave="leaveList"
+      @drop="drop"
+    >
       <div
-        v-for="table in tables"
-        :key="table.uid"
+        v-for="item in items"
+        :key="item.uid"
         class="table-item"
-        :class="{ active: !activeWorkflowUid && !credentialsActive && table.uid === store.activeTableUID }"
-        @click="emit('select', table.uid)"
-        @dblclick="startRename(table.uid, table.name)"
-        @contextmenu="openActions($event, table.uid, table.name)"
+        :class="{
+          active: item.workflow ? item.uid === activeWorkflowUid : !activeWorkflowUid && !credentialsActive && item.uid === store.activeTableUID,
+          'workflow-item': !!item.workflow,
+          'is-dragging': draggingUID === item.uid,
+          'drop-before': dropTarget?.uid === item.uid && !dropTarget.after,
+          'drop-after': dropTarget?.uid === item.uid && dropTarget.after,
+        }"
+        :data-sidebar-uid="item.uid"
+        :draggable="canReorder"
+        @pointerdown="blockInteractiveDrag"
+        @dragstart="startDrag($event, item.uid)"
+        @dragend="endDrag"
+        @click="selectItem(item)"
+        @dblclick="!item.workflow && startRename(item.uid, item.name)"
+        @contextmenu.prevent="openItemActions($event, item)"
       >
-        <AppearanceIcon :size="22" class="table-icon" />
+        <span class="item-leading" :class="{ saving: savingOrder && pendingOrder?.movedUID === item.uid }">
+          <WorkflowIcon v-if="item.workflow" :size="15" class="workflow-icon item-icon" />
+          <AppearanceIcon v-else :size="22" class="table-icon item-icon" />
+          <button
+            v-if="store.canEdit && renaming !== item.uid"
+            class="reorder-handle"
+            :aria-disabled="savingOrder"
+            :aria-label="t('tableSidebar.reorder', { name: item.name })"
+            :title="t('tableSidebar.reorder', { name: item.name })"
+            @click.stop
+            @dblclick.stop
+            @keydown.up.prevent.stop="moveWithKey(item.uid, -1, $event)"
+            @keydown.down.prevent.stop="moveWithKey(item.uid, 1, $event)"
+          >
+            <LoaderCircle v-if="savingOrder && pendingOrder?.movedUID === item.uid" :size="14" class="order-spinner" />
+          </button>
+        </span>
         <input
-          v-if="renaming === table.uid"
+          v-if="renaming === item.uid"
           v-model="renameText"
           v-focus
           class="rename-input"
@@ -294,37 +491,24 @@ function openActions(e: MouseEvent, uid: string, name: string) {
           @blur="confirmRename"
         />
         <template v-else>
-          <span class="table-name ellipsis">{{ table.name }}</span>
-          <button v-if="store.canEdit" class="icon-btn sm more" @click.stop="openActions($event, table.uid, table.name)">
+          <span class="table-name ellipsis">{{ item.name }}</span>
+          <span v-if="item.workflow?.triggerType === 'api'" class="workflow-badge method" :class="[METHOD_COLORS[item.workflow.method], { muted: !item.workflow.publishedVersion || !item.workflow.enabled }]">{{ item.workflow.method }}</span>
+          <span
+            v-else-if="item.workflow?.triggerType"
+            class="workflow-badge"
+            :class="{ muted: !item.workflow.publishedVersion || !item.workflow.enabled }"
+            :style="{ color: triggerMetaOf(item.workflow.triggerType).color }"
+            :title="triggerMetaOf(item.workflow.triggerType).label"
+          >
+            <component :is="triggerMetaOf(item.workflow.triggerType).icon" :size="13" />
+          </span>
+          <button v-if="store.canEdit" class="icon-btn sm more" @click.stop="openItemActions($event, item)">
             <Ellipsis :size="14" />
           </button>
         </template>
       </div>
-      <div
-        v-for="wf in workflowItems"
-        :key="wf.uid"
-        class="table-item workflow-item"
-        :class="{ active: wf.uid === activeWorkflowUid }"
-        @click="emit('selectWorkflow', wf.uid)"
-        @contextmenu.prevent="openWorkflowActions($event, wf)"
-      >
-        <span class="workflow-icon"><WorkflowIcon :size="15" /></span>
-        <span class="table-name ellipsis">{{ wf.name }}</span>
-        <span v-if="wf.triggerType === 'api'" class="workflow-badge method" :class="[METHOD_COLORS[wf.method], { muted: !wf.publishedVersion || !wf.enabled }]">{{ wf.method }}</span>
-        <span
-          v-else-if="wf.triggerType"
-          class="workflow-badge"
-          :class="{ muted: !wf.publishedVersion || !wf.enabled }"
-          :style="{ color: triggerMetaOf(wf.triggerType).color }"
-          :title="triggerMetaOf(wf.triggerType).label"
-        >
-          <component :is="triggerMetaOf(wf.triggerType).icon" :size="13" />
-        </span>
-        <button class="icon-btn sm more" @click.stop="openWorkflowActions($event, wf)">
-          <Ellipsis :size="14" />
-        </button>
-      </div>
     </div>
+    <span class="sr-only" role="status" aria-live="polite">{{ announcement }}</span>
     <div
       class="sidebar-resize-handle"
       role="separator"
@@ -416,9 +600,10 @@ function openActions(e: MouseEvent, uid: string, name: string) {
 .table-list {
   flex: 1;
   overflow: auto;
-  padding: 0 8px 12px;
+  padding: 2px 8px 12px;
 }
 .table-item {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -428,6 +613,84 @@ function openActions(e: MouseEvent, uid: string, name: string) {
   border-radius: 6px;
   cursor: pointer;
   color: var(--text-title);
+}
+.table-item[draggable="true"] {
+  -webkit-user-drag: element;
+}
+.table-item.is-dragging {
+  opacity: 0.4;
+}
+.table-item.drop-before::before,
+.table-item.drop-after::after {
+  content: '';
+  position: absolute;
+  left: 10px;
+  right: 6px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--color-primary);
+  box-shadow: 0 0 0 1px var(--bg-sidebar);
+  pointer-events: none;
+  z-index: 1;
+}
+.table-item.drop-before::before { top: -2px; }
+.table-item.drop-after::after { bottom: -2px; }
+.item-leading {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 24px;
+  flex: none;
+}
+.reorder-handle {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-caption);
+  opacity: 0;
+  cursor: grab;
+}
+.reorder-handle:focus-visible,
+.item-leading.saving .reorder-handle {
+  opacity: 1;
+}
+.item-leading.saving .item-icon {
+  visibility: hidden;
+}
+.reorder-handle:focus-visible {
+  color: var(--color-primary);
+  outline: 2px solid var(--color-primary);
+  outline-offset: 1px;
+}
+.reorder-handle:active,
+.reordering,
+.reordering .table-item {
+  cursor: grabbing;
+}
+.reorder-handle[aria-disabled="true"] {
+  cursor: wait;
+  color: var(--text-placeholder);
+}
+.order-spinner { animation: order-spin 0.8s linear infinite; }
+@keyframes order-spin { to { transform: rotate(360deg); } }
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+@media (prefers-reduced-motion: reduce) {
+  .order-spinner { animation: none; }
 }
 .table-item:hover {
   background: var(--fill-hover);
@@ -448,15 +711,14 @@ function openActions(e: MouseEvent, uid: string, name: string) {
 .more {
   display: none;
 }
-.table-item:hover .more {
+.table-item:hover .more,
+.table-item:focus-within .more {
   display: inline-flex;
 }
 .workflow-icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 22px;
-  height: 22px;
   opacity: 0.8;
   flex: none;
 }

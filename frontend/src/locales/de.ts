@@ -827,6 +827,9 @@ const de: typeof zhCN = {
     create: 'Neue Tabelle',
     collapse: 'Seitenleiste einklappen',
     resize: 'Breite der Seitenleiste anpassen',
+    reorder: '{name} ziehen oder mit den Pfeiltasten nach oben und unten verschieben',
+    reordered: '{name} auf Position {position} von {total} verschoben',
+    reorderFailed: 'Die Reihenfolge konnte nicht gespeichert werden. Die vorherige wurde wiederhergestellt. Bitte erneut versuchen.',
   },
   import: {
     menuNewTable: 'Excel / CSV importieren',

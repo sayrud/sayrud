@@ -34,6 +34,7 @@ export interface SLTable {
   uid: string
   projectUID: string
   name: string
+  position: number
   createdAt: string
   updatedAt: string
 }

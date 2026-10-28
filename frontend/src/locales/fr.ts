@@ -827,6 +827,9 @@ const fr: typeof zhCN = {
     create: 'Nouvelle table',
     collapse: 'Réduire la barre latérale',
     resize: 'Ajuster la largeur de la barre latérale',
+    reorder: 'Faites glisser {name} ou utilisez les flèches haut et bas pour réorganiser',
+    reordered: '{name} déplacé à la position {position} sur {total}',
+    reorderFailed: 'Impossible de sauvegarder l’ordre. L’ordre précédent a été rétabli. Réessayez.',
   },
   import: {
     menuNewTable: 'Importer Excel / CSV',

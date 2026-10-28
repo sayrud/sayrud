@@ -9,7 +9,7 @@ import (
 )
 
 func TestOptionReference(t *testing.T) {
-	tx := newTestDB(t, &Project{}, &SLTable{}, &SLField{}, &SLRecord{})
+	tx := newTestDB(t, &Project{}, &SLTable{}, &SLField{}, &SLRecord{}, &Workflow{})
 	ctx := context.Background()
 	project := &Project{Name: "References"}
 	require.NoError(t, tx.Create(project).Error)

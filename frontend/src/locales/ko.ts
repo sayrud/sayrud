@@ -827,6 +827,9 @@ const ko: typeof zhCN = {
     create: '새 테이블',
     collapse: '사이드바 접기',
     resize: '사이드바 너비 조절',
+    reorder: '{name}을(를) 드래그하거나 위아래 방향키로 순서 변경',
+    reordered: '{name}이(가) 전체 {total}개 중 {position}번째로 이동했습니다',
+    reorderFailed: '순서를 저장하지 못해 이전 순서로 복원했습니다. 다시 시도해 주세요.',
   },
   import: {
     menuNewTable: 'Excel / CSV 가져오기',

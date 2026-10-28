@@ -17,7 +17,7 @@ var SLTables SLTablesStore
 
 // SLTablesStore is the persistent interface for schemaless tables.
 type SLTablesStore interface {
-	// Query returns the paginated tables of the project in creation order, along with the total count of the project tables.
+	// Query returns the paginated tables ordered by position, along with the total count of the project tables.
 	Query(ctx context.Context, options QuerySLTableOptions) ([]*SLTable, int64, error)
 	// GetByID returns the table with the given ID.
 	// It returns ErrSLTableNotFound if the table does not exist.
@@ -57,9 +57,12 @@ type SLTable struct {
 	// UID is the unique public identifier of the table, e.g. "tbl" followed by 13 random characters.
 	UID string `gorm:"uniqueIndex:idx_sl_table_uid, where:deleted_at IS NULL"`
 	// ProjectID is the ID of the project the table belongs to.
-	ProjectID int64 `gorm:"index"`
+	ProjectID int64 `gorm:"index;index:idx_sl_tables_project_position,priority:1"`
 	// Name is the display name of the table.
 	Name string
+
+	// Position is the sidebar order shared by tables and workflows in the project.
+	Position int `gorm:"not null;default:0;index:idx_sl_tables_project_position,priority:2"`
 
 	// Rev is the revision of the table data, it increases by one for each changeset.
 	Rev int64 `gorm:"not null;default:0"`
@@ -103,7 +106,7 @@ func (db *slTables) Query(ctx context.Context, options QuerySLTableOptions) ([]*
 
 	limit, offset := options.LimitOffset()
 	var slTables []*SLTable
-	if err := q.Order("id ASC").Limit(limit).Offset(offset).Find(&slTables).Error; err != nil {
+	if err := q.Order("position ASC, id ASC").Limit(limit).Offset(offset).Find(&slTables).Error; err != nil {
 		return nil, 0, errors.Wrap(err, "find")
 	}
 	return slTables, count, nil
@@ -151,12 +154,23 @@ func (db *slTables) Create(ctx context.Context, projectID int64, options CreateS
 		ProjectID: projectID,
 		Name:      options.Name,
 	}
-	if err := db.WithContext(ctx).Create(slTable).Error; err != nil {
+
+	if err := db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		position, err := nextProjectNavigationPosition(ctx, tx, projectID)
+		if err != nil {
+			return err
+		}
+
+		slTable.Position = position
+		return tx.Create(slTable).Error
+	}); err != nil {
 		if dbutil.IsUniqueViolation(err, "idx_sl_table_uid") {
 			return nil, ErrSLTableExists
 		}
+
 		return nil, err
 	}
+
 	return slTable, nil
 }
 

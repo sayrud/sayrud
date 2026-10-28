@@ -57,6 +57,8 @@ export const projectsApi = {
   update: async (projectUID: string, patch: string | Partial<Pick<Project, 'name' | 'icon' | 'color'>>) => {
     await client.projects.updateProject(projectUID, typeof patch === 'string' ? { name: patch } : patch)
   },
+  moveNavigation: async (projectUID: string, uid: string, targetUID: string, after: boolean) =>
+    (await client.projects.moveProjectNavigation(projectUID, { uid, targetUID, after })).data,
   delete: async (projectUID: string) => {
     await client.projects.deleteProject(projectUID)
   },

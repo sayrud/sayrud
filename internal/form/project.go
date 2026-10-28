@@ -17,6 +17,14 @@ type UpdateProject struct {
 	Color *string `json:"color,omitempty"`
 } // @name UpdateProject
 
+type MoveProjectNavigation struct {
+	UID       string `json:"uid" maxLength:"64"`
+	TargetUID string `json:"targetUID" maxLength:"64"`
+
+	// After places the item after the target; otherwise it is placed before it.
+	After bool `json:"after"`
+} // @name MoveProjectNavigation
+
 type AddProjectMember struct {
 	Email string `json:"email" valid:"required"`
 	Role  string `json:"role" valid:"required" enums:"manager,editor,viewer"`

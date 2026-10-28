@@ -827,6 +827,9 @@ const ja: typeof zhCN = {
     create: 'テーブルを作成',
     collapse: 'サイドバーを折りたたむ',
     resize: 'サイドバーの幅を調整',
+    reorder: '{name} をドラッグ、または上下矢印キーで並べ替え',
+    reordered: '{name} を {total} 件中 {position} 番目に移動しました',
+    reorderFailed: '順序を保存できませんでした。元の順序に戻しました。もう一度お試しください。',
   },
   import: {
     menuNewTable: 'Excel / CSV をインポート',

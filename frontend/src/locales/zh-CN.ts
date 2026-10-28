@@ -825,6 +825,9 @@ export default {
     create: '新建数据表',
     collapse: '收起侧边栏',
     resize: '调整侧边栏宽度',
+    reorder: '拖动「{name}」排序，也可用上下方向键调整',
+    reordered: '「{name}」已移至第 {position} 项，共 {total} 项',
+    reorderFailed: '排序保存失败，已恢复原顺序，请重试',
   },
   import: {
     menuNewTable: '导入 Excel / CSV',

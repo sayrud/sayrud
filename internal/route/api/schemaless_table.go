@@ -45,7 +45,7 @@ func (schemalessRoute) Tabler(ctx context.Context, project *db.Project) error {
 
 // ListTables
 // @Summary List tables
-// @Description List the tables of the project.
+// @Description List the tables of the project ordered by sidebar position.
 // @Produce json
 // @Param projectUID path string true "Project UID"
 // @Param page query int false "Page number, starting from 1"
