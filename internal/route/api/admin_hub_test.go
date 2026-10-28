@@ -213,6 +213,99 @@ func (s *hubPluginsStore) List(stdcontext.Context) ([]*db.WorkflowPlugin, error)
 	return s.list, nil
 }
 
+func (s *hubPluginsStore) GetByPluginID(_ stdcontext.Context, id string) (*db.WorkflowPlugin, error) {
+	for _, p := range s.list {
+		if p.PluginID == id {
+			return p, nil
+		}
+	}
+	return nil, db.ErrWorkflowPluginNotFound
+}
+
+func TestHubInspectCompatibleVersion(t *testing.T) {
+	previousStore, previousVersion := db.WorkflowPlugins, appconst.BuildVersion
+	t.Cleanup(func() { db.WorkflowPlugins, appconst.BuildVersion = previousStore, previousVersion })
+	db.WorkflowPlugins = &hubPluginsStore{}
+	appconst.BuildVersion = "v1.0.0"
+	const source = `export const manifest = {id: "greet", name: "Greet", version: "1.1.0", resultType: "text"}; export function execute() {return "hello"}`
+
+	for _, kind := range []string{hub.KindWorkflowPlugin, hub.KindFieldShortcut} {
+		t.Run(kind, func(t *testing.T) {
+			key := newHubKey(t)
+			prefix := "/open/v1/packages/" + strings.ReplaceAll(kind, "_", "-") + "/greet/versions/"
+			var server *httptest.Server
+			server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				version := strings.TrimSuffix(strings.TrimPrefix(r.URL.Path, prefix), "/source.js")
+				if version == "latest" {
+					version = "2.0.0"
+				}
+				if version != "1.1.0" && version != "2.0.0" {
+					w.WriteHeader(http.StatusNotFound)
+					return
+				}
+				code := strings.Replace(source, "1.1.0", version, 1)
+				if strings.HasSuffix(r.URL.Path, "/source.js") {
+					_, _ = w.Write([]byte(code))
+					return
+				}
+				minimum := "1.0.0"
+				if version == "2.0.0" {
+					minimum = "2.0.0"
+				}
+				w.Header().Set("Content-Type", "application/json")
+				_ = json.NewEncoder(w).Encode(map[string]interface{}{"data": map[string]interface{}{
+					"kind": kind, "id": "greet", "version": version, "language": "javascript", "minAppVersion": minimum,
+					"sourceURL": server.URL + prefix + version + "/source.js",
+					"signature": json.RawMessage(signRelease(t, key, kind, "greet", version, code)),
+				}})
+			}))
+			t.Cleanup(server.Close)
+			t.Cleanup(hub.UseForTest(server.URL, key.Public().(ed25519.PublicKey)))
+
+			f := flamego.New()
+			f.Use(i18n.Middleware(), context.Contexter(nil))
+			if kind == hub.KindWorkflowPlugin {
+				f.Post("/inspect", form.Bind(form.InspectWorkflowPlugin{}), Admin.InspectWorkflowPlugin)
+			} else {
+				f.Post("/inspect", form.Bind(form.InspectFieldShortcut{}), Admin.InspectFieldShortcut)
+			}
+			for _, version := range []string{"", "2.0.0", "1.1.0", "missing"} {
+				raw, err := json.Marshal(map[string]string{"hubID": "greet", "hubVersion": version})
+				require.NoError(t, err)
+				req := httptest.NewRequest(http.MethodPost, "/inspect?lang=en", strings.NewReader(string(raw)))
+				req.Header.Set("Content-Type", "application/json")
+				response := httptest.NewRecorder()
+				f.ServeHTTP(response, req)
+				if version != "1.1.0" {
+					require.Equal(t, http.StatusBadRequest, response.Code, response.Body.String())
+					if version != "missing" {
+						require.Contains(t, response.Body.String(), "requires Sayrud 2.0.0")
+					}
+					continue
+				}
+				require.Equal(t, http.StatusOK, response.Code, response.Body.String())
+				var payload struct {
+					Data struct {
+						Version   string              `json:"version"`
+						Plugin    *dto.WorkflowPlugin `json:"plugin"`
+						Signature json.RawMessage     `json:"signature"`
+					} `json:"data"`
+				}
+				require.NoError(t, json.Unmarshal(response.Body.Bytes(), &payload))
+				if kind == hub.KindWorkflowPlugin {
+					require.NotNil(t, payload.Data.Plugin)
+					require.Equal(t, version, payload.Data.Plugin.Version)
+				} else {
+					require.Equal(t, version, payload.Data.Version)
+				}
+				st := hub.Origin(string(payload.Data.Signature))
+				require.NotNil(t, st)
+				require.Equal(t, version, st.Version, "inspection returns the signature of the selected compatible release")
+			}
+		})
+	}
+}
+
 type hubShortcutsStore struct {
 	db.FieldShortcutsStore
 	list []*db.CustomFieldShortcut

@@ -31,7 +31,7 @@ const shortcuts = ref<AdminFieldShortcut[]>([])
 const loading = ref(true)
 const toggling = ref('')
 const installVisible = ref(false)
-const installFromHub = ref(false)
+const installHubVersion = ref<string>()
 const upgradeTarget = ref<AdminFieldShortcut | null>(null)
 const keyword = ref('')
 const pagination = reactive({ current: 1, pageSize: 20, total: 0 })
@@ -106,13 +106,13 @@ function browseHub() {
 
 function openInstall() {
   upgradeTarget.value = null
-  installFromHub.value = false
+  installHubVersion.value = undefined
   installVisible.value = true
 }
 
-function openUpgrade(s: AdminFieldShortcut, viaHub = false) {
+function openUpgrade(s: AdminFieldShortcut, version?: string) {
   upgradeTarget.value = s
-  installFromHub.value = viaHub
+  installHubVersion.value = version
   installVisible.value = true
 }
 
@@ -213,7 +213,7 @@ onMounted(() => {
         <template #version="{ record }">
           <div class="version-cell">
             <span>{{ versionLabel(record.version) }}</span>
-            <HubPackageStatus kind="field_shortcut" :id="record.id" :hub="record.hub" @update="openUpgrade(record as AdminFieldShortcut, true)" />
+            <HubPackageStatus kind="field_shortcut" :id="record.id" :hub="record.hub" @update="openUpgrade(record as AdminFieldShortcut, updateOf(record as AdminFieldShortcut)?.version)" />
           </div>
         </template>
         <template #resultType="{ record }">
@@ -244,7 +244,7 @@ onMounted(() => {
                 <template #icon><Ellipsis :size="16" /></template>
               </a-button>
               <template #content>
-                <a-doption v-if="updateOf(record as AdminFieldShortcut)" @click="openUpgrade(record as AdminFieldShortcut, true)">
+                <a-doption v-if="updateOf(record as AdminFieldShortcut)" @click="openUpgrade(record as AdminFieldShortcut, updateOf(record as AdminFieldShortcut)?.version)">
                   <template #icon><CloudDownload :size="15" /></template>
                   {{ t('hub.updateTo', { version: versionLabel(updateOf(record as AdminFieldShortcut)!.version) }) }}
                 </a-doption>
@@ -303,7 +303,7 @@ onMounted(() => {
       </div>
     </SettingsSection>
 
-    <FieldShortcutInstallModal v-model:visible="installVisible" :upgrade="upgradeTarget" :from-hub="installFromHub" @installed="onInstalled" />
+    <FieldShortcutInstallModal v-model:visible="installVisible" :upgrade="upgradeTarget" :from-hub="!!installHubVersion" :hub-version="installHubVersion" @installed="onInstalled" />
   </div>
 </template>
 

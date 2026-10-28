@@ -21,10 +21,12 @@ const props = defineProps<{
   upgrade?: WorkflowPlugin | null
   /** Opens with the code editor and the starter template. */
   startWithCode?: boolean
-  /** Downloads the latest release of the upgraded plugin from Sayrud Hub instead of asking for a source. */
+  /** Downloads the upgraded plugin from Sayrud Hub instead of asking for a source. */
   fromHub?: boolean
-  /** Installs the latest release of this Sayrud Hub package, picked in its catalog. */
+  /** Installs this Sayrud Hub package, picked in its catalog. */
   hubID?: string
+  /** Exact release picked in the catalog or offered by an update check, latest when omitted. */
+  hubVersion?: string
   /** Name of the Sayrud Hub package, shown while its release is downloaded. */
   hubName?: string
 }>()
@@ -115,7 +117,7 @@ async function inspectHub() {
   inspecting.value = true
   error.value = ''
   try {
-    inspection.value = await workflowPluginsApi.inspect({ hubID })
+    inspection.value = await workflowPluginsApi.inspect({ hubID, ...(props.hubVersion && { hubVersion: props.hubVersion }) })
     step.value = 2
   } catch (e) {
     error.value = e instanceof Error ? e.message : String(e)

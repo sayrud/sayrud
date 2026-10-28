@@ -208,7 +208,7 @@ function mountModal<T>(path: string, api: Record<string, unknown>, props: Record
   return { modal, visible, messages, events, stop: () => scope.stop() }
 }
 
-test('updating a plugin from Sayrud Hub reviews the latest release and installs it with its signature', async (t) => {
+test('updating a plugin from Sayrud Hub reviews the offered compatible version and installs it with its signature', async (t) => {
   const installed = { id: 'acme', version: '1.0.0', sourceURL: 'https://hub.sayrud.com/open/v1/packages/workflow-plugin/acme/versions/1.0.0/source.js', module: { label: 'Acme' } } as WorkflowPlugin
   const signature = { payloadType: 'application/vnd.sayrud.hub.release.v1+json', payload: 'e30=', signatures: [] }
   const inspection = {
@@ -229,13 +229,13 @@ test('updating a plugin from Sayrud Hub reviews the latest release and installs 
         install: async (...args: unknown[]) => { installs.push(args); return inspection.plugin },
       },
     },
-  }, { upgrade: installed, fromHub: true })
+  }, { upgrade: installed, fromHub: true, hubVersion: '1.1.0' })
   t.after(stop)
 
   assert.equal(modal.hubMode.value, true)
   assert.equal(modal.inspecting.value, true)
   await flush()
-  assert.deepEqual(inspections, [{ hubID: 'acme' }])
+  assert.deepEqual(inspections, [{ hubID: 'acme', hubVersion: '1.1.0' }])
   assert.equal(modal.step.value, 1)
   assert.equal(modal.error.value, 'The package is not available on Sayrud Hub')
 
@@ -274,11 +274,11 @@ test('updating a shortcut from Sayrud Hub keeps its identity and sends the revie
         update: async (uid: string, body: SaveFieldShortcut) => { writes.push({ uid, body }); return { ...preview, uid } },
       },
     },
-  }, { upgrade: original, fromHub: true })
+  }, { upgrade: original, fromHub: true, hubVersion: '1.1.0' })
   t.after(stop)
 
   await flush()
-  assert.deepEqual(inspections, [{ hubID: 'acme' }])
+  assert.deepEqual(inspections, [{ hubID: 'acme', hubVersion: '1.1.0' }])
   assert.equal(modal.step.value, 2)
   await modal.install()
   assert.equal(writes.length, 1)

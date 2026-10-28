@@ -51,8 +51,10 @@ type InspectFieldShortcut struct {
 	Language string `json:"language,omitempty" enums:"javascript,typescript"`
 	// URL is downloaded when Source is empty, a source URL of Sayrud Hub is verified by its signature.
 	URL string `json:"url,omitempty"`
-	// HubID downloads the latest release of the shortcut from Sayrud Hub instead, it takes precedence over Source and URL.
+	// HubID downloads a release of the shortcut from Sayrud Hub instead, it takes precedence over Source and URL.
 	HubID string `json:"hubID,omitempty"`
+	// HubVersion is the exact release of HubID to inspect, latest when omitted.
+	HubVersion string `json:"hubVersion,omitempty"`
 } // @name InspectFieldShortcut
 
 // InstallFieldShortcut installs the exact source reviewed by the admin.

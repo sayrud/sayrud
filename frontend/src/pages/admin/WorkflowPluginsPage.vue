@@ -39,7 +39,7 @@ const pagination = reactive({ current: 1, pageSize: 20 })
 
 const installVisible = ref(false)
 const installWithCode = ref(false)
-const installFromHub = ref(false)
+const installHubVersion = ref<string>()
 const upgradeTarget = ref<WorkflowPlugin | null>(null)
 
 const hub = useHubUpdates('workflow_plugin')
@@ -98,14 +98,14 @@ watch(total, (count) => {
 function openInstall(withCode = false) {
   upgradeTarget.value = null
   installWithCode.value = withCode
-  installFromHub.value = false
+  installHubVersion.value = undefined
   installVisible.value = true
 }
 
-function openUpgrade(p: WorkflowPlugin, viaHub = false) {
+function openUpgrade(p: WorkflowPlugin, version?: string) {
   upgradeTarget.value = p
   installWithCode.value = false
-  installFromHub.value = viaHub
+  installHubVersion.value = version
   installVisible.value = true
 }
 
@@ -239,7 +239,7 @@ onMounted(load)
           <template #version="{ record }">
             <div class="version-cell">
               <span>{{ versionLabel(record.version) }}</span>
-              <HubPackageStatus kind="workflow_plugin" :id="record.id" :hub="record.hub" @update="openUpgrade(record as WorkflowPlugin, true)" />
+              <HubPackageStatus kind="workflow_plugin" :id="record.id" :hub="record.hub" @update="openUpgrade(record as WorkflowPlugin, updateOf(record as WorkflowPlugin)?.version)" />
             </div>
           </template>
           <template #category="{ record }">
@@ -284,7 +284,7 @@ onMounted(load)
                   <template #icon><Ellipsis :size="16" /></template>
                 </a-button>
                 <template #content>
-                  <a-doption v-if="updateOf(record as WorkflowPlugin)" @click="openUpgrade(record as WorkflowPlugin, true)">
+                  <a-doption v-if="updateOf(record as WorkflowPlugin)" @click="openUpgrade(record as WorkflowPlugin, updateOf(record as WorkflowPlugin)?.version)">
                     <template #icon><CloudDownload :size="15" /></template>
                     {{ t('hub.updateTo', { version: versionLabel(updateOf(record as WorkflowPlugin)!.version) }) }}
                   </a-doption>
@@ -391,7 +391,8 @@ onMounted(load)
       v-model:visible="installVisible"
       :upgrade="upgradeTarget"
       :start-with-code="installWithCode"
-      :from-hub="installFromHub"
+      :from-hub="!!installHubVersion"
+      :hub-version="installHubVersion"
       @installed="onInstalled"
     />
   </div>

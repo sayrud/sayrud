@@ -327,6 +327,7 @@ function onShortcutInstalled(saved: AdminFieldShortcut) {
       :upgrade="upgradePlugin"
       :from-hub="!!upgradePlugin"
       :hub-i-d="upgradePlugin ? undefined : installing?.id"
+      :hub-version="installing?.latestVersion"
       :hub-name="installing?.name"
       @installed="onPluginInstalled"
     />
@@ -336,6 +337,7 @@ function onShortcutInstalled(saved: AdminFieldShortcut) {
       :upgrade="upgradeShortcut"
       :from-hub="!!upgradeShortcut"
       :hub-i-d="upgradeShortcut ? undefined : installing?.id"
+      :hub-version="installing?.latestVersion"
       :hub-name="installing?.name"
       @installed="onShortcutInstalled"
     />

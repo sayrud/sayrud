@@ -9528,7 +9528,11 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "hubID": {
-                    "description": "HubID downloads the latest release of the shortcut from Sayrud Hub instead, it takes precedence over Source and URL.",
+                    "description": "HubID downloads a release of the shortcut from Sayrud Hub instead, it takes precedence over Source and URL.",
+                    "type": "string"
+                },
+                "hubVersion": {
+                    "description": "HubVersion is the exact release of HubID to inspect, latest when omitted.",
                     "type": "string"
                 },
                 "language": {
@@ -9552,7 +9556,11 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "hubID": {
-                    "description": "HubID downloads the latest release of the plugin from Sayrud Hub instead, it takes precedence over Source and URL.",
+                    "description": "HubID downloads a release of the plugin from Sayrud Hub instead, it takes precedence over Source and URL.",
+                    "type": "string"
+                },
+                "hubVersion": {
+                    "description": "HubVersion is the exact release of HubID to inspect, latest when omitted.",
                     "type": "string"
                 },
                 "language": {

@@ -68,18 +68,18 @@ const testing = ref(false)
 const result = ref<TestWorkflowPluginResp | null>(null)
 
 const installVisible = ref(false)
-const installFromHub = ref(false)
+const installHubVersion = ref<string>()
 const hub = useHubUpdates()
 
-function openUpgrade(viaHub = false) {
-  installFromHub.value = viaHub
+function openUpgrade(version?: string) {
+  installHubVersion.value = version
   installVisible.value = true
 }
 
 // Updating replaces the source, so the unsaved changes are not lost silently.
 function updateFromHub() {
   if (dirty.value) Message.warning(t('hub.saveFirst'))
-  else openUpgrade(true)
+  else if (plugin.value) openUpgrade(hub.find('workflow_plugin', plugin.value.id, plugin.value.hub)?.latest?.version)
 }
 
 /** Shortcut of running the test from the editors. */
@@ -576,7 +576,7 @@ const format = (v: unknown) => (v === undefined ? 'undefined' : JSON.stringify(v
       </template>
     </a-spin>
 
-    <WorkflowPluginInstallModal v-if="plugin" v-model:visible="installVisible" :upgrade="plugin" :from-hub="installFromHub" @installed="onUpgraded" />
+    <WorkflowPluginInstallModal v-if="plugin" v-model:visible="installVisible" :upgrade="plugin" :from-hub="!!installHubVersion" :hub-version="installHubVersion" @installed="onUpgraded" />
   </div>
 </template>
 

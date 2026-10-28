@@ -95,7 +95,7 @@ const loading = ref(false)
 const notFound = ref(false)
 const saving = ref(false)
 const installVisible = ref(false)
-const installFromHub = ref(false)
+const installHubVersion = ref<string>()
 const hub = useHubUpdates()
 
 const draft = reactive<Draft>(toDraft(null))
@@ -376,15 +376,15 @@ function onUpgraded(saved: AdminFieldShortcut) {
   reset(saved)
 }
 
-function openUpgrade(viaHub = false) {
-  installFromHub.value = viaHub
+function openUpgrade(version?: string) {
+  installHubVersion.value = version
   installVisible.value = true
 }
 
 // Updating replaces the saved shortcut, so the unsaved changes are not lost silently.
 function updateFromHub() {
   if (dirty.value) Message.warning(t('shortcutAdmin.upgradeSaveHint'))
-  else openUpgrade(true)
+  else if (shortcut.value) openUpgrade(hub.find('field_shortcut', shortcut.value.id, shortcut.value.hub)?.latest?.version)
 }
 
 function remove() {
@@ -758,7 +758,7 @@ const format = (v: unknown) => (v === undefined ? 'undefined' : JSON.stringify(v
       <SaveBar v-if="dirty || tab === 'code'" :dirty="dirty" :saving="saving || syncing" @save="save" @reset="discard" />
     </a-spin>
 
-    <FieldShortcutInstallModal v-if="shortcut" v-model:visible="installVisible" :upgrade="shortcut" :from-hub="installFromHub" @installed="onUpgraded" />
+    <FieldShortcutInstallModal v-if="shortcut" v-model:visible="installVisible" :upgrade="shortcut" :from-hub="!!installHubVersion" :hub-version="installHubVersion" @installed="onUpgraded" />
   </div>
 </template>
 

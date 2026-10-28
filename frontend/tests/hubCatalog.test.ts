@@ -33,6 +33,18 @@ test('the catalog action follows the installation, the latest release and its co
   // The installed latest release opens even when this Sayrud could not install it again.
   assert.equal(hubAction(pkg({ installed: fromHub('1.1.0') }), release(false)), 'open')
 
+  for (const kind of ['workflow_plugin', 'field_shortcut'] as const) {
+    for (const version of ['1.2.0-beta.1', '2.0.0', '1.1.0+local']) {
+      assert.equal(hubAction(pkg({ kind, installed: fromHub(version) }), release(false)), 'open', version)
+    }
+    assert.equal(hubAction(pkg({ kind, latestVersion: '1.10.0', installed: fromHub('1.9.0') })), 'update')
+    assert.equal(hubAction(pkg({ kind, latestVersion: '1.1.0', installed: fromHub('1.1.0-rc.1') })), 'update')
+    assert.equal(hubAction(pkg({ kind, latestVersion: '1.1.0-rc.10', installed: fromHub('1.1.0-rc.2') })), 'update')
+    assert.equal(hubAction(pkg({ kind, latestVersion: '1.1.0-rc.2', installed: fromHub('1.1.0-rc.10') })), 'open')
+    assert.equal(hubAction(pkg({ kind, latestVersion: '1.1.0-beta', installed: fromHub('1.1.0-alpha.1') })), 'update')
+    assert.equal(hubAction(pkg({ kind, latestVersion: '1.1.0-1', installed: fromHub('1.1.0-alpha') })), 'open')
+  }
+
   // A plugin installed from another source must not be replaced, a shortcut can be installed again.
   const local = { version: '1.0.0', fromHub: false, enabled: true }
   assert.equal(hubAction(pkg({ installed: local })), 'conflict')

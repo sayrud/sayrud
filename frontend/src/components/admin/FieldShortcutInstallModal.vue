@@ -20,10 +20,12 @@ import { LANGUAGE_NAMES, languageOf, versionLabel, type PluginLanguage } from '@
 
 const props = defineProps<{
   upgrade?: AdminFieldShortcut | null
-  /** Downloads the latest release of the upgraded shortcut from Sayrud Hub instead of asking for a source. */
+  /** Downloads the upgraded shortcut from Sayrud Hub instead of asking for a source. */
   fromHub?: boolean
-  /** Installs the latest release of this Sayrud Hub package, picked in its catalog. */
+  /** Installs this Sayrud Hub package, picked in its catalog. */
   hubID?: string
+  /** Exact release picked in the catalog or offered by an update check, latest when omitted. */
+  hubVersion?: string
   /** Name of the Sayrud Hub package, shown while its release is downloaded. */
   hubName?: string
 }>()
@@ -146,7 +148,7 @@ async function inspectHub() {
   error.value = ''
 
   try {
-    const result = await adminShortcutsApi.inspect({ hubID })
+    const result = await adminShortcutsApi.inspect({ hubID, ...(props.hubVersion && { hubVersion: props.hubVersion }) })
     if (request !== requestId) return
 
     inspection.value = result

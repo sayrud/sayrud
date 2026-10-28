@@ -9,8 +9,10 @@ type InspectWorkflowPlugin struct {
 	Language string `json:"language,omitempty" enums:"javascript,typescript"`
 	// URL is an http or https address of the source, a source URL of Sayrud Hub is verified by its signature.
 	URL string `json:"url,omitempty"`
-	// HubID downloads the latest release of the plugin from Sayrud Hub instead, it takes precedence over Source and URL.
+	// HubID downloads a release of the plugin from Sayrud Hub instead, it takes precedence over Source and URL.
 	HubID string `json:"hubID,omitempty"`
+	// HubVersion is the exact release of HubID to inspect, latest when omitted.
+	HubVersion string `json:"hubVersion,omitempty"`
 } // @name InspectWorkflowPlugin
 
 // InstallWorkflowPlugin installs a plugin, or upgrades the installed plugin of the same manifest id.

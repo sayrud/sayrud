@@ -173,7 +173,7 @@ func (adminRoute) InspectWorkflowPlugin(ctx context.Context, f form.InspectWorkf
 	}
 	var release *hub.Package
 	if strings.TrimSpace(f.HubID) != "" || strings.TrimSpace(source) == "" {
-		release, err = hubRelease(ctx, hub.KindWorkflowPlugin, f.HubID, f.URL, sandbox.MaxSourceSize)
+		release, err = hubRelease(ctx, hub.KindWorkflowPlugin, f.HubID, f.HubVersion, f.URL, sandbox.MaxSourceSize)
 		if err != nil {
 			return respondPluginError(ctx, err, "download")
 		}

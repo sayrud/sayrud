@@ -39,11 +39,15 @@ func downloadFromHub(ctx context.Context, kind, id, version string, maxSize int)
 	return nil, err
 }
 
-// hubRelease returns the release of Sayrud Hub to inspect: the latest one of hubID, or the one a Hub source URL
+// hubRelease returns the release of Sayrud Hub to inspect: hubVersion of hubID (latest by default), or the one a Hub source URL
 // downloads. It returns nil for the other sources, which are downloaded as usual.
-func hubRelease(ctx context.Context, kind, hubID, sourceURL string, maxSize int) (*hub.Package, error) {
+func hubRelease(ctx context.Context, kind, hubID, hubVersion, sourceURL string, maxSize int) (*hub.Package, error) {
 	if id := strings.TrimSpace(hubID); id != "" {
-		return downloadFromHub(ctx, kind, id, hub.LatestVersion, maxSize)
+		version := strings.TrimSpace(hubVersion)
+		if version == "" {
+			version = hub.LatestVersion
+		}
+		return downloadFromHub(ctx, kind, id, version, maxSize)
 	}
 	urlKind, id, version, ok := hub.ParseSourceURL(sourceURL)
 	if !ok {

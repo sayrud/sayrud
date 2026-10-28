@@ -735,8 +735,10 @@ export interface ImportUpload {
 }
 
 export interface InspectFieldShortcut {
-  /** HubID downloads the latest release of the shortcut from Sayrud Hub instead, it takes precedence over Source and URL. */
+  /** HubID downloads a release of the shortcut from Sayrud Hub instead, it takes precedence over Source and URL. */
   hubID?: string;
+  /** HubVersion is the exact release of HubID to inspect, latest when omitted. */
+  hubVersion?: string;
   /** Language of Source, javascript by default; URL extensions take precedence. */
   language?: "javascript" | "typescript";
   source?: string;
@@ -745,8 +747,10 @@ export interface InspectFieldShortcut {
 }
 
 export interface InspectWorkflowPlugin {
-  /** HubID downloads the latest release of the plugin from Sayrud Hub instead, it takes precedence over Source and URL. */
+  /** HubID downloads a release of the plugin from Sayrud Hub instead, it takes precedence over Source and URL. */
   hubID?: string;
+  /** HubVersion is the exact release of HubID to inspect, latest when omitted. */
+  hubVersion?: string;
   /** Language of Source, javascript by default. */
   language?: "javascript" | "typescript";
   source?: string;

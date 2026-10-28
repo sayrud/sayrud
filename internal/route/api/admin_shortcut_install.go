@@ -71,7 +71,7 @@ func (adminRoute) InspectFieldShortcut(ctx context.Context, f form.InspectFieldS
 	}
 	var release *hub.Package
 	if strings.TrimSpace(f.HubID) != "" || strings.TrimSpace(source) == "" {
-		release, err = hubRelease(ctx, hub.KindFieldShortcut, f.HubID, f.URL, maxShortcutCodeSize)
+		release, err = hubRelease(ctx, hub.KindFieldShortcut, f.HubID, f.HubVersion, f.URL, maxShortcutCodeSize)
 		if err != nil {
 			return saveFieldShortcutError(ctx, err, "download")
 		}

@@ -34,8 +34,10 @@ export interface PluginSource {
   source?: string
   language?: PluginLanguage
   url?: string
-  /** Downloads the latest release of the plugin of this id from Sayrud Hub. */
+  /** Downloads a release of the plugin of this id from Sayrud Hub. */
   hubID?: string
+  /** Exact release to inspect, latest when omitted. */
+  hubVersion?: string
 }
 
 export interface TestPluginRequest {

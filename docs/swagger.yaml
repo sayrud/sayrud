@@ -1547,8 +1547,12 @@ definitions:
   InspectFieldShortcut:
     properties:
       hubID:
-        description: HubID downloads the latest release of the shortcut from Sayrud
-          Hub instead, it takes precedence over Source and URL.
+        description: HubID downloads a release of the shortcut from Sayrud Hub instead,
+          it takes precedence over Source and URL.
+        type: string
+      hubVersion:
+        description: HubVersion is the exact release of HubID to inspect, latest when
+          omitted.
         type: string
       language:
         description: Language of Source, javascript by default; URL extensions take
@@ -1567,8 +1571,12 @@ definitions:
   InspectWorkflowPlugin:
     properties:
       hubID:
-        description: HubID downloads the latest release of the plugin from Sayrud
-          Hub instead, it takes precedence over Source and URL.
+        description: HubID downloads a release of the plugin from Sayrud Hub instead,
+          it takes precedence over Source and URL.
+        type: string
+      hubVersion:
+        description: HubVersion is the exact release of HubID to inspect, latest when
+          omitted.
         type: string
       language:
         description: Language of Source, javascript by default.
