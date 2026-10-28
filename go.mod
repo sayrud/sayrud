@@ -37,13 +37,13 @@ require (
 	github.com/wuhan005/gadget v0.0.0-20221206194113-7619e407f1a0
 	github.com/wuhan005/govalid v0.0.3
 	github.com/xuri/excelize/v2 v2.11.1-0.20260930021559-01a9ff32fb3c
-	go.opentelemetry.io/otel v1.45.0
+	go.opentelemetry.io/otel v1.47.0
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.45.0
 	go.opentelemetry.io/otel/exporters/prometheus v0.66.0
-	go.opentelemetry.io/otel/metric v1.45.0
+	go.opentelemetry.io/otel/metric v1.47.0
 	go.opentelemetry.io/otel/sdk v1.45.0
 	go.opentelemetry.io/otel/sdk/metric v1.45.0
-	go.opentelemetry.io/otel/trace v1.45.0
+	go.opentelemetry.io/otel/trace v1.47.0
 	go.opentelemetry.io/proto/otlp v1.11.0
 	golang.org/x/crypto v0.57.0
 	golang.org/x/mod v0.41.0
@@ -155,7 +155,7 @@ require (
 	github.com/xuri/nfp v0.0.2-0.20250530014748-2ddeb826f9a9 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.45.0 // indirect
-	go.opentelemetry.io/otel/log v0.3.0 // indirect
+	go.opentelemetry.io/otel/log v1.47.0 // indirect
 	go.yaml.in/yaml/v2 v2.4.4 // indirect
 	go.yaml.in/yaml/v3 v3.0.5 // indirect
 	golang.org/x/net v0.60.0 // indirect
