@@ -41,6 +41,14 @@ func (r ProjectRole) IsMemberRole() bool {
 	return r == ProjectRoleManager || r == ProjectRoleEditor || r == ProjectRoleViewer
 }
 
+// EffectiveRole returns the role that takes effect from the own role of the user, which is empty if the user is neither the owner nor a collaborator. System admins have at least the manager role.
+func EffectiveRole(role ProjectRole, isAdmin bool) ProjectRole {
+	if isAdmin && !role.AtLeast(ProjectRoleManager) {
+		return ProjectRoleManager
+	}
+	return role
+}
+
 var _ ProjectMembersStore = (*projectMembers)(nil)
 
 // ProjectMembers is the default instance of the ProjectMembersStore.

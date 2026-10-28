@@ -105,6 +105,51 @@ func TestRefreshAccessErrors(t *testing.T) {
 	}
 }
 
+func TestRefreshAccessAdmin(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		err  error
+		want db.ProjectRole
+	}{
+		{name: "not a collaborator", err: gorm.ErrRecordNotFound, want: db.ProjectRoleManager},
+		{name: "editor collaborator", want: db.ProjectRoleManager},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			gormDB := accessTestDB(t, func(tx *gorm.DB) {
+				if user, ok := tx.Statement.Dest.(*db.User); ok {
+					user.IsAdmin = true
+				}
+				if tx.Statement.Table == "project_members" && tc.err != nil {
+					_ = tx.AddError(tc.err)
+				}
+			})
+			c := &Client{
+				hub: NewHub(gormDB), project: &db.Project{Model: dbutil.Model{ID: 1}}, projectUID: "project",
+				userID: 7, sessionToken: "token", role: db.ProjectRoleViewer, out: make(chan []byte, 2),
+			}
+			require.True(t, c.refreshAccess(context.Background()))
+			require.Equal(t, tc.want, c.role)
+		})
+	}
+
+	t.Run("membership connection lost", func(t *testing.T) {
+		gormDB := accessTestDB(t, func(tx *gorm.DB) {
+			if user, ok := tx.Statement.Dest.(*db.User); ok {
+				user.IsAdmin = true
+			}
+			if tx.Statement.Table == "project_members" {
+				_ = tx.AddError(io.ErrUnexpectedEOF)
+			}
+		})
+		c := &Client{
+			hub: NewHub(gormDB), project: &db.Project{Model: dbutil.Model{ID: 1}}, projectUID: "project",
+			userID: 7, sessionToken: "token", role: db.ProjectRoleManager, out: make(chan []byte, 2),
+		}
+		require.False(t, c.refreshAccess(context.Background()), "transient errors must not be masked by the admin role")
+		require.Equal(t, websocket.CloseTryAgainLater, c.closeStatus)
+	})
+}
+
 func TestAccessFailureClosesWebSocket(t *testing.T) {
 	for _, tc := range []struct {
 		name       string

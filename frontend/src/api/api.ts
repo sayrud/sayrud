@@ -916,6 +916,8 @@ export interface Profile {
 }
 
 export interface Project {
+  /** AdminAccess reports whether the role is raised by the system admin, it is only returned when getting a single project. */
+  adminAccess?: boolean;
   color: string;
   createdAt: string;
   icon: string;
@@ -928,6 +930,8 @@ export interface Project {
 }
 
 export interface ProjectListItem {
+  /** AdminAccess reports whether the role is raised by the system admin, it is only returned when getting a single project. */
+  adminAccess?: boolean;
   color: string;
   createdAt: string;
   icon: string;
@@ -3809,7 +3813,7 @@ export class Api<
       }),
 
     /**
-     * No description
+     * @description System admins can open every project with at least the manager role, adminAccess is true if the role is granted by the admin.
      *
      * @tags Projects
      * @name GetProject

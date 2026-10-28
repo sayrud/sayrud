@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { Message } from '@arco-design/web-vue'
 import { IconLock } from '@arco-design/web-vue/es/icon'
-import { CloudCheck, CloudOff, Eye, House, KeyRound, LoaderCircle, PanelLeftOpen, Share2 } from '@lucide/vue'
+import { CloudCheck, CloudOff, Eye, House, KeyRound, LoaderCircle, PanelLeftOpen, Share2, ShieldCheck } from '@lucide/vue'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
@@ -352,9 +352,15 @@ onBeforeUnmount(() => {
           >{{ store.project?.name ?? (publicPage ? t('share.linkSharing') : t('common.loading')) }}</span
         >
         <a-tooltip v-if="store.project && !store.canEdit" :content="t('base.viewOnlyTip')">
-          <a-tag size="small" class="viewer-tag">
+          <a-tag size="small" class="role-tag">
             <template #icon><Eye :size="12" /></template>
             {{ t('role.viewer') }}
+          </a-tag>
+        </a-tooltip>
+        <a-tooltip v-if="store.project?.adminAccess && !publicPage" :content="t('base.adminAccessTip')">
+          <a-tag size="small" color="arcoblue" class="role-tag">
+            <template #icon><ShieldCheck :size="12" /></template>
+            {{ t('base.adminAccess') }}
           </a-tag>
         </a-tooltip>
         <span v-if="store.project && ((store.canEdit && !projectPage) || syncState.cls !== 'saved')" class="sync-state" :class="syncState.cls" :title="syncState.text">
@@ -483,7 +489,7 @@ onBeforeUnmount(() => {
 .appearance-trigger {
   padding: 3px;
 }
-.viewer-tag :deep(.arco-tag-icon) {
+.role-tag :deep(.arco-tag-icon) {
   display: inline-flex;
   align-items: center;
 }

@@ -23,6 +23,8 @@ export interface Project {
   updatedAt: string
   role: ProjectRole
   owner: UserBrief | null
+  /** The role is raised by the system admin, it is only returned when getting a single project. */
+  adminAccess?: boolean
 }
 
 export interface ProjectMember {

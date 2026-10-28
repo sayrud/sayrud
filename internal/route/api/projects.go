@@ -24,7 +24,13 @@ var Project projectRoute
 
 type projectRoute struct{}
 
-// Projecter maps the project of the projectUID path parameter as *db.Project and the role of the signed-in user on it as db.ProjectRole.
+// projectAccess describes how the signed-in user accesses the project.
+type projectAccess struct {
+	// ViaAdmin reports whether the effective role is raised by the system admin.
+	ViaAdmin bool
+}
+
+// Projecter maps the project of the projectUID path parameter as *db.Project, the effective role of the signed-in user on it as db.ProjectRole, and how the role is granted as projectAccess.
 func (projectRoute) Projecter(ctx context.Context, user *db.User) error {
 	projectUID := ctx.Param("projectUID")
 	project, err := db.Projects.GetByUID(ctx.Request().Context(), projectUID)
@@ -36,20 +42,22 @@ func (projectRoute) Projecter(ctx context.Context, user *db.User) error {
 		return ctx.ApiServerError()
 	}
 
-	role := db.ProjectRoleOwner
+	ownRole := db.ProjectRoleOwner
 	if project.OwnerUserID != user.ID {
-		role, err = db.ProjectMembers.GetRole(ctx.Request().Context(), project.ID, user.ID)
-		if err != nil {
-			if errors.Is(err, db.ErrProjectMemberNotFound) {
-				return ctx.ApiError(http.StatusForbidden, "project::no_access")
-			}
+		ownRole, err = db.ProjectMembers.GetRole(ctx.Request().Context(), project.ID, user.ID)
+		if err != nil && !errors.Is(err, db.ErrProjectMemberNotFound) {
 			logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to get project role")
 			return ctx.ApiServerError()
 		}
 	}
+	role := db.EffectiveRole(ownRole, user.IsAdmin)
+	if role == "" {
+		return ctx.ApiError(http.StatusForbidden, "project::no_access")
+	}
 
 	ctx.Map(project)
 	ctx.Map(role)
+	ctx.Map(projectAccess{ViaAdmin: role != ownRole})
 	return nil
 }
 
@@ -176,6 +184,7 @@ func (projectRoute) CreateProject(ctx context.Context, user *db.User, f form.Cre
 // GetProject
 // @Summary Get a project
 // @Tags Projects
+// @Description System admins can open every project with at least the manager role, adminAccess is true if the role is granted by the admin.
 // @Produce json
 // @Param projectUID path string true "Project UID"
 // @Success 200 {object} dto.Project
@@ -184,13 +193,15 @@ func (projectRoute) CreateProject(ctx context.Context, user *db.User, f form.Cre
 // @Failure 500 {string} string "Internal server error"
 // @ID getProject
 // @Router /projects/{projectUID} [get]
-func (projectRoute) GetProject(ctx context.Context, project *db.Project, role db.ProjectRole) error {
+func (projectRoute) GetProject(ctx context.Context, project *db.Project, role db.ProjectRole, access projectAccess) error {
 	owner, err := db.Users.GetByID(ctx.Request().Context(), project.OwnerUserID)
 	if err != nil && !errors.Is(err, db.ErrUserNotFound) {
 		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to get project owner")
 		return ctx.ApiServerError()
 	}
-	return ctx.ApiSuccess(dto.ToProject(project, role, owner))
+	resp := dto.ToProject(project, role, owner)
+	resp.AdminAccess = access.ViaAdmin
+	return ctx.ApiSuccess(resp)
 }
 
 // UpdateProject
@@ -425,7 +436,7 @@ func (projectRoute) AddMember(ctx context.Context, hub *collab.Hub, project *db.
 		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to add project member")
 		return ctx.ApiServerError()
 	}
-	hub.SetUserRole(project.UID, user.ID, role)
+	hub.SetUserRole(project.UID, user.ID, db.EffectiveRole(role, user.IsAdmin))
 	return ctx.ApiSuccess(&dto.ProjectMember{User: dto.ToUserBrief(user), Role: string(role)})
 }
 
@@ -468,8 +479,20 @@ func (projectRoute) UpdateMember(ctx context.Context, hub *collab.Hub, user *db.
 		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to update project member")
 		return ctx.ApiServerError()
 	}
-	hub.SetUserRole(project.UID, userID, role)
+	notifyMemberRole(ctx, hub, project, userID, role)
 	return ctx.Status(http.StatusNoContent)
+}
+
+// notifyMemberRole applies the new role of the collaborator to its online connections, an empty role means it is removed. The role of system admins is raised by db.EffectiveRole.
+func notifyMemberRole(ctx context.Context, hub *collab.Hub, project *db.Project, userID int64, role db.ProjectRole) {
+	user, err := db.Users.GetByID(ctx.Request().Context(), userID)
+	if err == nil {
+		role = db.EffectiveRole(role, user.IsAdmin)
+	} else if !errors.Is(err, db.ErrUserNotFound) {
+		// The notification is a hint, the connections recheck the access on the next message or heartbeat.
+		logrus.WithContext(ctx.Request().Context()).WithError(err).Warn("Failed to get collaborator for role notification")
+	}
+	hub.SetUserRole(project.UID, userID, role)
 }
 
 // RemoveMember
@@ -501,6 +524,6 @@ func (projectRoute) RemoveMember(ctx context.Context, hub *collab.Hub, user *db.
 		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to remove project member")
 		return ctx.ApiServerError()
 	}
-	hub.SetUserRole(project.UID, userID, "")
+	notifyMemberRole(ctx, hub, project, userID, "")
 	return ctx.Status(http.StatusNoContent)
 }

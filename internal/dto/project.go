@@ -17,6 +17,8 @@ type Project struct {
 	// Role is the permission of the signed-in user on the project.
 	Role  string     `json:"role" enums:"owner,manager,editor,viewer"`
 	Owner *UserBrief `json:"owner"`
+	// AdminAccess reports whether the role is raised by the system admin, it is only returned when getting a single project.
+	AdminAccess bool `json:"adminAccess,omitempty"`
 } // @name Project
 
 func ToProject(project *db.Project, role db.ProjectRole, owner *db.User) *Project {

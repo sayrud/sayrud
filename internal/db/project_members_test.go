@@ -18,6 +18,25 @@ func TestProjectRoleAtLeast(t *testing.T) {
 	require.False(t, ProjectRole("admin").AtLeast(ProjectRoleViewer))
 }
 
+func TestEffectiveRole(t *testing.T) {
+	for _, tc := range []struct {
+		role    ProjectRole
+		isAdmin bool
+		want    ProjectRole
+	}{
+		{"", false, ""},
+		{ProjectRoleViewer, false, ProjectRoleViewer},
+		{ProjectRoleManager, false, ProjectRoleManager},
+		{"", true, ProjectRoleManager},
+		{ProjectRoleViewer, true, ProjectRoleManager},
+		{ProjectRoleEditor, true, ProjectRoleManager},
+		{ProjectRoleManager, true, ProjectRoleManager},
+		{ProjectRoleOwner, true, ProjectRoleOwner},
+	} {
+		require.Equal(t, tc.want, EffectiveRole(tc.role, tc.isAdmin), "role %q, admin %v", tc.role, tc.isAdmin)
+	}
+}
+
 func TestProjectRoleIsMemberRole(t *testing.T) {
 	require.True(t, ProjectRoleManager.IsMemberRole())
 	require.True(t, ProjectRoleEditor.IsMemberRole())

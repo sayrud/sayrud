@@ -1941,6 +1941,10 @@ definitions:
     type: object
   Project:
     properties:
+      adminAccess:
+        description: AdminAccess reports whether the role is raised by the system
+          admin, it is only returned when getting a single project.
+        type: boolean
       color:
         type: string
       createdAt:
@@ -1975,6 +1979,10 @@ definitions:
     type: object
   ProjectListItem:
     properties:
+      adminAccess:
+        description: AdminAccess reports whether the role is raised by the system
+          admin, it is only returned when getting a single project.
+        type: boolean
       color:
         type: string
       createdAt:
@@ -6791,6 +6799,8 @@ paths:
       tags:
       - Projects
     get:
+      description: System admins can open every project with at least the manager
+        role, adminAccess is true if the role is granted by the admin.
       operationId: getProject
       parameters:
       - description: Project UID

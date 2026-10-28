@@ -3265,6 +3265,7 @@ const docTemplate = `{
         },
         "/projects/{projectUID}": {
             "get": {
+                "description": "System admins can open every project with at least the manager role, adminAccess is true if the role is granted by the admin.",
                 "produces": [
                     "application/json"
                 ],
@@ -10576,6 +10577,10 @@ const docTemplate = `{
                 "updatedAt"
             ],
             "properties": {
+                "adminAccess": {
+                    "description": "AdminAccess reports whether the role is raised by the system admin, it is only returned when getting a single project.",
+                    "type": "boolean"
+                },
                 "color": {
                     "type": "string"
                 },
@@ -10623,6 +10628,10 @@ const docTemplate = `{
                 "updatedAt"
             ],
             "properties": {
+                "adminAccess": {
+                    "description": "AdminAccess reports whether the role is raised by the system admin, it is only returned when getting a single project.",
+                    "type": "boolean"
+                },
                 "color": {
                     "type": "string"
                 },
