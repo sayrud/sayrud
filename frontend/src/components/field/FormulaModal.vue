@@ -94,7 +94,6 @@ function confirm() {
     :visible="visible"
     :title="t('formulaModal.title')"
     :width="780"
-    :mask-closable="false"
     :ok-text="t('common.confirm')"
     :ok-button-props="{ disabled: !!text.trim() && !validation.ok }"
     unmount-on-close

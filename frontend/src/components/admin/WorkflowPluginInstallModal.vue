@@ -157,7 +157,7 @@ const inputs = computed(() => plugin.value?.module.sections.flatMap((s) => s.fie
   <a-modal
     v-model:visible="visible"
     width="min(680px, calc(100vw - 32px))"
-    :mask-closable="false"
+    :mask-closable="!busy"
     :closable="!busy"
     :esc-to-close="!busy"
     unmount-on-close

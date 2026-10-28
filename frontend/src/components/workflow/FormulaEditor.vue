@@ -63,7 +63,6 @@ function confirm() {
     :visible="visible"
     :title="t('workflow.formula.title')"
     :width="820"
-    :mask-closable="false"
     :ok-text="t('common.confirm')"
     :ok-button-props="{ disabled: !!error }"
     unmount-on-close

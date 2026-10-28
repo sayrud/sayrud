@@ -334,7 +334,7 @@ function openResult() {
     v-model:visible="visible"
     :width="880"
     :footer="false"
-    :mask-closable="step === 'upload' && !uploading"
+    :mask-closable="!uploading && !starting"
     unmount-on-close
     modal-class="import-modal"
   >
