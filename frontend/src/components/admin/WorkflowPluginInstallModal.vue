@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { Message, type FileItem } from '@arco-design/web-vue'
-import { ArrowRight, CodeXml, FileCode2, Link2, Upload, X } from '@lucide/vue'
+import { ArrowRight, CodeXml, ExternalLink, FileCode2, Link2, Upload, X } from '@lucide/vue'
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import { workflowPluginsApi, type PluginInspection, type PluginLanguage, type WorkflowPlugin } from '@/api/workflowPlugin'
 import PLUGIN_STARTER from '@/assets/templates/workflow-plugin.js?raw'
+import HubFetchState from '@/components/admin/HubFetchState.vue'
+import HubReleaseCard from '@/components/admin/HubReleaseCard.vue'
 import WorkflowPluginIcon from '@/components/admin/WorkflowPluginIcon.vue'
 import WorkflowPluginPermissions from '@/components/admin/WorkflowPluginPermissions.vue'
 import CodeEditor from '@/components/common/CodeEditor.vue'
@@ -19,6 +21,14 @@ const props = defineProps<{
   upgrade?: WorkflowPlugin | null
   /** Opens with the code editor and the starter template. */
   startWithCode?: boolean
+  /** Downloads the upgraded plugin from Sayrud Hub instead of asking for a source. */
+  fromHub?: boolean
+  /** Installs this Sayrud Hub package, picked in its catalog. */
+  hubID?: string
+  /** Exact release picked in the catalog or offered by an update check, latest when omitted. */
+  hubVersion?: string
+  /** Name of the Sayrud Hub package, shown while its release is downloaded. */
+  hubName?: string
 }>()
 const visible = defineModel<boolean>('visible', { required: true })
 const emit = defineEmits<{ installed: [plugin: WorkflowPlugin] }>()
@@ -27,6 +37,7 @@ const { t } = useI18n()
 type Source = 'file' | 'url' | 'code'
 
 const step = ref<1 | 2>(1)
+const hubMode = ref(false)
 const source = ref<Source>('file')
 const file = ref<{ name: string; size: number; text: string } | null>(null)
 const url = ref('')
@@ -37,6 +48,7 @@ const inspecting = ref(false)
 const installing = ref(false)
 const inspection = ref<PluginInspection | null>(null)
 const busy = computed(() => inspecting.value || installing.value)
+const hubPackage = computed(() => props.hubID || (props.fromHub ? props.upgrade?.id : undefined))
 
 watch(
   visible,
@@ -48,6 +60,8 @@ watch(
     file.value = null
     url.value = props.upgrade?.sourceURL ?? ''
     source.value = props.startWithCode ? 'code' : props.upgrade?.sourceURL ? 'url' : 'file'
+    hubMode.value = !!hubPackage.value
+    if (hubMode.value) void inspectHub()
   },
   { immediate: true },
 )
@@ -97,12 +111,32 @@ async function inspect() {
   }
 }
 
+async function inspectHub() {
+  const hubID = hubPackage.value
+  if (!hubID || inspecting.value) return
+  inspecting.value = true
+  error.value = ''
+  try {
+    inspection.value = await workflowPluginsApi.inspect({ hubID, ...(props.hubVersion && { hubVersion: props.hubVersion }) })
+    step.value = 2
+  } catch (e) {
+    error.value = e instanceof Error ? e.message : String(e)
+  } finally {
+    inspecting.value = false
+  }
+}
+
+function chooseSource() {
+  hubMode.value = false
+  error.value = ''
+}
+
 async function install() {
   const i = inspection.value
   if (!i || installing.value) return
   installing.value = true
   try {
-    const plugin = await workflowPluginsApi.install(i.source, i.language, source.value === 'url' ? url.value.trim() : undefined)
+    const plugin = await workflowPluginsApi.install(i.source, i.language, i.plugin.sourceURL || undefined, i.signature)
     Message.success(i.installed ? t('pluginAdmin.upgradeSuccess', { name: plugin.module.label }) : t('pluginAdmin.installSuccess', { name: plugin.module.label }))
     emit('installed', plugin)
     visible.value = false
@@ -129,7 +163,16 @@ const inputs = computed(() => plugin.value?.module.sections.flatMap((s) => s.fie
     unmount-on-close
     :title="title"
   >
-    <div v-if="step === 1" class="source-step">
+    <HubFetchState
+      v-if="step === 1 && hubMode"
+      :loading="inspecting"
+      :error="error"
+      :name="upgrade?.module.label ?? hubName ?? ''"
+      @retry="inspectHub"
+      @choose-source="chooseSource"
+    />
+
+    <div v-else-if="step === 1" class="source-step">
       <a-radio-group v-model="source" type="button" size="large" :disabled="busy" class="source-options">
         <a-radio value="file"><span class="inline"><Upload :size="16" />{{ t('pluginAdmin.sourceFile') }}</span></a-radio>
         <a-radio value="url"><span class="inline"><Link2 :size="16" />{{ t('pluginAdmin.sourceURL') }}</span></a-radio>
@@ -193,18 +236,17 @@ const inputs = computed(() => plugin.value?.module.sections.flatMap((s) => s.fie
             <a-tag v-else size="small">{{ t('pluginAdmin.reinstall') }}</a-tag>
           </div>
           <div v-if="plugin.module.description" class="text-desc">{{ plugin.module.description }}</div>
-          <div v-if="plugin.module.plugin?.author || plugin.module.plugin?.homepage" class="review-meta text-desc">
-            <span v-if="plugin.module.plugin?.author">{{ plugin.module.plugin.author }}</span>
-            <template v-if="plugin.module.plugin?.homepage">
-              <span v-if="plugin.module.plugin?.author" class="dot">·</span><a-link :href="plugin.module.plugin.homepage" target="_blank" rel="noopener noreferrer">{{ t('pluginAdmin.homepage') }}</a-link>
-            </template>
-          </div>
         </div>
+        <a-link v-if="plugin.hub" :href="plugin.hub.url" target="_blank" rel="noopener noreferrer" class="hub-link">
+          {{ t('hub.viewOnHub') }}<ExternalLink :size="12" />
+        </a-link>
       </div>
+
+      <HubReleaseCard v-if="plugin.hub" :hub="plugin.hub" />
 
       <a-alert v-if="replacesOther" type="warning" class="error">{{ t('pluginAdmin.replacesOther', { id: plugin.id }) }}</a-alert>
 
-      <a-descriptions :column="2" layout="vertical" class="review-details">
+      <a-descriptions :column="2" layout="vertical" :value-style="{ verticalAlign: 'top' }" class="review-details">
         <a-descriptions-item :label="t('pluginAdmin.inputs')">
           <ul v-if="inputs.length" class="io-list">
             <li v-for="f in inputs" :key="f.key">
@@ -229,19 +271,23 @@ const inputs = computed(() => plugin.value?.module.sections.flatMap((s) => s.fie
         </a-descriptions-item>
       </a-descriptions>
 
-      <a-alert type="warning">{{ t('pluginAdmin.trustWarning') }}</a-alert>
+      <a-alert v-if="!plugin.hub?.official" type="warning">{{ t('pluginAdmin.trustWarning') }}</a-alert>
     </div>
 
     <template #footer>
       <a-space>
-        <template v-if="step === 1">
+        <template v-if="step === 1 && hubMode">
+          <a-button :disabled="busy" @click="visible = false">{{ t('common.cancel') }}</a-button>
+        </template>
+        <template v-else-if="step === 1">
           <a-button :disabled="busy" @click="visible = false">{{ t('common.cancel') }}</a-button>
           <a-button type="primary" :disabled="!canInspect" :loading="inspecting" @click="inspect">
             <span class="inline">{{ t('pluginAdmin.next') }}<ArrowRight v-if="!inspecting" :size="15" /></span>
           </a-button>
         </template>
         <template v-else>
-          <a-button :disabled="installing" @click="step = 1">{{ t('pluginAdmin.back') }}</a-button>
+          <a-button v-if="hubMode" :disabled="installing" @click="visible = false">{{ t('common.cancel') }}</a-button>
+          <a-button v-else :disabled="installing" @click="step = 1">{{ t('pluginAdmin.back') }}</a-button>
           <a-button type="primary" :loading="installing" @click="install">
             {{ !installed ? t('pluginAdmin.confirmInstall') : installed.version === plugin?.version ? t('pluginAdmin.reinstall') : t('pluginAdmin.confirmUpgrade') }}
           </a-button>
@@ -340,10 +386,17 @@ const inputs = computed(() => plugin.value?.module.sections.flatMap((s) => s.fie
   margin-top: 16px;
 }
 .review-head {
-  display: flex;
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) auto;
   align-items: center;
   gap: 12px;
   overflow-wrap: anywhere;
+}
+.hub-link {
+  align-self: start;
+  gap: 4px;
+  font-size: 13px;
+  white-space: nowrap;
 }
 .review-name {
   display: flex;
@@ -352,16 +405,6 @@ const inputs = computed(() => plugin.value?.module.sections.flatMap((s) => s.fie
   gap: 8px;
   margin-bottom: 4px;
   font-size: 17px;
-}
-.review-meta {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  margin-top: 4px;
-  font-size: 12px;
-}
-.dot {
-  margin: 0 6px;
 }
 .review-details {
   margin: 20px 0 8px;
@@ -399,6 +442,13 @@ const inputs = computed(() => plugin.value?.module.sections.flatMap((s) => s.fie
   overflow-wrap: anywhere;
 }
 @media (max-width: 480px) {
+  .review-head {
+    grid-template-columns: 44px minmax(0, 1fr);
+  }
+  .hub-link {
+    grid-column: 2;
+    justify-self: end;
+  }
   .source-options {
     flex-direction: column;
   }

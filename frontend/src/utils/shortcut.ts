@@ -25,6 +25,8 @@ export function saveBody(s: AdminFieldShortcut, changes: Partial<SaveFieldShortc
   return {
     id: s.id,
     homepage: s.homepage,
+    icon: s.icon,
+    color: s.color,
     name: s.name,
     version: s.version,
     description: s.description,

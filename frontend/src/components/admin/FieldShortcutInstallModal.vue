@@ -1,12 +1,14 @@
 <script setup lang="ts">
 import { localText, type LocalText } from '@/utils/localText'
 import { Message, type FileItem } from '@arco-design/web-vue'
-import { ArrowRight, CodeXml, FileCode2, Link2, Upload, X } from '@lucide/vue'
+import { ArrowRight, CodeXml, ExternalLink, FileCode2, Link2, Upload, X } from '@lucide/vue'
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import { adminShortcutsApi, type AdminFieldShortcut } from '@/api/shortcut'
 import SHORTCUT_STARTER from '@/assets/templates/field-shortcut.js?raw'
+import HubFetchState from '@/components/admin/HubFetchState.vue'
+import HubReleaseCard from '@/components/admin/HubReleaseCard.vue'
 import WorkflowPluginIcon from '@/components/admin/WorkflowPluginIcon.vue'
 import CodeEditor from '@/components/common/CodeEditor.vue'
 import FieldTypeIcon from '@/components/field/FieldTypeIcon.vue'
@@ -16,7 +18,17 @@ import { fieldTypeInfo } from '@/utils/fieldTypes'
 import { fieldLabel, saveBody, shortcutFields } from '@/utils/shortcut'
 import { LANGUAGE_NAMES, languageOf, versionLabel, type PluginLanguage } from '@/utils/workflowPlugin'
 
-const props = defineProps<{ upgrade?: AdminFieldShortcut | null }>()
+const props = defineProps<{
+  upgrade?: AdminFieldShortcut | null
+  /** Downloads the upgraded shortcut from Sayrud Hub instead of asking for a source. */
+  fromHub?: boolean
+  /** Installs this Sayrud Hub package, picked in its catalog. */
+  hubID?: string
+  /** Exact release picked in the catalog or offered by an update check, latest when omitted. */
+  hubVersion?: string
+  /** Name of the Sayrud Hub package, shown while its release is downloaded. */
+  hubName?: string
+}>()
 const visible = defineModel<boolean>('visible', { required: true })
 const emit = defineEmits<{ installed: [shortcut: AdminFieldShortcut] }>()
 const { t, locale } = useI18n()
@@ -24,6 +36,7 @@ const text = (value: LocalText | undefined) => localText(value, locale.value)
 
 const MAX_SOURCE_SIZE = 200 * 1024
 const step = ref(1)
+const hubMode = ref(false)
 const source = ref<'file' | 'url' | 'code'>('file')
 const file = ref<{ name: string; size: number; text: string } | null>(null)
 const url = ref('')
@@ -37,6 +50,7 @@ const inspection = ref<AdminFieldShortcut | null>(null)
 const inspectionFields = computed(() => (inspection.value ? shortcutFields(inspection.value) : []))
 
 const busy = computed(() => reading.value || inspecting.value || installing.value)
+const hubPackage = computed(() => props.hubID || (props.fromHub ? props.upgrade?.id : undefined))
 const canInspect = computed(() => {
   if (source.value === 'file') return !!file.value
   if (source.value === 'url') return /^https?:\/\/\S+$/i.test(url.value.trim())
@@ -59,9 +73,11 @@ watch(
     inspecting.value = false
     installing.value = false
 
+    hubMode.value = open && !!hubPackage.value
     if (open) {
       code.value = props.upgrade?.code ?? SHORTCUT_STARTER
       language.value = props.upgrade?.language ?? 'javascript'
+      if (hubMode.value) void inspectHub()
     }
   },
   { immediate: true },
@@ -123,6 +139,32 @@ async function inspect() {
   }
 }
 
+async function inspectHub() {
+  const hubID = hubPackage.value
+  if (!hubID || busy.value) return
+
+  const request = requestId
+  inspecting.value = true
+  error.value = ''
+
+  try {
+    const result = await adminShortcutsApi.inspect({ hubID, ...(props.hubVersion && { hubVersion: props.hubVersion }) })
+    if (request !== requestId) return
+
+    inspection.value = result
+    step.value = 2
+  } catch (e) {
+    if (request === requestId) error.value = e instanceof Error ? e.message : String(e)
+  } finally {
+    if (request === requestId) inspecting.value = false
+  }
+}
+
+function chooseSource() {
+  hubMode.value = false
+  error.value = ''
+}
+
 async function install() {
   if (!inspection.value || busy.value) return
 
@@ -132,8 +174,8 @@ async function install() {
     const i = inspection.value
     const upgrade = props.upgrade
     const shortcut = upgrade
-      ? await adminShortcutsApi.update(upgrade.uid, saveBody(i, { enabled: upgrade.enabled }))
-      : await adminShortcutsApi.install(i.code, i.language)
+      ? await adminShortcutsApi.update(upgrade.uid, saveBody(i, { enabled: upgrade.enabled, ...(i.signature && { signature: i.signature }) }))
+      : await adminShortcutsApi.install(i.code, i.language, i.signature)
     Message.success(t(upgrade ? 'pluginAdmin.upgradeSuccess' : 'pluginAdmin.installSuccess', { name: text(shortcut.name) }))
     emit('installed', shortcut)
     visible.value = false
@@ -153,9 +195,18 @@ async function install() {
     :closable="!busy"
     :esc-to-close="!busy"
     unmount-on-close
-    :title="upgrade ? t('pluginAdmin.upgradeTitle', { name: upgrade.name }) : t('shortcutAdmin.installTitle')"
+    :title="upgrade ? t('pluginAdmin.upgradeTitle', { name: text(upgrade.name) }) : t('shortcutAdmin.installTitle')"
   >
-    <div v-if="step === 1" class="source-step">
+    <HubFetchState
+      v-if="step === 1 && hubMode"
+      :loading="inspecting"
+      :error="error"
+      :name="upgrade ? text(upgrade.name) : (hubName ?? '')"
+      @retry="inspectHub"
+      @choose-source="chooseSource"
+    />
+
+    <div v-else-if="step === 1" class="source-step">
       <a-radio-group v-model="source" type="button" size="large" :disabled="busy" class="source-options">
         <a-radio value="file"><span class="inline"><Upload :size="16" />{{ t('pluginAdmin.sourceFile') }}</span></a-radio>
         <a-radio value="url"><span class="inline"><Link2 :size="16" />{{ t('pluginAdmin.sourceURL') }}</span></a-radio>
@@ -209,16 +260,24 @@ async function install() {
 
     <div v-else-if="inspection" class="review-step">
       <div class="review-head">
-        <WorkflowPluginIcon :icon="inspection.permissions.ai ? 'sparkles' : 'zap'" color="var(--color-primary)" :size="44" />
+        <WorkflowPluginIcon :icon="inspection.icon || (inspection.permissions.ai ? 'sparkles' : 'zap')" :color="inspection.color || 'var(--color-primary)'" :size="44" />
         <div class="review-title">
           <div class="review-name">
             <span>{{ text(inspection.name) }}</span>
             <a-tag size="small">{{ versionLabel(inspection.version) }}</a-tag>
             <a-tag size="small">{{ LANGUAGE_NAMES[inspection.language] }}</a-tag>
+            <a-tag v-if="upgrade && upgrade.version !== inspection.version" size="small" color="arcoblue">
+              {{ t('pluginAdmin.upgradeFrom', { from: upgrade.version, to: inspection.version }) }}
+            </a-tag>
           </div>
           <div v-if="text(inspection.description)" class="text-desc">{{ text(inspection.description) }}</div>
         </div>
+        <a-link v-if="inspection.hub" :href="inspection.hub.url" target="_blank" rel="noopener noreferrer" class="hub-link">
+          {{ t('hub.viewOnHub') }}<ExternalLink :size="12" />
+        </a-link>
       </div>
+
+      <HubReleaseCard v-if="inspection.hub" :hub="inspection.hub" />
 
       <a-descriptions :column="2" layout="vertical" class="review-details">
         <a-descriptions-item v-if="inspection.homepage" :label="t('pluginAdmin.homepage')">
@@ -232,7 +291,7 @@ async function install() {
         </a-descriptions-item>
         <a-descriptions-item :label="t('shortcutAdmin.timeout')">{{ t('pluginAdmin.timeoutValue', { n: inspection.timeout }) }}</a-descriptions-item>
         <a-descriptions-item :label="t('shortcutAdmin.aiEnabled')">
-          {{ t(inspection.permissions.ai ? 'shortcutAdmin.enabledTag' : 'shortcutAdmin.disabledTag') }}
+          {{ t(inspection.permissions.ai ? 'shortcutAdmin.aiUsed' : 'shortcutAdmin.aiNotUsed') }}
         </a-descriptions-item>
         <a-descriptions-item :label="t('shortcutAdmin.formItems')">
           <div v-if="inspectionFields.length" class="tags">
@@ -255,19 +314,23 @@ async function install() {
         </a-descriptions-item>
       </a-descriptions>
 
-      <a-alert type="warning">{{ t('shortcutAdmin.trustWarning') }}</a-alert>
+      <a-alert v-if="!inspection.hub?.official" type="warning">{{ t('shortcutAdmin.trustWarning') }}</a-alert>
     </div>
 
     <template #footer>
       <a-space>
-        <template v-if="step === 1">
+        <template v-if="step === 1 && hubMode">
+          <a-button :disabled="busy" @click="visible = false">{{ t('common.cancel') }}</a-button>
+        </template>
+        <template v-else-if="step === 1">
           <a-button :disabled="busy" @click="visible = false">{{ t('common.cancel') }}</a-button>
           <a-button type="primary" :disabled="!canInspect || reading" :loading="inspecting" @click="inspect">
             <span class="inline">{{ t('pluginAdmin.next') }}<ArrowRight v-if="!inspecting" :size="15" /></span>
           </a-button>
         </template>
         <template v-else>
-          <a-button :disabled="installing" @click="step = 1">{{ t('pluginAdmin.back') }}</a-button>
+          <a-button v-if="hubMode" :disabled="installing" @click="visible = false">{{ t('common.cancel') }}</a-button>
+          <a-button v-else :disabled="installing" @click="step = 1">{{ t('pluginAdmin.back') }}</a-button>
           <a-button type="primary" :loading="installing" @click="install">{{ t(upgrade ? 'pluginAdmin.confirmUpgrade' : 'pluginAdmin.confirmInstall') }}</a-button>
         </template>
       </a-space>
@@ -362,10 +425,17 @@ async function install() {
   margin-top: 16px;
 }
 .review-head {
-  display: flex;
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) auto;
   align-items: center;
   gap: 12px;
   overflow-wrap: anywhere;
+}
+.hub-link {
+  align-self: start;
+  gap: 4px;
+  font-size: 13px;
+  white-space: nowrap;
 }
 .review-name {
   display: flex;
@@ -394,6 +464,13 @@ async function install() {
   color: var(--color-danger);
 }
 @media (max-width: 480px) {
+  .review-head {
+    grid-template-columns: 44px minmax(0, 1fr);
+  }
+  .hub-link {
+    grid-column: 2;
+    justify-self: end;
+  }
   .source-options {
     flex-direction: column;
   }

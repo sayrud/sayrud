@@ -3,6 +3,7 @@ package db
 import (
 	"context"
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -89,6 +90,7 @@ func TestFieldShortcutLanguage(t *testing.T) {
 	got, err := store.GetByUID(ctx, s.UID)
 	require.NoError(t, err)
 	require.Equal(t, "javascript", got.Language)
+	require.Empty(t, got.Icon)
 
 	got.Language = "typescript"
 	got.Code = "export function execute(): number { return 1 }"
@@ -115,6 +117,7 @@ func TestFieldShortcutVersion(t *testing.T) {
 
 	got.Version = "2.3.0"
 	got.Homepage = "https://example.com/support"
+	got.Icon = "tag"
 	require.NoError(t, store.Update(ctx, got))
 	list, total, err := store.ListAdmin(ctx, ListFieldShortcutsOptions{})
 	require.NoError(t, err)
@@ -122,11 +125,54 @@ func TestFieldShortcutVersion(t *testing.T) {
 	require.Equal(t, "2.3.0", list[0].Version)
 	require.Equal(t, "version_test", list[0].ManifestID)
 	require.Equal(t, "https://example.com/support", list[0].Homepage)
+	require.Equal(t, "tag", list[0].Icon)
 	require.Equal(t, s.UID, list[0].UID)
 	got.Homepage = ""
+	got.Icon = ""
 	require.NoError(t, store.Update(ctx, got))
 	got, err = store.GetByUID(ctx, s.UID)
 	require.NoError(t, err)
 	require.Empty(t, got.Homepage)
+	require.Empty(t, got.Icon)
 	require.Equal(t, "version_test", got.ManifestID)
+}
+
+func TestFieldShortcutAppearance(t *testing.T) {
+	ctx := context.Background()
+	gormDB := newTestDB(t, &CustomFieldShortcut{})
+	store := NewFieldShortcutsStore(gormDB)
+	s := &CustomFieldShortcut{
+		Name: i18n.LocalText{"": "Appearance"}, ResultType: TextFieldType, Code: "function execute() { return 'text' }",
+		Sections: datatypes.NewJSONType([]ShortcutSection{}), Domains: datatypes.NewJSONType([]string{}), Credentials: datatypes.NewJSONType([]ShortcutCredential{}),
+		Icon: "data:image/svg+xml;base64," + strings.Repeat("a", 200), Color: "#3370ff",
+	}
+	require.NoError(t, store.Create(ctx, s))
+	got, err := store.GetByUID(ctx, s.UID)
+	require.NoError(t, err)
+	require.Equal(t, s.Icon, got.Icon)
+	require.Equal(t, s.Color, got.Color)
+	got.Icon, got.Color = "tag", "#6b4ff6"
+	require.NoError(t, store.Update(ctx, got))
+	got, err = store.GetByUID(ctx, s.UID)
+	require.NoError(t, err)
+	require.Equal(t, "tag", got.Icon)
+	require.Equal(t, "#6b4ff6", got.Color)
+	got.Icon, got.Color = "", ""
+	require.NoError(t, store.Update(ctx, got))
+	got, err = store.GetByUID(ctx, s.UID)
+	require.NoError(t, err)
+	require.Empty(t, got.Icon)
+	require.Empty(t, got.Color)
+
+	// Existing varchar(40) columns must widen without truncating saved icon names.
+	require.NoError(t, gormDB.Exec("ALTER TABLE field_shortcuts ALTER COLUMN icon TYPE varchar(40)").Error)
+	require.NoError(t, gormDB.Migrator().DropColumn(&CustomFieldShortcut{}, "Color"))
+	require.NoError(t, migrateFieldShortcuts(gormDB))
+	require.NoError(t, gormDB.AutoMigrate(&CustomFieldShortcut{}))
+	got.Icon, got.Color = s.Icon, "#3370ff"
+	require.NoError(t, store.Update(ctx, got))
+	got, err = store.GetByUID(ctx, s.UID)
+	require.NoError(t, err)
+	require.Equal(t, s.Icon, got.Icon)
+	require.Equal(t, "#3370ff", got.Color)
 }

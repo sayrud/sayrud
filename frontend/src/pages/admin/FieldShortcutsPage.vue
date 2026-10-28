@@ -1,17 +1,22 @@
 <script setup lang="ts">
 import { Message, Modal, type TableColumnData } from '@arco-design/web-vue'
-import { CircleArrowUp, Download, Ellipsis, Trash2 } from '@lucide/vue'
+import { CircleArrowUp, CloudDownload, Download, Ellipsis, Store, Trash2 } from '@lucide/vue'
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 
 import { adminShortcutsApi, type AdminFieldShortcut } from '@/api/shortcut'
 import FieldShortcutInstallModal from '@/components/admin/FieldShortcutInstallModal.vue'
+import HubBadge from '@/components/admin/HubBadge.vue'
+import HubCheckButton from '@/components/admin/HubCheckButton.vue'
+import HubNotices from '@/components/admin/HubNotices.vue'
+import HubPackageStatus from '@/components/admin/HubPackageStatus.vue'
 import WorkflowPluginIcon from '@/components/admin/WorkflowPluginIcon.vue'
 import StateIllustration from '@/components/common/StateIllustration.vue'
 import PageHeader from '@/components/console/PageHeader.vue'
 import SettingsSection from '@/components/console/SettingsSection.vue'
 import FieldTypeIcon from '@/components/field/FieldTypeIcon.vue'
+import { useHubUpdates } from '@/composables/useHubUpdates'
 import type { FieldType } from '@/types/bitable'
 import { fieldTypeInfo } from '@/utils/fieldTypes'
 import { saveBody } from '@/utils/shortcut'
@@ -26,13 +31,21 @@ const shortcuts = ref<AdminFieldShortcut[]>([])
 const loading = ref(true)
 const toggling = ref('')
 const installVisible = ref(false)
+const installHubVersion = ref<string>()
 const upgradeTarget = ref<AdminFieldShortcut | null>(null)
 const keyword = ref('')
 const pagination = reactive({ current: 1, pageSize: 20, total: 0 })
 
+const hub = useHubUpdates('field_shortcut')
+const updateOf = (s: AdminFieldShortcut) => hub.find('field_shortcut', s.id, s.hub)?.latest
+const shortcutName = (id: string) => {
+  const s = shortcuts.value.find((s) => s.id === id)
+  return s ? text(s.name) : undefined
+}
+
 const columns = computed<TableColumnData[]>(() => [
   { title: t('shortcutAdmin.name'), slotName: 'name', width: 320 },
-  { title: t('shortcutAdmin.version'), slotName: 'version', width: 100 },
+  { title: t('shortcutAdmin.version'), slotName: 'version', width: 150 },
   { title: t('shortcutAdmin.resultType'), slotName: 'resultType', width: 140 },
   { title: t('shortcutAdmin.colStatus'), slotName: 'status', width: 110 },
   { title: t('common.actions'), slotName: 'actions', width: 140, fixed: 'right' },
@@ -87,17 +100,24 @@ function edit(s: AdminFieldShortcut) {
   router.push({ name: 'admin-field-shortcut-edit', params: { shortcutUID: s.uid } })
 }
 
+function browseHub() {
+  router.push({ name: 'admin-hub-field-shortcuts' })
+}
+
 function openInstall() {
   upgradeTarget.value = null
+  installHubVersion.value = undefined
   installVisible.value = true
 }
 
-function openUpgrade(s: AdminFieldShortcut) {
+function openUpgrade(s: AdminFieldShortcut, version?: string) {
   upgradeTarget.value = s
+  installHubVersion.value = version
   installVisible.value = true
 }
 
 function onInstalled(s: AdminFieldShortcut) {
+  if (s.hub || upgradeTarget.value?.hub) void hub.check()
   if (upgradeTarget.value) load()
   else edit(s)
 }
@@ -129,6 +149,7 @@ function uninstall(s: AdminFieldShortcut) {
         Message.error(e instanceof Error ? e.message : String(e))
         return false
       }
+      if (s.hub) void hub.check()
       await load()
       Message.success(t('pluginAdmin.uninstalled'))
       return true
@@ -136,13 +157,21 @@ function uninstall(s: AdminFieldShortcut) {
   })
 }
 
-onMounted(load)
+onMounted(() => {
+  load()
+  hub.ensure()
+})
 </script>
 
 <template>
   <div>
     <PageHeader :title="t('shortcutAdmin.title')" :description="t('shortcutAdmin.pageDescription')">
       <template #extra>
+        <HubCheckButton kind="field_shortcut" />
+        <a-button @click="browseHub">
+          <template #icon><Store :size="16" /></template>
+          {{ t('hubCatalog.browseShortcuts') }}
+        </a-button>
         <a-button type="primary" @click="openInstall">
           <template #icon><Download :size="16" /></template>
           {{ t('shortcutAdmin.install') }}
@@ -154,6 +183,8 @@ onMounted(load)
       <div v-if="pagination.total > 0 || keyword.trim()" class="toolbar">
         <a-input-search v-model="keyword" :placeholder="t('shortcutAdmin.search')" allow-clear class="search" />
       </div>
+
+      <HubNotices kind="field_shortcut" :name-of="shortcutName" :class="{ 'notices-top': !(pagination.total > 0 || keyword.trim()) }" />
 
       <a-table
         v-if="loading || shortcuts.length || keyword.trim()"
@@ -169,14 +200,22 @@ onMounted(load)
       >
         <template #name="{ record }">
           <div class="name-cell">
-            <WorkflowPluginIcon :icon="record.permissions.ai ? 'sparkles' : 'zap'" color="var(--color-primary)" :size="32" />
+            <WorkflowPluginIcon :icon="record.icon || (record.permissions.ai ? 'sparkles' : 'zap')" :color="record.color || 'var(--color-primary)'" :size="32" />
             <div class="name-text">
-              <div class="name ellipsis">{{ text(record.name) }}</div>
+              <div class="name-row">
+                <span class="name ellipsis">{{ text(record.name) }}</span>
+                <HubBadge :hub="record.hub" :size="14" />
+              </div>
               <div class="text-desc ellipsis desc">{{ text(record.description) || t('pluginAdmin.noDescription') }}</div>
             </div>
           </div>
         </template>
-        <template #version="{ record }">{{ versionLabel(record.version) }}</template>
+        <template #version="{ record }">
+          <div class="version-cell">
+            <span>{{ versionLabel(record.version) }}</span>
+            <HubPackageStatus kind="field_shortcut" :id="record.id" :hub="record.hub" @update="openUpgrade(record as AdminFieldShortcut, updateOf(record as AdminFieldShortcut)?.version)" />
+          </div>
+        </template>
         <template #resultType="{ record }">
           <span class="type-cell">
             <FieldTypeIcon :type="record.resultType as FieldType" />
@@ -205,6 +244,10 @@ onMounted(load)
                 <template #icon><Ellipsis :size="16" /></template>
               </a-button>
               <template #content>
+                <a-doption v-if="updateOf(record as AdminFieldShortcut)" @click="openUpgrade(record as AdminFieldShortcut, updateOf(record as AdminFieldShortcut)?.version)">
+                  <template #icon><CloudDownload :size="15" /></template>
+                  {{ t('hub.updateTo', { version: versionLabel(updateOf(record as AdminFieldShortcut)!.version) }) }}
+                </a-doption>
                 <a-doption @click="openUpgrade(record as AdminFieldShortcut)">
                   <template #icon><CircleArrowUp :size="15" /></template>
                   {{ t('pluginAdmin.upgrade') }}
@@ -228,10 +271,16 @@ onMounted(load)
         <StateIllustration name="feature-upgrade" :width="160" />
         <div class="empty-title">{{ t('shortcutAdmin.empty') }}</div>
         <div class="text-desc empty-desc">{{ t('shortcutAdmin.emptyDescription') }}</div>
-        <a-button type="primary" @click="openInstall">
-          <template #icon><Download :size="16" /></template>
-          {{ t('shortcutAdmin.install') }}
-        </a-button>
+        <a-space wrap>
+          <a-button type="primary" @click="openInstall">
+            <template #icon><Download :size="16" /></template>
+            {{ t('shortcutAdmin.install') }}
+          </a-button>
+          <a-button @click="browseHub">
+            <template #icon><Store :size="16" /></template>
+            {{ t('hubCatalog.browseShortcuts') }}
+          </a-button>
+        </a-space>
       </div>
 
       <div v-if="pagination.total > 0" class="pagination-footer">
@@ -254,7 +303,7 @@ onMounted(load)
       </div>
     </SettingsSection>
 
-    <FieldShortcutInstallModal v-model:visible="installVisible" :upgrade="upgradeTarget" @installed="onInstalled" />
+    <FieldShortcutInstallModal v-model:visible="installVisible" :upgrade="upgradeTarget" :from-hub="!!installHubVersion" :hub-version="installHubVersion" @installed="onInstalled" />
   </div>
 </template>
 
@@ -285,9 +334,24 @@ onMounted(load)
 .name-text {
   min-width: 0;
 }
+.name-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
 .name {
   font-weight: 500;
   color: var(--text-title);
+}
+.version-cell {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.notices-top {
+  margin-top: 16px;
 }
 .desc {
   font-size: 12px;

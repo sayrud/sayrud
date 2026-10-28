@@ -152,6 +152,8 @@ func buildCustomShortcut(f form.SaveFieldShortcut) (*db.CustomFieldShortcut, map
 		ManifestID:     m.ID,
 		Homepage:       m.Homepage,
 		Name:           m.Name,
+		Icon:           m.Icon,
+		Color:          m.Color,
 		Version:        m.Version,
 		Description:    m.Description,
 		ResultType:     db.SLFieldType(m.ResultType),
@@ -225,6 +227,9 @@ func (adminRoute) CreateFieldShortcut(ctx context.Context, f form.SaveFieldShort
 	if err != nil {
 		return saveFieldShortcutError(ctx, err, "validate")
 	}
+	if s.HubSignature, err = hubSignature(f.Signature, "", shortcutExpect(s), s.Code); err != nil {
+		return saveFieldShortcutError(ctx, err, "validate")
+	}
 	if s.Secrets, err = sealSecrets("", s.Credentials.Data(), values); err != nil {
 		return saveFieldShortcutError(ctx, err, "seal")
 	}
@@ -241,6 +246,7 @@ func (adminRoute) CreateFieldShortcut(ctx context.Context, f form.SaveFieldShort
 // UpdateFieldShortcut
 // @Summary Update a custom field shortcut
 // @Description Requires the admin. The empty credential values keep the saved ones.
+// @Description A Sayrud Hub signature must describe the code; without one, the shortcut stays from the Hub only if its code is unchanged.
 // @Accept json
 // @Produce json
 // @Param shortcutUID path string true "Shortcut UID"
@@ -260,6 +266,9 @@ func (adminRoute) UpdateFieldShortcut(ctx context.Context, saved *db.CustomField
 	}
 	if saved.ManifestID != "" && s.ManifestID != saved.ManifestID {
 		return saveFieldShortcutError(ctx, manifestError(manifest.Errorf("id must stay %q when updating a shortcut", saved.ManifestID)), "validate")
+	}
+	if s.HubSignature, err = hubSignature(f.Signature, saved.HubSignature, shortcutExpect(s), s.Code); err != nil {
+		return saveFieldShortcutError(ctx, err, "validate")
 	}
 	if s.Secrets, err = sealSecrets(saved.Secrets, s.Credentials.Data(), values); err != nil {
 		return saveFieldShortcutError(ctx, err, "seal")

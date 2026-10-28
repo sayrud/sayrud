@@ -49,8 +49,10 @@ export const adminShortcutsApi = {
   delete: async (uid: string) => {
     await client.admin.deleteAdminFieldShortcut(uid)
   },
-  inspect: async (body: { source?: string; url?: string; language?: PluginLanguage }) => (await client.admin.inspectAdminFieldShortcut(body)).data,
-  install: async (source: string, language: PluginLanguage) => (await client.admin.installAdminFieldShortcut({ source, language })).data,
+  inspect: async (body: { source?: string; url?: string; language?: PluginLanguage; hubID?: string; hubVersion?: string }) =>
+    (await client.admin.inspectAdminFieldShortcut(body)).data,
+  install: async (source: string, language: PluginLanguage, signature?: object) =>
+    (await client.admin.installAdminFieldShortcut({ source, language, signature })).data,
   test: async (body: SaveFieldShortcut, params: Record<string, unknown>, uid?: string) =>
     (await client.admin.testAdminFieldShortcut({ uid, shortcut: body, params })).data,
 }

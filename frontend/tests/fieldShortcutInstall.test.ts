@@ -31,21 +31,24 @@ function loadModal(api: {
   inspect: (body: { source?: string; url?: string; language?: string }) => Promise<AdminFieldShortcut>
   install: (source: string, language: string) => Promise<AdminFieldShortcut>
   update?: (uid: string, body: SaveFieldShortcut) => Promise<AdminFieldShortcut>
-}, upgrade?: AdminFieldShortcut) {
+}, upgrade?: AdminFieldShortcut, inlineTemplate = false) {
   const source = readFileSync(new URL('../src/components/admin/FieldShortcutInstallModal.vue', import.meta.url), 'utf8')
-  const script = compileScript(parse(source).descriptor, { id: 'field-shortcut-install-test' })
+  const script = compileScript(parse(source).descriptor, { id: 'field-shortcut-install-test', inlineTemplate })
   const compiled = ts.transpileModule(script.content, { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText
   const module = { exports: {} as { default?: { setup: (...args: unknown[]) => unknown } } }
   const require = createRequire(import.meta.url)
   const visible = vue.ref(true)
+  const locale = vue.ref('en')
   const props = vue.reactive({ upgrade })
   const messages: string[] = []
   const events: unknown[][] = []
   const overrides: Record<string, unknown> = {
-    vue: { ...vue, useModel: () => visible },
+    vue: { ...vue, useModel: () => visible, resolveComponent: (name: string) => name },
     '@arco-design/web-vue': { Message: { warning: (text: string) => messages.push(text), error: (text: string) => messages.push(text), success: (text: string) => messages.push(text) } },
-    '@lucide/vue': {},
-    'vue-i18n': { useI18n: () => ({ t: (key: string) => key, locale: vue.ref('en') }) },
+    'vue-i18n': { useI18n: () => ({
+      t: (key: string, named?: { name?: unknown }) => key === 'pluginAdmin.upgradeTitle' ? named?.name : key,
+      locale,
+    }) },
     '@/api/shortcut': { adminShortcutsApi: api },
     '@/assets/templates/field-shortcut.js?raw': { default: readFileSync(new URL('../src/assets/templates/field-shortcut.js', import.meta.url), 'utf8') },
     '@/utils/attachments': {},
@@ -59,8 +62,29 @@ function loadModal(api: {
 
   const scope = vue.effectScope()
   const modal = scope.run(() => module.exports.default!.setup(props, { expose: () => {}, emit: (...args: unknown[]) => events.push(args) })) as InstallModal
-  return { modal, visible, props, messages, events, stop: () => scope.stop() }
+  const render = () => (modal as unknown as (context: object, cache: unknown[]) => vue.VNode)({}, [])
+  return { modal, render, visible, locale, props, messages, events, stop: () => scope.stop() }
 }
+
+test('the upgrade modal title uses the localized name and follows language changes', (t) => {
+  const original = {
+    uid: 'fscAAAAAAA', name: { en: 'Smart Classification', 'zh-CN': '智能分类' }, code: '', language: 'javascript',
+  } as AdminFieldShortcut
+  const { render, locale, props, stop } = loadModal({
+    inspect: async () => assert.fail('rendering the source picker must not inspect'),
+    install: async () => assert.fail('rendering must not install'),
+  }, original, true)
+  t.after(stop)
+
+  assert.equal(render().props?.title, 'Smart Classification')
+  locale.value = 'zh-CN'
+  assert.equal(render().props?.title, '智能分类')
+  locale.value = 'fr'
+  assert.equal(render().props?.title, 'Smart Classification')
+
+  props.upgrade = undefined
+  assert.equal(render().props?.title, 'shortcutAdmin.installTitle')
+})
 
 test('shortcut installation reviews files, URLs and custom code and installs the exact reviewed source', async (t) => {
   const preview = { name: 'Uppercase', code: 'reviewed module', language: 'javascript' } as AdminFieldShortcut
@@ -158,7 +182,7 @@ test('upgrading replaces the selected shortcut with reviewed source and preserve
     credentials: [{ key: 'api', label: 'API Key', type: 'bearer', hasValue: true }],
   } as AdminFieldShortcut
   const preview = {
-    id: 'uppercase_text', homepage: 'https://example.com/support', name: 'Replacement', version: '2.3.0', description: 'Updated description', resultType: 'text',
+    id: 'uppercase_text', homepage: 'https://example.com/support', name: 'Replacement', icon: 'tag', color: '#3370ff', version: '2.3.0', description: 'Updated description', resultType: 'text',
     code: 'reviewed source', language: 'typescript', enabled: true,
     sections: [{ fields: [{ key: 'text', label: { '': 'Text' }, widget: 'text', required: true }] }],
     permissions: { fetch: ['api.example.com'], ai: true }, credentials: [{ key: 'api', label: { en: 'Updated API Key', 'zh-CN': '新 API 密钥' }, type: 'bearer', hasValue: false }],
@@ -183,7 +207,7 @@ test('upgrading replaces the selected shortcut with reviewed source and preserve
   assert.deepEqual(writes, [{
     uid: original.uid,
     body: {
-      id: preview.id, homepage: preview.homepage, name: preview.name, version: '2.3.0', description: preview.description, resultType: 'text',
+      id: preview.id, homepage: preview.homepage, name: preview.name, icon: 'tag', color: '#3370ff', version: '2.3.0', description: preview.description, resultType: 'text',
       timeout: 60, permissions: { fetch: ['api.example.com'], ai: true },
       credentials: [{ key: 'api', label: { en: 'Updated API Key', 'zh-CN': '新 API 密钥' }, type: 'bearer', name: undefined }],
       sections: preview.sections, code: preview.code, language: 'typescript', enabled: false,

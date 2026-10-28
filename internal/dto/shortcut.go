@@ -1,6 +1,7 @@
 package dto
 
 import (
+	"encoding/json"
 	"strings"
 	"time"
 
@@ -16,6 +17,10 @@ type FieldShortcutManifest struct {
 	Kind string `json:"kind" enums:"script"`
 	// Name is shown in the field editor.
 	Name i18n.LocalText `json:"name"`
+	// Icon is an optional Lucide icon name or base64 data:image URL.
+	Icon string `json:"icon,omitempty"`
+	// Color is an optional hex color, empty for the theme color.
+	Color string `json:"color,omitempty"`
 	// Description tells what the shortcut does.
 	Description i18n.LocalText `json:"description"`
 	// ResultTypes are the types of the fields the shortcut can be attached to.
@@ -82,6 +87,10 @@ type AdminFieldShortcut struct {
 	Homepage string `json:"homepage"`
 	// Name is shown in the field editor.
 	Name i18n.LocalText `json:"name"`
+	// Icon is an optional Lucide icon name or base64 data:image URL.
+	Icon string `json:"icon,omitempty"`
+	// Color is an optional hex color, empty for the theme color.
+	Color string `json:"color,omitempty"`
 	// Version is the version declared by the shortcut manifest.
 	Version string `json:"version"`
 	// Description tells the members what the shortcut does.
@@ -104,6 +113,10 @@ type AdminFieldShortcut struct {
 	Enabled bool `json:"enabled"`
 	// UsedBy is the number of the fields using the shortcut.
 	UsedBy int64 `json:"usedBy"`
+	// Hub is the Sayrud Hub release the shortcut is installed from, omitted if installed from elsewhere.
+	Hub *HubOrigin `json:"hub,omitempty"`
+	// Signature is the verified Sayrud Hub signature of Code to send back when installing, only returned when inspecting a release.
+	Signature json.RawMessage `json:"signature,omitempty" swaggertype:"object"`
 	// CreatedAt is the time the shortcut was created.
 	CreatedAt time.Time `json:"createdAt"`
 	// UpdatedAt is the time the shortcut was last updated.
@@ -150,6 +163,8 @@ func ToAdminFieldShortcut(s *db.CustomFieldShortcut, valueKeys map[string]bool, 
 		ID:          s.ManifestID,
 		Homepage:    s.Homepage,
 		Name:        s.Name,
+		Icon:        s.Icon,
+		Color:       s.Color,
 		Version:     version,
 		Description: s.Description,
 		ResultType:  string(s.ResultType),
@@ -161,6 +176,7 @@ func ToAdminFieldShortcut(s *db.CustomFieldShortcut, valueKeys map[string]bool, 
 		Language:    language,
 		Enabled:     s.Enabled,
 		UsedBy:      usedBy,
+		Hub:         ToHubOrigin(s.HubSignature),
 		CreatedAt:   s.CreatedAt,
 		UpdatedAt:   s.UpdatedAt,
 	}

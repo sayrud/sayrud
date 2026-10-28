@@ -36,21 +36,25 @@ const (
 	MaxText         = 500
 	MaxHosts        = 50
 	MaxTranslations = 20
+	MaxIconSize     = 100 << 10
 )
 
 var (
-	idPattern = regexp.MustCompile(`^[a-z][a-z0-9_]{1,39}$`)
+	idPattern = regexp.MustCompile(`^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)*$`)
 	// VersionPattern is the version of a manifest, e.g. 1.0.0.
 	VersionPattern = regexp.MustCompile(`^[0-9A-Za-z][0-9A-Za-z.+\-]{0,31}$`)
 	// KeyPattern is the key of a form field, an output or a credential.
-	KeyPattern  = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]{0,63}$`)
-	langPattern = regexp.MustCompile(`^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})*$`)
+	KeyPattern      = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]{0,63}$`)
+	iconPattern     = regexp.MustCompile(`^[a-z0-9]+(-[a-z0-9]+)*$`)
+	dataIconPattern = regexp.MustCompile(`^data:image/(svg\+xml|png|jpeg|webp);base64,[A-Za-z0-9+/=]+$`)
+	colorPattern    = regexp.MustCompile(`^#[0-9A-Fa-f]{6}$`)
+	langPattern     = regexp.MustCompile(`^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})*$`)
 )
 
 // CheckID checks the source package identifier, independently of a shortcut installation's UID.
 func CheckID(id string) error {
-	if !idPattern.MatchString(id) {
-		return Errorf("id must be 2–40 lowercase letters, digits or underscores starting with a letter")
+	if len(id) < 2 || len(id) > 40 || !idPattern.MatchString(id) {
+		return Errorf("id must be 2–40 lowercase letters, digits, underscores or dots; each part must start with a letter")
 	}
 	return nil
 }
@@ -63,6 +67,28 @@ func CheckHomepage(homepage string) error {
 	u, err := url.Parse(homepage)
 	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Hostname() == "" || u.User != nil || len(homepage) > 500 {
 		return Errorf("homepage must be an http or https URL")
+	}
+	return nil
+}
+
+// CheckIcon checks an optional Lucide icon name or embedded image shared by both module kinds.
+func CheckIcon(icon string) error {
+	switch {
+	case icon == "":
+	case strings.HasPrefix(icon, "data:"):
+		if len(icon) > MaxIconSize || !dataIconPattern.MatchString(icon) {
+			return Errorf("icon must be a Lucide icon name or a base64 data:image URL of at most 100 KB")
+		}
+	case len(icon) > 40 || !iconPattern.MatchString(icon):
+		return Errorf("icon must be a Lucide icon name such as message-square")
+	}
+	return nil
+}
+
+// CheckColor checks an optional six-digit hex color shared by both module kinds.
+func CheckColor(color string) error {
+	if color != "" && !colorPattern.MatchString(color) {
+		return Errorf("color must be a hex color like #3370ff")
 	}
 	return nil
 }

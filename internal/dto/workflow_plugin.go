@@ -1,6 +1,7 @@
 package dto
 
 import (
+	"encoding/json"
 	"time"
 
 	"github.com/wuhan005/sayrud/internal/db"
@@ -26,6 +27,8 @@ type WorkflowPlugin struct {
 	Domains []string `json:"domains"`
 	// Timeout is the time limit of a call in seconds.
 	Timeout int `json:"timeout"`
+	// Hub is the Sayrud Hub release the plugin is installed from, omitted if installed from elsewhere.
+	Hub *HubOrigin `json:"hub,omitempty"`
 	// Source is the source code, only returned when getting a single plugin.
 	Source    string    `json:"source,omitempty"`
 	CreatedAt time.Time `json:"createdAt"`
@@ -41,7 +44,7 @@ func ToWorkflowPlugin(p *db.WorkflowPlugin, m *workflow.PluginManifest, lang str
 	return &WorkflowPlugin{
 		ID: p.PluginID, Version: m.Version, Language: p.Language, SourceURL: p.SourceURL, Checksum: p.Checksum, Enabled: p.Enabled,
 		Module: m.ModuleDef(lang, 0, p.Enabled), Credential: m.CredentialTypeDef(lang), Domains: domains, Timeout: m.Timeout,
-		CreatedAt: p.CreatedAt, UpdatedAt: p.UpdatedAt,
+		Hub: ToHubOrigin(p.HubSignature), CreatedAt: p.CreatedAt, UpdatedAt: p.UpdatedAt,
 	}
 }
 
@@ -63,6 +66,8 @@ type InspectWorkflowPluginResp struct {
 	Language string `json:"language" enums:"javascript,typescript"`
 	// HasPreview reports whether the plugin exports preview for simulated debugging.
 	HasPreview bool `json:"hasPreview"`
+	// Signature is the verified Sayrud Hub signature of Source to send back when installing, empty if Source is not from the Hub.
+	Signature json.RawMessage `json:"signature,omitempty" swaggertype:"object"`
 } // @name InspectWorkflowPluginResp
 
 // TestWorkflowPluginResp is the result of a test call of a plugin.

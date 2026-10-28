@@ -30,6 +30,7 @@ test('node pagination follows filtering, view changes, page size and removal of 
     'vue-i18n': { useI18n: () => ({ t: (key: string) => key }) },
     'vue-router': { useRouter: () => ({}) },
     '@/api/workflowPlugin': { workflowPluginsApi: { list: async () => ({ plugins, builtins }) } },
+    '@/composables/useHubUpdates': { useHubUpdates: () => ({ ensure: assert.fail, check: assert.fail, find: () => undefined }) },
     '@/utils/modules': { dslText: (text: string) => text },
     '@/utils/workflowPlugin': {},
   }

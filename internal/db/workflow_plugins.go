@@ -57,6 +57,8 @@ type WorkflowPlugin struct {
 	Manifest datatypes.JSON `gorm:"type:jsonb;not null"`
 	// Enabled reports whether the node can be added to workflows and executed.
 	Enabled bool `gorm:"not null;default:true"`
+	// HubSignature is the JSON of the Sayrud Hub signature envelope describing Source, empty if not installed from the Hub.
+	HubSignature string `gorm:"type:text;not null;default:''"`
 }
 
 // WorkflowPluginFingerprint is the version of an installed plugin.
@@ -114,14 +116,15 @@ func (db *workflowPlugins) Save(ctx context.Context, p *WorkflowPlugin) error {
 		p.ID, p.CreatedAt, p.Enabled = saved.ID, saved.CreatedAt, saved.Enabled
 		p.UpdatedAt = dbutil.Now()
 		return errors.Wrap(tx.Model(&WorkflowPlugin{}).Where("id = ?", saved.ID).Updates(map[string]interface{}{
-			"name":       p.Name,
-			"version":    p.Version,
-			"language":   p.Language,
-			"source":     p.Source,
-			"source_url": p.SourceURL,
-			"checksum":   p.Checksum,
-			"manifest":   p.Manifest,
-			"updated_at": p.UpdatedAt,
+			"name":          p.Name,
+			"version":       p.Version,
+			"language":      p.Language,
+			"source":        p.Source,
+			"source_url":    p.SourceURL,
+			"checksum":      p.Checksum,
+			"manifest":      p.Manifest,
+			"hub_signature": p.HubSignature,
+			"updated_at":    p.UpdatedAt,
 		}).Error, "update")
 	})
 }

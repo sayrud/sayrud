@@ -1,19 +1,24 @@
 <script setup lang="ts">
 import { Message, Modal, type TableColumnData } from '@arco-design/web-vue'
-import { CircleArrowUp, Download, Ellipsis, Globe, KeyRound, Trash2, Zap } from '@lucide/vue'
+import { CircleArrowUp, CloudDownload, Download, Ellipsis, Globe, KeyRound, Store, Trash2, Zap } from '@lucide/vue'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 
 import { workflowPluginsApi, type WorkflowPlugin } from '@/api/workflowPlugin'
+import HubBadge from '@/components/admin/HubBadge.vue'
+import HubCheckButton from '@/components/admin/HubCheckButton.vue'
+import HubNotices from '@/components/admin/HubNotices.vue'
+import HubPackageStatus from '@/components/admin/HubPackageStatus.vue'
 import WorkflowPluginIcon from '@/components/admin/WorkflowPluginIcon.vue'
 import WorkflowPluginInstallModal from '@/components/admin/WorkflowPluginInstallModal.vue'
 import StateIllustration from '@/components/common/StateIllustration.vue'
 import PageHeader from '@/components/console/PageHeader.vue'
 import SettingsSection from '@/components/console/SettingsSection.vue'
+import { useHubUpdates } from '@/composables/useHubUpdates'
 import type { ModuleCategory, ModuleDef } from '@/types/workflow'
 import { dslText } from '@/utils/modules'
-import { LANGUAGE_NAMES, versionLabel } from '@/utils/workflowPlugin'
+import { versionLabel } from '@/utils/workflowPlugin'
 
 const { t } = useI18n()
 const router = useRouter()
@@ -34,11 +39,20 @@ const pagination = reactive({ current: 1, pageSize: 20 })
 
 const installVisible = ref(false)
 const installWithCode = ref(false)
+const installHubVersion = ref<string>()
 const upgradeTarget = ref<WorkflowPlugin | null>(null)
+
+const hub = useHubUpdates('workflow_plugin')
+const fromHub = computed(() => plugins.value.some((p) => p.hub))
+const updateOf = (p: WorkflowPlugin) => hub.find('workflow_plugin', p.id, p.hub)?.latest
+const pluginName = (id: string) => {
+  const p = plugins.value.find((p) => p.id === id)
+  return p ? dslText(p.module.label) : undefined
+}
 
 const columns = computed<TableColumnData[]>(() => [
   { title: t('pluginAdmin.fieldName'), slotName: 'name', width: 320 },
-  ...(view.value === 'installed' ? [{ title: t('pluginAdmin.version'), slotName: 'version', width: 100 }] : []),
+  ...(view.value === 'installed' ? [{ title: t('pluginAdmin.version'), slotName: 'version', width: 150 }] : []),
   { title: t('pluginAdmin.category'), slotName: 'category', width: view.value === 'installed' ? 240 : 140 },
   { title: t('pluginAdmin.colStatus'), slotName: 'status', width: 120 },
   { title: t('common.actions'), slotName: 'actions', width: 140, fixed: 'right' },
@@ -50,6 +64,7 @@ async function load() {
     const resp = await workflowPluginsApi.list()
     plugins.value = resp.plugins
     builtins.value = resp.builtins
+    if (fromHub.value) hub.ensure()
   } catch (e) {
     Message.error(e instanceof Error ? e.message : String(e))
   } finally {
@@ -83,17 +98,23 @@ watch(total, (count) => {
 function openInstall(withCode = false) {
   upgradeTarget.value = null
   installWithCode.value = withCode
+  installHubVersion.value = undefined
   installVisible.value = true
 }
 
-function openUpgrade(p: WorkflowPlugin) {
+function openUpgrade(p: WorkflowPlugin, version?: string) {
   upgradeTarget.value = p
   installWithCode.value = false
+  installHubVersion.value = version
   installVisible.value = true
 }
 
 function openPlugin(p: WorkflowPlugin) {
   router.push({ name: 'admin-workflow-plugin', params: { pluginID: p.id } })
+}
+
+function browseHub() {
+  router.push({ name: 'admin-hub-workflow-plugins' })
 }
 
 function openBuiltin(m: ModuleDef) {
@@ -109,9 +130,11 @@ function replace(saved: WorkflowPlugin) {
 function onInstalled(saved: WorkflowPlugin) {
   view.value = 'installed'
   replace(saved)
+  if (saved.hub || upgradeTarget.value?.hub) void hub.check()
 }
 
 function onUninstalled(id: string) {
+  if (plugins.value.find((p) => p.id === id)?.hub) void hub.check()
   plugins.value = plugins.value.filter((p) => p.id !== id)
 }
 
@@ -154,6 +177,11 @@ onMounted(load)
   <div>
     <PageHeader :title="t('pluginAdmin.title')" :description="t('pluginAdmin.pageDescription')">
       <template #extra>
+        <HubCheckButton v-if="fromHub" kind="workflow_plugin" />
+        <a-button @click="browseHub">
+          <template #icon><Store :size="16" /></template>
+          {{ t('hubCatalog.browsePlugins') }}
+        </a-button>
         <a-button type="primary" @click="openInstall()">
           <template #icon><Download :size="16" /></template>
           {{ t('pluginAdmin.install') }}
@@ -181,6 +209,7 @@ onMounted(load)
       </div>
 
       <template v-if="view === 'installed'">
+        <HubNotices kind="workflow_plugin" :name-of="pluginName" />
         <a-table
           v-if="loading || plugins.length || keyword.trim()"
           :columns="columns"
@@ -197,15 +226,22 @@ onMounted(load)
             <div class="name-cell">
               <WorkflowPluginIcon :icon="record.module.icon" :color="record.module.color" :muted="!record.enabled" :size="32" />
               <div class="name-text">
-                <div class="name ellipsis">{{ dslText(record.module.label) }}</div>
+                <div class="name-row">
+                  <span class="name ellipsis">{{ dslText(record.module.label) }}</span>
+                  <HubBadge :hub="record.hub" :size="14" />
+                </div>
                 <div class="text-desc ellipsis desc" :title="dslText(record.module.description)">
                   {{ dslText(record.module.description) || t('pluginAdmin.noDescription') }}
                 </div>
-                <div v-if="record.language === 'typescript'" class="text-desc desc">{{ LANGUAGE_NAMES.typescript }}</div>
               </div>
             </div>
           </template>
-          <template #version="{ record }">{{ versionLabel(record.version) }}</template>
+          <template #version="{ record }">
+            <div class="version-cell">
+              <span>{{ versionLabel(record.version) }}</span>
+              <HubPackageStatus kind="workflow_plugin" :id="record.id" :hub="record.hub" @update="openUpgrade(record as WorkflowPlugin, updateOf(record as WorkflowPlugin)?.version)" />
+            </div>
+          </template>
           <template #category="{ record }">
             <a-space wrap :size="6">
               <span>{{ CATEGORY_LABELS[(record as WorkflowPlugin).module.category]() }}</span>
@@ -248,6 +284,10 @@ onMounted(load)
                   <template #icon><Ellipsis :size="16" /></template>
                 </a-button>
                 <template #content>
+                  <a-doption v-if="updateOf(record as WorkflowPlugin)" @click="openUpgrade(record as WorkflowPlugin, updateOf(record as WorkflowPlugin)?.version)">
+                    <template #icon><CloudDownload :size="15" /></template>
+                    {{ t('hub.updateTo', { version: versionLabel(updateOf(record as WorkflowPlugin)!.version) }) }}
+                  </a-doption>
                   <a-doption @click="openUpgrade(record as WorkflowPlugin)">
                     <template #icon><CircleArrowUp :size="15" /></template>
                     {{ t('pluginAdmin.upgrade') }}
@@ -275,6 +315,10 @@ onMounted(load)
             <a-button type="primary" @click="openInstall()">
               <template #icon><Download :size="16" /></template>
               {{ t('pluginAdmin.install') }}
+            </a-button>
+            <a-button @click="browseHub">
+              <template #icon><Store :size="16" /></template>
+              {{ t('hubCatalog.browsePlugins') }}
             </a-button>
             <a-button @click="openInstall(true)">{{ t('pluginAdmin.startFromTemplate') }}</a-button>
           </a-space>
@@ -343,7 +387,14 @@ onMounted(load)
       </div>
     </SettingsSection>
 
-    <WorkflowPluginInstallModal v-model:visible="installVisible" :upgrade="upgradeTarget" :start-with-code="installWithCode" @installed="onInstalled" />
+    <WorkflowPluginInstallModal
+      v-model:visible="installVisible"
+      :upgrade="upgradeTarget"
+      :start-with-code="installWithCode"
+      :from-hub="!!installHubVersion"
+      :hub-version="installHubVersion"
+      @installed="onInstalled"
+    />
   </div>
 </template>
 
@@ -380,9 +431,23 @@ onMounted(load)
   min-width: 0;
 }
 
+.name-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
 .name {
   font-weight: 500;
   color: var(--text-title);
+}
+
+.version-cell {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
 }
 
 .desc {

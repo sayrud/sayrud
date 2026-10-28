@@ -163,6 +163,10 @@ type CustomFieldShortcut struct {
 	Homepage string `gorm:"type:text;not null;default:''"`
 	// Name is shown in the field editor.
 	Name i18n.LocalText `gorm:"type:jsonb;not null"`
+	// Icon is a Lucide icon name or base64 data:image URL, empty for the default shortcut icon.
+	Icon string `gorm:"type:text;not null;default:''"`
+	// Color is a hex color, empty for the theme color.
+	Color string `gorm:"type:varchar(7);not null;default:''"`
 	// Version is the manifest version, defaulting to 1.0.0 for existing shortcuts.
 	Version string `gorm:"type:varchar(32);not null;default:1.0.0"`
 	// Description tells the members what the shortcut does, empty if not set.
@@ -187,6 +191,8 @@ type CustomFieldShortcut struct {
 	TimeoutSeconds int `gorm:"not null;default:30"`
 	// Enabled reports whether the members can attach and execute the shortcut.
 	Enabled bool `gorm:"not null;default:false"`
+	// HubSignature is the JSON of the Sayrud Hub signature envelope describing Code, empty if not installed from the Hub.
+	HubSignature string `gorm:"type:text;not null;default:''"`
 }
 
 // Fields returns the form fields of all the sections.
@@ -273,6 +279,8 @@ func (db *fieldShortcuts) Update(ctx context.Context, s *CustomFieldShortcut) er
 		"manifest_id":     s.ManifestID,
 		"homepage":        s.Homepage,
 		"name":            s.Name,
+		"icon":            s.Icon,
+		"color":           s.Color,
 		"version":         s.Version,
 		"description":     s.Description,
 		"result_type":     s.ResultType,
@@ -285,6 +293,7 @@ func (db *fieldShortcuts) Update(ctx context.Context, s *CustomFieldShortcut) er
 		"secrets":         s.Secrets,
 		"timeout_seconds": s.TimeoutSeconds,
 		"enabled":         s.Enabled,
+		"hub_signature":   s.HubSignature,
 		"updated_at":      dbutil.Now(),
 	})
 	if result.Error != nil {

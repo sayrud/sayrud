@@ -13,7 +13,7 @@ import (
 
 const validManifest = `{
   "id": "translate", "homepage": "https://example.com/translate",
-  "name": {"en": "Translate", "zh-CN": "翻译"}, "version": "1.0.0", "resultType": "text",
+  "name": {"en": "Translate", "zh-CN": "翻译"}, "icon": "tag", "version": "1.0.0", "resultType": "text",
   "permissions": {"fetch": ["*.API.example.com", "*"], "ai": true},
   "credentials": [{"key": "api", "type": "header", "name": "X-Api-Key"}],
   "sections": [
@@ -30,6 +30,7 @@ func TestParseManifest(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "翻译", m.Name.In("zh-CN"))
 	require.Equal(t, "translate", m.ID)
+	require.Equal(t, "tag", m.Icon)
 	require.Equal(t, "https://example.com/translate", m.Homepage)
 	require.Equal(t, DefaultTimeout, m.Timeout)
 	require.Equal(t, db.ShortcutPermissions{Fetch: []string{"*", "api.example.com"}, AI: true}, m.Permissions)
@@ -47,6 +48,7 @@ func TestParseManifest(t *testing.T) {
 	require.NoError(t, err)
 	require.Empty(t, m.ID, "local scripts can omit the source package identifier")
 	require.Empty(t, m.Homepage)
+	require.Empty(t, m.Icon)
 	require.Equal(t, []string{}, m.Permissions.Fetch)
 	require.Equal(t, []db.ShortcutCredential{}, m.Credentials)
 	require.Equal(t, []db.ShortcutSection{}, m.Sections)
@@ -55,7 +57,9 @@ func TestParseManifest(t *testing.T) {
 func TestParseManifestErrors(t *testing.T) {
 	replace := func(old, new string) string { return strings.Replace(validManifest, old, new, 1) }
 	for source, want := range map[string]string{
-		replace(`"id": "translate"`, `"id": "invalid-id"`):                  "id must be 2–40 lowercase letters, digits or underscores starting with a letter",
+		replace(`"icon": "tag"`, `"icon": "https://example.com/icon.svg"`):  "icon must be a Lucide icon name such as message-square",
+		replace(`"icon": "tag"`, `"icon": "`+strings.Repeat("a", 41)+`"`):   "icon must be a Lucide icon name such as message-square",
+		replace(`"id": "translate"`, `"id": "invalid-id"`):                  "id must be 2–40 lowercase letters, digits, underscores or dots; each part must start with a letter",
 		replace(`"https://example.com/translate"`, `"javascript:alert(1)"`): "homepage must be an http or https URL",
 		`[]`: "the manifest can not be decoded: json: cannot unmarshal array into Go value of type shortcut.Manifest",
 		replace(`{"en": "Translate", "zh-CN": "翻译"}`, `" "`):                    "name is required",
@@ -85,4 +89,26 @@ func TestParseManifestErrors(t *testing.T) {
 		require.ErrorAs(t, err, &manifestErr, want)
 		require.Equal(t, want, manifestErr.Message)
 	}
+}
+
+func TestShortcutAppearance(t *testing.T) {
+	for _, icon := range []string{"tag", "data:image/svg+xml;base64,PHN2Zy8+", "data:image/png;base64,aGVsbG8="} {
+		source := strings.Replace(validManifest, `"icon": "tag"`, `"icon": "`+icon+`", "color": "#6b4fF6"`, 1)
+		m, err := ParseManifest([]byte(source))
+		require.NoError(t, err)
+		require.Equal(t, icon, m.Icon)
+		require.Equal(t, "#6b4fF6", m.Color)
+	}
+	for _, appearance := range []string{
+		`"color": "red"`, `"color": "#fff"`, `"color": "#3370ff;display:none"`,
+		`"icon": "data:text/html;base64,aGVsbG8="`, `"icon": "data:image/svg+xml;base64,***"`,
+		`"icon": "data:image/svg+xml;base64,` + strings.Repeat("a", 100<<10) + `"`,
+	} {
+		_, err := ParseManifest([]byte(strings.Replace(validManifest, `"icon": "tag"`, appearance, 1)))
+		require.Error(t, err)
+	}
+	m, err := ParseManifest([]byte(`{"name":"Legacy","version":"1.0.0","resultType":"text"}`))
+	require.NoError(t, err)
+	require.Empty(t, m.Icon)
+	require.Empty(t, m.Color)
 }

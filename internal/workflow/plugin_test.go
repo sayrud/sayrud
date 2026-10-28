@@ -125,6 +125,13 @@ func TestParsePluginManifest(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, m, again)
 
+	t.Run("namespaced ID", func(t *testing.T) {
+		m, err := ParsePluginManifest([]byte(`{"id":"com.sayrud.echo","version":"1","name":"Echo"}`))
+		require.NoError(t, err)
+		assert.Equal(t, "com_sayrud_echo", m.IDBase)
+		assert.Equal(t, "plugin:com.sayrud.echo", m.ModuleDef("en", 1001, true).Type)
+	})
+
 	for _, flows := range []string{`["sync"]`, `["async","background"]`} {
 		t.Run("explicit flows "+flows, func(t *testing.T) {
 			m, err := ParsePluginManifest([]byte(`{"id":"echo","version":"1","name":"Echo","action":true,"flows":` + flows + `}`))

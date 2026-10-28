@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 
 import { onUnauthorized } from '@/api/client'
+import type { HubKind } from '@/api/hub'
 import { t } from '@/i18n'
 import { ADMIN_NAV, SETTINGS_NAV } from '@/layouts/consoleNav'
 import { useAuthStore } from '@/stores/auth'
@@ -12,8 +13,10 @@ declare module 'vue-router' {
     public?: boolean
     /** Route name of the highlighted menu item; child pages point to their parent list page. */
     nav?: string
-    /** Use a wider content area for pages with code editors. */
+    /** Use a wider content area for editors and catalogs. */
     wide?: boolean
+    /** Kind of the packages listed by the Sayrud Hub catalog page. */
+    hubKind?: HubKind
   }
 }
 
@@ -115,6 +118,18 @@ const router = createRouter({
           name: 'admin-workflow-plugin',
           component: () => import('@/pages/admin/WorkflowPluginPage.vue'),
           meta: { nav: 'admin-workflow-plugins', wide: true },
+        },
+        {
+          path: 'hub/workflow-plugins',
+          name: 'admin-hub-workflow-plugins',
+          component: () => import('@/pages/admin/HubCatalogPage.vue'),
+          meta: { nav: 'admin-workflow-plugins', hubKind: 'workflow_plugin', wide: true },
+        },
+        {
+          path: 'hub/field-shortcuts',
+          name: 'admin-hub-field-shortcuts',
+          component: () => import('@/pages/admin/HubCatalogPage.vue'),
+          meta: { nav: 'admin-field-shortcuts', hubKind: 'field_shortcut', wide: true },
         },
       ],
     },

@@ -30,6 +30,10 @@ type Manifest struct {
 	ID string `json:"id,omitempty"`
 	// Name is shown in the field editor.
 	Name i18n.LocalText `json:"name"`
+	// Icon is an optional Lucide icon name or base64 data:image URL.
+	Icon string `json:"icon,omitempty"`
+	// Color is an optional hex color, e.g. #3370ff; empty uses the theme color.
+	Color string `json:"color,omitempty"`
 	// Version is the version of the shortcut, e.g. 1.0.0.
 	Version string `json:"version"`
 	// Description tells the members what the shortcut does.
@@ -105,6 +109,12 @@ func (m *Manifest) Normalize() error {
 		}
 	}
 	if err := manifest.CheckHomepage(m.Homepage); err != nil {
+		return err
+	}
+	if err := manifest.CheckIcon(m.Icon); err != nil {
+		return err
+	}
+	if err := manifest.CheckColor(m.Color); err != nil {
 		return err
 	}
 	if err := manifest.CheckText(m.Name, "name", true); err != nil {

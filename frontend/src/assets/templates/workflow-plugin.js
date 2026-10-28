@@ -8,7 +8,8 @@
  * The module can not import other modules; there are no timers, eval or Node.js APIs.
  */
 export const manifest = {
-  // Unique id: lowercase letters, digits and underscores. Steps refer to the node as "plugin:<id>".
+  // Unique id: lowercase letters, digits and underscores, with optional dot-separated namespaces.
+  // Steps refer to the node as "plugin:<id>".
   id: "webhook_notify",
   version: "1.0.0",
   name: { en: "Webhook notification", "zh-CN": "Webhook 通知" },

@@ -12,7 +12,7 @@ import (
 )
 
 // migrateFieldShortcuts converts the shortcuts saved before their manifest was unified with the workflow plugins:
-// the name and the description become translations, and the form items become the fields of a section.
+// the name and description become translations, form items become sections, and icons can hold embedded images.
 func migrateFieldShortcuts(tx *gorm.DB) error {
 	m := tx.Migrator()
 	if !m.HasTable("field_shortcuts") {
@@ -25,6 +25,11 @@ func migrateFieldShortcuts(tx *gorm.DB) error {
 	}
 	for _, ct := range columnTypes {
 		column := ct.Name()
+		if column == "icon" && !strings.EqualFold(ct.DatabaseTypeName(), "text") {
+			if err := tx.Exec("ALTER TABLE field_shortcuts ALTER COLUMN icon TYPE text").Error; err != nil {
+				return errors.Wrap(err, "widen field_shortcuts.icon")
+			}
+		}
 		if (column != "name" && column != "description") || strings.EqualFold(ct.DatabaseTypeName(), "jsonb") {
 			continue
 		}

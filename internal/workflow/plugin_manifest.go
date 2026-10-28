@@ -3,7 +3,6 @@ package workflow
 import (
 	"encoding/json"
 	"fmt"
-	"regexp"
 	"slices"
 	"strings"
 	"unicode/utf8"
@@ -139,18 +138,11 @@ var (
 
 const (
 	maxPluginOutputs = 50
-	maxPluginIcon    = 100 << 10
 	maxPluginTimeout = 60
 	// defaultPluginTimeout is the time limit of a call in seconds when the manifest does not set one.
 	defaultPluginTimeout = 10
 	defaultPluginColor   = "#6b4ff6"
 	defaultPluginIcon    = "puzzle"
-)
-
-var (
-	pluginIconPattern    = regexp.MustCompile(`^[a-z0-9]+(-[a-z0-9]+)*$`)
-	pluginDataIconRegexp = regexp.MustCompile(`^data:image/(svg\+xml|png|jpeg|webp);base64,[A-Za-z0-9+/=]+$`)
-	pluginColorPattern   = regexp.MustCompile(`^#[0-9A-Fa-f]{6}$`)
 )
 
 // ParsePluginManifest decodes and validates the manifest exported by a plugin, filling in the defaults; errors are *ManifestError.
@@ -191,8 +183,9 @@ func (m *PluginManifest) normalize() error {
 	}
 	if m.Color == "" {
 		m.Color = defaultPluginColor
-	} else if !pluginColorPattern.MatchString(m.Color) {
-		return manifestErrorf("color must be a hex color like #3370ff")
+	}
+	if err := manifest.CheckColor(m.Color); err != nil {
+		return err
 	}
 	if m.Category == "" {
 		m.Category = "integration"
@@ -200,7 +193,7 @@ func (m *PluginManifest) normalize() error {
 		return manifestErrorf("category must be one of %s", strings.Join(ModuleCategories, ", "))
 	}
 	if m.IDBase == "" {
-		m.IDBase = m.ID
+		m.IDBase = strings.ReplaceAll(m.ID, ".", "_")
 		if len(m.IDBase) > 24 {
 			m.IDBase = m.IDBase[:24]
 		}
@@ -363,17 +356,10 @@ func (m *PluginManifest) normalize() error {
 }
 
 func checkIcon(icon *string) error {
-	switch {
-	case *icon == "":
+	if *icon == "" {
 		*icon = defaultPluginIcon
-	case strings.HasPrefix(*icon, "data:"):
-		if len(*icon) > maxPluginIcon || !pluginDataIconRegexp.MatchString(*icon) {
-			return manifestErrorf("icon must be a Lucide icon name or a base64 data:image URL of at most 100 KB")
-		}
-	case len(*icon) > 40 || !pluginIconPattern.MatchString(*icon):
-		return manifestErrorf("icon must be a Lucide icon name such as message-square")
 	}
-	return nil
+	return manifest.CheckIcon(*icon)
 }
 
 func (f *PluginField) normalize(keys map[string]bool) error {

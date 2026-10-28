@@ -80,11 +80,11 @@ func TestHostAllowed(t *testing.T) {
 }
 
 func TestCheckID(t *testing.T) {
-	for _, id := range []string{"aa", "uppercase_text", "a1", strings.Repeat("a", 40)} {
+	for _, id := range []string{"aa", "uppercase_text", "a1", "com.sayrud.smart_classification", "a.b", "a." + strings.Repeat("a", 38), strings.Repeat("a", 40)} {
 		require.NoError(t, CheckID(id), id)
 	}
-	for _, id := range []string{"", "a", "Uppercase", "a-b", "1a", " a1 ", strings.Repeat("a", 41)} {
-		require.EqualError(t, CheckID(id), "id must be 2–40 lowercase letters, digits or underscores starting with a letter", id)
+	for _, id := range []string{"", "a", "Uppercase", "a-b", "1a", " a1 ", ".aa", "aa.", "a..b", "a._b", "a.1b", "a.B", strings.Repeat("a", 41)} {
+		require.EqualError(t, CheckID(id), "id must be 2–40 lowercase letters, digits, underscores or dots; each part must start with a letter", id)
 	}
 }
 
