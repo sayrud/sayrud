@@ -17,7 +17,7 @@ require (
 	github.com/flamego/binding v1.3.0
 	github.com/flamego/flamego v1.9.4
 	github.com/flamego/i18n v1.2.0
-	github.com/go-jose/go-jose/v4 v4.1.4
+	github.com/go-jose/go-jose/v4 v4.1.6
 	github.com/go-ldap/ldap/v3 v3.4.14
 	github.com/gorilla/websocket v1.5.3
 	github.com/mattermost/xml-roundtrip-validator v0.1.0
