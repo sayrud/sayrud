@@ -84,7 +84,7 @@ func (c *Client) currentRole(ctx context.Context, gormDB *gorm.DB) (db.ProjectRo
 	}
 
 	role, err := db.NewProjectMembersStore(gormDB).GetRole(ctx, project.ID, c.userID)
-	if err != nil && !(user.IsAdmin && errors.Is(err, db.ErrProjectMemberNotFound)) {
+	if err != nil && (!user.IsAdmin || !errors.Is(err, db.ErrProjectMemberNotFound)) {
 		return "", err
 	}
 	return db.EffectiveRole(role, user.IsAdmin), nil
