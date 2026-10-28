@@ -5,6 +5,8 @@
 !cmd/**
 !internal/
 !internal/**
+!docs/
+!docs/**
 !frontend/
 !frontend/**
 frontend/node_modules/
