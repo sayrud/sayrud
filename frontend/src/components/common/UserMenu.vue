@@ -5,6 +5,7 @@ import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 
 import { LOCALE_OPTIONS } from '@/i18n'
+import { preloadRoute } from '@/router'
 import { useAuthStore } from '@/stores/auth'
 import { useLocaleStore } from '@/stores/locale'
 import { useThemeStore } from '@/stores/theme'
@@ -77,11 +78,11 @@ async function signOut() {
         </template>
       </a-dsubmenu>
       <div class="menu-divider" />
-      <a-doption @click="router.push({ name: 'settings-profile' })">
+      <a-doption @mouseenter="preloadRoute({ name: 'settings-profile' })" @focusin="preloadRoute({ name: 'settings-profile' })" @click="router.push({ name: 'settings-profile' })">
         <template #icon><UserRound :size="15" /></template>
         {{ t('userMenu.accountSettings') }}
       </a-doption>
-      <a-doption v-if="auth.user.isAdmin" @click="router.push({ name: 'admin-overview' })">
+      <a-doption v-if="auth.user.isAdmin" @mouseenter="preloadRoute({ name: 'admin-overview' })" @focusin="preloadRoute({ name: 'admin-overview' })" @click="router.push({ name: 'admin-overview' })">
         <template #icon><ShieldCheck :size="15" /></template>
         {{ t('userMenu.adminConsole') }}
       </a-doption>

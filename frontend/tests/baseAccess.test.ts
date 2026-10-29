@@ -15,11 +15,18 @@ test('the normal base route reaches public access while other private pages stil
   let routes: Route[] = []
   let guard!: (route: Route) => Promise<unknown>
   const dependencies: Record<string, unknown> = {
+    vue,
     'vue-router': {
       createWebHistory: () => {},
+      loadRouteLocation: async (route: unknown) => route,
       createRouter: (options: { routes: Route[] }) => {
         routes = options.routes
-        return { beforeEach: (callback: typeof guard) => { guard = callback } }
+        return {
+          beforeEach: (callback: typeof guard) => { guard = callback },
+          afterEach: () => {},
+          onError: () => {},
+          resolve: (route: unknown) => route,
+        }
       },
     },
     '@/api/client': { onUnauthorized: () => {} },

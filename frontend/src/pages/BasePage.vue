@@ -2,15 +2,13 @@
 import { Message } from '@arco-design/web-vue'
 import { IconLock } from '@arco-design/web-vue/es/icon'
 import { CloudCheck, CloudOff, Eye, House, KeyRound, LoaderCircle, PanelLeftOpen, Share2, ShieldCheck } from '@lucide/vue'
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, defineAsyncComponent, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 
 import { ApiError } from '@/api/client'
 import { sharesApi } from '@/api/share'
 
-import WorkflowEditor from '@/components/workflow/WorkflowEditor.vue'
-import ProjectCredentialsPage from '@/components/base/ProjectCredentialsPage.vue'
 import ShareDialog from '@/components/base/ShareDialog.vue'
 import TableSidebar from '@/components/base/TableSidebar.vue'
 import AppearanceIcon from '@/components/common/AppearanceIcon.vue'
@@ -32,6 +30,9 @@ import { useBaseStore } from '@/stores/base'
 import { useProjectWorkflowsStore } from '@/stores/projectWorkflows'
 import { useSiteStore } from '@/stores/site'
 import type { Appearance } from '@/utils/appearance'
+
+const WorkflowEditor = defineAsyncComponent(() => import('@/components/workflow/WorkflowEditor.vue'))
+const ProjectCredentialsPage = defineAsyncComponent(() => import('@/components/base/ProjectCredentialsPage.vue'))
 
 const { t } = useI18n()
 
@@ -427,10 +428,16 @@ onBeforeUnmount(() => {
     <div v-else class="base-body">
       <TableSidebar v-if="!sidebarCollapsed" v-model:width="sidebarWidth" :active-workflow-uid="workflowUID" :credentials-active="credentialsPage" @select="selectTable" @select-workflow="selectWorkflow" @collapse="sidebarCollapsed = true" />
       <main v-if="credentialsPage && store.project && store.canEdit && !publicPage" class="main">
-        <ProjectCredentialsPage :key="store.project.uid" :project-uid="store.project.uid" :can-manage="store.canManage" :sidebar-collapsed="sidebarCollapsed" @expand-sidebar="sidebarCollapsed = false" />
+        <Suspense>
+          <ProjectCredentialsPage :key="store.project.uid" :project-uid="store.project.uid" :can-manage="store.canManage" :sidebar-collapsed="sidebarCollapsed" @expand-sidebar="sidebarCollapsed = false" />
+          <template #fallback><div class="loading"><a-spin :size="28" /></div></template>
+        </Suspense>
       </main>
       <main v-else-if="workflowUID && store.project && store.canEdit && !publicPage" class="main">
-        <WorkflowEditor :project-uid="store.project.uid" :workflow-uid="workflowUID" :sidebar-collapsed="sidebarCollapsed" @expand-sidebar="sidebarCollapsed = false" @missing="onWorkflowMissing" />
+        <Suspense>
+          <WorkflowEditor :project-uid="store.project.uid" :workflow-uid="workflowUID" :sidebar-collapsed="sidebarCollapsed" @expand-sidebar="sidebarCollapsed = false" @missing="onWorkflowMissing" />
+          <template #fallback><div class="loading"><a-spin :size="28" /></div></template>
+        </Suspense>
       </main>
       <main v-else-if="projectPage" class="main"><div class="loading"><a-spin :size="28" /></div></main>
       <main v-else class="main">

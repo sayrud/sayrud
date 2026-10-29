@@ -3,6 +3,7 @@ import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import type { NavGroup } from '@/layouts/consoleNav'
+import { preloadRoute } from '@/router'
 
 const props = defineProps<{ nav: NavGroup[] }>()
 const emit = defineEmits<{ navigate: [] }>()
@@ -22,7 +23,7 @@ function go(name: string) {
 <template>
   <a-menu class="console-nav" :selected-keys="selectedKeys" @menu-item-click="go">
     <a-menu-item-group v-for="group in nav" :key="group.title" :title="group.title">
-      <a-menu-item v-for="item in group.items" :key="item.name">
+      <a-menu-item v-for="item in group.items" :key="item.name" @mouseenter="!item.href && preloadRoute({ name: item.name })" @focusin="!item.href && preloadRoute({ name: item.name })">
         <template #icon><component :is="item.icon" :size="16" /></template>
         {{ item.label }}
       </a-menu-item>

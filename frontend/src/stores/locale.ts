@@ -1,25 +1,24 @@
 import { Message } from '@arco-design/web-vue'
 import { defineStore } from 'pinia'
-import { ref, watch } from 'vue'
+import { computed } from 'vue'
 
 import { accountApi } from '@/api/account'
 import { type AppLocale, applyLocale, i18n, LOCALE_STORAGE_KEY, parseLocale } from '@/i18n'
 import { useAuthStore } from '@/stores/auth'
 
 export const useLocaleStore = defineStore('locale', () => {
-  const locale = ref<AppLocale>(i18n.global.locale.value)
+  const locale = computed(() => i18n.global.locale.value)
 
   // Follows the language changed in the other tabs.
   window.addEventListener('storage', (e) => {
     if (e.key !== LOCALE_STORAGE_KEY) return
     const next = parseLocale(e.newValue)
-    if (next) locale.value = next
+    if (next) void apply(next).catch(showError)
   })
 
-  watch(locale, applyLocale)
-
-  function apply(next: AppLocale) {
-    locale.value = next
+  async function apply(next: AppLocale) {
+    await applyLocale(next)
+    if (locale.value !== next) return
     try {
       localStorage.setItem(LOCALE_STORAGE_KEY, next)
     } catch {
@@ -28,18 +27,23 @@ export const useLocaleStore = defineStore('locale', () => {
   }
 
   /** Changes the language chosen by the user, and saves it to the account when signed in. */
-  function setLocale(next: AppLocale) {
-    apply(next)
-    if (!useAuthStore().user) return
-    accountApi.saveSettings({ language: next }).catch((e: unknown) => {
-      Message.error(e instanceof Error ? e.message : String(e))
-    })
+  async function setLocale(next: AppLocale) {
+    try {
+      await apply(next)
+      if (locale.value === next && useAuthStore().user) await accountApi.saveSettings({ language: next })
+    } catch (e) {
+      showError(e)
+    }
+  }
+
+  function showError(e: unknown) {
+    Message.error(e instanceof Error ? e.message : String(e))
   }
 
   /** Applies the language saved in the account, invalid values are ignored. */
   function applySaved(raw: string | undefined) {
     const saved = parseLocale(raw)
-    if (saved) apply(saved)
+    if (saved) return apply(saved)
   }
 
   return { locale, setLocale, applySaved }

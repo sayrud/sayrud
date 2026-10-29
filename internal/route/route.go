@@ -2,6 +2,7 @@ package route
 
 import (
 	"net/http"
+	"strings"
 
 	"github.com/MEDIGO/go-healthz"
 	"github.com/flamego/binding"
@@ -39,9 +40,16 @@ type Options struct {
 // @BasePath /_
 func New(opts Options) *flamego.Flame {
 	f := flamego.Classic()
+	frontendHandler := frontend.Handler()
 
 	f.Use(
 		tracing.Middleware("sayrud"),
+		func(c flamego.Context) {
+			// Static files must not receive the language cookie, which bypasses CDN caching.
+			if strings.HasPrefix(c.Request().URL.Path, "/assets/") || c.Request().URL.Path == "/favicon.ico" {
+				frontendHandler.ServeHTTP(c.ResponseWriter(), c.Request().Request)
+			}
+		},
 		i18n.Middleware(),
 		appcontext.Contexter(opts.DB),
 	)
@@ -345,6 +353,6 @@ func New(opts Options) *flamego.Flame {
 		}
 	})
 
-	f.NotFound(frontend.Handler().ServeHTTP)
+	f.NotFound(frontendHandler.ServeHTTP)
 	return f
 }

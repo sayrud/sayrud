@@ -4,6 +4,7 @@ import (
 	"embed"
 	"io/fs"
 	"net/http"
+	"regexp"
 	"strings"
 )
 
@@ -11,6 +12,8 @@ import (
 //
 //go:embed all:dist
 var assets embed.FS
+
+var fingerprintedAsset = regexp.MustCompile(`^/assets/.+-[a-zA-Z0-9_-]{8}\.[a-zA-Z0-9]+$`)
 
 // Handler serves the bundled frontend, including Vue Router's base pages.
 func Handler() http.Handler {
@@ -29,6 +32,18 @@ func Handler() http.Handler {
 
 		// Vue Router keeps this document's policy when navigating to a public link.
 		w.Header().Set("Referrer-Policy", "no-referrer")
+		w.Header().Set("Cache-Control", "no-cache")
+		if strings.HasPrefix(r.URL.Path, "/assets/") {
+			file, err := fs.Stat(dist, strings.TrimPrefix(r.URL.Path, "/"))
+			if err != nil || file.IsDir() {
+				w.Header().Set("Cache-Control", "no-store")
+				http.NotFound(w, r)
+				return
+			}
+			if fingerprintedAsset.MatchString(r.URL.Path) {
+				w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+			}
+		}
 
 		if isAppRoute(r.URL.Path) {
 			if strings.HasPrefix(r.URL.Path, "/base/") || strings.HasPrefix(r.URL.Path, "/share/") {

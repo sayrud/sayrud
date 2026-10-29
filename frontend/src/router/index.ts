@@ -1,4 +1,5 @@
-import { createRouter, createWebHistory } from 'vue-router'
+import { ref } from 'vue'
+import { createRouter, createWebHistory, loadRouteLocation, type RouteLocationNormalized, type RouteLocationRaw } from 'vue-router'
 
 import { onUnauthorized } from '@/api/client'
 import type { HubKind } from '@/api/hub'
@@ -144,7 +145,19 @@ export function safeRedirect(redirect: unknown): string {
   return typeof redirect === 'string' && redirect.startsWith('/') && !redirect.startsWith('//') ? redirect : '/'
 }
 
+export const navigationPending = ref(false)
+let pendingNavigation: RouteLocationNormalized | null = null
+
+/** Downloads route components without mounting them or requesting page data. */
+export function preloadRoute(to: RouteLocationRaw): Promise<void> {
+  return loadRouteLocation(router.resolve(to)).then(() => undefined, () => undefined)
+}
+
 router.beforeEach(async (to) => {
+  pendingNavigation = to
+  navigationPending.value = true
+  // Overlap route downloads with the initial profile request.
+  void preloadRoute(to)
   if (to.meta.public) return true
   const auth = useAuthStore()
   const user = await auth.ensureLoaded().catch(() => null)
@@ -153,6 +166,15 @@ router.beforeEach(async (to) => {
   if (to.matched.some((r) => r.meta.admin) && !user.isAdmin) return { name: 'home' }
   return true
 })
+
+function finishNavigation(to: RouteLocationNormalized) {
+  if (pendingNavigation !== to) return
+  pendingNavigation = null
+  navigationPending.value = false
+}
+
+router.afterEach(finishNavigation)
+router.onError((_error, to) => finishNavigation(to))
 
 onUnauthorized(() => {
   const auth = useAuthStore()
