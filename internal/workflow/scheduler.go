@@ -117,7 +117,7 @@ func (e *Engine) fire(ctx context.Context, tx *gorm.DB, wf *db.Workflow, now tim
 		return 1, workflows.SetSchedule(ctx, wf.ID, next, nil)
 
 	case TriggerDateReached:
-		triggers, cursor, truncated, err := dateTriggers(ctx, tx, wf, spec.Trigger.Record, now)
+		triggers, cursor, truncated, err := dateTriggers(ctx, tx, wf, spec.Trigger.Record, now, formulaLocation(spec.FormulaTimezone()))
 		if err != nil {
 			return 0, err
 		}
@@ -135,7 +135,7 @@ func (e *Engine) fire(ctx context.Context, tx *gorm.DB, wf *db.Workflow, now tim
 }
 
 // dateTriggers returns the records whose trigger time (field time plus offset) falls in (cursor, now], and the new scan position.
-func dateTriggers(ctx context.Context, tx *gorm.DB, wf *db.Workflow, r *RecordTrigger, now time.Time) ([]map[string]interface{}, time.Time, bool, error) {
+func dateTriggers(ctx context.Context, tx *gorm.DB, wf *db.Workflow, r *RecordTrigger, now time.Time, loc *time.Location) ([]map[string]interface{}, time.Time, bool, error) {
 	cursor := now
 	if wf.Cursor != nil {
 		cursor = *wf.Cursor
@@ -224,7 +224,7 @@ func dateTriggers(ctx context.Context, tx *gorm.DB, wf *db.Workflow, r *RecordTr
 
 	triggers := make([]map[string]interface{}, 0, len(matched))
 	for _, rec := range matched {
-		data := map[string]interface{}{"record": recordOutput(info, rec), "table": tableData(table)}
+		data := map[string]interface{}{"record": recordOutput(info, rec, loc), "table": tableData(table)}
 		if t, ok := recordTime(rec, r.DateFieldUID); ok {
 			data["time"] = t.Add(offset).UTC().Format(time.RFC3339)
 		}

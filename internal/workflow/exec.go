@@ -381,7 +381,7 @@ func (x *execution) query(step *Step) (interface{}, error) {
 	}
 	list := make([]interface{}, 0, len(records))
 	for _, r := range records {
-		list = append(list, recordOutput(info, r))
+		list = append(list, recordOutput(info, r, x.scope.formulaLocation()))
 	}
 	var first interface{}
 	if len(list) > 0 {
@@ -454,7 +454,7 @@ func (x *execution) write(step *Step) (interface{}, error) {
 		if err != nil {
 			return nil, err
 		}
-		return map[string]interface{}{"record": recordOutput(info, record)}, nil
+		return map[string]interface{}{"record": recordOutput(info, record, x.scope.formulaLocation())}, nil
 	}
 
 	if x.batch != nil {

@@ -220,11 +220,23 @@ func displayValue(field *db.SLField, v interface{}) interface{} {
 }
 
 // recordOutput returns the shape of a record in variables: uid, createdAt, updatedAt, and fields keyed by field UID.
-func recordOutput(info *tableInfo, record *db.SLRecord) map[string]interface{} {
+// Formula fields are calculated in loc like the table view, and are omitted when empty or invalid.
+func recordOutput(info *tableInfo, record *db.SLRecord, loc *time.Location) map[string]interface{} {
 	data := map[string]interface{}{}
 	_ = json.Unmarshal(record.Data, &data)
 	fields := map[string]interface{}{}
+	formulas := &recordFormulas{info: info, data: data, loc: loc, stack: map[string]bool{}}
 	for _, field := range info.fields {
+		if field.Type == db.FormulaFieldType {
+			v, err := formulas.eval(field)
+			if t, ok := v.(time.Time); ok {
+				v = t.Format(time.RFC3339)
+			}
+			if err == nil && v != nil {
+				fields[field.UID] = v
+			}
+			continue
+		}
 		if v, ok := data[field.UID]; ok {
 			fields[field.UID] = displayValue(field, v)
 		}
@@ -235,6 +247,89 @@ func recordOutput(info *tableInfo, record *db.SLRecord) map[string]interface{} {
 		"updatedAt": record.UpdatedAt.UTC().Format(time.RFC3339),
 		"fields":    fields,
 	}
+}
+
+// recordFormulas calculates the formula fields of a record, matching TableContext in the frontend utils/engine.ts.
+type recordFormulas struct {
+	info  *tableInfo
+	data  map[string]interface{}
+	loc   *time.Location
+	stack map[string]bool
+}
+
+// eval returns the raw formula value of the field; a non-finite number becomes nil.
+func (r *recordFormulas) eval(field *db.SLField) (interface{}, error) {
+	metadata, _ := field.Metadata.Data().(map[string]interface{})
+	exp, _ := metadata["exp"].(string)
+	if strings.TrimSpace(exp) == "" {
+		return nil, nil
+	}
+	f, err := ParseFormula(exp)
+	if err != nil {
+		return nil, err
+	}
+	r.stack[field.UID] = true
+	defer delete(r.stack, field.UID)
+	v, err := f.evalRaw(r.input, r.loc)
+	if err != nil {
+		return nil, err
+	}
+	if n, ok := v.(float64); ok && (math.IsNaN(n) || math.IsInf(n, 0)) {
+		return nil, nil
+	}
+	return v, nil
+}
+
+// input converts the value of a referenced field to a formula value: options and attachments become names joined by commas,
+// and a missing field or a circular reference is an error.
+func (r *recordFormulas) input(uid string) (interface{}, error) {
+	field, ok := r.info.byUID[uid]
+	if !ok {
+		return nil, formulaErrorf("field %q not found", uid)
+	}
+	if field.Type == db.FormulaFieldType {
+		if r.stack[uid] {
+			return nil, formulaErrorf("circular reference")
+		}
+		return r.eval(field)
+	}
+	v := r.data[uid]
+	if list, ok := v.([]interface{}); v == nil || v == "" || (ok && len(list) == 0) {
+		if field.Type == db.CheckboxFieldType {
+			return false, nil
+		}
+		return nil, nil
+	}
+	switch field.Type {
+	case db.NumberFieldType:
+		if n, ok := jsNumber(v); ok {
+			return n, nil
+		}
+		return math.NaN(), nil
+	case db.CheckboxFieldType:
+		return jsTruthy(v), nil
+	case db.DateTimeFieldType:
+		if s, ok := v.(string); ok {
+			if t, err := time.Parse(time.RFC3339Nano, s); err == nil {
+				return t, nil
+			}
+		}
+		return Text(v), nil
+	case db.SingleSelectFieldType, db.MultiSelectFieldType:
+		s, _ := fromScope(displayValue(field, v)).(string)
+		return s, nil
+	case db.AttachmentFieldType:
+		list, _ := v.([]interface{})
+		names := make([]string, 0, len(list))
+		for _, item := range list {
+			file, _ := item.(map[string]interface{})
+			if name, _ := file["name"].(string); name != "" {
+				names = append(names, name)
+			}
+		}
+		return strings.Join(names, ", "), nil
+	}
+	return Text(v), nil
 }
 
 // Default and maximum number of records returned by a query.

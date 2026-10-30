@@ -346,8 +346,7 @@ func ParseFormula(src string) (*Formula, error) {
 
 // Eval evaluates the formula, where resolve returns the value of a referenced path. A date result is converted to RFC 3339 text.
 func (f *Formula) Eval(resolve func(path string) interface{}, loc *time.Location) (interface{}, error) {
-	e := &formulaEval{resolve: resolve, loc: loc}
-	v, err := e.eval(f.root)
+	v, err := f.evalRaw(func(path string) (interface{}, error) { return resolve(path), nil }, loc)
 	if err != nil {
 		return nil, err
 	}
@@ -362,15 +361,21 @@ func (f *Formula) Eval(resolve func(path string) interface{}, loc *time.Location
 	return v, nil
 }
 
+// evalRaw evaluates the formula and returns the raw formula value; an error returned by resolve aborts the evaluation.
+func (f *Formula) evalRaw(resolve func(path string) (interface{}, error), loc *time.Location) (interface{}, error) {
+	e := &formulaEval{resolve: resolve, loc: loc}
+	return e.eval(f.root)
+}
+
 type formulaEval struct {
-	resolve func(path string) interface{}
+	resolve func(path string) (interface{}, error)
 	loc     *time.Location
 }
 
 // fromScope converts a flow variable to a formula value: lists are joined with commas and objects become JSON text.
 func fromScope(v interface{}) interface{} {
 	switch t := v.(type) {
-	case nil, float64, string, bool:
+	case nil, float64, string, bool, time.Time:
 		return t
 	case int:
 		return float64(t)
@@ -394,7 +399,11 @@ func (e *formulaEval) eval(n *formulaNode) (interface{}, error) {
 	case nodeLit:
 		return n.value, nil
 	case nodeRef:
-		return fromScope(e.resolve(n.name)), nil
+		v, err := e.resolve(n.name)
+		if err != nil {
+			return nil, err
+		}
+		return fromScope(v), nil
 	case nodeUnary:
 		v, err := e.eval(n.args[0])
 		if err != nil {
@@ -1080,18 +1089,23 @@ func formulaLocation(name string) *time.Location {
 	return loc
 }
 
+// formulaLocation returns the time zone of run.timezone in the scope.
+func (s Scope) formulaLocation() *time.Location {
+	tz, _ := s.Lookup("run.timezone")
+	name, _ := tz.(string)
+	return formulaLocation(name)
+}
+
 // evalFormula evaluates a formula in the scope, handling dates in the time zone of run.timezone.
 func (s Scope) evalFormula(src string) (interface{}, error) {
 	f, err := ParseFormula(src)
 	if err != nil {
 		return nil, err
 	}
-	tz, _ := s.Lookup("run.timezone")
-	name, _ := tz.(string)
 	v, err := f.Eval(func(path string) interface{} {
 		v, _ := s.Lookup(path)
 		return v
-	}, formulaLocation(name))
+	}, s.formulaLocation())
 	if err != nil {
 		return nil, errors.Wrap(err, "evaluate formula")
 	}

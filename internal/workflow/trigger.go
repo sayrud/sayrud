@@ -81,7 +81,7 @@ func (e *Engine) RecordsChanged(ctx context.Context, tx *gorm.DB, project *db.Pr
 		}
 		triggers := make([]map[string]interface{}, 0, len(matched))
 		for _, ev := range matched {
-			triggers = append(triggers, recordTriggerData(info, spec.Trigger.Type, ev))
+			triggers = append(triggers, recordTriggerData(info, spec.Trigger.Type, ev, formulaLocation(spec.FormulaTimezone())))
 		}
 		if _, err := e.enqueue(ctx, tx, enqueueOptions{
 			ProjectID: project.ID, Workflow: wf, RevisionID: wf.PublishedRevisionID, Version: wf.PublishedVersion,
@@ -170,12 +170,12 @@ func tableData(table *db.SLTable) map[string]interface{} {
 }
 
 // recordTriggerData returns the trigger variables of a record trigger: record and table, plus previous and changedFields (field names) for updates.
-func recordTriggerData(info *tableInfo, triggerType string, ev collab.RecordEvent) map[string]interface{} {
-	data := map[string]interface{}{"record": recordOutput(info, ev.Record), "table": tableData(info.table)}
+func recordTriggerData(info *tableInfo, triggerType string, ev collab.RecordEvent, loc *time.Location) map[string]interface{} {
+	data := map[string]interface{}{"record": recordOutput(info, ev.Record, loc), "table": tableData(info.table)}
 	if ev.Kind == collab.RecordUpdated && (triggerType == TriggerRecordUpdated || triggerType == TriggerRecordMatched) {
 		previous := *ev.Record
 		previous.Data = ev.Previous
-		data["previous"] = recordOutput(info, &previous)
+		data["previous"] = recordOutput(info, &previous, loc)
 		if triggerType == TriggerRecordUpdated {
 			changed := make([]interface{}, 0, len(ev.Fields))
 			for _, uid := range ev.Fields {

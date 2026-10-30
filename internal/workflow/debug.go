@@ -63,7 +63,7 @@ func (e *Engine) SampleTrigger(ctx context.Context, project *db.Project, spec *S
 		return nil, err
 	}
 
-	data := map[string]interface{}{"record": recordOutput(info, record), "table": tableData(table)}
+	data := map[string]interface{}{"record": recordOutput(info, record, formulaLocation(spec.FormulaTimezone())), "table": tableData(table)}
 	switch spec.Trigger.Type {
 	case TriggerRecordUpdated:
 		data["previous"], data["changedFields"] = data["record"], []interface{}{}

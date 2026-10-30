@@ -492,9 +492,7 @@ function recordNodes(prefix: string, table: TableMeta | undefined): VarNode[] {
     { path: `${prefix}.uid`, label: t('workflow.vars.uid'), kind: 'string' },
     { path: `${prefix}.createdAt`, label: t('workflow.vars.createdAt'), kind: 'string' },
     { path: `${prefix}.updatedAt`, label: t('workflow.vars.updatedAt'), kind: 'string' },
-    ...(table?.fields ?? [])
-      .filter((f) => f.type !== 'formula')
-      .map((f): VarNode => ({ path: `${prefix}.fields.${f.uid}`, label: f.label, kind: f.type === 'number' ? 'number' : f.type === 'checkbox' ? 'boolean' : f.type === 'multi_select' || f.type === 'attachment' ? 'array' : 'string' })),
+    ...(table?.fields ?? []).map((f): VarNode => ({ path: `${prefix}.fields.${f.uid}`, label: f.label, kind: f.type === 'number' ? 'number' : f.type === 'checkbox' ? 'boolean' : f.type === 'multi_select' || f.type === 'attachment' ? 'array' : 'string' })),
   ]
 }
 
