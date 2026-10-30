@@ -1,6 +1,5 @@
 # Copy to config/sayrud.yaml. See README for Docker setup.
 app:
-  port: 2830
   drain_delay: 5s # Allow readiness removal to propagate before closing the listener.
   shutdown_timeout: 30s # Total budget, including interrupted job cleanup.
   # Use only behind a proxy that overwrites this header.
@@ -51,5 +50,3 @@ observability:
     whitelist:
       - "127.0.0.1"
       - "::1"
-
-# Site settings, sign-in providers and the AI model are managed in the admin console.

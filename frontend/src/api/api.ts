@@ -1150,6 +1150,58 @@ export interface SetWorkflowPluginEnabled {
   enabled: boolean;
 }
 
+export interface SetupAdmin {
+  email: string;
+  /** Password is limited to 64 characters since bcrypt only uses the first 72 bytes. */
+  password: string;
+  userName: string;
+}
+
+export interface SetupDatabase {
+  postgres: SetupPostgres;
+  redis: SetupRedis;
+}
+
+export interface SetupDatabaseCheck {
+  postgres: SetupServiceCheck;
+  redis: SetupServiceCheck;
+}
+
+export interface SetupPostgres {
+  database: string;
+  host: string;
+  password: string;
+  port: number;
+  sslMode: "disable" | "require" | "verify-ca" | "verify-full";
+  username: string;
+}
+
+export interface SetupRedis {
+  /** Address is host:port. */
+  address: string;
+  password: string;
+  username: string;
+}
+
+export interface SetupServiceCheck {
+  /** Message explains the failure in the language of the request, empty if OK. */
+  message: string;
+  ok: boolean;
+  /** Version is the server version, it can be empty even if connected. */
+  version: string;
+}
+
+export interface SetupStatus {
+  /** ConfigPath is where the database step saves the configuration file, only set in that step. */
+  configPath?: string;
+  /** Installed reports whether the application serves the requests. */
+  installed: boolean;
+  /** PasswordMinLength is the minimum length of the admin password. */
+  passwordMinLength?: number;
+  /** Stage is the next step of the wizard, empty once installed. */
+  stage?: "database" | "admin";
+}
+
 export interface SharedProject {
   includeChildren: boolean;
   project: Project;
@@ -2343,6 +2395,16 @@ export type RollbackWorkflowData = PublishWorkflowResp;
 export type ListWorkflowRunsData = ListWorkflowRunsResp;
 
 export type GetWorkflowRunData = WorkflowRun;
+
+export type CreateSetupAdminData = Profile;
+
+export type SaveSetupDatabaseData = any;
+
+export type TestSetupDatabaseData = SetupDatabaseCheck;
+
+export type GetSetupStatusData = SetupStatus;
+
+export type VerifySetupTokenData = any;
 
 export type ResolveLinkShareData = ResolvedLinkShare;
 
@@ -5263,6 +5325,91 @@ export class Api<
       this.request<any, void | string>({
         path: `/projects/${projectUid}/ws`,
         method: "GET",
+        ...params,
+      }),
+  };
+  setup = {
+    /**
+     * @description Create the first admin and sign in. The application serves the requests afterwards.
+     *
+     * @tags Setup
+     * @name CreateSetupAdmin
+     * @summary Create the admin and finish the installation
+     * @request POST:/setup/admin
+     */
+    createSetupAdmin: (data: SetupAdmin, params: RequestParams = {}) =>
+      this.request<CreateSetupAdminData, string>({
+        path: `/setup/admin`,
+        method: "POST",
+        body: data,
+        type: ContentType.Json,
+        format: "json",
+        ...params,
+      }),
+
+    /**
+     * @description Test the connections, save the configuration file and connect the services. The wizard then moves to the admin step.
+     *
+     * @tags Setup
+     * @name SaveSetupDatabase
+     * @summary Save the database configuration
+     * @request POST:/setup/database
+     */
+    saveSetupDatabase: (data: SetupDatabase, params: RequestParams = {}) =>
+      this.request<SaveSetupDatabaseData, string>({
+        path: `/setup/database`,
+        method: "POST",
+        body: data,
+        type: ContentType.Json,
+        ...params,
+      }),
+
+    /**
+     * @description The connection errors are responded in the results instead of the status code.
+     *
+     * @tags Setup
+     * @name TestSetupDatabase
+     * @summary Test the connections of PostgreSQL and Redis
+     * @request POST:/setup/database/test
+     */
+    testSetupDatabase: (data: SetupDatabase, params: RequestParams = {}) =>
+      this.request<TestSetupDatabaseData, string>({
+        path: `/setup/database/test`,
+        method: "POST",
+        body: data,
+        type: ContentType.Json,
+        format: "json",
+        ...params,
+      }),
+
+    /**
+     * @description The setup token is not required. It always responds installed once the application serves the requests.
+     *
+     * @tags Setup
+     * @name GetSetupStatus
+     * @summary Get the installation status
+     * @request GET:/setup/status
+     */
+    getSetupStatus: (params: RequestParams = {}) =>
+      this.request<GetSetupStatusData, string>({
+        path: `/setup/status`,
+        method: "GET",
+        format: "json",
+        ...params,
+      }),
+
+    /**
+     * No description
+     *
+     * @tags Setup
+     * @name VerifySetupToken
+     * @summary Verify the setup token
+     * @request POST:/setup/verify
+     */
+    verifySetupToken: (params: RequestParams = {}) =>
+      this.request<VerifySetupTokenData, string>({
+        path: `/setup/verify`,
+        method: "POST",
         ...params,
       }),
   };

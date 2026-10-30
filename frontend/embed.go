@@ -45,7 +45,7 @@ func Handler() http.Handler {
 			}
 		}
 
-		if isAppRoute(r.URL.Path) {
+		if IsAppRoute(r.URL.Path) {
 			if strings.HasPrefix(r.URL.Path, "/base/") || strings.HasPrefix(r.URL.Path, "/share/") {
 				w.Header().Set("X-Robots-Tag", "noindex, nofollow")
 			}
@@ -58,10 +58,10 @@ func Handler() http.Handler {
 	})
 }
 
-// isAppRoute reports whether the path is a Vue Router page that serves index.html.
-func isAppRoute(path string) bool {
+// IsAppRoute reports whether the path is a Vue Router page that serves index.html, except / which is the index itself.
+func IsAppRoute(path string) bool {
 	switch path {
-	case "/login", "/register", "/settings", "/admin":
+	case "/login", "/register", "/settings", "/admin", "/setup":
 		return true
 	}
 	for _, prefix := range []string{"/base/", "/share/", "/settings/", "/admin/"} {

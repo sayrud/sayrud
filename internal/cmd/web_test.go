@@ -1,4 +1,4 @@
-package main
+package cmd
 
 import (
 	"context"
@@ -13,6 +13,7 @@ import (
 	goredis "github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/require"
 	"github.com/thanhpk/randstr"
+	"github.com/urfave/cli/v3"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
@@ -20,6 +21,14 @@ import (
 	"github.com/wuhan005/sayrud/internal/db"
 	"github.com/wuhan005/sayrud/internal/route"
 )
+
+func TestWebRejectsInvalidPort(t *testing.T) {
+	for _, port := range []string{"0", "65536", "-1"} {
+		root := &cli.Command{Name: "sayrud-server", Commands: []*cli.Command{Web}, Writer: io.Discard, ErrWriter: io.Discard}
+		err := root.Run(context.Background(), []string{"sayrud-server", "web", "--port=" + port})
+		require.ErrorContains(t, err, "not between 1 and 65535", "port %s", port)
+	}
+}
 
 func TestServeDrainsReadinessAndFinishesHTTP(t *testing.T) {
 	if os.Getenv("PGHOST") == "" || os.Getenv("REDIS_TEST_ADDRESS") == "" {

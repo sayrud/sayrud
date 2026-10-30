@@ -7519,6 +7519,272 @@
                 }
             }
         },
+        "/setup/admin": {
+            "post": {
+                "description": "Create the first admin and sign in. The application serves the requests afterwards.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Setup"
+                ],
+                "summary": "Create the admin and finish the installation",
+                "operationId": "createSetupAdmin",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Setup token printed in the server log",
+                        "name": "X-Setup-Token",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "description": "Admin account",
+                        "name": "data",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/SetupAdmin"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/Profile"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request body",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "401": {
+                        "description": "Wrong setup token",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "409": {
+                        "description": "Another step is in progress, the database has not been configured, or it has been installed",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "429": {
+                        "description": "Too many attempts",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/setup/database": {
+            "post": {
+                "description": "Test the connections, save the configuration file and connect the services. The wizard then moves to the admin step.",
+                "consumes": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Setup"
+                ],
+                "summary": "Save the database configuration",
+                "operationId": "saveSetupDatabase",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Setup token printed in the server log",
+                        "name": "X-Setup-Token",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "description": "Connections",
+                        "name": "data",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/SetupDatabase"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "description": "Invalid request body or unusable services",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "401": {
+                        "description": "Wrong setup token",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "409": {
+                        "description": "Another step is in progress, the database has been configured, or the configuration file exists",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "429": {
+                        "description": "Too many attempts",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/setup/database/test": {
+            "post": {
+                "description": "The connection errors are responded in the results instead of the status code.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Setup"
+                ],
+                "summary": "Test the connections of PostgreSQL and Redis",
+                "operationId": "testSetupDatabase",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Setup token printed in the server log",
+                        "name": "X-Setup-Token",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "description": "Connections",
+                        "name": "data",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/SetupDatabase"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/SetupDatabaseCheck"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request body",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "401": {
+                        "description": "Wrong setup token",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "409": {
+                        "description": "The database has been configured",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "429": {
+                        "description": "Too many attempts",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/setup/status": {
+            "get": {
+                "description": "The setup token is not required. It always responds installed once the application serves the requests.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Setup"
+                ],
+                "summary": "Get the installation status",
+                "operationId": "getSetupStatus",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/SetupStatus"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/setup/verify": {
+            "post": {
+                "tags": [
+                    "Setup"
+                ],
+                "summary": "Verify the setup token",
+                "operationId": "verifySetupToken",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Setup token printed in the server log",
+                        "name": "X-Setup-Token",
+                        "in": "header",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "401": {
+                        "description": "Wrong setup token",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "429": {
+                        "description": "Too many attempts",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
         "/shares/resolve": {
             "get": {
                 "description": "Returns only an enabled share token. Password verification and read scope remain enforced on all share APIs.",
@@ -11320,6 +11586,162 @@
             "properties": {
                 "enabled": {
                     "type": "boolean"
+                }
+            }
+        },
+        "SetupAdmin": {
+            "type": "object",
+            "required": [
+                "email",
+                "password",
+                "userName"
+            ],
+            "properties": {
+                "email": {
+                    "type": "string"
+                },
+                "password": {
+                    "description": "Password is limited to 64 characters since bcrypt only uses the first 72 bytes.",
+                    "type": "string"
+                },
+                "userName": {
+                    "type": "string"
+                }
+            }
+        },
+        "SetupDatabase": {
+            "type": "object",
+            "required": [
+                "postgres",
+                "redis"
+            ],
+            "properties": {
+                "postgres": {
+                    "$ref": "#/definitions/SetupPostgres"
+                },
+                "redis": {
+                    "$ref": "#/definitions/SetupRedis"
+                }
+            }
+        },
+        "SetupDatabaseCheck": {
+            "type": "object",
+            "required": [
+                "postgres",
+                "redis"
+            ],
+            "properties": {
+                "postgres": {
+                    "$ref": "#/definitions/SetupServiceCheck"
+                },
+                "redis": {
+                    "$ref": "#/definitions/SetupServiceCheck"
+                }
+            }
+        },
+        "SetupPostgres": {
+            "type": "object",
+            "required": [
+                "database",
+                "host",
+                "password",
+                "port",
+                "sslMode",
+                "username"
+            ],
+            "properties": {
+                "database": {
+                    "type": "string"
+                },
+                "host": {
+                    "type": "string"
+                },
+                "password": {
+                    "type": "string"
+                },
+                "port": {
+                    "type": "integer"
+                },
+                "sslMode": {
+                    "type": "string",
+                    "enum": [
+                        "disable",
+                        "require",
+                        "verify-ca",
+                        "verify-full"
+                    ]
+                },
+                "username": {
+                    "type": "string"
+                }
+            }
+        },
+        "SetupRedis": {
+            "type": "object",
+            "required": [
+                "address",
+                "password",
+                "username"
+            ],
+            "properties": {
+                "address": {
+                    "description": "Address is host:port.",
+                    "type": "string"
+                },
+                "password": {
+                    "type": "string"
+                },
+                "username": {
+                    "type": "string"
+                }
+            }
+        },
+        "SetupServiceCheck": {
+            "type": "object",
+            "required": [
+                "message",
+                "ok",
+                "version"
+            ],
+            "properties": {
+                "message": {
+                    "description": "Message explains the failure in the language of the request, empty if OK.",
+                    "type": "string"
+                },
+                "ok": {
+                    "type": "boolean"
+                },
+                "version": {
+                    "description": "Version is the server version, it can be empty even if connected.",
+                    "type": "string"
+                }
+            }
+        },
+        "SetupStatus": {
+            "type": "object",
+            "required": [
+                "installed"
+            ],
+            "properties": {
+                "configPath": {
+                    "description": "ConfigPath is where the database step saves the configuration file, only set in that step.",
+                    "type": "string"
+                },
+                "installed": {
+                    "description": "Installed reports whether the application serves the requests.",
+                    "type": "boolean"
+                },
+                "passwordMinLength": {
+                    "description": "PasswordMinLength is the minimum length of the admin password.",
+                    "type": "integer"
+                },
+                "stage": {
+                    "description": "Stage is the next step of the wizard, empty once installed.",
+                    "type": "string",
+                    "enum": [
+                        "database",
+                        "admin"
+                    ]
                 }
             }
         },

@@ -38,7 +38,7 @@ func TestInitObservability(t *testing.T) {
 		},
 		{
 			name:   "omitted observability defaults both to disabled",
-			config: "app:\n  port: 2830\n",
+			config: "app:\n  drain_delay: 5s\n",
 		},
 		{
 			name: "metrics only leaves tracing disabled",
@@ -163,18 +163,38 @@ func TestInitApp(t *testing.T) {
 	t.Setenv("IP_HEADER", "X-Environment-IP")
 	App.IPHeader = ""
 
-	if err := Init(writeTestConfig(t, "app:\n  port: 2830\n")); err != nil {
+	if err := Init(writeTestConfig(t, "app:\n  drain_delay: 5s\n")); err != nil {
 		t.Fatalf("Init() failed: %v", err)
 	}
-	if App.Port != 2830 || App.IPHeader != "" {
-		t.Errorf("App = %#v, want port 2830 and no IP header", App)
+	if App.IPHeader != "" {
+		t.Errorf("App = %#v, want no IP header", App)
 	}
 
-	if err := Init(writeTestConfig(t, "app:\n  port: 2831\n  ip_header: X-Real-IP\n")); err != nil {
+	if err := Init(writeTestConfig(t, "app:\n  ip_header: X-Real-IP\n")); err != nil {
 		t.Fatalf("Init() failed: %v", err)
 	}
-	if App.Port != 2831 || App.IPHeader != "X-Real-IP" {
+	if App.IPHeader != "X-Real-IP" {
 		t.Errorf("App = %#v, want the YAML values regardless of environment variables", App)
+	}
+
+	// The listening port comes from the command line, the legacy option is still accepted.
+	if err := Init(writeTestConfig(t, "app:\n  port: 2831\n")); err != nil {
+		t.Fatalf("Init() with app.port failed: %v", err)
+	}
+}
+
+func TestInitDefault(t *testing.T) {
+	restoreConfigAfterTest(t)
+	App.DrainDelay, App.ShutdownTimeout = 0, 0
+
+	if err := InitDefault(); err != nil {
+		t.Fatalf("InitDefault() failed: %v", err)
+	}
+	if App.DrainDelay != 5*time.Second || App.ShutdownTimeout != 30*time.Second {
+		t.Errorf("App = %#v, want the default shutdown timings", App)
+	}
+	if Storage.Type != "local" || Shortcut.Workers != 4 {
+		t.Errorf("Storage = %#v, Shortcut = %#v, want the defaults", Storage, Shortcut)
 	}
 }
 
@@ -199,7 +219,7 @@ func TestInitRedis(t *testing.T) {
 func TestInitShortcut(t *testing.T) {
 	restoreConfigAfterTest(t)
 
-	if err := Init(writeTestConfig(t, "app:\n  port: 2830\n")); err != nil {
+	if err := Init(writeTestConfig(t, "app:\n  drain_delay: 5s\n")); err != nil {
 		t.Fatalf("Init() failed: %v", err)
 	}
 	if Shortcut.Workers != 4 {
@@ -218,7 +238,7 @@ func TestInitStorage(t *testing.T) {
 	restoreConfigAfterTest(t)
 
 	Storage = StorageConfig{}
-	if err := Init(writeTestConfig(t, "app:\n  port: 2830\n")); err != nil {
+	if err := Init(writeTestConfig(t, "app:\n  drain_delay: 5s\n")); err != nil {
 		t.Fatalf("Init() failed: %v", err)
 	}
 	want := StorageConfig{Type: "local", URLExpiry: time.Hour, Local: LocalStorageConfig{Path: "./data/storage"}}
@@ -283,7 +303,7 @@ func TestShutdownConfiguration(t *testing.T) {
 		delay, timeout time.Duration
 		invalid        bool
 	}{
-		{"defaults", "app:\n  port: 2830\n", 5 * time.Second, 30 * time.Second, false},
+		{"defaults", "app:\n  drain_delay: 5s\n", 5 * time.Second, 30 * time.Second, false},
 		{"no delay", "app:\n  drain_delay: 0s\n  shutdown_timeout: 10s\n", 0, 10 * time.Second, false},
 		{"delay below grace", "app:\n  drain_delay: 24s\n  shutdown_timeout: 30s\n", 24 * time.Second, 30 * time.Second, false},
 		{"delay equals grace", "app:\n  drain_delay: 25s\n  shutdown_timeout: 30s\n", 0, 0, true},
