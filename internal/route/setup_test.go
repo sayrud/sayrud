@@ -100,3 +100,14 @@ func TestSetupUnavailable(t *testing.T) {
 		assert.Equal(t, http.StatusOK, setupRequest(router, http.MethodGet, path, "", "").Code, path)
 	}
 }
+
+func TestSetupLimitsRequestBody(t *testing.T) {
+	router, token := newSetupTestRouter(t)
+
+	for _, path := range []string{"/_/setup/database/test", "/_/setup/database", "/_/setup/admin"} {
+		body := `{"ignored":"` + strings.Repeat("x", 64<<10) + `"}`
+		response := setupRequest(router, http.MethodPost, path+"?lang=en", token.String(), body)
+		assert.Equal(t, http.StatusBadRequest, response.Code, path)
+		assert.Contains(t, response.Body.String(), "Invalid request body", path)
+	}
+}

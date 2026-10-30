@@ -24,6 +24,6 @@ type SetupDatabase struct {
 type SetupAdmin struct {
 	Email    string `json:"email" valid:"required;email;maxlen:254"`
 	UserName string `json:"userName" valid:"required;maxlen:32"`
-	// Password is limited to 64 characters since bcrypt only uses the first 72 bytes.
+	// Password is limited to 64 characters; the setup handler also enforces bcrypt's 72-byte limit.
 	Password string `json:"password" valid:"required;minlen:8;maxlen:64"`
 } // @name SetupAdmin

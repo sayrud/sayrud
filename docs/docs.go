@@ -11609,7 +11609,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "password": {
-                    "description": "Password is limited to 64 characters since bcrypt only uses the first 72 bytes.",
+                    "description": "Password is limited to 64 characters; the setup handler also enforces bcrypt's 72-byte limit.",
                     "type": "string"
                 },
                 "userName": {

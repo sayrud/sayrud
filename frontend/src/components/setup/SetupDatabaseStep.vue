@@ -55,7 +55,12 @@ const services = computed(() =>
 )
 
 // The results describe the values they were tested with.
-watch(form, () => (results.value = null), { deep: true })
+let generation = 0
+
+watch(form, () => {
+  generation++
+  results.value = null
+}, { deep: true, flush: 'sync' })
 
 function request(): SetupDatabase {
   return {
@@ -76,10 +81,15 @@ function fail(e: unknown) {
 
 async function test() {
   if (await formRef.value?.validate()) return
+
   error.value = ''
   testing.value = true
+  const tested = generation
+
   try {
-    results.value = await setupApi.testDatabase(props.token, request())
+    const result = await setupApi.testDatabase(props.token, request())
+
+    if (tested === generation) results.value = result
   } catch (e) {
     fail(e)
   } finally {
@@ -90,6 +100,7 @@ async function test() {
 async function save() {
   error.value = ''
   saving.value = true
+
   try {
     await setupApi.saveDatabase(props.token, request())
     emit('saved')

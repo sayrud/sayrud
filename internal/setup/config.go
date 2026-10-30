@@ -6,6 +6,7 @@ import (
 	_ "embed"
 	"encoding/base64"
 	"encoding/json"
+	"io"
 	"net"
 	"net/url"
 	"os"
@@ -151,7 +152,7 @@ func (p *PendingConfig) TempPath() string {
 	return p.temp
 }
 
-// Commit moves the temporary file to the final path atomically, it returns ErrConfigExists instead of replacing a file.
+// Commit publishes the configuration without replacing an existing file, using an atomic hard link where supported.
 func (p *PendingConfig) Commit() error {
 	// A hard link fails if the target exists, which a rename would silently replace.
 	err := os.Link(p.temp, p.path)
@@ -161,20 +162,50 @@ func (p *PendingConfig) Commit() error {
 	case errors.Is(err, os.ErrExist):
 		return ErrConfigExists
 	default:
-		// Some file systems do not support hard links, the wizard serializes the commits in the process anyway.
-		if _, statErr := os.Stat(p.path); statErr == nil {
-			return ErrConfigExists
-		}
-		if err := os.Rename(p.temp, p.path); err != nil {
-			return errors.Wrap(err, "rename")
+		if err := p.copyExclusive(); err != nil {
+			return err
 		}
 	}
+
 	p.done = true
 
 	if dir, err := os.Open(filepath.Dir(p.path)); err == nil {
 		_ = dir.Sync()
 		_ = dir.Close()
 	}
+
+	return nil
+}
+
+// copyExclusive supports file systems without hard links while still refusing to overwrite another installer's configuration.
+func (p *PendingConfig) copyExclusive() error {
+	source, err := os.Open(p.temp)
+	if err != nil {
+		return errors.Wrap(err, "open temporary file")
+	}
+	defer func() { _ = source.Close() }()
+
+	target, err := os.OpenFile(p.path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
+	if errors.Is(err, os.ErrExist) {
+		return ErrConfigExists
+	}
+	if err != nil {
+		return errors.Wrap(err, "create configuration file")
+	}
+
+	_, err = io.Copy(target, source)
+	if err == nil {
+		err = target.Sync()
+	}
+	if closeErr := target.Close(); err == nil {
+		err = closeErr
+	}
+	if err != nil {
+		_ = os.Remove(p.path)
+		return errors.Wrap(err, "copy configuration file")
+	}
+
+	_ = os.Remove(p.temp)
 	return nil
 }
 

@@ -56,3 +56,19 @@ func TestCreateFirstAdmin(t *testing.T) {
 	_, err = store.Authenticate(ctx, users[0].Email, "password123")
 	require.NoError(t, err)
 }
+
+func TestCreateFirstAdminRejectsSoftDeletedUsers(t *testing.T) {
+	gormDB := newTestDB(t, &User{})
+	store := NewUsersStore(gormDB)
+	ctx := context.Background()
+	user, err := store.Create(ctx, CreateUserOptions{Email: "deleted@example.com", UserName: "Deleted"})
+	require.NoError(t, err)
+	require.NoError(t, gormDB.Delete(user).Error)
+
+	exists, err := store.Exists(ctx)
+	require.NoError(t, err)
+	assert.True(t, exists, "soft deletion must not reopen setup")
+
+	_, err = store.CreateFirstAdmin(ctx, CreateUserOptions{Email: "takeover@example.com", Password: "password123"})
+	require.ErrorIs(t, err, ErrUsersExist)
+}

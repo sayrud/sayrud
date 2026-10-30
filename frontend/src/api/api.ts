@@ -1152,7 +1152,7 @@ export interface SetWorkflowPluginEnabled {
 
 export interface SetupAdmin {
   email: string;
-  /** Password is limited to 64 characters since bcrypt only uses the first 72 bytes. */
+  /** Password is limited to 64 characters; the setup handler also enforces bcrypt's 72-byte limit. */
   password: string;
   userName: string;
 }

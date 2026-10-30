@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -189,10 +190,15 @@ func setupToken() (*setup.Token, bool, error) {
 // configureDatabase saves the configuration entered in the wizard and starts the application behind the wizard.
 // The configuration file only appears after all the services connect, so a failure can be retried.
 func configureDatabase(ctx context.Context, configPath string, app *application, opts setup.DatabaseOptions) error {
-	secretKey, err := setup.GenerateSecretKey()
-	if err != nil {
-		return err
+	secretKey := strings.TrimSpace(conf.Auth.SecretKey)
+	if secretKey == "" {
+		var err error
+		secretKey, err = setup.GenerateSecretKey()
+		if err != nil {
+			return err
+		}
 	}
+
 	data, err := setup.RenderConfig(setup.ConfigOptions{
 		Postgres:  opts.Postgres,
 		Redis:     opts.Redis,
@@ -207,6 +213,7 @@ func configureDatabase(ctx context.Context, configPath string, app *application,
 		return errors.Wrap(err, "write configuration")
 	}
 	defer pending.Discard()
+
 	if err := conf.Init(pending.TempPath()); err != nil {
 		return errors.Wrap(err, "load configuration")
 	}
@@ -216,13 +223,16 @@ func configureDatabase(ctx context.Context, configPath string, app *application,
 		if err := pending.Commit(); err != nil {
 			return err
 		}
+
 		committed = true
 		logrus.Infof("Configuration saved to %s", configPath)
+
 		return nil
 	})
 	if err != nil && committed {
 		return errors.Mark(err, setup.ErrRestartRequired)
 	}
+
 	return err
 }
 

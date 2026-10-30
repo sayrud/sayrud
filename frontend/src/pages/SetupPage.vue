@@ -40,6 +40,7 @@ const tokenError = ref('')
 /** The server started with a configuration file, so the database step was skipped. */
 const databaseFromConfig = ref(false)
 const admin = ref<Profile | null>(null)
+let linkToken = ''
 
 const current = computed(() => STEPS.indexOf(step.value) + 1)
 const passwordMinLength = computed(() => status.value?.passwordMinLength || site.info.passwordMinLength)
@@ -74,6 +75,7 @@ function follow(next: SetupStatus) {
     router.replace({ name: 'home' })
     return
   }
+
   status.value = next
   step.value = next.stage === 'admin' ? 'admin' : 'database'
 }
@@ -81,19 +83,26 @@ function follow(next: SetupStatus) {
 async function init() {
   loading.value = true
   loadError.value = ''
+
   try {
+    if (typeof route.query.token === 'string') linkToken = route.query.token.trim()
+
+    // Remove the token even if loading the status fails; keep it in memory for retries.
+    if (route.query.token !== undefined) await router.replace({ query: { ...route.query, token: undefined } })
+
     const next = await setupApi.status()
     if (next.installed) return follow(next)
+
     status.value = next
     databaseFromConfig.value = next.stage === 'admin'
 
-    const fromLink = typeof route.query.token === 'string' ? route.query.token.trim() : ''
-    // Keeps the token out of the history and the referrer.
-    if (fromLink) router.replace({ query: { ...route.query, token: undefined } })
+    const fromLink = linkToken
+    linkToken = ''
     const candidate = fromLink || readToken()
     if (candidate) {
       try {
         await setupApi.verify(candidate)
+
         accept(candidate)
         return
       } catch (e) {
@@ -102,6 +111,7 @@ async function init() {
         else tokenError.value = errorMessage(e)
       }
     }
+
     step.value = 'token'
   } catch (e) {
     loadError.value = errorMessage(e)
@@ -132,12 +142,13 @@ function onExpired() {
   step.value = 'token'
 }
 
-async function onCreated(profile: Profile) {
+function onCreated(profile: Profile) {
   storeToken('')
-  // The administrator keeps the language chosen during the installation instead of the site default.
-  await accountApi.saveSettings({ language: localeStore.locale }).catch(() => undefined)
   admin.value = profile
   step.value = 'done'
+
+  // The administrator keeps the language chosen during the installation instead of the site default.
+  void accountApi.saveSettings({ language: localeStore.locale }).catch(() => undefined)
 }
 
 onMounted(init)
@@ -289,6 +300,12 @@ onMounted(init)
   }
   .brand {
     height: 34px;
+  }
+  .steps {
+    overflow-x: auto;
+  }
+  .steps :deep(.arco-steps-item) {
+    flex: 0 0 72px;
   }
   .steps :deep(.arco-steps-item-content) {
     width: 72px;

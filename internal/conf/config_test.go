@@ -198,6 +198,35 @@ func TestInitDefault(t *testing.T) {
 	}
 }
 
+func TestSharedAuthSecretKey(t *testing.T) {
+	restoreConfigAfterTest(t)
+
+	const shared = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
+	t.Setenv(AuthSecretKeyEnv, shared)
+	if err := InitDefault(); err != nil {
+		t.Fatal(err)
+	}
+	if Auth.SecretKey != shared {
+		t.Fatal("setup did not load the shared key")
+	}
+
+	path := writeTestConfig(t, "auth:\n  secret_key: file-key\n")
+	if err := Init(path); err != nil {
+		t.Fatal(err)
+	}
+	if Auth.SecretKey != shared {
+		t.Fatal("environment did not override the config key")
+	}
+
+	t.Setenv(AuthSecretKeyEnv, "")
+	if err := Init(path); err != nil {
+		t.Fatal(err)
+	}
+	if Auth.SecretKey != "file-key" {
+		t.Fatal("file key was not loaded without an environment override")
+	}
+}
+
 func TestInitRedis(t *testing.T) {
 	restoreConfigAfterTest(t)
 	t.Setenv("REDIS_ADDRESS", "env-redis:6380")
@@ -280,10 +309,11 @@ func TestInitStorage(t *testing.T) {
 func restoreConfigAfterTest(t *testing.T) {
 	t.Helper()
 	previousApp, previousPostgres, previousRedis, previousObservability := App, Postgres, Redis, Observability
-	previousShortcut, previousStorage := Shortcut, Storage
+	previousShortcut, previousStorage, previousAuth := Shortcut, Storage, Auth
 	t.Cleanup(func() {
 		App, Postgres, Redis, Observability = previousApp, previousPostgres, previousRedis, previousObservability
 		Shortcut, Storage = previousShortcut, previousStorage
+		Auth = previousAuth
 	})
 }
 

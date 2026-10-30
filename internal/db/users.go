@@ -42,7 +42,7 @@ type UsersStore interface {
 	// CreateFirstAdmin creates an admin with the given options when there is no user, which concurrent callers can not bypass.
 	// It returns ErrUsersExist if there is any user.
 	CreateFirstAdmin(ctx context.Context, options CreateUserOptions) (*User, error)
-	// Exists reports whether there is any user.
+	// Exists reports whether there is any user, including soft-deleted users.
 	Exists(ctx context.Context) (bool, error)
 	// ClaimLegacyDefault lets the new user take over the passwordless default user of the versions without accounts, along with its projects.
 	// It returns ErrUserNotFound if there is no such user, and ErrUserAlreadyExisted if the email has been used.
@@ -242,13 +242,15 @@ func (db *users) CreateFirstAdmin(ctx context.Context, options CreateUserOptions
 		if err := tx.Exec("SELECT pg_advisory_xact_lock(?)", firstAdminLockKey).Error; err != nil {
 			return errors.Wrap(err, "lock")
 		}
+
 		var exists bool
-		if err := tx.Raw("SELECT EXISTS (SELECT 1 FROM users WHERE deleted_at IS NULL)").Scan(&exists).Error; err != nil {
+		if err := tx.Raw("SELECT EXISTS (SELECT 1 FROM users)").Scan(&exists).Error; err != nil {
 			return errors.Wrap(err, "check users")
 		}
 		if exists {
 			return ErrUsersExist
 		}
+
 		return tx.Create(user).Error
 	})
 	if err != nil {
@@ -259,7 +261,8 @@ func (db *users) CreateFirstAdmin(ctx context.Context, options CreateUserOptions
 
 func (db *users) Exists(ctx context.Context) (bool, error) {
 	var exists bool
-	err := db.WithContext(ctx).Raw("SELECT EXISTS (SELECT 1 FROM users WHERE deleted_at IS NULL)").Scan(&exists).Error
+	err := db.WithContext(ctx).Raw("SELECT EXISTS (SELECT 1 FROM users)").Scan(&exists).Error
+
 	return exists, err
 }
 

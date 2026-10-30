@@ -8,6 +8,7 @@ import (
 	"encoding/base32"
 	"strings"
 	"unicode"
+	"unicode/utf8"
 
 	"github.com/cockroachdb/errors"
 )
@@ -20,6 +21,7 @@ const (
 	tokenGroupSize = 4
 	// minTokenLength is the minimum normalized length of the tokens provided by TokenEnv.
 	minTokenLength = 16
+	maxTokenLength = 128
 )
 
 // Token is the one-time secret proving that the installer can read the server log or environment.
@@ -48,10 +50,16 @@ func NewToken() (*Token, error) {
 
 // ParseToken accepts the token provided by the operator, it must have at least 16 characters besides dashes and spaces.
 func ParseToken(value string) (*Token, error) {
+	value = strings.TrimSpace(value)
+	if utf8.RuneCountInString(value) > maxTokenLength {
+		return nil, errors.Newf("setup token must have at most %d characters", maxTokenLength)
+	}
+
 	if len(normalizeToken(value)) < minTokenLength {
 		return nil, errors.Newf("setup token must have at least %d characters", minTokenLength)
 	}
-	return newToken(strings.TrimSpace(value)), nil
+
+	return newToken(value), nil
 }
 
 func newToken(display string) *Token {

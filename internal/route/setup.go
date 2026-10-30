@@ -37,7 +37,7 @@ func NewSetup(wizard *setup.Wizard) *flamego.Flame {
 				f.Post("/database/test", form.Bind(form.SetupDatabase{}), api.Setup.TestDatabase)
 				f.Post("/database", form.Bind(form.SetupDatabase{}), api.Setup.SaveDatabase)
 				f.Post("/admin", form.Bind(form.SetupAdmin{}), api.Setup.CreateAdmin)
-			}, api.Setup.Authorizer)
+			}, api.Setup.Authorizer, api.Setup.LimitBody)
 		})
 		f.Any("/{path: **}", api.Setup.Unavailable)
 	})

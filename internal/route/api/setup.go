@@ -19,6 +19,11 @@ var Setup setupRoute
 
 type setupRoute struct{}
 
+func (setupRoute) LimitBody(ctx context.Context) {
+	r := ctx.Request().Request
+	r.Body = http.MaxBytesReader(ctx.ResponseWriter(), r.Body, 64<<10)
+}
+
 const (
 	// SetupTokenHeader carries the setup token of the wizard requests.
 	SetupTokenHeader = "X-Setup-Token"
@@ -185,6 +190,11 @@ func (setupRoute) CreateAdmin(ctx context.Context, wizard *setup.Wizard, f form.
 	if wizard.Stage() == setup.StageDatabase {
 		return ctx.ApiError(http.StatusConflict, "setup::stage_conflict")
 	}
+
+	if len(f.Password) > 72 {
+		return ctx.ApiError(http.StatusBadRequest, "setup::password_too_long")
+	}
+
 	settings, ok := loadSettings(ctx)
 	if !ok {
 		return nil
@@ -192,6 +202,7 @@ func (setupRoute) CreateAdmin(ctx context.Context, wizard *setup.Wizard, f form.
 	if err := passwordTooShort(settings, f.Password, "auth::password_too_short"); err != nil {
 		return ctx.ApiErrorFrom(http.StatusBadRequest, err)
 	}
+
 	userName := strings.TrimSpace(f.UserName)
 	if userName == "" {
 		return ctx.ApiError(http.StatusBadRequest, "auth::user_name_required")

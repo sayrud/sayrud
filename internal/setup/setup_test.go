@@ -1,12 +1,14 @@
 package setup
 
 import (
+	"fmt"
 	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
 	"sort"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -45,6 +47,12 @@ func TestParseToken(t *testing.T) {
 	assert.Equal(t, "my-deployment-secret-2026", token.String())
 	assert.True(t, token.Verify("MYDEPLOYMENTSECRET2026"))
 	assert.False(t, token.Verify("my-deployment-secret-2025"))
+
+	_, err = ParseToken(strings.Repeat("A", 129))
+	require.Error(t, err)
+	token, err = ParseToken("  " + strings.Repeat("A", 128) + "\n")
+	require.NoError(t, err)
+	assert.True(t, token.Verify(strings.Repeat("A", 128)))
 }
 
 func TestLimiter(t *testing.T) {
@@ -63,6 +71,28 @@ func TestLimiter(t *testing.T) {
 	assert.True(t, l.Allow("1.1.1.1"), "the window expires")
 	l.Fail("1.1.1.1")
 	assert.True(t, l.Allow("1.1.1.1"), "a new window starts after expiring")
+}
+
+func TestLimiterCapacity(t *testing.T) {
+	now := time.Now()
+	l := newLimiter(2, time.Minute)
+	l.now = func() time.Time { return now }
+
+	for i := range maxFailureClients {
+		l.Fail(fmt.Sprint(i))
+	}
+
+	assert.True(t, l.Allow("0"), "existing clients keep their windows")
+	l.Fail("0")
+	assert.False(t, l.Allow("0"))
+	assert.False(t, l.Allow("new"), "untracked clients are rejected at capacity")
+	l.Fail("new")
+	assert.Len(t, l.failures, maxFailureClients)
+
+	now = now.Add(time.Minute)
+	assert.True(t, l.Allow("new"), "expired entries free capacity")
+	l.Fail("new")
+	assert.Len(t, l.failures, 1)
 }
 
 func TestPostgresDSN(t *testing.T) {
@@ -157,4 +187,52 @@ func TestWriteConfig(t *testing.T) {
 	entries, err = os.ReadDir(dir)
 	require.NoError(t, err)
 	assert.Len(t, entries, 1)
+}
+
+func TestConfigCopyExclusive(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "sayrud.yaml")
+	start := make(chan struct{})
+	results := make(chan error, 4)
+	var workers sync.WaitGroup
+
+	for i := range cap(results) {
+		pending, err := WriteConfig(path, []byte(fmt.Sprintf("installer: %d\n", i)))
+		require.NoError(t, err)
+		t.Cleanup(pending.Discard)
+
+		workers.Go(func() {
+			<-start
+			results <- pending.copyExclusive()
+		})
+	}
+
+	close(start)
+	workers.Wait()
+	close(results)
+
+	created := 0
+	for err := range results {
+		if err == nil {
+			created++
+		} else {
+			require.ErrorIs(t, err, ErrConfigExists)
+		}
+	}
+
+	require.Equal(t, 1, created)
+	content, err := os.ReadFile(path)
+	require.NoError(t, err)
+	assert.Regexp(t, `^installer: [0-3]\n$`, string(content))
+	info, err := os.Stat(path)
+	require.NoError(t, err)
+	assert.Equal(t, os.FileMode(0o600), info.Mode().Perm())
+
+	other, err := WriteConfig(path, []byte("replacement"))
+	require.NoError(t, err)
+	defer other.Discard()
+
+	require.ErrorIs(t, other.copyExclusive(), ErrConfigExists)
+	unchanged, err := os.ReadFile(path)
+	require.NoError(t, err)
+	assert.Equal(t, content, unchanged)
 }

@@ -65,13 +65,14 @@ func CheckPostgres(ctx context.Context, opts PostgresOptions) (string, error) {
 		return "", errors.Wrap(err, "check users table")
 	}
 	if hasUsers {
-		if err := gormDB.WithContext(ctx).Raw(`SELECT EXISTS (SELECT 1 FROM users WHERE deleted_at IS NULL)`).Scan(&hasUsers).Error; err != nil {
+		if err := gormDB.WithContext(ctx).Raw(`SELECT EXISTS (SELECT 1 FROM users)`).Scan(&hasUsers).Error; err != nil {
 			return "", errors.Wrap(err, "check users")
 		}
 	}
 	if hasUsers {
 		return version, ErrDatabaseInUse
 	}
+
 	return version, nil
 }
 
@@ -92,10 +93,12 @@ func CheckRedis(ctx context.Context, opts RedisOptions) (string, error) {
 	if err := client.Ping(ctx).Err(); err != nil {
 		return "", err
 	}
+
 	info, err := client.Info(ctx, "server").Result()
 	if err != nil {
-		return "", errors.Wrap(err, "get info")
+		return "", nil
 	}
+
 	for _, line := range strings.Split(info, "\n") {
 		if version, ok := strings.CutPrefix(strings.TrimSpace(line), "redis_version:"); ok {
 			return version, nil
@@ -119,5 +122,6 @@ func CheckServices(ctx context.Context, opts DatabaseOptions) (pg, rdb CheckResu
 	}()
 	pg.Version, pg.Err = CheckPostgres(ctx, opts.Postgres)
 	<-done
+
 	return pg, rdb
 }
