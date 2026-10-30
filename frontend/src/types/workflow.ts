@@ -3,6 +3,7 @@
 export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
 export type ParamSource = 'query' | 'header' | 'body'
 export type ParamType = 'string' | 'number' | 'integer' | 'boolean' | 'date' | 'datetime' | 'enum' | 'array'
+export type ParamErrorCode = 'required' | 'null' | 'empty' | 'invalid_type' | 'too_short' | 'too_long' | 'too_small' | 'too_large' | 'too_many_items' | 'pattern' | 'format' | 'not_option'
 /** Step module type defined by the module DSL from the backend; the built-in ones are query, create, update, condition, response, email and http. */
 export type StepType = string
 export type ValueKind = 'const' | 'var' | 'template' | 'formula'
@@ -37,6 +38,10 @@ export interface WorkflowParam {
   pattern?: string
   format?: '' | 'email' | 'url' | 'phone'
   options?: string[]
+  /** Replaces the default message of any error of the param. */
+  message?: string
+  /** Replaces the messages of specific error codes and takes precedence over message. */
+  messages?: Partial<Record<ParamErrorCode, string>>
 }
 
 export interface WorkflowFilter {
@@ -230,9 +235,11 @@ export interface ApiTrigger {
   auth: { type: 'none' | 'api_key'; errorResponse?: WorkflowErrorResponse }
   rateLimit: { enabled: boolean; limit: number; window: number; errorResponse?: WorkflowErrorResponse }
   params: WorkflowParam[]
+  /** Returned when param validation fails; string values may contain placeholders of error, errors and run.id. */
+  paramErrorResponse?: WorkflowErrorResponse
 }
 
-/** Static JSON response returned before the workflow starts; body text also preserves incomplete drafts. */
+/** JSON response returned before the workflow starts; body text also preserves incomplete drafts. */
 export interface WorkflowErrorResponse {
   status: number
   body: string

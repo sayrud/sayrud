@@ -65,6 +65,7 @@ const LITERAL_ALLOWLIST = {
   'i18n/index.ts': ['English', '简体中文', '繁體中文', '日本語', '한국어', 'Español', 'Português', 'Français', 'Deutsch', 'Русский'], // Native language names.
   'utils/fieldTypes.ts': ['YYYY年MM月DD日', '2026年01月30日'], // Date format and its example.
   'utils/format.ts': ['是'], // Accepted input when importing checkbox values.
+  'utils/paramErrors.ts': ['{{error.message}}'], // Placeholder in the param error response template.
   'pages/HomePage.vue': ['Sayrud'], // Brand.
   'pages/admin/SitePage.vue': ['Sayrud'], // Default site name.
   'pages/admin/OverviewPage.vue': ['Go'], // Runtime name.

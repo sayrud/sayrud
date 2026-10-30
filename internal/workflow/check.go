@@ -3,8 +3,10 @@ package workflow
 import (
 	"context"
 	"encoding/json"
+	"maps"
 	"net/http"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -343,6 +345,14 @@ func (c *checker) checkRoute() {
 	if a.RateLimit.Enabled {
 		c.checkErrorResponse(a.RateLimit.ErrorResponse, "rate_limit")
 	}
+	if r := a.ParamErrorResponse; r != nil {
+		c.checkErrorResponse(r, "params")
+		for _, root := range templateRoots(r.Body) {
+			if !contains(paramErrorVars, root) {
+				c.add("param_error.unknown_var", "params", "var", root)
+			}
+		}
+	}
 }
 
 func (c *checker) checkErrorResponse(response *ErrorResponse, target string) {
@@ -383,6 +393,11 @@ func (c *checker) checkParams() {
 		}
 		if p.Source == SourceBody && a.Method == http.MethodGet {
 			c.add("param.body_not_allowed", target, "key", p.Key)
+		}
+		for _, code := range slices.Sorted(maps.Keys(p.Messages)) {
+			if !contains(paramErrorCodes, code) {
+				c.add("param.invalid_message_code", target, "key", p.Key, "code", code)
+			}
 		}
 		if !contains(paramTypes, p.Type) {
 			c.add("param.invalid_type", target, "key", p.Key)

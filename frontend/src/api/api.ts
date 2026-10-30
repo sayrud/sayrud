@@ -1665,6 +1665,8 @@ export interface WorkflowAPITrigger {
   auth: WorkflowAuth;
   /** Method is GET, POST, PUT, PATCH or DELETE. */
   method: string;
+  /** ParamErrorResponse overrides the response returned when parameter validation fails; string values in its body may contain placeholders of error, errors and run.id. */
+  paramErrorResponse?: WorkflowErrorResponse;
   params: WorkflowParam[];
   /** Path is a static path relative to the project, e.g. /leads. */
   path: string;
@@ -1892,6 +1894,10 @@ export interface WorkflowParam {
   max?: number;
   maxItems?: number;
   maxLength?: number;
+  /** Message replaces the default message of any error of the parameter. */
+  message?: string;
+  /** Messages replace the messages of specific error codes, e.g. {"format": "invalid phone number"}, and take precedence over Message. */
+  messages?: Record<string, string>;
   min?: number;
   minLength?: number;
   /** Options are the allowed enum values; when non-empty, they also constrain the elements of string arrays. */

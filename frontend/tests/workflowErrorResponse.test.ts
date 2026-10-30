@@ -1,19 +1,26 @@
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
-import test from 'node:test'
+import test, { type TestContext } from 'node:test'
 import ts from 'typescript'
 import * as vue from 'vue'
 import { compileScript, parse } from 'vue/compiler-sfc'
 
 import type { WorkflowErrorResponse } from '../src/types/workflow.ts'
 
-test('security responses preserve draft JSON, validate status and respect readonly mode', (t) => {
+interface EditorProps {
+  status: number
+  code: string
+  message: string
+  template?: string
+  variables?: string[]
+}
+
+function mountEditor(t: TestContext, props: EditorProps) {
   const scope = vue.effectScope()
   t.after(() => scope.stop())
   const model = vue.ref<WorkflowErrorResponse>()
   const store = vue.reactive({ readonly: false })
-  const props = { status: 401, code: 'unauthorized', message: 'a valid API key is required' }
   const source = readFileSync(new URL('../src/components/workflow/ErrorResponseEditor.vue', import.meta.url), 'utf8')
   const script = compileScript(parse(source).descriptor, { id: 'error-response-test' })
   const compiled = ts.transpileModule(script.content, { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText
@@ -21,6 +28,7 @@ test('security responses preserve draft JSON, validate status and respect readon
     body: vue.WritableComputedRef<string>
     invalidBody: vue.ComputedRef<boolean>
     invalidStatus: vue.ComputedRef<boolean>
+    placeholders: vue.ComputedRef<string[]>
     setCustom: (custom: boolean) => void
     onCollapseKeydown: (event: KeyboardEvent) => void
   } } } }
@@ -33,6 +41,12 @@ test('security responses preserve draft JSON, validate status and respect readon
   }
   new Function('require', 'module', 'exports', compiled)((id: string) => overrides[id] ?? require(id), module, module.exports)
   const editor = scope.run(() => module.exports.default!.setup(props, { expose: () => {} }))!
+  return { editor, model, store }
+}
+
+test('security responses preserve draft JSON, validate status and respect readonly mode', (t) => {
+  const props = { status: 401, code: 'unauthorized', message: 'a valid API key is required' }
+  const { editor, model, store } = mountEditor(t, props)
 
   let activations = 0
   let prevented = 0
@@ -47,6 +61,7 @@ test('security responses preserve draft JSON, validate status and respect readon
 
   assert.equal(model.value, undefined)
   assert.deepEqual(JSON.parse(editor.body.value), { error: { code: props.code, message: props.message } })
+  assert.deepEqual(editor.placeholders.value, [])
   editor.setCustom(true)
   assert.equal(model.value?.status, 401)
 
@@ -73,4 +88,15 @@ test('security responses preserve draft JSON, validate status and respect readon
   assert.equal(model.value, undefined)
   assert.equal(editor.invalidBody.value, false)
   assert.equal(editor.invalidStatus.value, false)
+})
+
+test('templates replace the default body and prefill custom responses', (t) => {
+  const template = '{"code":"{{error.code}}","list":"{{errors}}"}'
+  const { editor, model } = mountEditor(t, { status: 400, code: 'invalid_params', message: '', template, variables: ['error.code', 'errors'] })
+
+  assert.equal(editor.body.value, template)
+  assert.deepEqual(editor.placeholders.value, ['{{error.code}}', '{{errors}}'])
+  editor.setCustom(true)
+  assert.deepEqual(vue.toRaw(model.value), { status: 400, body: template })
+  assert.equal(editor.invalidBody.value, false)
 })

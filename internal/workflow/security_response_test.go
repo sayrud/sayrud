@@ -7,7 +7,6 @@ import (
 	"os"
 	"strconv"
 	"testing"
-	"time"
 
 	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/assert"
@@ -102,28 +101,15 @@ func TestWriteSecurityError(t *testing.T) {
 
 func TestServeSecurityResponses(t *testing.T) {
 	f := newLeadFixture(t)
-	workflows := db.NewWorkflowsStore(f.db)
-	publish := func() {
-		raw, err := json.Marshal(f.spec)
-		require.NoError(t, err)
-		version, err := workflows.UpdateDraft(t.Context(), f.api.ID, f.api.DraftVersion, db.UpdateWorkflowDraftOptions{Name: f.api.Name, Draft: raw})
-		require.NoError(t, err)
-		opts, err := PublishOptions(t.Context(), f.db, f.spec, version, 0, time.Now())
-		require.NoError(t, err)
-		_, err = workflows.Publish(t.Context(), f.api.ID, opts)
-		require.NoError(t, err)
-		f.api, err = workflows.GetByID(t.Context(), f.api.ID)
-		require.NoError(t, err)
-	}
 
 	f.spec.Trigger.API.Auth = Auth{Type: AuthAPIKey}
-	publish()
+	f.republish(t)
 	w, _ := f.call(t, `{}`, nil)
 	assert.Equal(t, http.StatusUnauthorized, w.Code)
 	assert.JSONEq(t, `{"error":{"code":"unauthorized","message":"a valid API key is required"}}`, w.Body.String())
 
 	f.spec.Trigger.API.Auth.ErrorResponse = &ErrorResponse{Status: 403, Body: `{"success":false,"code":"INVALID_KEY"}`}
-	publish()
+	f.republish(t)
 	for _, headers := range []map[string]string{nil, {"X-API-Key": "invalid"}, {"Authorization": "Bearer invalid"}} {
 		w, _ := f.call(t, `{}`, headers)
 		assert.Equal(t, http.StatusForbidden, w.Code)
@@ -144,7 +130,7 @@ func TestServeSecurityResponses(t *testing.T) {
 
 		for _, response := range []*ErrorResponse{nil, {Status: 200, Body: `{"success":false,"code":"TOO_FAST"}`}} {
 			f.spec.Trigger.API.RateLimit.ErrorResponse = response
-			publish()
+			f.republish(t)
 			// Exhaust the counter before exercising the HTTP rejection.
 			for i := 0; i < 2; i++ {
 				allowed, _ := f.engine.AllowRate(t.Context(), f.api.ID, "127.0.0.1", f.spec.Trigger.API.RateLimit)

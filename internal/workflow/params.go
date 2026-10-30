@@ -37,7 +37,12 @@ const (
 	CodePattern      = "pattern"
 	CodeFormat       = "format"
 	CodeNotOption    = "not_option"
+	// CodeInvalidBody reports a request body that is not a JSON object; it is not tied to a parameter.
+	CodeInvalidBody = "invalid_body"
 )
+
+// paramErrorCodes are the codes a parameter can report; Param.Messages may only use them.
+var paramErrorCodes = []string{CodeRequired, CodeNull, CodeEmpty, CodeInvalidType, CodeTooShort, CodeTooLong, CodeTooSmall, CodeTooLarge, CodeTooManyItems, CodePattern, CodeFormat, CodeNotOption}
 
 // ParamError is a validation error of a single parameter; Path looks like body.email.
 type ParamError struct {
@@ -91,8 +96,16 @@ func paramPath(p *Param) string {
 	return p.Source + "." + p.Key
 }
 
+// paramError builds an error of the parameter; the message of the code, then the parameter's message, replace the default one.
 func paramError(p *Param, code, message string) ParamError {
-	return ParamError{Path: paramPath(p), Param: p.Key, Code: code, Message: paramPath(p) + " " + message}
+	msg := p.Messages[code]
+	if msg == "" {
+		msg = p.Message
+	}
+	if msg == "" {
+		msg = paramPath(p) + " " + message
+	}
+	return ParamError{Path: paramPath(p), Param: p.Key, Code: code, Message: msg}
 }
 
 // readParam reads the typed value of a parameter; present is false if it is missing, and value is nil for an explicit null.

@@ -65,6 +65,8 @@ type APITrigger struct {
 	Auth      Auth      `json:"auth"`
 	RateLimit RateLimit `json:"rateLimit"`
 	Params    []Param   `json:"params"`
+	// ParamErrorResponse overrides the response returned when parameter validation fails; string values in its body may contain placeholders of error, errors and run.id.
+	ParamErrorResponse *ErrorResponse `json:"paramErrorResponse,omitempty"`
 } // @name WorkflowAPITrigger
 
 // RecordTrigger is the table and conditions of a record trigger.
@@ -128,7 +130,7 @@ type RateLimit struct {
 	ErrorResponse *ErrorResponse `json:"errorResponse,omitempty"`
 } // @name WorkflowRateLimit
 
-// ErrorResponse is a static JSON response returned before the workflow starts.
+// ErrorResponse is a JSON response returned before the workflow starts.
 type ErrorResponse struct {
 	Status int `json:"status"`
 	// Body keeps JSON as text so incomplete edits can still be saved in drafts.
@@ -190,6 +192,10 @@ type Param struct {
 	Format  string `json:"format,omitempty" enums:"email,url,phone"`
 	// Options are the allowed enum values; when non-empty, they also constrain the elements of string arrays.
 	Options []string `json:"options,omitempty"`
+	// Message replaces the default message of any error of the parameter.
+	Message string `json:"message,omitempty"`
+	// Messages replace the messages of specific error codes, e.g. {"format": "invalid phone number"}, and take precedence over Message.
+	Messages map[string]string `json:"messages,omitempty"`
 } // @name WorkflowParam
 
 // Step types.

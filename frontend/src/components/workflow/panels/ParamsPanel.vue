@@ -1,11 +1,13 @@
 <script setup lang="ts">
-import { Plus, X } from '@lucide/vue'
+import { ChevronDown, ChevronRight, Plus, X } from '@lucide/vue'
 import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 
+import ErrorResponseEditor from '@/components/workflow/ErrorResponseEditor.vue'
 import PanelSection from '@/components/workflow/PanelSection.vue'
 import { useWorkflowEditorStore } from '@/stores/workflowEditor'
-import type { WorkflowParam, ParamSource, ParamType } from '@/types/workflow'
+import type { ParamErrorCode, WorkflowParam, ParamSource, ParamType } from '@/types/workflow'
+import { DEFAULT_PARAM_ERROR_BODY, PARAM_ERROR_VARIABLES, messageCodes, setParamMessage } from '@/utils/paramErrors'
 import { PARAM_TYPES, paramTypeLabel, randomID, renameInputRefs } from '@/utils/workflow'
 
 /** Format examples for date-type default values. */
@@ -29,6 +31,29 @@ const SOURCE_LABELS: Record<ParamSource, () => string> = {
   header: () => t('workflow.params.sourceHeader'),
 }
 const sources = computed(() => (api.value.method === 'GET' ? (['query', 'header'] as const) : (['body', 'query', 'header'] as const)))
+
+const CODE_LABELS: Record<ParamErrorCode, () => string> = {
+  required: () => t('workflow.params.errorCode.required'),
+  null: () => t('workflow.params.errorCode.null'),
+  empty: () => t('workflow.params.errorCode.empty'),
+  invalid_type: () => t('workflow.params.errorCode.invalid_type'),
+  too_short: () => t('workflow.params.errorCode.too_short'),
+  too_long: () => t('workflow.params.errorCode.too_long'),
+  too_small: () => t('workflow.params.errorCode.too_small'),
+  too_large: () => t('workflow.params.errorCode.too_large'),
+  too_many_items: () => t('workflow.params.errorCode.too_many_items'),
+  pattern: () => t('workflow.params.errorCode.pattern'),
+  format: () => t('workflow.params.errorCode.format'),
+  not_option: () => t('workflow.params.errorCode.not_option'),
+}
+const messagesOpen = ref(new Set<string>())
+
+function toggleMessages(p: WorkflowParam) {
+  if (!messagesOpen.value.delete(p.id)) messagesOpen.value.add(p.id)
+}
+function messageCount(p: WorkflowParam) {
+  return (p.message ? 1 : 0) + Object.keys(p.messages ?? {}).length
+}
 
 function issuesOf(p: WorkflowParam) {
   return store.issuesOf(`param:${p.id}`).length > 0
@@ -222,6 +247,27 @@ function optional(n: number | undefined) {
               <a-input v-else :model-value="defaultText(p)" :placeholder="DEFAULT_PLACEHOLDERS[p.type]" allow-clear @change="(v) => setDefaultText(p, v)" />
             </a-form-item>
           </div>
+
+          <div class="group">
+            <button type="button" class="messages-toggle" :aria-expanded="messagesOpen.has(p.id)" @click="toggleMessages(p)">
+              <component :is="messagesOpen.has(p.id) ? ChevronDown : ChevronRight" :size="14" />
+              {{ t('workflow.params.message') }}
+              <span v-if="messageCount(p)" class="messages-count">{{ t('workflow.params.messagesCount', { n: messageCount(p) }) }}</span>
+            </button>
+            <template v-if="messagesOpen.has(p.id)">
+              <a-form-item :extra="t('workflow.params.messageHelp')">
+                <a-input v-model="p.message" :max-length="200" :placeholder="t('workflow.params.messagePlaceholder')" allow-clear />
+              </a-form-item>
+              <a-form-item v-if="messageCodes(p).length" :label="t('workflow.params.messagesByCode')">
+                <div class="code-messages">
+                  <template v-for="code in messageCodes(p)" :key="code">
+                    <span class="code-label ellipsis" :title="code">{{ CODE_LABELS[code]?.() ?? code }}</span>
+                    <a-input :model-value="p.messages?.[code] ?? ''" :max-length="200" :placeholder="p.message || undefined" allow-clear @update:model-value="(v) => setParamMessage(p, code, v)" />
+                  </template>
+                </div>
+              </a-form-item>
+            </template>
+          </div>
         </div>
       </a-collapse-item>
     </a-collapse>
@@ -231,6 +277,9 @@ function optional(n: number | undefined) {
       <template #icon><Plus :size="14" /></template>
       {{ t('workflow.params.add') }}
     </a-button>
+
+    <!-- eslint-disable-next-line i18n-audit/source -- Keep the API response identical across interface languages. -->
+    <ErrorResponseEditor v-model="api.paramErrorResponse" :status="400" code="invalid_params" message="" :template="DEFAULT_PARAM_ERROR_BODY" :variables="PARAM_ERROR_VARIABLES" class="param-error-response" />
   </PanelSection>
 </template>
 
@@ -309,5 +358,40 @@ function optional(n: number | undefined) {
 .add-btn {
   margin-top: 10px;
   border-style: dashed;
+}
+.messages-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin: 0 0 12px -6px;
+  padding: 4px 6px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  font-size: 13px;
+  color: var(--text-title);
+  cursor: pointer;
+}
+.messages-toggle:hover {
+  background: var(--fill-hover);
+}
+.messages-count {
+  font-size: 12px;
+  color: var(--text-caption);
+}
+.code-messages {
+  display: grid;
+  grid-template-columns: minmax(0, max-content) minmax(0, 1fr);
+  align-items: center;
+  gap: 6px 10px;
+  width: 100%;
+}
+.code-label {
+  max-width: 120px;
+  font-size: 12px;
+  color: var(--text-caption);
+}
+.param-error-response {
+  margin-top: 12px;
 }
 </style>

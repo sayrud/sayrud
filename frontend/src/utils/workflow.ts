@@ -823,6 +823,8 @@ const ISSUE_MESSAGES: Record<string, (args: Record<string, string>) => string> =
   'param.invalid_pattern': (a) => t('workflow.issue.invalidPattern', a),
   'param.invalid_range': (a) => t('workflow.issue.invalidRange', a),
   'param.invalid_default': (a) => t('workflow.issue.invalidDefault', a),
+  'param.invalid_message_code': (a) => t('workflow.issue.invalidMessageCode', a),
+  'param_error.unknown_var': (a) => t('workflow.issue.unknownErrorVar', a),
   'step.invalid_id': () => t('workflow.issue.invalidStep'),
   'step.duplicate_id': () => t('workflow.issue.invalidStep'),
   'step.invalid_type': () => t('workflow.issue.invalidStep'),

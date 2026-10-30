@@ -6,12 +6,13 @@ import CodeEditor from '@/components/common/CodeEditor.vue'
 import { useWorkflowEditorStore } from '@/stores/workflowEditor'
 import type { WorkflowErrorResponse } from '@/types/workflow'
 
-const props = defineProps<{ status: number; code: string; message: string; retryAfter?: boolean }>()
+const props = defineProps<{ status: number; code: string; message: string; retryAfter?: boolean; template?: string; variables?: string[] }>()
 const response = defineModel<WorkflowErrorResponse>()
 const { t } = useI18n()
 const store = useWorkflowEditorStore()
 
-const defaultBody = computed(() => JSON.stringify({ error: { code: props.code, message: props.message } }, null, 2))
+const defaultBody = computed(() => props.template ?? JSON.stringify({ error: { code: props.code, message: props.message } }, null, 2))
+const placeholders = computed(() => props.variables?.map((v) => `{{${v}}}`) ?? [])
 const body = computed({
   get: () => response.value?.body ?? defaultBody.value,
   set: (value) => {
@@ -57,7 +58,7 @@ function onCollapseKeydown(event: KeyboardEvent) {
         </a-space>
       </template>
 
-      <a-form-item :extra="t('workflow.request.errorResponseHelp')">
+      <a-form-item :extra="variables ? t('workflow.request.templateHelp') : t('workflow.request.errorResponseHelp')">
         <a-radio-group :model-value="!!response" type="button" size="small" class="response-mode" :disabled="store.readonly" @change="setCustom">
           <a-radio :value="false">{{ t('workflow.request.defaultResponse') }}</a-radio>
           <a-radio :value="true">{{ t('workflow.request.customResponse') }}</a-radio>
@@ -73,6 +74,12 @@ function onCollapseKeydown(event: KeyboardEvent) {
           <a-typography-text type="danger" role="alert">{{ t('workflow.issue.invalidSecurityResponseBody') }}</a-typography-text>
         </template>
         <CodeEditor :key="`${!!response}-${store.readonly}`" v-model="body" language="json" :readonly="!response || store.readonly" :error="invalidBody" min-height="112px" max-height="280px" class="response-editor" :aria-label="t('workflow.response.body')" />
+      </a-form-item>
+
+      <a-form-item v-if="response && placeholders.length" :label="t('workflow.request.variables')">
+        <div class="variables">
+          <a-typography-text v-for="p in placeholders" :key="p" code copyable class="variable">{{ p }}</a-typography-text>
+        </div>
       </a-form-item>
     </a-collapse-item>
   </a-collapse>
@@ -108,5 +115,16 @@ function onCollapseKeydown(event: KeyboardEvent) {
 
 .response-editor {
   width: 100%;
+}
+
+.variables {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+}
+
+.variable {
+  margin: 0;
+  font-size: 12px;
 }
 </style>

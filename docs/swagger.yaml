@@ -3610,6 +3610,12 @@ definitions:
       method:
         description: Method is GET, POST, PUT, PATCH or DELETE.
         type: string
+      paramErrorResponse:
+        allOf:
+        - $ref: '#/definitions/WorkflowErrorResponse'
+        description: ParamErrorResponse overrides the response returned when parameter
+          validation fails; string values in its body may contain placeholders of
+          error, errors and run.id.
       params:
         items:
           $ref: '#/definitions/WorkflowParam'
@@ -4139,6 +4145,15 @@ definitions:
         type: integer
       maxLength:
         type: integer
+      message:
+        description: Message replaces the default message of any error of the parameter.
+        type: string
+      messages:
+        additionalProperties:
+          type: string
+        description: 'Messages replace the messages of specific error codes, e.g.
+          {"format": "invalid phone number"}, and take precedence over Message.'
+        type: object
       min:
         type: number
       minLength:

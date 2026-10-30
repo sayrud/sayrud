@@ -196,6 +196,22 @@ func (f *leadFixture) publish(t *testing.T, name string, spec *Spec) *db.Workflo
 	return wf
 }
 
+// republish publishes f.spec as a new revision of f.api.
+func (f *leadFixture) republish(t *testing.T) {
+	t.Helper()
+	workflows := db.NewWorkflowsStore(f.db)
+	raw, err := json.Marshal(f.spec)
+	require.NoError(t, err)
+	version, err := workflows.UpdateDraft(t.Context(), f.api.ID, f.api.DraftVersion, db.UpdateWorkflowDraftOptions{Name: f.api.Name, Draft: raw})
+	require.NoError(t, err)
+	opts, err := PublishOptions(t.Context(), f.db, f.spec, version, 0, time.Now())
+	require.NoError(t, err)
+	_, err = workflows.Publish(t.Context(), f.api.ID, opts)
+	require.NoError(t, err)
+	f.api, err = workflows.GetByID(t.Context(), f.api.ID)
+	require.NoError(t, err)
+}
+
 func TestRollback(t *testing.T) {
 	f := newLeadFixture(t)
 	ctx := context.Background()
@@ -305,6 +321,37 @@ func TestRunFailureRollsBack(t *testing.T) {
 	assert.Equal(t, int64(0), f.count(t, &db.WorkflowJob{}, "event = ?", EventSucceeded))
 	assert.Equal(t, int64(0), f.count(t, &db.SLChangeset{}, "sl_table_id = ?", f.table.ID))
 	assert.Equal(t, int64(1), f.count(t, &db.WorkflowRun{}, "status = ?", db.WorkflowRunFailed))
+}
+
+func TestRunCustomParamErrorResponse(t *testing.T) {
+	f := newLeadFixture(t)
+
+	// Without a custom response, a non-object body keeps the default error.
+	w, out := f.call(t, `[1]`, nil)
+	require.Equal(t, http.StatusBadRequest, w.Code)
+	assert.Equal(t, "invalid_body", out["error"].(map[string]interface{})["code"])
+
+	f.spec.Trigger.API.Params[1].Messages = map[string]string{CodeFormat: "邮箱格式不正确"}
+	f.spec.Trigger.API.ParamErrorResponse = &ErrorResponse{Status: 200, Body: `{"code":40001,"msg":"{{error.message}}","fields":"{{errors}}","traceId":"{{run.id}}"}`}
+	f.republish(t)
+
+	w, _ = f.call(t, `{"name":"Ann","email":"not-an-email"}`, nil)
+	require.Equal(t, http.StatusOK, w.Code, w.Body.String())
+	runUID := w.Header().Get("X-Request-Id")
+	assert.Equal(t, `{"code":40001,"msg":"邮箱格式不正确","fields":[{"code":"format","message":"邮箱格式不正确","param":"email","path":"body.email"}],"traceId":"`+runUID+`"}`+"\n", w.Body.String())
+
+	var run db.WorkflowRun
+	require.NoError(t, f.db.Where("uid = ?", runUID).First(&run).Error)
+	assert.Equal(t, db.WorkflowRunRejected, run.Status)
+	assert.Equal(t, http.StatusOK, run.StatusCode)
+	assert.JSONEq(t, `{"code":"invalid_params","message":"邮箱格式不正确","details":[{"path":"body.email","param":"email","code":"format","message":"邮箱格式不正确"}]}`, string(run.Error))
+	assert.Equal(t, int64(0), f.count(t, &db.SLRecord{}, "sl_table_id = ?", f.table.ID))
+
+	// A non-object body uses the custom response without a run.
+	w, _ = f.call(t, `[1]`, nil)
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.JSONEq(t, `{"code":40001,"msg":"the request body must be a JSON object","fields":[{"path":"body","param":"","code":"invalid_body","message":"the request body must be a JSON object"}],"traceId":null}`, w.Body.String())
+	assert.Empty(t, w.Header().Get("X-Request-Id"))
 }
 
 func TestRunDryRunWritesNothing(t *testing.T) {

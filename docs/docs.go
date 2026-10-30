@@ -13070,6 +13070,14 @@ const docTemplate = `{
                     "description": "Method is GET, POST, PUT, PATCH or DELETE.",
                     "type": "string"
                 },
+                "paramErrorResponse": {
+                    "description": "ParamErrorResponse overrides the response returned when parameter validation fails; string values in its body may contain placeholders of error, errors and run.id.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/WorkflowErrorResponse"
+                        }
+                    ]
+                },
                 "params": {
                     "type": "array",
                     "items": {
@@ -13774,6 +13782,17 @@ const docTemplate = `{
                 },
                 "maxLength": {
                     "type": "integer"
+                },
+                "message": {
+                    "description": "Message replaces the default message of any error of the parameter.",
+                    "type": "string"
+                },
+                "messages": {
+                    "description": "Messages replace the messages of specific error codes, e.g. {\"format\": \"invalid phone number\"}, and take precedence over Message.",
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
                 },
                 "min": {
                     "type": "number"

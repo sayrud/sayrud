@@ -285,9 +285,12 @@ func (e *Engine) Run(ctx context.Context, in RunInput) (*RunResult, error) {
 	result.Input = input
 	if len(paramErrs) > 0 {
 		result.Errors = paramErrs
-		message := paramErrs[0].Message
-		body := ErrorBody("invalid_params", message, paramErrs)
-		finish(db.WorkflowRunRejected, &Response{Status: http.StatusBadRequest, Headers: map[string]string{}, Body: body}, body["error"])
+		body := ErrorBody("invalid_params", paramErrs[0].Message, paramErrs)
+		resp := renderErrorResponse(in.Spec.Trigger.API.ParamErrorResponse, paramErrorScope(paramErrs, run.UID))
+		if resp == nil {
+			resp = &Response{Status: http.StatusBadRequest, Headers: map[string]string{}, Body: body}
+		}
+		finish(db.WorkflowRunRejected, resp, body["error"])
 		return result, nil
 	}
 
@@ -510,7 +513,13 @@ func (e *Engine) Serve(w http.ResponseWriter, r *http.Request, projectUID, rawPa
 	if len(bytes.TrimSpace(body)) > 0 {
 		var obj map[string]json.RawMessage
 		if err := json.Unmarshal(body, &obj); err != nil || obj == nil {
-			writeError(w, http.StatusBadRequest, "invalid_body", "the request body must be a JSON object")
+			const message = "the request body must be a JSON object"
+			errs := []ParamError{{Path: SourceBody, Code: CodeInvalidBody, Message: message}}
+			if resp := renderErrorResponse(spec.Trigger.API.ParamErrorResponse, paramErrorScope(errs, "")); resp != nil {
+				WriteResponse(w, resp, "")
+				return
+			}
+			writeError(w, http.StatusBadRequest, CodeInvalidBody, message)
 			return
 		}
 		raw.Body = obj

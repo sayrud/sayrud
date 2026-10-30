@@ -98,3 +98,26 @@ func TestValidateParamsRules(t *testing.T) {
 	assert.Equal(t, map[string]string{"email": CodeFormat, "code": CodeTooShort, "age": CodeTooSmall, "plan": CodeNotOption, "sku": CodePattern}, codes(errs))
 	assert.Equal(t, "body.email", errs[0].Path)
 }
+
+func TestValidateParamsCustomMessages(t *testing.T) {
+	params := []Param{
+		{ID: "a", Key: "phone", Source: SourceBody, Type: TypeString, Required: true, Format: FormatPhone, Message: "请输入正确的手机号", Messages: map[string]string{CodeRequired: "请填写手机号", CodeEmpty: ""}},
+		{ID: "b", Key: "age", Source: SourceBody, Type: TypeInteger, Message: "年龄必须是整数"},
+		{ID: "c", Key: "email", Source: SourceBody, Type: TypeString, Format: FormatEmail},
+	}
+	messages := func(raw string) map[string]string {
+		var body map[string]json.RawMessage
+		require.NoError(t, json.Unmarshal([]byte(raw), &body))
+		_, errs := ValidateParams(params, RawInput{Body: body})
+		out := map[string]string{}
+		for _, e := range errs {
+			out[e.Param] = e.Message
+		}
+		return out
+	}
+
+	assert.Equal(t, map[string]string{"phone": "请填写手机号", "age": "年龄必须是整数", "email": "body.email must be an email address"}, messages(`{"age":"1","email":"x"}`))
+	// An empty message of a code falls back to the parameter's message.
+	assert.Equal(t, map[string]string{"phone": "请输入正确的手机号"}, messages(`{"phone":""}`))
+	assert.Equal(t, map[string]string{"phone": "请输入正确的手机号"}, messages(`{"phone":"abc"}`))
+}
