@@ -104,7 +104,6 @@ const ko: typeof zhCN = {
       save: '저장 후 계속',
       connected: '연결됨, 버전 {version}',
       connectedNoVersion: '연결됨',
-      configHint: '설정은 {path}에 저장되며 새 암호화 키가 자동으로 생성됩니다.',
     },
     admin: {
       fromConfig: '설정 파일의 데이터베이스 연결을 사용합니다.',

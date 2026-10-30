@@ -19,7 +19,7 @@ func newSetupTestRouter(t *testing.T) (http.Handler, *setup.Token) {
 	t.Helper()
 	token, err := setup.NewToken()
 	require.NoError(t, err)
-	wizard := setup.New(setup.Options{Token: token, Stage: setup.StageDatabase, ConfigPath: "/srv/sayrud/config/sayrud.yaml"})
+	wizard := setup.New(setup.Options{Token: token, Stage: setup.StageDatabase})
 	return NewSetup(wizard), token
 }
 
@@ -45,7 +45,7 @@ func TestSetupStatus(t *testing.T) {
 		Data dto.SetupStatus `json:"data"`
 	}
 	require.NoError(t, json.Unmarshal(response.Body.Bytes(), &body))
-	assert.Equal(t, dto.SetupStatus{Stage: "database", PasswordMinLength: 8, ConfigPath: "/srv/sayrud/config/sayrud.yaml"}, body.Data)
+	assert.Equal(t, dto.SetupStatus{Stage: "database", PasswordMinLength: 8}, body.Data)
 
 	installed := setupRequest(New(Options{}), http.MethodGet, "/_/setup/status", "", "")
 	require.Equal(t, http.StatusOK, installed.Code)

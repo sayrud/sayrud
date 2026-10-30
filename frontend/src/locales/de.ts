@@ -104,7 +104,6 @@ const de: typeof zhCN = {
       save: 'Speichern und weiter',
       connected: 'Verbunden, Version {version}',
       connectedNoVersion: 'Verbunden',
-      configHint: 'Die Konfiguration wird mit einem neu erzeugten geheimen Schlüssel unter {path} gespeichert.',
     },
     admin: {
       fromConfig: 'Die Datenbankverbindung aus der Konfigurationsdatei wird verwendet.',

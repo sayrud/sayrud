@@ -7,7 +7,7 @@ import { useI18n } from 'vue-i18n'
 import { ApiError } from '@/api/client'
 import { setupApi, type SetupDatabase, type SetupDatabaseCheck, type SetupSSLMode } from '@/api/setup'
 
-const props = defineProps<{ token: string; configPath: string }>()
+const props = defineProps<{ token: string }>()
 const emit = defineEmits<{
   saved: []
   /** The setup token is rejected, e.g. the server has restarted with a new one. */
@@ -163,10 +163,6 @@ async function save() {
     </div>
     <a-alert v-if="error" type="error" class="error">{{ error }}</a-alert>
 
-    <i18n-t v-if="configPath" keypath="setup.database.configHint" scope="global" tag="p" class="text-desc config-hint">
-      <template #path><a-typography-text code>{{ configPath }}</a-typography-text></template>
-    </i18n-t>
-
     <div class="actions">
       <a-button size="large" :loading="testing" :disabled="saving" @click="test">
         <template #icon><PlugZap :size="16" /></template>
@@ -206,9 +202,6 @@ async function save() {
 .error {
   margin-bottom: 16px;
   word-break: break-word;
-}
-.config-hint {
-  margin: 0 0 20px;
 }
 .actions {
   display: flex;

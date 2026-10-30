@@ -104,7 +104,6 @@ const ja: typeof zhCN = {
       save: '保存して続行',
       connected: '接続しました（バージョン {version}）',
       connectedNoVersion: '接続しました',
-      configHint: '設定は {path} に保存され、新しい暗号鍵が自動生成されます。',
     },
     admin: {
       fromConfig: '設定ファイルのデータベース接続を使用しています。',

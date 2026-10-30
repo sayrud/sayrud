@@ -62,7 +62,6 @@ func (setupRoute) Status(ctx context.Context, wizard *setup.Wizard) error {
 		return ctx.ApiSuccess(&dto.SetupStatus{Installed: true})
 	case setup.StageDatabase:
 		status.PasswordMinLength = db.DefaultSystemSettings().PasswordMinLength
-		status.ConfigPath = wizard.ConfigPath()
 	case setup.StageAdmin:
 		settings, ok := loadSettings(ctx)
 		if !ok {

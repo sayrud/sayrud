@@ -1192,8 +1192,6 @@ export interface SetupServiceCheck {
 }
 
 export interface SetupStatus {
-  /** ConfigPath is where the database step saves the configuration file, only set in that step. */
-  configPath?: string;
   /** Installed reports whether the application serves the requests. */
   installed: boolean;
   /** PasswordMinLength is the minimum length of the admin password. */

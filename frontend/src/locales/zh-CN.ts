@@ -102,7 +102,6 @@ export default {
       save: '保存并继续',
       connected: '连接成功，版本 {version}',
       connectedNoVersion: '连接成功',
-      configHint: '配置将保存到 {path}，并自动生成新的加密密钥。',
     },
     admin: {
       fromConfig: '已使用配置文件中的数据库连接。',

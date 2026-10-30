@@ -8,8 +8,6 @@ type SetupStatus struct {
 	Stage string `json:"stage,omitempty" enums:"database,admin"`
 	// PasswordMinLength is the minimum length of the admin password.
 	PasswordMinLength int `json:"passwordMinLength,omitempty"`
-	// ConfigPath is where the database step saves the configuration file, only set in that step.
-	ConfigPath string `json:"configPath,omitempty"`
 } // @name SetupStatus
 
 // SetupServiceCheck is the connection test result of a service.

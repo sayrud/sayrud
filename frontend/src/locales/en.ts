@@ -104,7 +104,6 @@ const en: typeof zhCN = {
       save: 'Save and continue',
       connected: 'Connected, version {version}',
       connectedNoVersion: 'Connected',
-      configHint: 'The configuration will be saved to {path} with a newly generated secret key.',
     },
     admin: {
       fromConfig: 'Using the database connection in the configuration file.',

@@ -11731,10 +11731,6 @@ const docTemplate = `{
                 "installed"
             ],
             "properties": {
-                "configPath": {
-                    "description": "ConfigPath is where the database step saves the configuration file, only set in that step.",
-                    "type": "string"
-                },
                 "installed": {
                     "description": "Installed reports whether the application serves the requests.",
                     "type": "boolean"

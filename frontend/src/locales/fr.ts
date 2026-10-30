@@ -104,7 +104,6 @@ const fr: typeof zhCN = {
       save: 'Enregistrer et continuer',
       connected: 'Connecté, version {version}',
       connectedNoVersion: 'Connecté',
-      configHint: 'La configuration sera enregistrée dans {path} avec une nouvelle clé secrète générée automatiquement.',
     },
     admin: {
       fromConfig: 'La connexion à la base de données du fichier de configuration est utilisée.',

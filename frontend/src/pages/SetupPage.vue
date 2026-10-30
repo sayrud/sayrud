@@ -39,7 +39,6 @@ const token = ref('')
 const tokenError = ref('')
 /** The server started with a configuration file, so the database step was skipped. */
 const databaseFromConfig = ref(false)
-const configPath = ref('')
 const admin = ref<Profile | null>(null)
 
 const current = computed(() => STEPS.indexOf(step.value) + 1)
@@ -87,7 +86,6 @@ async function init() {
     if (next.installed) return follow(next)
     status.value = next
     databaseFromConfig.value = next.stage === 'admin'
-    configPath.value = next.configPath ?? ''
 
     const fromLink = typeof route.query.token === 'string' ? route.query.token.trim() : ''
     // Keeps the token out of the history and the referrer.
@@ -175,7 +173,7 @@ onMounted(init)
         <Transition name="setup-step" mode="out-in">
           <div :key="step" class="step-body">
             <SetupTokenStep v-if="step === 'token'" :initial-error="tokenError" @verified="accept" />
-            <SetupDatabaseStep v-else-if="step === 'database'" :token="token" :config-path="configPath" @saved="refresh" @expired="onExpired" @stale="refresh" />
+            <SetupDatabaseStep v-else-if="step === 'database'" :token="token" @saved="refresh" @expired="onExpired" @stale="refresh" />
             <SetupAdminStep
               v-else-if="step === 'admin'"
               :token="token"

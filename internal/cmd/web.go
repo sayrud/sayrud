@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"path/filepath"
 	"syscall"
 	"time"
 
@@ -153,15 +152,9 @@ func prepare(ctx context.Context, configPath string, app *application, handler *
 	if err != nil {
 		return nil, err
 	}
-	absConfigPath, err := filepath.Abs(configPath)
-	if err != nil {
-		return nil, errors.Wrap(err, "resolve configuration path")
-	}
-
 	wizard := setup.New(setup.Options{
-		Token:      token,
-		Stage:      stage,
-		ConfigPath: absConfigPath,
+		Token: token,
+		Stage: stage,
 		Hooks: setup.Hooks{
 			// The application outlives the request, so it starts with the process context.
 			ConfigureDatabase: func(_ context.Context, opts setup.DatabaseOptions) error {

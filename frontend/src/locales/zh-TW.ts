@@ -104,7 +104,6 @@ const zhTW: typeof zhCN = {
       save: '儲存並繼續',
       connected: '連線成功，版本 {version}',
       connectedNoVersion: '連線成功',
-      configHint: '設定將儲存至 {path}，並自動產生新的加密金鑰。',
     },
     admin: {
       fromConfig: '已使用設定檔中的資料庫連線。',

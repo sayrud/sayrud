@@ -51,17 +51,14 @@ type Hooks struct {
 type Options struct {
 	Token *Token
 	Stage Stage
-	// ConfigPath is where the database step saves the configuration file.
-	ConfigPath string
-	Hooks      Hooks
+	Hooks Hooks
 }
 
 // Wizard tracks the installation progress shared by the setup routes.
 type Wizard struct {
-	token      *Token
-	configPath string
-	hooks      Hooks
-	limiter    *limiter
+	token   *Token
+	hooks   Hooks
+	limiter *limiter
 
 	stage atomic.Value
 	// busy serializes the steps changing the stage, the concurrent ones fail with ErrBusy instead of waiting.
@@ -72,10 +69,9 @@ type Wizard struct {
 // New creates the wizard starting at the stage.
 func New(opts Options) *Wizard {
 	w := &Wizard{
-		token:      opts.Token,
-		configPath: opts.ConfigPath,
-		hooks:      opts.Hooks,
-		limiter:    newLimiter(maxTokenFailures, tokenFailureWindow),
+		token:   opts.Token,
+		hooks:   opts.Hooks,
+		limiter: newLimiter(maxTokenFailures, tokenFailureWindow),
 	}
 	w.stage.Store(opts.Stage)
 	return w
@@ -84,11 +80,6 @@ func New(opts Options) *Wizard {
 // Stage returns the current stage.
 func (w *Wizard) Stage() Stage {
 	return w.stage.Load().(Stage)
-}
-
-// ConfigPath returns where the database step saves the configuration file.
-func (w *Wizard) ConfigPath() string {
-	return w.configPath
 }
 
 // Authorize checks the setup token sent by the client, it returns ErrTooManyAttempts after too many failures of the client.

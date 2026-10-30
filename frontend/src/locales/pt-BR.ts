@@ -104,7 +104,6 @@ const ptBR: typeof zhCN = {
       save: 'Salvar e continuar',
       connected: 'Conectado, versão {version}',
       connectedNoVersion: 'Conectado',
-      configHint: 'A configuração será salva em {path} com uma nova chave secreta gerada automaticamente.',
     },
     admin: {
       fromConfig: 'Usando a conexão com o banco de dados do arquivo de configuração.',
