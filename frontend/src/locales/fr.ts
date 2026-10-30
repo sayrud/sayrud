@@ -74,8 +74,6 @@ const fr: typeof zhCN = {
       done: 'Terminé',
     },
     token: {
-      title: 'Vérifiez le jeton d’installation',
-      description: 'Pour éviter que quelqu’un d’autre termine l’installation avant vous, seules les personnes ayant accès au journal du serveur peuvent continuer.',
       where: 'Le jeton d’installation à usage unique est affiché dans le journal du serveur au démarrage. Avec Docker Compose, exécutez :',
       env: 'Si la variable d’environnement {env} est définie, saisissez sa valeur.',
       label: 'Jeton d’installation',
@@ -85,8 +83,6 @@ const fr: typeof zhCN = {
       expired: 'Le jeton d’installation n’est plus valide, le serveur a peut-être redémarré. Saisissez le plus récent du journal du serveur',
     },
     database: {
-      title: 'Connectez les bases de données',
-      description: 'Sayrud stocke les données dans PostgreSQL et utilise Redis pour la collaboration en temps réel et la limitation du débit.',
       host: 'Hôte',
       port: 'Port',
       name: 'Base de données',
@@ -111,15 +107,12 @@ const fr: typeof zhCN = {
       configHint: 'La configuration sera enregistrée dans {path} avec une nouvelle clé secrète générée automatiquement.',
     },
     admin: {
-      title: 'Créez l’administrateur',
-      description: 'L’administrateur gère les utilisateurs, les méthodes de connexion et les paramètres du système, et peut inviter d’autres personnes après s’être connecté.',
       fromConfig: 'La connexion à la base de données du fichier de configuration est utilisée.',
       submit: 'Terminer l’installation',
     },
     done: {
       title: 'Sayrud est prêt',
       subtitle: 'Vous êtes connecté en tant que {email}, l’administrateur du système.',
-      backup: 'Sauvegardez {path}. Sa clé secrète déchiffre les méthodes de connexion et les clés d’IA enregistrées, et elle est irrécupérable en cas de perte.',
       enter: 'Commencer',
     },
   },

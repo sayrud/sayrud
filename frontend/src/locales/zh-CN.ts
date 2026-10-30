@@ -72,8 +72,6 @@ export default {
       done: '完成',
     },
     token: {
-      title: '验证安装令牌',
-      description: '为防止他人抢先完成安装，只有能查看服务端日志的人才能继续。',
       where: '服务启动时会在日志中打印一次性安装令牌。使用 Docker Compose 部署时可运行：',
       env: '如果设置了环境变量 {env}，请填写它的值。',
       label: '安装令牌',
@@ -83,8 +81,6 @@ export default {
       expired: '安装令牌已失效，服务可能已重启，请填写服务端日志中最新的令牌',
     },
     database: {
-      title: '连接数据库',
-      description: 'Sayrud 将数据存储在 PostgreSQL 中，并使用 Redis 支撑实时协作和访问频率限制。',
       host: '主机',
       port: '端口',
       name: '数据库名',
@@ -109,15 +105,12 @@ export default {
       configHint: '配置将保存到 {path}，并自动生成新的加密密钥。',
     },
     admin: {
-      title: '创建管理员',
-      description: '管理员可以管理用户、登录方式和系统设置，登录后还可以邀请其他成员。',
       fromConfig: '已使用配置文件中的数据库连接。',
       submit: '完成安装',
     },
     done: {
       title: 'Sayrud 已就绪',
       subtitle: '你已作为系统管理员 {email} 登录。',
-      backup: '请妥善备份 {path}：其中的加密密钥用于解密已保存的登录方式和 AI 密钥，丢失后无法恢复。',
       enter: '开始使用',
     },
   },

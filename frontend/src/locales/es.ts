@@ -74,8 +74,6 @@ const es: typeof zhCN = {
       done: 'Listo',
     },
     token: {
-      title: 'Verifica el token de instalación',
-      description: 'Para que nadie más se adelante con la instalación, solo quien pueda leer el registro del servidor puede continuar.',
       where: 'El token de instalación de un solo uso aparece en el registro del servidor al iniciarse. Con Docker Compose, ejecuta:',
       env: 'Si la variable de entorno {env} está definida, introduce su valor.',
       label: 'Token de instalación',
@@ -85,8 +83,6 @@ const es: typeof zhCN = {
       expired: 'El token de instalación ya no es válido; puede que el servidor se haya reiniciado. Introduce el más reciente del registro del servidor',
     },
     database: {
-      title: 'Conecta las bases de datos',
-      description: 'Sayrud guarda los datos en PostgreSQL y usa Redis para la colaboración en tiempo real y la limitación de solicitudes.',
       host: 'Host',
       port: 'Puerto',
       name: 'Base de datos',
@@ -111,15 +107,12 @@ const es: typeof zhCN = {
       configHint: 'La configuración se guardará en {path} con una clave secreta nueva generada automáticamente.',
     },
     admin: {
-      title: 'Crea el administrador',
-      description: 'El administrador gestiona los usuarios, los métodos de inicio de sesión y la configuración del sistema, y puede invitar a otras personas tras iniciar sesión.',
       fromConfig: 'Se usa la conexión a la base de datos del archivo de configuración.',
       submit: 'Completar instalación',
     },
     done: {
       title: 'Sayrud está listo',
       subtitle: 'Has iniciado sesión como {email}, el administrador del sistema.',
-      backup: 'Haz una copia de seguridad de {path}. Su clave secreta descifra los métodos de inicio de sesión y las claves de IA guardados, y no se puede recuperar si se pierde.',
       enter: 'Empezar',
     },
   },

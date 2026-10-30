@@ -74,8 +74,6 @@ const zhTW: typeof zhCN = {
       done: '完成',
     },
     token: {
-      title: '驗證安裝權杖',
-      description: '為避免他人搶先完成安裝，只有能查看伺服器日誌的人才能繼續。',
       where: '服務啟動時會在日誌中印出一次性安裝權杖。使用 Docker Compose 部署時可執行：',
       env: '若已設定環境變數 {env}，請填寫它的值。',
       label: '安裝權杖',
@@ -85,8 +83,6 @@ const zhTW: typeof zhCN = {
       expired: '安裝權杖已失效，服務可能已重新啟動，請填寫伺服器日誌中最新的權杖',
     },
     database: {
-      title: '連線資料庫',
-      description: 'Sayrud 將資料儲存在 PostgreSQL 中，並使用 Redis 支援即時協作與存取頻率限制。',
       host: '主機',
       port: '連接埠',
       name: '資料庫名稱',
@@ -111,15 +107,12 @@ const zhTW: typeof zhCN = {
       configHint: '設定將儲存至 {path}，並自動產生新的加密金鑰。',
     },
     admin: {
-      title: '建立管理員',
-      description: '管理員可以管理使用者、登入方式與系統設定，登入後還能邀請其他成員。',
       fromConfig: '已使用設定檔中的資料庫連線。',
       submit: '完成安裝',
     },
     done: {
       title: 'Sayrud 已就緒',
       subtitle: '你已以系統管理員 {email} 的身分登入。',
-      backup: '請妥善備份 {path}：其中的加密金鑰用於解密已儲存的登入方式與 AI 金鑰，遺失後無法復原。',
       enter: '開始使用',
     },
   },

@@ -74,8 +74,6 @@ const en: typeof zhCN = {
       done: 'Done',
     },
     token: {
-      title: 'Verify the setup token',
-      description: 'To keep others from taking over the installation, only whoever can read the server log can continue.',
       where: 'The one-time setup token is printed in the server log at startup. With Docker Compose, run:',
       env: 'If the {env} environment variable is set, enter its value.',
       label: 'Setup token',
@@ -85,8 +83,6 @@ const en: typeof zhCN = {
       expired: 'The setup token is no longer valid, the server may have restarted. Enter the latest one from the server log',
     },
     database: {
-      title: 'Connect the databases',
-      description: 'Sayrud stores data in PostgreSQL, and uses Redis for real-time collaboration and rate limiting.',
       host: 'Host',
       port: 'Port',
       name: 'Database',
@@ -111,15 +107,12 @@ const en: typeof zhCN = {
       configHint: 'The configuration will be saved to {path} with a newly generated secret key.',
     },
     admin: {
-      title: 'Create the administrator',
-      description: 'The administrator manages users, sign-in methods and system settings, and can invite others after signing in.',
       fromConfig: 'Using the database connection in the configuration file.',
       submit: 'Complete installation',
     },
     done: {
       title: 'Sayrud is ready',
       subtitle: 'You are signed in as {email}, the system administrator.',
-      backup: 'Back up {path}. Its secret key decrypts the saved sign-in methods and AI keys, and can not be recovered if lost.',
       enter: 'Get started',
     },
   },

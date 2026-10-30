@@ -1,14 +1,11 @@
 <script setup lang="ts">
 import type { FieldRule } from '@arco-design/web-vue'
-import { UserRoundCog } from '@lucide/vue'
 import { computed, reactive, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import type { Profile } from '@/api/auth'
 import { ApiError } from '@/api/client'
 import { setupApi } from '@/api/setup'
-
-import SetupStepHeader from './SetupStepHeader.vue'
 
 const props = defineProps<{ token: string; passwordMinLength: number; databaseFromConfig: boolean }>()
 const emit = defineEmits<{
@@ -57,8 +54,6 @@ async function submit() {
 </script>
 
 <template>
-  <SetupStepHeader :icon="UserRoundCog" :title="t('setup.admin.title')" :description="t('setup.admin.description')" />
-
   <a-alert v-if="databaseFromConfig" type="info" class="notice">{{ t('setup.admin.fromConfig') }}</a-alert>
 
   <a-form :model="form" :rules="rules" layout="vertical" :disabled="submitting" @submit-success="submit">

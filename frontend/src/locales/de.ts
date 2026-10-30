@@ -74,8 +74,6 @@ const de: typeof zhCN = {
       done: 'Fertig',
     },
     token: {
-      title: 'Einrichtungstoken bestätigen',
-      description: 'Damit niemand anderes die Installation übernimmt, kann nur fortfahren, wer das Serverprotokoll lesen kann.',
       where: 'Das einmalige Einrichtungstoken steht beim Start im Serverprotokoll. Mit Docker Compose:',
       env: 'Wenn die Umgebungsvariable {env} gesetzt ist, gib ihren Wert ein.',
       label: 'Einrichtungstoken',
@@ -85,8 +83,6 @@ const de: typeof zhCN = {
       expired: 'Das Einrichtungstoken ist nicht mehr gültig, der Server wurde eventuell neu gestartet. Gib das aktuelle Token aus dem Serverprotokoll ein',
     },
     database: {
-      title: 'Datenbanken verbinden',
-      description: 'Sayrud speichert Daten in PostgreSQL und nutzt Redis für die Echtzeit-Zusammenarbeit und Ratenbegrenzung.',
       host: 'Host',
       port: 'Port',
       name: 'Datenbank',
@@ -111,15 +107,12 @@ const de: typeof zhCN = {
       configHint: 'Die Konfiguration wird mit einem neu erzeugten geheimen Schlüssel unter {path} gespeichert.',
     },
     admin: {
-      title: 'Administrator anlegen',
-      description: 'Der Administrator verwaltet Benutzer, Anmeldemethoden und Systemeinstellungen und kann nach der Anmeldung weitere Personen einladen.',
       fromConfig: 'Die Datenbankverbindung aus der Konfigurationsdatei wird verwendet.',
       submit: 'Installation abschließen',
     },
     done: {
       title: 'Sayrud ist bereit',
       subtitle: 'Du bist als Systemadministrator {email} angemeldet.',
-      backup: 'Sichere {path}. Der enthaltene geheime Schlüssel entschlüsselt die gespeicherten Anmeldemethoden und KI-Schlüssel und kann bei Verlust nicht wiederhergestellt werden.',
       enter: 'Loslegen',
     },
   },

@@ -74,8 +74,6 @@ const ptBR: typeof zhCN = {
       done: 'Concluído',
     },
     token: {
-      title: 'Verifique o token de instalação',
-      description: 'Para que ninguém conclua a instalação antes de você, só quem consegue ler o log do servidor pode continuar.',
       where: 'O token de instalação de uso único é exibido no log do servidor ao iniciar. Com o Docker Compose, execute:',
       env: 'Se a variável de ambiente {env} estiver definida, informe o valor dela.',
       label: 'Token de instalação',
@@ -85,8 +83,6 @@ const ptBR: typeof zhCN = {
       expired: 'O token de instalação não é mais válido; o servidor pode ter sido reiniciado. Informe o mais recente do log do servidor',
     },
     database: {
-      title: 'Conecte os bancos de dados',
-      description: 'O Sayrud armazena os dados no PostgreSQL e usa o Redis para colaboração em tempo real e limite de requisições.',
       host: 'Host',
       port: 'Porta',
       name: 'Banco de dados',
@@ -111,15 +107,12 @@ const ptBR: typeof zhCN = {
       configHint: 'A configuração será salva em {path} com uma nova chave secreta gerada automaticamente.',
     },
     admin: {
-      title: 'Crie o administrador',
-      description: 'O administrador gerencia usuários, métodos de login e configurações do sistema, e pode convidar outras pessoas depois de entrar.',
       fromConfig: 'Usando a conexão com o banco de dados do arquivo de configuração.',
       submit: 'Concluir instalação',
     },
     done: {
       title: 'O Sayrud está pronto',
       subtitle: 'Você entrou como {email}, o administrador do sistema.',
-      backup: 'Faça backup de {path}. A chave secreta dele descriptografa os métodos de login e as chaves de IA salvos, e não pode ser recuperada se for perdida.',
       enter: 'Começar',
     },
   },

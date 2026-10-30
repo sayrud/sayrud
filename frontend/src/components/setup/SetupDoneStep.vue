@@ -3,7 +3,7 @@ import { ArrowRight } from '@lucide/vue'
 import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 
-defineProps<{ email: string; configPath: string }>()
+defineProps<{ email: string }>()
 const { t } = useI18n()
 
 const entering = ref(false)
@@ -23,11 +23,6 @@ function enter() {
       </i18n-t>
     </template>
   </a-result>
-  <a-alert v-if="configPath" type="warning" class="backup">
-    <i18n-t keypath="setup.done.backup" scope="global">
-      <template #path><a-typography-text code>{{ configPath }}</a-typography-text></template>
-    </i18n-t>
-  </a-alert>
   <a-button type="primary" size="large" long class="enter" :loading="entering" @click="enter">
     {{ t('setup.done.enter') }}
     <ArrowRight :size="16" />
@@ -44,10 +39,6 @@ function enter() {
 }
 .done :deep(.arco-result-subtitle) {
   margin-top: 4px;
-}
-.backup {
-  margin-bottom: 20px;
-  word-break: break-word;
 }
 .enter {
   display: inline-flex;

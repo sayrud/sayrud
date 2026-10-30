@@ -1,13 +1,11 @@
 <script setup lang="ts">
 import type { FieldRule, FormInstance } from '@arco-design/web-vue'
-import { Database, HardDrive, PlugZap, Zap } from '@lucide/vue'
+import { Database, PlugZap, Zap } from '@lucide/vue'
 import { computed, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import { ApiError } from '@/api/client'
 import { setupApi, type SetupDatabase, type SetupDatabaseCheck, type SetupSSLMode } from '@/api/setup'
-
-import SetupStepHeader from './SetupStepHeader.vue'
 
 const props = defineProps<{ token: string; configPath: string }>()
 const emit = defineEmits<{
@@ -104,8 +102,6 @@ async function save() {
 </script>
 
 <template>
-  <SetupStepHeader :icon="HardDrive" :title="t('setup.database.title')" :description="t('setup.database.description')" />
-
   <a-form ref="formRef" :model="form" :rules="rules" layout="vertical" :disabled="saving" @submit-success="save">
     <div class="section-title"><Database :size="16" />PostgreSQL</div>
     <a-row :gutter="16">

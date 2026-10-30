@@ -1,12 +1,10 @@
 <script setup lang="ts">
 import type { FieldRule } from '@arco-design/web-vue'
-import { KeyRound, ShieldCheck } from '@lucide/vue'
+import { KeyRound } from '@lucide/vue'
 import { computed, reactive, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import { setupApi } from '@/api/setup'
-
-import SetupStepHeader from './SetupStepHeader.vue'
 
 const props = defineProps<{ initialError?: string }>()
 const emit = defineEmits<{ verified: [token: string] }>()
@@ -36,8 +34,6 @@ async function submit() {
 </script>
 
 <template>
-  <SetupStepHeader :icon="ShieldCheck" :title="t('setup.token.title')" :description="t('setup.token.description')" />
-
   <div class="hint">
     <a-typography-text type="secondary">{{ t('setup.token.where') }}</a-typography-text>
     <a-typography-paragraph class="command" copyable>docker compose logs sayrud | grep "Setup token"</a-typography-paragraph>

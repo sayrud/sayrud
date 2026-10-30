@@ -150,7 +150,13 @@ onMounted(init)
     <div class="setup-locale"><LocaleSwitch /></div>
     <a-spin v-if="loading" :size="32" :tip="t('common.loading')" role="status" />
     <a-card v-else class="setup-card" :bordered="false">
-      <img class="brand" :src="themeStore.theme === 'dark' ? logoDark : logo" :alt="site.info.siteName" />
+      <div class="header">
+        <img class="brand" :src="themeStore.theme === 'dark' ? logoDark : logo" :alt="site.info.siteName" />
+        <div class="heading">
+          <a-typography-title :heading="5" class="title">{{ t('setup.title') }}</a-typography-title>
+          <a-typography-text type="secondary" class="subtitle">{{ t('setup.subtitle') }}</a-typography-text>
+        </div>
+      </div>
 
       <a-result v-if="loadError" status="error" :title="t('setup.loadFailed')" :subtitle="loadError" class="load-error">
         <template #extra>
@@ -159,9 +165,6 @@ onMounted(init)
       </a-result>
 
       <template v-else>
-        <a-typography-title :heading="4" class="title">{{ t('setup.title') }}</a-typography-title>
-        <a-typography-paragraph type="secondary" class="subtitle">{{ t('setup.subtitle') }}</a-typography-paragraph>
-
         <a-steps :current="current" :status="step === 'done' ? 'finish' : 'process'" size="small" label-placement="vertical" class="steps">
           <a-step>{{ t('setup.steps.token') }}</a-step>
           <a-step>{{ t('setup.steps.database') }}</a-step>
@@ -182,7 +185,7 @@ onMounted(init)
               @expired="onExpired"
               @stale="refresh"
             />
-            <SetupDoneStep v-else :email="admin?.email ?? ''" :config-path="databaseFromConfig ? '' : configPath" />
+            <SetupDoneStep v-else :email="admin?.email ?? ''" />
           </div>
         </Transition>
       </template>
@@ -217,20 +220,37 @@ onMounted(init)
 .setup-card :deep(.arco-card-body) {
   padding: 40px 48px;
 }
+.header {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  justify-content: space-between;
+}
 .brand {
+  flex: none;
   height: 32px;
 }
+.heading {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  text-align: right;
+}
 .title {
-  margin: 24px 0 4px;
+  margin: 0;
 }
 .subtitle {
-  margin-bottom: 0;
+  font-size: 13px;
 }
 .steps {
-  margin: 28px 0 32px;
+  margin: 32px 0;
 }
 /* Arco sizes vertical labels at 140px, too wide for four steps in the card; the node and tail offsets follow the label width. */
 .steps :deep(.arco-steps-item-content) {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   width: 112px;
 }
 .steps :deep(.arco-steps-item-node) {
@@ -271,6 +291,9 @@ onMounted(init)
   }
   .steps :deep(.arco-steps-item-content) {
     width: 72px;
+  }
+  .steps :deep(.arco-steps-item-title) {
+    font-size: 12px;
   }
   .steps :deep(.arco-steps-item-node) {
     margin-left: 24px;

@@ -74,8 +74,6 @@ const ko: typeof zhCN = {
       done: '완료',
     },
     token: {
-      title: '설치 토큰 확인',
-      description: '다른 사람이 먼저 설치를 완료하지 못하도록, 서버 로그를 볼 수 있는 사람만 계속할 수 있습니다.',
       where: '일회용 설치 토큰은 서버가 시작될 때 로그에 출력됩니다. Docker Compose를 사용한다면 다음을 실행하세요:',
       env: '{env} 환경 변수를 설정했다면 그 값을 입력하세요.',
       label: '설치 토큰',
@@ -85,8 +83,6 @@ const ko: typeof zhCN = {
       expired: '설치 토큰이 더 이상 유효하지 않습니다. 서버가 다시 시작되었을 수 있습니다. 서버 로그에서 최신 토큰을 입력하세요',
     },
     database: {
-      title: '데이터베이스 연결',
-      description: 'Sayrud는 데이터를 PostgreSQL에 저장하고, 실시간 협업과 요청 빈도 제한에 Redis를 사용합니다.',
       host: '호스트',
       port: '포트',
       name: '데이터베이스 이름',
@@ -111,15 +107,12 @@ const ko: typeof zhCN = {
       configHint: '설정은 {path}에 저장되며 새 암호화 키가 자동으로 생성됩니다.',
     },
     admin: {
-      title: '관리자 만들기',
-      description: '관리자는 사용자, 로그인 방법, 시스템 설정을 관리하며 로그인 후 다른 사람을 초대할 수 있습니다.',
       fromConfig: '설정 파일의 데이터베이스 연결을 사용합니다.',
       submit: '설치 완료',
     },
     done: {
       title: 'Sayrud 준비 완료',
       subtitle: '시스템 관리자 {email}(으)로 로그인했습니다.',
-      backup: '{path}을(를) 백업하세요. 저장된 로그인 방법과 AI 키를 복호화하는 암호화 키가 들어 있으며, 잃어버리면 복구할 수 없습니다.',
       enter: '시작하기',
     },
   },
