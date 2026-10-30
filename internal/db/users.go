@@ -39,6 +39,11 @@ type UsersStore interface {
 	// Create creates a new user with the given options.
 	// It returns ErrUserAlreadyExisted if the email has been used.
 	Create(ctx context.Context, options CreateUserOptions) (*User, error)
+	// CreateFirstAdmin creates an admin with the given options when there is no user, which concurrent callers can not bypass.
+	// It returns ErrUsersExist if there is any user.
+	CreateFirstAdmin(ctx context.Context, options CreateUserOptions) (*User, error)
+	// Exists reports whether there is any user, including soft-deleted users.
+	Exists(ctx context.Context) (bool, error)
 	// ClaimLegacyDefault lets the new user take over the passwordless default user of the versions without accounts, along with its projects.
 	// It returns ErrUserNotFound if there is no such user, and ErrUserAlreadyExisted if the email has been used.
 	ClaimLegacyDefault(ctx context.Context, options CreateUserOptions) (*User, error)
@@ -212,6 +217,53 @@ func (db *users) Create(ctx context.Context, options CreateUserOptions) (*User, 
 		return nil, err
 	}
 	return user, nil
+}
+
+var ErrUsersExist = errors.New("users exist")
+
+// firstAdminLockKey serializes CreateFirstAdmin across the server instances sharing the database.
+const firstAdminLockKey = int64(0x7365747570)
+
+func (db *users) CreateFirstAdmin(ctx context.Context, options CreateUserOptions) (*User, error) {
+	password, err := hashPassword(options.Password)
+	if err != nil {
+		return nil, err
+	}
+
+	email := NormalizeEmail(options.Email)
+	user := &User{
+		Email:    email,
+		EmailMd5: gadget.Md5(email),
+		UserName: options.UserName,
+		Password: password,
+		IsAdmin:  true,
+	}
+	err = db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Exec("SELECT pg_advisory_xact_lock(?)", firstAdminLockKey).Error; err != nil {
+			return errors.Wrap(err, "lock")
+		}
+
+		var exists bool
+		if err := tx.Raw("SELECT EXISTS (SELECT 1 FROM users)").Scan(&exists).Error; err != nil {
+			return errors.Wrap(err, "check users")
+		}
+		if exists {
+			return ErrUsersExist
+		}
+
+		return tx.Create(user).Error
+	})
+	if err != nil {
+		return nil, err
+	}
+	return user, nil
+}
+
+func (db *users) Exists(ctx context.Context) (bool, error) {
+	var exists bool
+	err := db.WithContext(ctx).Raw("SELECT EXISTS (SELECT 1 FROM users)").Scan(&exists).Error
+
+	return exists, err
 }
 
 func (db *users) ClaimLegacyDefault(ctx context.Context, options CreateUserOptions) (*User, error) {

@@ -33,15 +33,18 @@ FROM alpine:3.24
 RUN apk add --no-cache ca-certificates tzdata \
     && addgroup -S -g 10001 app \
     && adduser -S -D -H -u 10001 -G app app \
-    && mkdir -p /home/app/data \
-    && chown app:app /home/app/data
+    && mkdir -p /home/app/data /home/app/config \
+    && chown app:app /home/app/data /home/app/config
 
 WORKDIR /home/app
 COPY --from=build --chmod=0555 /out/sayrud-server ./sayrud-server
 
 # Mount configuration at /home/app/config/sayrud.yaml, readable by UID 10001.
+# Without it, the setup wizard writes the file there, so mount a volume at /home/app/config to keep it.
 # Mount a volume at /home/app/data to persist the locally stored uploaded files.
 USER 10001:10001
 
 EXPOSE 2830
 ENTRYPOINT ["/home/app/sayrud-server"]
+# Override to listen on another port, e.g. ["web", "--port", "3000"].
+CMD ["web"]

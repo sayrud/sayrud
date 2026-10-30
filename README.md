@@ -58,8 +58,10 @@ The default password, `change-me`, is for local use. Compose mounts `config/sayr
 docker compose up -d
 ```
 
-Open <http://localhost:2830> and sign up with an email and password. The first registered account becomes a system
-administrator. Data is stored in the `postgres_data` volume.
+Open <http://localhost:2830> to finish the setup wizard. The wizard asks for the one-time setup token printed in the
+log, which `docker compose logs sayrud | grep "Setup token"` shows. To choose the token yourself, set the
+`SAYRUD_SETUP_TOKEN` environment variable. Then create the system administrator. Data is stored in the `postgres_data`
+volume.
 
 To update:
 
@@ -83,8 +85,11 @@ docker compose up -d --wait postgres redis
 cp config/sayrud.example.yaml config/sayrud.yaml
 pnpm --dir frontend install --frozen-lockfile
 pnpm --dir frontend build
-go run ./cmd/sayrud-server
+go run ./cmd/sayrud-server web
 ```
+
+The server listens on port `2830` by default; use `--port` to choose another one, and `--config` to read another
+configuration file.
 
 If you change the database initialization password in `docker-compose.yaml`, use the same password in the PostgreSQL
 connection in `config/sayrud.yaml`. Run `docker compose stop sayrud` if the Compose application is already using port `2830`.

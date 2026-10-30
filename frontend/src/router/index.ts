@@ -136,6 +136,7 @@ const router = createRouter({
     },
     { path: '/login', name: 'login', component: () => import('@/pages/AuthPage.vue'), meta: { guest: true } },
     { path: '/register', name: 'register', component: () => import('@/pages/AuthPage.vue'), meta: { guest: true } },
+    { path: '/setup', name: 'setup', component: () => import('@/pages/SetupPage.vue'), meta: { public: true } },
     { path: '/:pathMatch(.*)*', redirect: '/' },
   ],
 })

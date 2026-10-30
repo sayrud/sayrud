@@ -70,6 +70,9 @@ const LITERAL_ALLOWLIST = {
   'pages/admin/OverviewPage.vue': ['Go'], // Runtime name.
   'pages/admin/FieldShortcutEditPage.vue': ['Bearer', 'Authorization'], // HTTP syntax.
   'pages/AuthPage.vue': ['name@example.com'], // Example email address.
+  'components/setup/SetupAdminStep.vue': ['name@example.com'], // Example email address.
+  'components/setup/SetupTokenStep.vue': ['docker compose logs sayrud | grep "Setup token"', 'SAYRUD_SETUP_TOKEN', 'XXXX-XXXX-XXXX-XXXX-XXXX-XXXX'], // Shell command, environment variable and token format.
+  'components/setup/SetupDatabaseStep.vue': ['PostgreSQL', 'Redis', 'sayrud', 'postgres'], // Product names and default connection values.
   'components/admin/AuthProviderDrawer.vue': [ // Protocol terms and example configuration values.
     '{username}', 'https://', 'Issuer', 'https://accounts.google.com', 'Client ID', 'Client Secret', 'Scopes',
     'id', 'email', 'name', 'groups', 'ldaps://ldap.example.com', 'StartTLS', 'Bind DN', 'Base DN',

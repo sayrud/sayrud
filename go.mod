@@ -35,6 +35,7 @@ require (
 	github.com/thanhpk/randstr v1.0.6
 	github.com/tj/go-pg-escape v1.1.0
 	github.com/uptrace/opentelemetry-go-extra/otellogrus v0.3.1
+	github.com/urfave/cli/v3 v3.14.0
 	github.com/wuhan005/gadget v0.0.0-20221206194113-7619e407f1a0
 	github.com/wuhan005/govalid v0.0.3
 	github.com/xuri/excelize/v2 v2.11.1-0.20260930021559-01a9ff32fb3c

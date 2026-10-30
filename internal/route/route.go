@@ -44,12 +44,7 @@ func New(opts Options) *flamego.Flame {
 
 	f.Use(
 		tracing.Middleware("sayrud"),
-		func(c flamego.Context) {
-			// Static files must not receive the language cookie, which bypasses CDN caching.
-			if strings.HasPrefix(c.Request().URL.Path, "/assets/") || c.Request().URL.Path == "/favicon.ico" {
-				frontendHandler.ServeHTTP(c.ResponseWriter(), c.Request().Request)
-			}
-		},
+		staticAssets(frontendHandler),
 		i18n.Middleware(),
 		appcontext.Contexter(opts.DB),
 	)
@@ -68,6 +63,7 @@ func New(opts Options) *flamego.Flame {
 
 	f.Group("/_", func() {
 		f.Get("/site", api.Site.Get)
+		f.Get("/setup/status", api.Setup.Installed)
 		f.Get("/avatars/{fileUID}", api.Auth.Avatar)
 
 		f.Get("/shares/resolve", api.Share.Resolve)
@@ -355,4 +351,14 @@ func New(opts Options) *flamego.Flame {
 
 	f.NotFound(frontendHandler.ServeHTTP)
 	return f
+}
+
+// staticAssets serves the bundled static files before the other middlewares.
+func staticAssets(frontendHandler http.Handler) flamego.Handler {
+	return func(c flamego.Context) {
+		// Static files must not receive the language cookie, which bypasses CDN caching.
+		if strings.HasPrefix(c.Request().URL.Path, "/assets/") || c.Request().URL.Path == "/favicon.ico" {
+			frontendHandler.ServeHTTP(c.ResponseWriter(), c.Request().Request)
+		}
+	}
 }

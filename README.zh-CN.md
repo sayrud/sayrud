@@ -55,7 +55,9 @@ cp config/sayrud.example.yaml config/sayrud.yaml
 docker compose up -d
 ```
 
-打开 <http://localhost:2830>，用邮箱和密码注册账号，首次注册的账号会成为系统管理员。数据保存在 `postgres_data` 卷中。
+打开 <http://localhost:2830> 完成安装向导。向导会要求填写日志中打印的一次性安装令牌，可运行
+`docker compose logs sayrud | grep "Setup token"` 查看；也可以通过环境变量 `SAYRUD_SETUP_TOKEN` 自行指定令牌。随后创建系统管理员即可。
+数据保存在 `postgres_data` 卷中。
 
 更新镜像：
 
@@ -78,8 +80,10 @@ docker compose up -d --wait postgres redis
 cp config/sayrud.example.yaml config/sayrud.yaml
 pnpm --dir frontend install --frozen-lockfile
 pnpm --dir frontend build
-go run ./cmd/sayrud-server
+go run ./cmd/sayrud-server web
 ```
+
+服务默认监听 `2830` 端口，可通过 `--port` 指定其他端口，通过 `--config` 指定其他配置文件。
 
 自定义 `docker-compose.yaml` 中的数据库初始化密码后，需要将 `config/sayrud.yaml` 中的 PostgreSQL 连接密码改为相同值。
 Compose 应用若占用了 `2830` 端口，先运行 `docker compose stop sayrud`。

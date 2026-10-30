@@ -2515,6 +2515,115 @@ definitions:
     required:
     - enabled
     type: object
+  SetupAdmin:
+    properties:
+      email:
+        type: string
+      password:
+        description: Password is limited to 64 characters; the setup handler also
+          enforces bcrypt's 72-byte limit.
+        type: string
+      userName:
+        type: string
+    required:
+    - email
+    - password
+    - userName
+    type: object
+  SetupDatabase:
+    properties:
+      postgres:
+        $ref: '#/definitions/SetupPostgres'
+      redis:
+        $ref: '#/definitions/SetupRedis'
+    required:
+    - postgres
+    - redis
+    type: object
+  SetupDatabaseCheck:
+    properties:
+      postgres:
+        $ref: '#/definitions/SetupServiceCheck'
+      redis:
+        $ref: '#/definitions/SetupServiceCheck'
+    required:
+    - postgres
+    - redis
+    type: object
+  SetupPostgres:
+    properties:
+      database:
+        type: string
+      host:
+        type: string
+      password:
+        type: string
+      port:
+        type: integer
+      sslMode:
+        enum:
+        - disable
+        - require
+        - verify-ca
+        - verify-full
+        type: string
+      username:
+        type: string
+    required:
+    - database
+    - host
+    - password
+    - port
+    - sslMode
+    - username
+    type: object
+  SetupRedis:
+    properties:
+      address:
+        description: Address is host:port.
+        type: string
+      password:
+        type: string
+      username:
+        type: string
+    required:
+    - address
+    - password
+    - username
+    type: object
+  SetupServiceCheck:
+    properties:
+      message:
+        description: Message explains the failure in the language of the request,
+          empty if OK.
+        type: string
+      ok:
+        type: boolean
+      version:
+        description: Version is the server version, it can be empty even if connected.
+        type: string
+    required:
+    - message
+    - ok
+    - version
+    type: object
+  SetupStatus:
+    properties:
+      installed:
+        description: Installed reports whether the application serves the requests.
+        type: boolean
+      passwordMinLength:
+        description: PasswordMinLength is the minimum length of the admin password.
+        type: integer
+      stage:
+        description: Stage is the next step of the wizard, empty once installed.
+        enum:
+        - database
+        - admin
+        type: string
+    required:
+    - installed
+    type: object
   SharedProject:
     properties:
       includeChildren:
@@ -9682,6 +9791,189 @@ paths:
       summary: Collaborate on the project over WebSocket
       tags:
       - Collaboration
+  /setup/admin:
+    post:
+      consumes:
+      - application/json
+      description: Create the first admin and sign in. The application serves the
+        requests afterwards.
+      operationId: createSetupAdmin
+      parameters:
+      - description: Setup token printed in the server log
+        in: header
+        name: X-Setup-Token
+        required: true
+        type: string
+      - description: Admin account
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/SetupAdmin'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/Profile'
+        "400":
+          description: Invalid request body
+          schema:
+            type: string
+        "401":
+          description: Wrong setup token
+          schema:
+            type: string
+        "409":
+          description: Another step is in progress, the database has not been configured,
+            or it has been installed
+          schema:
+            type: string
+        "429":
+          description: Too many attempts
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      summary: Create the admin and finish the installation
+      tags:
+      - Setup
+  /setup/database:
+    post:
+      consumes:
+      - application/json
+      description: Test the connections, save the configuration file and connect the
+        services. The wizard then moves to the admin step.
+      operationId: saveSetupDatabase
+      parameters:
+      - description: Setup token printed in the server log
+        in: header
+        name: X-Setup-Token
+        required: true
+        type: string
+      - description: Connections
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/SetupDatabase'
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Invalid request body or unusable services
+          schema:
+            type: string
+        "401":
+          description: Wrong setup token
+          schema:
+            type: string
+        "409":
+          description: Another step is in progress, the database has been configured,
+            or the configuration file exists
+          schema:
+            type: string
+        "429":
+          description: Too many attempts
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      summary: Save the database configuration
+      tags:
+      - Setup
+  /setup/database/test:
+    post:
+      consumes:
+      - application/json
+      description: The connection errors are responded in the results instead of the
+        status code.
+      operationId: testSetupDatabase
+      parameters:
+      - description: Setup token printed in the server log
+        in: header
+        name: X-Setup-Token
+        required: true
+        type: string
+      - description: Connections
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/SetupDatabase'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/SetupDatabaseCheck'
+        "400":
+          description: Invalid request body
+          schema:
+            type: string
+        "401":
+          description: Wrong setup token
+          schema:
+            type: string
+        "409":
+          description: The database has been configured
+          schema:
+            type: string
+        "429":
+          description: Too many attempts
+          schema:
+            type: string
+      summary: Test the connections of PostgreSQL and Redis
+      tags:
+      - Setup
+  /setup/status:
+    get:
+      description: The setup token is not required. It always responds installed once
+        the application serves the requests.
+      operationId: getSetupStatus
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/SetupStatus'
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      summary: Get the installation status
+      tags:
+      - Setup
+  /setup/verify:
+    post:
+      operationId: verifySetupToken
+      parameters:
+      - description: Setup token printed in the server log
+        in: header
+        name: X-Setup-Token
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "401":
+          description: Wrong setup token
+          schema:
+            type: string
+        "429":
+          description: Too many attempts
+          schema:
+            type: string
+      summary: Verify the setup token
+      tags:
+      - Setup
   /shares/{shareToken}:
     get:
       operationId: openLinkShare

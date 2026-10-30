@@ -1,14 +1,17 @@
 package conf
 
 import (
+	"os"
 	"time"
 
 	"github.com/cockroachdb/errors"
 	"github.com/spf13/viper"
 )
 
+// AuthSecretKeyEnv supplies the same encryption key to replicas with separate configuration files.
+const AuthSecretKeyEnv = "SAYRUD_AUTH_SECRET_KEY"
+
 var App struct {
-	Port            int           `mapstructure:"port"`
 	IPHeader        string        `mapstructure:"ip_header"`
 	DrainDelay      time.Duration `mapstructure:"drain_delay"`
 	ShutdownTimeout time.Duration `mapstructure:"shutdown_timeout"`
@@ -92,15 +95,28 @@ func ShutdownGracePeriod(timeout time.Duration) time.Duration {
 	return timeout - min(5*time.Second, timeout/2)
 }
 
-func Init(configFilePath string) error {
+func newViper() *viper.Viper {
 	v := viper.New()
 	v.SetDefault("app.drain_delay", "5s")
 	v.SetDefault("app.shutdown_timeout", "30s")
+	return v
+}
+
+func Init(configFilePath string) error {
+	v := newViper()
 	v.SetConfigFile(configFilePath)
 	if err := v.ReadInConfig(); err != nil {
 		return errors.Wrap(err, "read config file")
 	}
+	return load(v)
+}
 
+// InitDefault loads the default configuration, which only serves the setup wizard before the configuration file exists.
+func InitDefault() error {
+	return load(newViper())
+}
+
+func load(v *viper.Viper) error {
 	if err := v.UnmarshalKey("app", &App); err != nil {
 		return errors.Wrap(err, "parse app")
 	}
@@ -114,21 +130,30 @@ func Init(configFilePath string) error {
 	if err := v.UnmarshalKey("postgres", &Postgres); err != nil {
 		return errors.Wrap(err, "parse postgres")
 	}
+
 	if err := v.UnmarshalKey("auth", &Auth); err != nil {
 		return errors.Wrap(err, "parse auth")
 	}
+
+	if key := os.Getenv(AuthSecretKeyEnv); key != "" {
+		Auth.SecretKey = key
+	}
+
 	if err := v.UnmarshalKey("redis", &Redis); err != nil {
 		return errors.Wrap(err, "parse redis")
 	}
+
 	if err := v.UnmarshalKey("observability", &Observability); err != nil {
 		return errors.Wrap(err, "parse observability")
 	}
+
 	if err := v.UnmarshalKey("shortcut", &Shortcut); err != nil {
 		return errors.Wrap(err, "parse shortcut")
 	}
 	if Shortcut.Workers <= 0 {
 		Shortcut.Workers = 4
 	}
+
 	if err := v.UnmarshalKey("storage", &Storage); err != nil {
 		return errors.Wrap(err, "parse storage")
 	}
