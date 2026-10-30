@@ -59,8 +59,6 @@ docker compose up -d
 `docker compose logs sayrud | grep "Setup token"` 查看；也可以通过环境变量 `SAYRUD_SETUP_TOKEN` 自行指定令牌。随后创建系统管理员即可。
 数据保存在 `postgres_data` 卷中。
 
-没有配置文件时，向导还会要求填写 PostgreSQL 和 Redis 连接，并写入配置文件，同时自动生成加密密钥。
-
 更新镜像：
 
 ```sh

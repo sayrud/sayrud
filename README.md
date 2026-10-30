@@ -63,9 +63,6 @@ log, which `docker compose logs sayrud | grep "Setup token"` shows. To choose th
 `SAYRUD_SETUP_TOKEN` environment variable. Then create the system administrator. Data is stored in the `postgres_data`
 volume.
 
-Without a configuration file, the wizard also asks for the PostgreSQL and Redis connections, and writes the file with a
-generated secret key.
-
 To update:
 
 ```sh
