@@ -226,7 +226,7 @@ onMounted(init)
 }
 .brand {
   flex: none;
-  height: 32px;
+  height: 40px;
 }
 .heading {
   display: flex;
@@ -286,6 +286,9 @@ onMounted(init)
   }
   .setup-card :deep(.arco-card-body) {
     padding: 28px 20px;
+  }
+  .brand {
+    height: 34px;
   }
   .steps :deep(.arco-steps-item-content) {
     width: 72px;
