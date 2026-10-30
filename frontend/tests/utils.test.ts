@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { createHash } from 'node:crypto'
 import test from 'node:test'
 
 import type { Attachment, SLField } from '../src/types/bitable.ts'
@@ -73,6 +74,41 @@ test('RANDSTR rejects missing arguments, extra arguments and invalid lengths', (
     assert.throws(() => compileFormula(`RANDSTR(${length})`).run(() => null), { code: '#NUM!' }, length)
   }
   assert.throws(() => compileFormula('RANDSTR("abc")').run(() => null), { code: '#VALUE!' })
+})
+
+test('hash formulas return lowercase hexadecimal digests for standard vectors', () => {
+  for (const [name, empty, abc] of [
+    ['MD5', 'd41d8cd98f00b204e9800998ecf8427e', '900150983cd24fb0d6963f7d28e17f72'],
+    ['SHA1', 'da39a3ee5e6b4b0d3255bfef95601890afd80709', 'a9993e364706816aba3e25717850c26c9cd0d89d'],
+    ['SHA256', 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855', 'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad'],
+  ] as const) {
+    assert.equal(compileFormula(`${name}("")`).run(() => null), empty)
+    assert.equal(compileFormula(`${name}("abc")`).run(() => null), abc)
+    assert.equal(compileFormula(`${name.toLowerCase()}("abc")`).run(() => null), abc)
+  }
+})
+
+test('hash formulas encode UTF-8, preserve whitespace and support field values and padding boundaries', () => {
+  const inputs = ['', '你好🌍', ' a\n b ', '\0', 'é', 'e\u0301', ...[55, 56, 63, 64, 65, 127, 128, 129, 1024].map((n) => 'a'.repeat(n))]
+  for (const name of ['MD5', 'SHA1', 'SHA256']) {
+    const formula = compileFormula(`${name}({text})`)
+    assert.equal(formula.error, undefined)
+    assert.deepEqual(formula.refs, ['text'])
+    for (const input of inputs) {
+      const expected = createHash(name.toLowerCase()).update(input, 'utf8').digest('hex')
+      assert.equal(formula.run(() => input), expected, `${name}: ${JSON.stringify(input)}`)
+    }
+    for (const [input, text] of [[null, ''], [123, '123'], [true, 'TRUE'], [false, 'FALSE']] as const) {
+      assert.equal(formula.run(() => input), createHash(name.toLowerCase()).update(text).digest('hex'))
+    }
+    for (const src of [`${name}()`, `${name}("a", "b")`]) {
+      assert.throws(() => compileFormula(src).run(() => null), FormulaError, src)
+    }
+  }
+  const md5 = createHash('md5').update('abc').digest('hex')
+  assert.equal(compileFormula('SHA256(MD5("abc"))').run(() => null), createHash('sha256').update(md5).digest('hex'))
+  assert.equal(compileFormula('LEN(SHA256(RANDSTR(16)))').run(() => null), 64)
+  assert.equal(compileFormula('IF(TRUE, "skip", MD5())').run(() => null), 'skip')
 })
 
 test('number parsing handles currency, percentages and invalid input', () => {

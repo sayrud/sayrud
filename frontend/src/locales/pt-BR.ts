@@ -318,6 +318,7 @@ const ptBR: typeof zhCN = {
       math: 'Matemática',
       logic: 'Lógica',
       text: 'Texto',
+      hash: 'Hash',
       date: 'Data',
     },
     error: {
@@ -446,6 +447,18 @@ const ptBR: typeof zhCN = {
       SUBSTITUTE: {
         usage: 'SUBSTITUTE(texto, texto original, texto novo)',
         desc: 'Substitui texto',
+      },
+      MD5: {
+        usage: 'MD5(texto)',
+        desc: 'Retorna o resumo MD5 do texto UTF-8 como uma string hexadecimal de 32 caracteres em minúsculas.',
+      },
+      SHA1: {
+        usage: 'SHA1(texto)',
+        desc: 'Retorna o resumo SHA1 do texto UTF-8 como uma string hexadecimal de 40 caracteres em minúsculas.',
+      },
+      SHA256: {
+        usage: 'SHA256(texto)',
+        desc: 'Retorna o resumo SHA256 do texto UTF-8 como uma string hexadecimal de 64 caracteres em minúsculas.',
       },
       TODAY: {
         usage: 'TODAY()',

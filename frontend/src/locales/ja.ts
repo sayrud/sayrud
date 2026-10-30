@@ -318,6 +318,7 @@ const ja: typeof zhCN = {
       math: '数学',
       logic: '論理',
       text: 'テキスト',
+      hash: 'ハッシュ',
       date: '日付',
     },
     error: {
@@ -446,6 +447,18 @@ const ja: typeof zhCN = {
       SUBSTITUTE: {
         usage: 'SUBSTITUTE(テキスト, 置換前のテキスト, 置換後のテキスト)',
         desc: 'テキストを置き換えます',
+      },
+      MD5: {
+        usage: 'MD5(テキスト)',
+        desc: 'UTF-8 テキストの MD5 ダイジェストを、32 文字の小文字の16進文字列として返します。',
+      },
+      SHA1: {
+        usage: 'SHA1(テキスト)',
+        desc: 'UTF-8 テキストの SHA1 ダイジェストを、40 文字の小文字の16進文字列として返します。',
+      },
+      SHA256: {
+        usage: 'SHA256(テキスト)',
+        desc: 'UTF-8 テキストの SHA256 ダイジェストを、64 文字の小文字の16進文字列として返します。',
       },
       TODAY: {
         usage: 'TODAY()',

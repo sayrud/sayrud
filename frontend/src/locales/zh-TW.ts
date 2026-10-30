@@ -318,6 +318,7 @@ const zhTW: typeof zhCN = {
       math: '數學',
       logic: '邏輯',
       text: '文字',
+      hash: '雜湊',
       date: '日期',
     },
     error: {
@@ -446,6 +447,18 @@ const zhTW: typeof zhCN = {
       SUBSTITUTE: {
         usage: 'SUBSTITUTE(文字, 原文字, 新文字)',
         desc: '取代文字',
+      },
+      MD5: {
+        usage: 'MD5(文字)',
+        desc: '計算 UTF-8 文字的 MD5 摘要，傳回長度為 32 的小寫十六進位字串。',
+      },
+      SHA1: {
+        usage: 'SHA1(文字)',
+        desc: '計算 UTF-8 文字的 SHA1 摘要，傳回長度為 40 的小寫十六進位字串。',
+      },
+      SHA256: {
+        usage: 'SHA256(文字)',
+        desc: '計算 UTF-8 文字的 SHA256 摘要，傳回長度為 64 的小寫十六進位字串。',
       },
       TODAY: {
         usage: 'TODAY()',

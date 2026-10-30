@@ -318,6 +318,7 @@ const de: typeof zhCN = {
       math: 'Mathematik',
       logic: 'Logik',
       text: 'Text',
+      hash: 'Hash',
       date: 'Datum',
     },
     error: {
@@ -446,6 +447,18 @@ const de: typeof zhCN = {
       SUBSTITUTE: {
         usage: 'SUBSTITUTE(Text, alter Text, neuer Text)',
         desc: 'Text ersetzen',
+      },
+      MD5: {
+        usage: 'MD5(Text)',
+        desc: 'Berechnet den MD5-Hash von UTF-8-Text und gibt eine hexadezimale Zeichenfolge mit 32 Zeichen in Kleinbuchstaben zurück.',
+      },
+      SHA1: {
+        usage: 'SHA1(Text)',
+        desc: 'Berechnet den SHA1-Hash von UTF-8-Text und gibt eine hexadezimale Zeichenfolge mit 40 Zeichen in Kleinbuchstaben zurück.',
+      },
+      SHA256: {
+        usage: 'SHA256(Text)',
+        desc: 'Berechnet den SHA256-Hash von UTF-8-Text und gibt eine hexadezimale Zeichenfolge mit 64 Zeichen in Kleinbuchstaben zurück.',
       },
       TODAY: {
         usage: 'TODAY()',

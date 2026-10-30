@@ -137,6 +137,49 @@ func TestFormulaRandstrErrors(t *testing.T) {
 	}
 }
 
+func TestFormulaHashes(t *testing.T) {
+	for _, tt := range []struct {
+		name, empty, abc, unicode string
+	}{
+		{"MD5", "d41d8cd98f00b204e9800998ecf8427e", "900150983cd24fb0d6963f7d28e17f72", "3912edc4964f8895c63bf4ac71a691e0"},
+		{"SHA1", "da39a3ee5e6b4b0d3255bfef95601890afd80709", "a9993e364706816aba3e25717850c26c9cd0d89d", "f7fdecfe188be216867ae1b6df38b6846f8b5937"},
+		{"SHA256", "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad", "25feb68e8651a1e87d13b2a93c080d75e40174800e19388820c27be17009cd66"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			scope := Scope{"input": map[string]interface{}{"text": "你好🌍"}}
+			for _, vector := range []struct{ arg, want string }{
+				{`""`, tt.empty}, {`"abc"`, tt.abc}, {`{input.text}`, tt.unicode}, {`{input.missing}`, tt.empty},
+			} {
+				src := fmt.Sprintf("%s(%s)", tt.name, vector.arg)
+				v, err := scope.Resolve(&Value{Kind: ValueFormula, Formula: src})
+				require.NoError(t, err, src)
+				assert.Equal(t, vector.want, v, src)
+			}
+			for _, src := range []string{tt.name + `()`, tt.name + `("a", "b")`} {
+				_, err := scope.evalFormula(src)
+				var fe *FormulaError
+				require.ErrorAs(t, err, &fe, src)
+			}
+			for _, arg := range []string{`TRUE`, `FALSE`, `123`} {
+				src := fmt.Sprintf(`%s(%s) = %s("%s")`, tt.name, arg, tt.name, arg)
+				v, err := scope.evalFormula(src)
+				require.NoError(t, err, src)
+				assert.Equal(t, true, v, src)
+			}
+		})
+	}
+	for src, want := range map[string]interface{}{
+		`md5("abc")`:               "900150983cd24fb0d6963f7d28e17f72",
+		`SHA256(MD5("abc"))`:       "2c89b7e560fb8c30d1c61408e91e4a84934ff0d24e68e51a6fdb744a1bb717fe",
+		`LEN(SHA256(RANDSTR(16)))`: 64.0,
+		`IF(TRUE, "skip", MD5())`:  "skip",
+	} {
+		v, err := (Scope{}).evalFormula(src)
+		require.NoError(t, err, src)
+		assert.Equal(t, want, v, src)
+	}
+}
+
 func TestRunQueryMatchAnyAndFormula(t *testing.T) {
 	f := newLeadFixture(t)
 	for _, body := range []string{`{"name":"Ann","email":"ann@example.com"}`, `{"name":"Bob","email":"bob@example.com"}`, `{"name":"Cid","email":"cid@example.com"}`} {

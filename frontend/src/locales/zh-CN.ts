@@ -316,6 +316,7 @@ export default {
       math: '数学',
       logic: '逻辑',
       text: '文本',
+      hash: '哈希',
       date: '日期',
     },
     error: {
@@ -444,6 +445,18 @@ export default {
       SUBSTITUTE: {
         usage: 'SUBSTITUTE(文本, 旧文本, 新文本)',
         desc: '替换文本',
+      },
+      MD5: {
+        usage: 'MD5(文本)',
+        desc: '计算 UTF-8 文本的 MD5 摘要，返回长度为 32 的小写十六进制字符串。',
+      },
+      SHA1: {
+        usage: 'SHA1(文本)',
+        desc: '计算 UTF-8 文本的 SHA1 摘要，返回长度为 40 的小写十六进制字符串。',
+      },
+      SHA256: {
+        usage: 'SHA256(文本)',
+        desc: '计算 UTF-8 文本的 SHA256 摘要，返回长度为 64 的小写十六进制字符串。',
       },
       TODAY: {
         usage: 'TODAY()',

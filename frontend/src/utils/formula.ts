@@ -1,3 +1,6 @@
+import { md5, sha1 } from '@noble/hashes/legacy.js'
+import { sha256 } from '@noble/hashes/sha2.js'
+import { bytesToHex, utf8ToBytes } from '@noble/hashes/utils.js'
 import dayjs from 'dayjs'
 
 import type { SLField } from '@/types/bitable'
@@ -275,7 +278,14 @@ function arity(name: string, args: FormulaValue[], min: number, max = min) {
   }
 }
 
-export type FormulaCategory = 'math' | 'logic' | 'text' | 'date'
+function hashFn(name: string, hash: (input: Uint8Array) => Uint8Array): Fn {
+  return (a) => {
+    arity(name, a, 1)
+    return bytesToHex(hash(utf8ToBytes(formulaToText(a[0]!))))
+  }
+}
+
+export type FormulaCategory = 'math' | 'logic' | 'text' | 'hash' | 'date'
 
 const FUNCTION_DEFS: Record<string, { fn: Fn; lazy?: boolean; category: FormulaCategory }> = {
   SUM: { category: 'math', fn: (a) => nums(a).reduce((s, n) => s + n, 0) },
@@ -363,6 +373,9 @@ const FUNCTION_DEFS: Record<string, { fn: Fn; lazy?: boolean; category: FormulaC
     category: 'text',
     fn: (a) => (arity('SUBSTITUTE', a, 3), formulaToText(a[0]!).split(formulaToText(a[1]!)).join(formulaToText(a[2]!))),
   },
+  MD5: { category: 'hash', fn: hashFn('MD5', md5) },
+  SHA1: { category: 'hash', fn: hashFn('SHA1', sha1) },
+  SHA256: { category: 'hash', fn: hashFn('SHA256', sha256) },
   TODAY: {
     category: 'date',
     fn: () => dayjs().startOf('day').toDate(),

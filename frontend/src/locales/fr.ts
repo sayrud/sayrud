@@ -318,6 +318,7 @@ const fr: typeof zhCN = {
       math: 'Mathématiques',
       logic: 'Logique',
       text: 'Texte',
+      hash: 'Hachage',
       date: 'Date',
     },
     error: {
@@ -446,6 +447,18 @@ const fr: typeof zhCN = {
       SUBSTITUTE: {
         usage: 'SUBSTITUTE(texte, ancien texte, nouveau texte)',
         desc: 'Remplace du texte',
+      },
+      MD5: {
+        usage: 'MD5(texte)',
+        desc: 'Renvoie le condensat MD5 du texte UTF-8 sous forme de chaîne hexadécimale de 32 caractères en minuscules.',
+      },
+      SHA1: {
+        usage: 'SHA1(texte)',
+        desc: 'Renvoie le condensat SHA1 du texte UTF-8 sous forme de chaîne hexadécimale de 40 caractères en minuscules.',
+      },
+      SHA256: {
+        usage: 'SHA256(texte)',
+        desc: 'Renvoie le condensat SHA256 du texte UTF-8 sous forme de chaîne hexadécimale de 64 caractères en minuscules.',
       },
       TODAY: {
         usage: 'TODAY()',

@@ -318,6 +318,7 @@ const ko: typeof zhCN = {
       math: '수학',
       logic: '논리',
       text: '텍스트',
+      hash: '해시',
       date: '날짜',
     },
     error: {
@@ -446,6 +447,18 @@ const ko: typeof zhCN = {
       SUBSTITUTE: {
         usage: 'SUBSTITUTE(텍스트, 기존 텍스트, 새 텍스트)',
         desc: '텍스트 바꾸기',
+      },
+      MD5: {
+        usage: 'MD5(텍스트)',
+        desc: 'UTF-8 텍스트의 MD5 해시를 32자의 소문자 16진수 문자열로 반환합니다.',
+      },
+      SHA1: {
+        usage: 'SHA1(텍스트)',
+        desc: 'UTF-8 텍스트의 SHA1 해시를 40자의 소문자 16진수 문자열로 반환합니다.',
+      },
+      SHA256: {
+        usage: 'SHA256(텍스트)',
+        desc: 'UTF-8 텍스트의 SHA256 해시를 64자의 소문자 16진수 문자열로 반환합니다.',
       },
       TODAY: {
         usage: 'TODAY()',

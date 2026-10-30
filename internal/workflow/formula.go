@@ -1,6 +1,10 @@
 package workflow
 
 import (
+	"crypto/md5"
+	"crypto/sha1"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"math"
@@ -961,6 +965,18 @@ func init() {
 			}
 			return strings.ReplaceAll(s, old, e.text(args[2])), nil
 		},
+		"MD5": textFn(func(s string) interface{} {
+			digest := md5.Sum([]byte(s))
+			return hex.EncodeToString(digest[:])
+		}),
+		"SHA1": textFn(func(s string) interface{} {
+			digest := sha1.Sum([]byte(s))
+			return hex.EncodeToString(digest[:])
+		}),
+		"SHA256": textFn(func(s string) interface{} {
+			digest := sha256.Sum256([]byte(s))
+			return hex.EncodeToString(digest[:])
+		}),
 		"TODAY": func(e *formulaEval, _ string, _ []interface{}) (interface{}, error) {
 			return startOfDay(time.Now().In(e.loc)), nil
 		},
