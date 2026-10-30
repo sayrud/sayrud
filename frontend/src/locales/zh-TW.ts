@@ -338,6 +338,7 @@ const zhTW: typeof zhCN = {
       notNumber: '「{value}」不是數字',
       notDate: '「{value}」不是日期',
       argCount: '函式 {name} 的參數數量不正確',
+      randomLength: 'RANDSTR 長度必須是 0 到 4096 之間的整數',
       divByZero: '除數不能為 0',
       dateUnit: '{name} 的單位必須為 D、M 或 Y',
     },
@@ -405,6 +406,10 @@ const zhTW: typeof zhCN = {
       CONCATENATE: {
         usage: 'CONCATENATE(文字1, 文字2, ...)',
         desc: '串接文字',
+      },
+      RANDSTR: {
+        usage: 'RANDSTR(長度)',
+        desc: '產生指定長度的隨機字串，字元來自大小寫字母和數字。長度為 0–4096 的整數，0 傳回空字串；每次重新計算都會產生新值。例如：RANDSTR(16)。',
       },
       LEN: {
         usage: 'LEN(文字)',

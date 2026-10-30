@@ -338,6 +338,7 @@ const en: typeof zhCN = {
       notNumber: '"{value}" is not a number',
       notDate: '"{value}" is not a date',
       argCount: 'Wrong number of arguments of function {name}',
+      randomLength: 'RANDSTR length must be an integer between 0 and 4096',
       divByZero: 'The divisor cannot be 0',
       dateUnit: 'The unit of {name} must be D, M or Y',
     },
@@ -405,6 +406,10 @@ const en: typeof zhCN = {
       CONCATENATE: {
         usage: 'CONCATENATE(text1, text2, ...)',
         desc: 'Joins texts',
+      },
+      RANDSTR: {
+        usage: 'RANDSTR(length)',
+        desc: 'Generates a random string using uppercase letters, lowercase letters and digits. Length must be an integer from 0 to 4096; 0 returns an empty string. Generates a new value on each recalculation. Example: RANDSTR(16).',
       },
       LEN: {
         usage: 'LEN(text)',

@@ -2,6 +2,7 @@ import dayjs from 'dayjs'
 
 import type { SLField } from '@/types/bitable'
 import { t } from '../i18n/translate.ts'
+import { randstr } from './id.ts'
 
 export type FormulaValue = number | string | boolean | Date | null
 
@@ -318,6 +319,17 @@ const FUNCTION_DEFS: Record<string, { fn: Fn; lazy?: boolean; category: FormulaC
   NOT: { category: 'logic', fn: (a) => (arity('NOT', a, 1), !toBool(a[0]!)) },
   ISBLANK: { category: 'logic', fn: (a) => (arity('ISBLANK', a, 1), isBlank(a[0]!)) },
   CONCATENATE: { category: 'text', fn: (a) => a.map(formulaToText).join('') },
+  RANDSTR: {
+    category: 'text',
+    fn: (a) => {
+      arity('RANDSTR', a, 1)
+      const length = toNumber(a[0]!)
+      if (!Number.isInteger(length) || length < 0 || length > 4096) {
+        throw new FormulaError(t('formula.error.randomLength'), '#NUM!')
+      }
+      return randstr(length)
+    },
+  },
   LEN: { category: 'text', fn: (a) => (arity('LEN', a, 1), formulaToText(a[0]!).length) },
   LOWER: { category: 'text', fn: (a) => (arity('LOWER', a, 1), formulaToText(a[0]!).toLowerCase()) },
   UPPER: { category: 'text', fn: (a) => (arity('UPPER', a, 1), formulaToText(a[0]!).toUpperCase()) },

@@ -338,6 +338,7 @@ const de: typeof zhCN = {
       notNumber: '„{value}“ ist keine Zahl',
       notDate: '„{value}“ ist kein Datum',
       argCount: 'Falsche Anzahl an Argumenten für die Funktion {name}',
+      randomLength: 'Die RANDSTR-Länge muss eine Ganzzahl zwischen 0 und 4096 sein',
       divByZero: 'Der Divisor darf nicht 0 sein',
       dateUnit: 'Die Einheit von {name} muss D, M oder Y sein',
     },
@@ -405,6 +406,10 @@ const de: typeof zhCN = {
       CONCATENATE: {
         usage: 'CONCATENATE(Text1, Text2, ...)',
         desc: 'Texte verbinden',
+      },
+      RANDSTR: {
+        usage: 'RANDSTR(Länge)',
+        desc: 'Erzeugt eine zufällige Zeichenfolge aus Großbuchstaben, Kleinbuchstaben und Ziffern. Die Länge muss eine Ganzzahl von 0 bis 4096 sein; 0 ergibt eine leere Zeichenfolge. Bei jeder Neuberechnung wird ein neuer Wert erzeugt. Beispiel: RANDSTR(16).',
       },
       LEN: {
         usage: 'LEN(Text)',

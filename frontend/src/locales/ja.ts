@@ -338,6 +338,7 @@ const ja: typeof zhCN = {
       notNumber: '「{value}」は数値ではありません',
       notDate: '「{value}」は日付ではありません',
       argCount: '関数 {name} の引数の数が正しくありません',
+      randomLength: 'RANDSTR の長さは 0～4096 の整数で指定してください',
       divByZero: '0 で割ることはできません',
       dateUnit: '{name} の単位は D、M、Y のいずれかにしてください',
     },
@@ -405,6 +406,10 @@ const ja: typeof zhCN = {
       CONCATENATE: {
         usage: 'CONCATENATE(テキスト1, テキスト2, ...)',
         desc: 'テキストを結合します',
+      },
+      RANDSTR: {
+        usage: 'RANDSTR(長さ)',
+        desc: '大文字・小文字の英字と数字から、指定した長さのランダム文字列を生成します。長さは 0～4096 の整数で、0 は空文字列を返します。再計算のたびに新しい値を生成します。例：RANDSTR(16)。',
       },
       LEN: {
         usage: 'LEN(テキスト)',

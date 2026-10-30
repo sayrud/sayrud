@@ -338,6 +338,7 @@ const ptBR: typeof zhCN = {
       notNumber: '“{value}” não é um número',
       notDate: '“{value}” não é uma data',
       argCount: 'Quantidade incorreta de argumentos na função {name}',
+      randomLength: 'O comprimento de RANDSTR deve ser um inteiro entre 0 e 4096',
       divByZero: 'O divisor não pode ser 0',
       dateUnit: 'A unidade de {name} deve ser D, M ou Y',
     },
@@ -405,6 +406,10 @@ const ptBR: typeof zhCN = {
       CONCATENATE: {
         usage: 'CONCATENATE(texto1, texto2, ...)',
         desc: 'Une textos',
+      },
+      RANDSTR: {
+        usage: 'RANDSTR(comprimento)',
+        desc: 'Gera uma string aleatória com letras maiúsculas, minúsculas e dígitos. O comprimento deve ser um inteiro de 0 a 4096; 0 retorna uma string vazia. Gera um novo valor a cada recálculo. Exemplo: RANDSTR(16).',
       },
       LEN: {
         usage: 'LEN(texto)',

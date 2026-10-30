@@ -41,6 +41,40 @@ test('invalid formulas and division by zero report errors', () => {
   assert.throws(() => compileFormula('1 / 0').run(() => null), { code: '#DIV/0!' })
 })
 
+test('RANDSTR generates alphanumeric strings with the requested length', () => {
+  for (const length of [0, 1, 16, 4096]) {
+    const formula = compileFormula(`RANDSTR(${length})`)
+    assert.equal(formula.error, undefined)
+    const value = formula.run(() => null)
+    assert.equal(typeof value, 'string')
+    assert.equal((value as string).length, length)
+    assert.match(value as string, /^[A-Za-z0-9]*$/)
+  }
+  assert.equal(compileFormula('LEN(randstr(3 * 4))').run(() => null), 12)
+  assert.equal(compileFormula('LEN(RANDSTR("8"))').run(() => null), 8)
+  const formula = compileFormula('"id-" & RANDSTR({length})')
+  assert.deepEqual(formula.refs, ['length'])
+  assert.match(formula.run(() => 20) as string, /^id-[A-Za-z0-9]{20}$/)
+})
+
+test('RANDSTR generates a fresh value when a compiled formula is evaluated again', () => {
+  const formula = compileFormula('RANDSTR(32)')
+  const first = formula.run(() => null)
+  const second = compileFormula('RANDSTR(32)').run(() => null)
+  assert.notEqual(first, second)
+  assert.equal(compileFormula('IF(FALSE, RANDSTR(-1), "skip")').run(() => null), 'skip')
+})
+
+test('RANDSTR rejects missing arguments, extra arguments and invalid lengths', () => {
+  for (const src of ['RANDSTR()', 'RANDSTR(8, 2)']) {
+    assert.throws(() => compileFormula(src).run(() => null), FormulaError, src)
+  }
+  for (const length of ['-1', '1.5', '4097', '1e100', '1e999', 'SQRT(-1)']) {
+    assert.throws(() => compileFormula(`RANDSTR(${length})`).run(() => null), { code: '#NUM!' }, length)
+  }
+  assert.throws(() => compileFormula('RANDSTR("abc")').run(() => null), { code: '#VALUE!' })
+})
+
 test('number parsing handles currency, percentages and invalid input', () => {
   assert.equal(parseNumber(' $1,234.50 '), 1234.5)
   assert.equal(parseNumber('12.5%'), 0.125)

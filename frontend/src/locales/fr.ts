@@ -338,6 +338,7 @@ const fr: typeof zhCN = {
       notNumber: '« {value} » n’est pas un nombre',
       notDate: '« {value} » n’est pas une date',
       argCount: 'Nombre d’arguments incorrect pour la fonction {name}',
+      randomLength: 'La longueur de RANDSTR doit être un entier entre 0 et 4096',
       divByZero: 'Le diviseur ne peut pas être 0',
       dateUnit: 'L’unité de {name} doit être D, M ou Y',
     },
@@ -405,6 +406,10 @@ const fr: typeof zhCN = {
       CONCATENATE: {
         usage: 'CONCATENATE(texte1, texte2, ...)',
         desc: 'Assemble des textes',
+      },
+      RANDSTR: {
+        usage: 'RANDSTR(longueur)',
+        desc: 'Génère une chaîne aléatoire composée de lettres majuscules, minuscules et de chiffres. La longueur doit être un entier de 0 à 4096 ; 0 renvoie une chaîne vide. Une nouvelle valeur est générée à chaque recalcul. Exemple : RANDSTR(16).',
       },
       LEN: {
         usage: 'LEN(texte)',

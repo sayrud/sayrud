@@ -338,6 +338,7 @@ const ko: typeof zhCN = {
       notNumber: '숫자가 아닌 값: {value}',
       notDate: '날짜가 아닌 값: {value}',
       argCount: '{name} 함수의 인수 개수가 잘못되었습니다',
+      randomLength: 'RANDSTR 길이는 0~4096 사이의 정수여야 합니다',
       divByZero: '0으로 나눌 수 없습니다',
       dateUnit: '{name}의 단위는 D, M 또는 Y여야 합니다',
     },
@@ -405,6 +406,10 @@ const ko: typeof zhCN = {
       CONCATENATE: {
         usage: 'CONCATENATE(텍스트1, 텍스트2, ...)',
         desc: '텍스트 연결',
+      },
+      RANDSTR: {
+        usage: 'RANDSTR(길이)',
+        desc: '대문자, 소문자, 숫자로 지정한 길이의 무작위 문자열을 생성합니다. 길이는 0~4096 사이의 정수이며, 0은 빈 문자열을 반환합니다. 다시 계산할 때마다 새 값을 생성합니다. 예: RANDSTR(16).',
       },
       LEN: {
         usage: 'LEN(텍스트)',

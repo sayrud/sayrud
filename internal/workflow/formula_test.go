@@ -90,6 +90,53 @@ func TestFormulaErrors(t *testing.T) {
 	}
 }
 
+func TestFormulaRandstr(t *testing.T) {
+	for _, length := range []int{0, 1, 16, 4096} {
+		src := fmt.Sprintf("RANDSTR(%d)", length)
+		f, err := ParseFormula(src)
+		require.NoError(t, err, src)
+		v, err := f.Eval(func(string) interface{} { return nil }, time.UTC)
+		require.NoError(t, err, src)
+		require.IsType(t, "", v)
+		assert.Len(t, v.(string), length)
+		assert.Regexp(t, `^[A-Za-z0-9]*$`, v)
+	}
+
+	scope := Scope{"input": map[string]interface{}{"length": 20.0}}
+	v, err := scope.Resolve(&Value{Kind: ValueFormula, Formula: `"id-" & RANDSTR({input.length})`})
+	require.NoError(t, err)
+	assert.Regexp(t, `^id-[A-Za-z0-9]{20}$`, v)
+	for _, src := range []string{`LEN(randstr(3 * 4))`, `LEN(RANDSTR("12"))`} {
+		v, err := scope.evalFormula(src)
+		require.NoError(t, err, src)
+		assert.Equal(t, 12.0, v)
+	}
+
+	first, err := scope.evalFormula(`RANDSTR(32)`)
+	require.NoError(t, err)
+	second, err := scope.evalFormula(`RANDSTR(32)`)
+	require.NoError(t, err)
+	assert.NotEqual(t, first, second, "parsed formula caching must not cache random results")
+	v, err = scope.evalFormula(`IF(FALSE, RANDSTR(-1), "skip")`)
+	require.NoError(t, err)
+	assert.Equal(t, "skip", v)
+}
+
+func TestFormulaRandstrErrors(t *testing.T) {
+	for _, src := range []string{
+		`RANDSTR()`, `RANDSTR(8, 2)`, `RANDSTR(-1)`, `RANDSTR(1.5)`, `RANDSTR(4097)`,
+		`RANDSTR(1e100)`, `RANDSTR(POWER(10, 1000))`, `RANDSTR(SQRT(-1))`, `RANDSTR("abc")`,
+	} {
+		t.Run(src, func(t *testing.T) {
+			f, err := ParseFormula(src)
+			require.NoError(t, err)
+			_, err = f.Eval(func(string) interface{} { return nil }, time.UTC)
+			var fe *FormulaError
+			require.ErrorAs(t, err, &fe)
+		})
+	}
+}
+
 func TestRunQueryMatchAnyAndFormula(t *testing.T) {
 	f := newLeadFixture(t)
 	for _, body := range []string{`{"name":"Ann","email":"ann@example.com"}`, `{"name":"Bob","email":"bob@example.com"}`, `{"name":"Cid","email":"cid@example.com"}`} {

@@ -13,6 +13,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/cockroachdb/errors"
+	"github.com/thanhpk/randstr"
 )
 
 // Formulas match the syntax, functions and evaluation rules of the frontend utils/formula.ts; {path} references a flow variable.
@@ -888,6 +889,13 @@ func init() {
 			}
 			return b.String(), nil
 		},
+		"RANDSTR": numberFn(1, 1, func(_ *formulaEval, n []float64) (interface{}, error) {
+			length := n[0]
+			if length != math.Trunc(length) || length < 0 || length > 4096 {
+				return nil, formulaErrorf("RANDSTR length must be an integer between 0 and 4096")
+			}
+			return randstr.String(int(length)), nil
+		}),
 		"LEN":   textFn(func(s string) interface{} { return float64(len([]rune(s))) }),
 		"LOWER": textFn(func(s string) interface{} { return strings.ToLower(s) }),
 		"UPPER": textFn(func(s string) interface{} { return strings.ToUpper(s) }),

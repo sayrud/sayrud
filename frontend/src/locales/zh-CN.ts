@@ -336,6 +336,7 @@ export default {
       notNumber: '"{value}" 不是数字',
       notDate: '"{value}" 不是日期',
       argCount: '函数 {name} 参数数量错误',
+      randomLength: 'RANDSTR 长度必须是 0 到 4096 之间的整数',
       divByZero: '除数不能为 0',
       dateUnit: '{name} 单位应为 D、M 或 Y',
     },
@@ -403,6 +404,10 @@ export default {
       CONCATENATE: {
         usage: 'CONCATENATE(文本1, 文本2, ...)',
         desc: '拼接文本',
+      },
+      RANDSTR: {
+        usage: 'RANDSTR(长度)',
+        desc: '生成指定长度的随机字符串，字符来自大小写字母和数字。长度为 0–4096 的整数，0 返回空字符串；每次重新计算都会生成新值。例如：RANDSTR(16)。',
       },
       LEN: {
         usage: 'LEN(文本)',
