@@ -7,6 +7,7 @@ import { useI18n } from 'vue-i18n'
 
 import { credentialsApi, workflowsApi } from '@/api/workflow'
 import StateIllustration from '@/components/common/StateIllustration.vue'
+import ProviderIcon from '@/components/common/ProviderIcon.vue'
 import PageHeader from '@/components/console/PageHeader.vue'
 import SettingsSection from '@/components/console/SettingsSection.vue'
 import CredentialDialog from '@/components/workflow/module/CredentialDialog.vue'
@@ -42,12 +43,21 @@ const columns = computed<TableColumnData[]>(() => [
 ])
 
 function summary(c: Credential) {
-  return (credentialTypeDef(c.type)?.summary ?? []).map((key) => c.data[key]).filter((value) => value !== undefined && value !== '').join(' · ')
+  return (credentialTypeDef(c.type)?.summary ?? []).filter((key) => c.type !== 'cloud' || key !== 'provider').map((key) => c.data[key]).filter((value) => value !== undefined && value !== '').join(' · ')
+}
+
+function typeLabel(c: Credential) {
+  const def = credentialTypeDef(c.type)
+  const label = dslText(def?.label) || c.type
+  if (c.type !== 'cloud') return label
+  const provider = def?.sections.flatMap((section) => section.fields).find((field) => field.key === 'provider')?.options?.find((option) => option.value === c.data.provider)
+  const providerLabel = dslText(provider?.label)
+  return providerLabel ? `${label} · ${providerLabel}` : label
 }
 
 const filtered = computed(() => {
   const search = keyword.value.trim().toLowerCase()
-  return credentials.value.filter((c) => (!type.value || c.type === type.value) && (!search || [c.name, dslText(credentialTypeDef(c.type)?.label), c.type, summary(c)].some((value) => value.toLowerCase().includes(search))))
+  return credentials.value.filter((c) => (!type.value || c.type === type.value) && (!search || [c.name, typeLabel(c), c.type, summary(c)].some((value) => value.toLowerCase().includes(search))))
 })
 const paged = computed(() => filtered.value.slice((pagination.current - 1) * pagination.pageSize, pagination.current * pagination.pageSize))
 const typeOptions = computed(() => [...new Set([...types.value.map((def) => def.type), ...credentials.value.map((c) => c.type)])].map((value) => ({ value, label: dslText(credentialTypeDef(value)?.label) || value })))
@@ -236,7 +246,10 @@ onBeforeUnmount(() => { listRequest++; detailRequest++ })
         >
           <template #name="{ record }">
             <div class="name-cell">
-              <a-avatar shape="square" :size="36" class="credential-icon"><component :is="moduleIcon(credentialTypeDef(record.type)?.icon || 'key')" :size="18" /></a-avatar>
+              <span class="credential-icon" aria-hidden="true">
+                <ProviderIcon v-if="record.type === 'cloud' && typeof record.data.provider === 'string'" :icon="record.data.provider" :size="28" />
+                <component :is="moduleIcon(credentialTypeDef(record.type)?.icon || 'key')" v-else :size="24" :stroke-width="1.75" />
+              </span>
               <div class="name-text">
                 <a-link class="name" @click.stop="inspect(record as Credential)">{{ record.name }}</a-link>
                 <div class="text-desc ellipsis">{{ summary(record as Credential) || t('credentialPage.projectShared') }}</div>
@@ -244,7 +257,7 @@ onBeforeUnmount(() => { listRequest++; detailRequest++ })
             </div>
           </template>
           <template #type="{ record }">
-            <a-tag :color="credentialTypeDef(record.type) ? undefined : 'orange'">{{ dslText(credentialTypeDef(record.type)?.label) || record.type }}</a-tag>
+            <a-tag :color="credentialTypeDef(record.type) ? undefined : 'orange'">{{ typeLabel(record as Credential) }}</a-tag>
           </template>
           <template #updatedAt="{ record }">{{ formatTime(record.updatedAt) }}</template>
           <template #actions="{ record }">
@@ -296,7 +309,10 @@ onBeforeUnmount(() => { listRequest++; detailRequest++ })
         <a-alert v-if="detailsError" type="error">{{ detailsError }}</a-alert>
         <a-space v-else-if="selected" direction="vertical" size="large" fill>
           <a-space size="medium" fill>
-            <a-avatar shape="square" :size="48" class="credential-icon"><component :is="moduleIcon(detailDef?.icon || 'key')" :size="24" /></a-avatar>
+            <span class="credential-icon credential-icon-large" aria-hidden="true">
+              <ProviderIcon v-if="selected.type === 'cloud' && typeof selected.data.provider === 'string'" :icon="selected.data.provider" :size="36" />
+              <component :is="moduleIcon(detailDef?.icon || 'key')" v-else :size="28" :stroke-width="1.75" />
+            </span>
             <a-space direction="vertical" size="mini">
               <a-typography-title :heading="5" class="detail-title">{{ selected.name }}</a-typography-title>
               <a-typography-text type="secondary">{{ dslText(detailDef?.label) || selected.type }}</a-typography-text>
@@ -393,10 +409,17 @@ onBeforeUnmount(() => { listRequest++; detailRequest++ })
   gap: 12px;
 }
 .credential-icon {
+  display: inline-flex;
   flex: none;
-  color: var(--color-primary);
-  background: var(--bg-primary-soft);
-  border-radius: 8px;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  color: var(--text-caption);
+}
+.credential-icon-large {
+  width: 48px;
+  height: 48px;
 }
 .name-text {
   display: flex;
