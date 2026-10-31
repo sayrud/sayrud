@@ -124,7 +124,7 @@ onMounted(() => {
 
   <PanelSection :title="t('workflow.request.security')">
     <div class="switch-row">
-      <span class="switch-title">{{ t('workflow.request.authKey') }}</span>
+      <a-typography-text class="workflow-field-label">{{ t('workflow.request.authKey') }}</a-typography-text>
       <a-tooltip :content="t('workflow.request.authKeyDesc')" mini>
         <Info :size="14" class="switch-info" />
       </a-tooltip>
@@ -158,7 +158,7 @@ onMounted(() => {
     <ErrorResponseEditor v-if="api.auth.type === 'api_key'" v-model="api.auth.errorResponse" :status="401" code="unauthorized" message="a valid API key is required" />
 
     <div class="switch-row">
-      <span class="switch-title">{{ t('workflow.request.rateLimit') }}</span>
+      <a-typography-text class="workflow-field-label">{{ t('workflow.request.rateLimit') }}</a-typography-text>
       <a-tooltip :content="t('workflow.request.rateLimitDesc')" mini>
         <Info :size="14" class="switch-info" />
       </a-tooltip>
@@ -279,9 +279,6 @@ onMounted(() => {
   align-items: center;
   gap: 6px;
   min-height: 40px;
-}
-.switch-title {
-  color: var(--text-title);
 }
 .switch-info {
   color: var(--text-placeholder);

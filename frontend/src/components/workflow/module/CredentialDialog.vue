@@ -168,7 +168,7 @@ function remove() {
     unmount-on-close
   >
     <a-alert v-if="!secretsReady() && fields.some((f) => f.secret)" type="warning" class="alert">{{ t('workflow.credential.secretsMissing') }}</a-alert>
-    <div v-if="def?.description" class="text-desc alert">{{ dslText(def.description) }}</div>
+    <a-typography-text v-if="def?.description" type="secondary" class="workflow-field-tip alert">{{ dslText(def.description) }}</a-typography-text>
     <a-form v-if="def" layout="vertical" :model="draft" :disabled="busy" class="form">
       <a-form-item :label="t('workflow.credential.name')" required>
         <a-input v-model="draft.name" :max-length="64" :placeholder="t('workflow.credential.namePlaceholder')" />
@@ -176,7 +176,7 @@ function remove() {
 
       <template v-for="(section, i) in sections" :key="section.showIfValue || i">
         <div v-if="section.title" class="group-title">{{ dslText(section.title) }}</div>
-        <div v-if="section.description" class="text-desc alert">{{ dslText(section.description) }}</div>
+        <a-typography-text v-if="section.description" type="secondary" class="workflow-field-tip alert">{{ dslText(section.description) }}</a-typography-text>
         <div class="grid">
           <a-form-item v-for="f in section.fields" :key="f.key" :label="dslText(f.label)" :extra="dslText(f.help) || undefined" :required="f.required" :class="{ wide: f.widget === 'select' || f.multiline }">
             <div v-if="f.secret && f.multiline" class="multiline-secret">

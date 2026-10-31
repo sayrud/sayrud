@@ -56,7 +56,7 @@ function autoMap() {
     <div v-for="(m, i) in mapping" :key="m.fieldUID" class="map-row">
       <div class="map-field">
         <FieldTypeIcon v-if="fieldOf(m.fieldUID)" :type="fieldOf(m.fieldUID)!.type" />
-        <span class="ellipsis" :class="{ missing: !fieldOf(m.fieldUID) }">{{ fieldOf(m.fieldUID)?.label ?? m.fieldUID }}</span>
+        <a-typography-text class="workflow-field-label ellipsis" :type="fieldOf(m.fieldUID) ? undefined : 'danger'" :delete="!fieldOf(m.fieldUID)">{{ fieldOf(m.fieldUID)?.label ?? m.fieldUID }}</a-typography-text>
       </div>
       <ValueInput v-model="m.value" :ctx="ctx" :field="fieldOf(m.fieldUID)" class="map-value" />
       <a-button v-if="!store.readonly" type="text" size="mini" class="btn-muted" :title="t('common.delete')" :aria-label="t('common.delete')" @click="mapping.splice(i, 1)"><template #icon><X :size="14" /></template></a-button>
@@ -80,7 +80,7 @@ function autoMap() {
       {{ t('workflow.write.autoMap') }}
     </a-button>
   </div>
-  <div class="hint">{{ t('workflow.write.notWritable') }}</div>
+  <a-typography-text type="secondary" class="hint workflow-field-tip">{{ t('workflow.write.notWritable') }}</a-typography-text>
 </template>
 
 <style scoped>
@@ -101,12 +101,6 @@ function autoMap() {
   align-items: center;
   gap: 6px;
   min-width: 0;
-  font-size: 13px;
-  color: var(--text-title);
-}
-.missing {
-  color: var(--color-danger);
-  text-decoration: line-through;
 }
 .field-option {
   display: inline-flex;
@@ -132,7 +126,5 @@ function autoMap() {
 }
 .hint {
   margin-top: 10px;
-  font-size: 12px;
-  color: var(--text-placeholder);
 }
 </style>

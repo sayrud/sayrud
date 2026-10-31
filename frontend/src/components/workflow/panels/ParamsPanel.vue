@@ -230,7 +230,7 @@ function optional(n: number | undefined) {
 
           <div class="group">
             <div class="switch-row">
-              <span>{{ t('workflow.params.required') }}</span>
+              <a-typography-text class="workflow-field-label">{{ t('workflow.params.required') }}</a-typography-text>
               <a-switch v-model="p.required" size="small" />
             </div>
             <a-form-item v-if="!p.required" :label="t('workflow.params.default')" :extra="t('workflow.params.defaultHelp')">
@@ -249,11 +249,11 @@ function optional(n: number | undefined) {
           </div>
 
           <div class="group">
-            <button type="button" class="messages-toggle" :aria-expanded="messagesOpen.has(p.id)" @click="toggleMessages(p)">
-              <component :is="messagesOpen.has(p.id) ? ChevronDown : ChevronRight" :size="14" />
-              {{ t('workflow.params.message') }}
+            <a-button type="text" size="small" class="messages-toggle btn-muted" :aria-expanded="messagesOpen.has(p.id)" @click="toggleMessages(p)">
+              <template #icon><component :is="messagesOpen.has(p.id) ? ChevronDown : ChevronRight" :size="14" /></template>
+              <a-typography-text class="workflow-field-label">{{ t('workflow.params.message') }}</a-typography-text>
               <span v-if="messageCount(p)" class="messages-count">{{ t('workflow.params.messagesCount', { n: messageCount(p) }) }}</span>
-            </button>
+            </a-button>
             <template v-if="messagesOpen.has(p.id)">
               <a-form-item :extra="t('workflow.params.messageHelp')">
                 <a-input v-model="p.message" :max-length="200" :placeholder="t('workflow.params.messagePlaceholder')" allow-clear />
@@ -261,7 +261,7 @@ function optional(n: number | undefined) {
               <a-form-item v-if="messageCodes(p).length" :label="t('workflow.params.messagesByCode')">
                 <div class="code-messages">
                   <template v-for="code in messageCodes(p)" :key="code">
-                    <span class="code-label ellipsis" :title="code">{{ CODE_LABELS[code]?.() ?? code }}</span>
+                    <a-typography-text class="code-label workflow-field-label ellipsis" :title="code">{{ CODE_LABELS[code]?.() ?? code }}</a-typography-text>
                     <a-input :model-value="p.messages?.[code] ?? ''" :max-length="200" :placeholder="p.message || undefined" allow-clear @update:model-value="(v) => setParamMessage(p, code, v)" />
                   </template>
                 </div>
@@ -346,8 +346,6 @@ function optional(n: number | undefined) {
   justify-content: space-between;
   min-height: 32px;
   margin-bottom: 12px;
-  font-size: 13px;
-  color: var(--text-title);
 }
 .mono :deep(input) {
   font-family: 'SF Mono', Menlo, Consolas, monospace;
@@ -360,20 +358,7 @@ function optional(n: number | undefined) {
   border-style: dashed;
 }
 .messages-toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
   margin: 0 0 12px -6px;
-  padding: 4px 6px;
-  border: none;
-  border-radius: 4px;
-  background: transparent;
-  font-size: 13px;
-  color: var(--text-title);
-  cursor: pointer;
-}
-.messages-toggle:hover {
-  background: var(--fill-hover);
 }
 .messages-count {
   font-size: 12px;
@@ -388,8 +373,6 @@ function optional(n: number | undefined) {
 }
 .code-label {
   max-width: 120px;
-  font-size: 12px;
-  color: var(--text-caption);
 }
 .param-error-response {
   margin-top: 12px;

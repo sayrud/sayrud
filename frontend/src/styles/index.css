@@ -246,6 +246,17 @@ textarea {
   color: var(--text-caption);
 }
 
+/* Custom controls follow Arco FormItem labels and extra text. */
+.workflow-field-label.arco-typography:not(.arco-typography-danger) {
+  color: var(--color-text-2);
+}
+
+.workflow-field-tip.arco-typography {
+  display: block;
+  font-size: 12px;
+  color: var(--color-text-3);
+}
+
 /*
  * Gray description text: descriptions of pages, sections and settings, and secondary information such as emails and times.
  * The weight is fixed so it does not inherit 500 from the Arco headers.

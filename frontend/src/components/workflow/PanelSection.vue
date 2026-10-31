@@ -6,8 +6,8 @@ defineProps<{ title: string; description?: string }>()
   <section class="panel-section">
     <div class="section-head">
       <div class="section-text">
-        <a-typography-text bold class="section-title">{{ title }}</a-typography-text>
-        <a-typography-text v-if="description" type="secondary" class="section-desc">{{ description }}</a-typography-text>
+        <a-typography-title :heading="6" class="section-title">{{ title }}</a-typography-title>
+        <a-typography-text v-if="description" type="secondary" class="section-desc workflow-field-tip">{{ description }}</a-typography-text>
       </div>
       <div v-if="$slots.extra" class="section-extra"><slot name="extra" /></div>
     </div>
@@ -35,13 +35,10 @@ defineProps<{ title: string; description?: string }>()
   min-width: 0;
 }
 .section-title {
-  font-size: 13px;
-  line-height: 22px;
+  margin: 0;
 }
 .section-desc {
-  margin-top: 2px;
-  font-size: 12px;
-  line-height: 18px;
+  margin-top: 4px;
 }
 .section-extra {
   flex: none;

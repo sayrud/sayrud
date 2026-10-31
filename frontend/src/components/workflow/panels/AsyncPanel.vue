@@ -18,7 +18,7 @@ const flow = computed(() => store.spec!.async.find((f) => f.id === props.flowId)
       <a-radio-group v-model="flow.event" direction="vertical" class="events">
         <a-radio v-for="event in (['succeeded', 'request_received'] as const)" :key="event" :value="event" class="event" :class="{ active: flow.event === event }">
           <div class="event-title">{{ eventLabel(event) }}</div>
-          <div class="event-desc">{{ eventDescription(event) }}</div>
+          <a-typography-text type="secondary" class="event-desc workflow-field-tip">{{ eventDescription(event) }}</a-typography-text>
         </a-radio>
       </a-radio-group>
     </a-form-item>
@@ -61,8 +61,5 @@ const flow = computed(() => store.spec!.async.find((f) => f.id === props.flowId)
 }
 .event-desc {
   margin-top: 2px;
-  font-size: 12px;
-  line-height: 18px;
-  color: var(--text-placeholder);
 }
 </style>

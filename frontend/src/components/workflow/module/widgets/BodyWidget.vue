@@ -63,7 +63,7 @@ const previewText = computed(() => JSON.stringify(preview(body.value), null, 2))
     <BodyEditor v-if="body.type !== 'value'" v-model:body="body" :ctx="ctx" />
     <ValueInput v-else v-model="body.value" :ctx="ctx" />
   </template>
-  <div v-else class="hint">{{ dslText(field.placeholder) }}</div>
+  <a-typography-text v-else type="secondary" class="workflow-field-tip">{{ dslText(field.placeholder) }}</a-typography-text>
   <a-collapse v-if="field.display === 'response'" :default-active-key="['preview']" :bordered="false" class="preview-collapse">
     <a-collapse-item key="preview" :header="t('workflow.response.preview')">
       <pre class="preview">{{ previewText }}</pre>
@@ -79,10 +79,6 @@ const previewText = computed(() => JSON.stringify(preview(body.value), null, 2))
 }
 .toolbar:empty {
   display: none;
-}
-.hint {
-  font-size: 12px;
-  color: var(--text-placeholder);
 }
 .preview-collapse {
   margin-top: 12px;

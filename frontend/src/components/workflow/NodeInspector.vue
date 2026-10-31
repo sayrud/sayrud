@@ -224,8 +224,4 @@ const issues = computed(() => {
 .inspector-form :deep(.arco-form-item-label-col) {
   margin-bottom: 4px;
 }
-.inspector-form :deep(.arco-form-item-label-col > .arco-form-item-label) {
-  font-size: 13px;
-  color: var(--text-caption);
-}
 </style>

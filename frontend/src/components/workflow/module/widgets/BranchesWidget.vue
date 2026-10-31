@@ -5,8 +5,8 @@ const { t } = useI18n()
 </script>
 
 <template>
-  <div class="branch-note"><span class="dot then" />{{ t('workflow.condition.thenNote') }}</div>
-  <div class="branch-note"><span class="dot else" />{{ t('workflow.condition.elseNote') }}</div>
+  <a-typography-text type="secondary" class="branch-note workflow-field-tip"><span class="dot then" />{{ t('workflow.condition.thenNote') }}</a-typography-text>
+  <a-typography-text type="secondary" class="branch-note workflow-field-tip"><span class="dot else" />{{ t('workflow.condition.elseNote') }}</a-typography-text>
 </template>
 
 <style scoped>
@@ -14,9 +14,6 @@ const { t } = useI18n()
   display: flex;
   align-items: flex-start;
   gap: 8px;
-  font-size: 13px;
-  line-height: 20px;
-  color: var(--text-caption);
 }
 .branch-note + .branch-note {
   margin-top: 6px;
