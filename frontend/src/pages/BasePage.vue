@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { Message } from '@arco-design/web-vue'
 import { IconLock } from '@arco-design/web-vue/es/icon'
-import { CloudCheck, CloudOff, Eye, House, KeyRound, LoaderCircle, PanelLeftOpen, Share2, ShieldCheck } from '@lucide/vue'
+import { CloudOff, Eye, House, KeyRound, LoaderCircle, PanelLeftOpen, Share2, ShieldCheck } from '@lucide/vue'
 import { computed, defineAsyncComponent, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
@@ -223,7 +223,7 @@ watch(
 const syncState = computed(() => {
   if (store.connection !== 'open') return { icon: CloudOff, text: store.connection === 'connecting' ? t('base.connecting') : t('base.offline'), cls: 'offline' }
   if (store.pendingCount > 0 || store.refreshing) return { icon: LoaderCircle, text: store.refreshing ? t('base.refreshing') : t('base.saving'), cls: 'saving' }
-  return { icon: CloudCheck, text: t('common.saved'), cls: 'saved' }
+  return null
 })
 
 const otherMembers = computed(() => store.onlineMembers.filter((m) => publicPage.value ? m.clientId !== store.myClientId : m.memberId !== store.identity.memberId))
@@ -364,7 +364,7 @@ onBeforeUnmount(() => {
             {{ t('base.adminAccess') }}
           </a-tag>
         </a-tooltip>
-        <span v-if="store.project && ((store.canEdit && !projectPage) || syncState.cls !== 'saved')" class="sync-state" :class="syncState.cls" :title="syncState.text">
+        <span v-if="store.project && syncState" class="sync-state" :class="syncState.cls" :title="syncState.text">
           <component :is="syncState.icon" :size="15" />
           <span class="sync-text">{{ syncState.text }}</span>
         </span>
