@@ -1834,7 +1834,6 @@ const ko: typeof zhCN = {
       name: '이름',
       outputs: '출력 변수',
       outputsHelp: '이후 단계에서 사용할 수 있으며 클릭하면 경로가 복사됩니다',
-      close: '닫기',
     },
     issue: {
       invalidSecurityResponseStatus: '응답 상태 코드는 200–599여야 하며 204, 205, 304는 사용할 수 없습니다',

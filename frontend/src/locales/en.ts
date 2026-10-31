@@ -1834,7 +1834,6 @@ const en: typeof zhCN = {
       name: 'Name',
       outputs: 'Outputs',
       outputsHelp: 'Later steps can use them, click to copy the path',
-      close: 'Close',
     },
     issue: {
       invalidSecurityResponseStatus: 'Response status must be 200–599, excluding 204, 205 and 304',

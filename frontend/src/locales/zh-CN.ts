@@ -1832,7 +1832,6 @@ export default {
       name: '名称',
       outputs: '输出变量',
       outputsHelp: '后续步骤可以引用，点击复制路径',
-      close: '关闭',
     },
     issue: {
       invalidSecurityResponseStatus: '响应状态码需为 200–599，且不能为 204、205 或 304',

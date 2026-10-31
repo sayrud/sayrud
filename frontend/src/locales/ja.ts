@@ -1834,7 +1834,6 @@ const ja: typeof zhCN = {
       name: '名前',
       outputs: '出力変数',
       outputsHelp: '後続の手順で使えます。クリックでパスをコピー',
-      close: '閉じる',
     },
     issue: {
       invalidSecurityResponseStatus: 'ステータスコードは 200–599 で、204、205、304 は使用できません',

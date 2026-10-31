@@ -1834,7 +1834,6 @@ const fr: typeof zhCN = {
       name: 'Nom',
       outputs: 'Sorties',
       outputsHelp: 'Les étapes suivantes peuvent les utiliser, cliquez pour copier le chemin',
-      close: 'Fermer',
     },
     issue: {
       invalidSecurityResponseStatus: 'Le statut doit être compris entre 200 et 599, sauf 204, 205 et 304',

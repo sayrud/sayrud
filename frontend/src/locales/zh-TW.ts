@@ -1834,7 +1834,6 @@ const zhTW: typeof zhCN = {
       name: '名稱',
       outputs: '輸出變數',
       outputsHelp: '後續步驟可以引用，點擊複製路徑',
-      close: '關閉',
     },
     issue: {
       invalidSecurityResponseStatus: '回應狀態碼須為 200–599，且不能為 204、205 或 304',

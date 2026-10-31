@@ -1834,7 +1834,6 @@ const de: typeof zhCN = {
       name: 'Name',
       outputs: 'Ausgaben',
       outputsHelp: 'Spätere Schritte können sie nutzen; klicken kopiert den Pfad',
-      close: 'Schließen',
     },
     issue: {
       invalidSecurityResponseStatus: 'Der Status muss 200–599 sein, außer 204, 205 und 304',

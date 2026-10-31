@@ -1834,7 +1834,6 @@ const ptBR: typeof zhCN = {
       name: 'Nome',
       outputs: 'Saídas',
       outputsHelp: 'As próximas etapas podem usá-los; clique para copiar o caminho',
-      close: 'Fechar',
     },
     issue: {
       invalidSecurityResponseStatus: 'O status deve ser 200–599, exceto 204, 205 e 304',

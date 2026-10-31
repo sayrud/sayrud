@@ -1834,7 +1834,6 @@ const es: typeof zhCN = {
       name: 'Nombre',
       outputs: 'Salidas',
       outputsHelp: 'Los pasos siguientes pueden usarlos; haz clic para copiar la ruta',
-      close: 'Cerrar',
     },
     issue: {
       invalidSecurityResponseStatus: 'El estado debe ser 200–599, excepto 204, 205 y 304',
