@@ -158,6 +158,9 @@ const formulaRecord = computed(() => props.record)
 .field-editor {
   width: 100%;
 }
+.field-editor :deep(.attachment-panel) {
+  padding-inline: 0;
+}
 .select-box {
   display: flex;
   align-items: center;
