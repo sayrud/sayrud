@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { FormItem } from '@arco-design/web-vue'
+import '@arco-design/web-vue/es/form/style/css.js'
 import { computed } from 'vue'
 
 import BodyWidget from '@/components/workflow/module/widgets/BodyWidget.vue'
@@ -59,7 +61,7 @@ const labeled = computed(() => !props.compact && !!props.field.label && !props.f
 </script>
 
 <template>
-  <component :is="labeled ? 'a-form-item' : 'div'" v-bind="labeled ? { label: dslText(field.label), extra: dslText(field.help) || undefined } : { class: compact ? 'compact' : 'bare' }">
+  <component :is="labeled ? FormItem : 'div'" v-bind="labeled ? { label: dslText(field.label), extra: dslText(field.help) || undefined } : { class: compact ? 'compact' : 'bare' }">
     <ValueInput v-if="field.widget === 'value'" v-model="valueInput" class="grow" :ctx="ctx" :multiline="field.multiline" :placeholder="dslText(field.placeholder) || undefined" />
 
     <a-input-number
