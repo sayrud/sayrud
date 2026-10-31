@@ -14,20 +14,19 @@ const root = ref<HTMLDivElement>()
 const paths = ref<string[]>([])
 const markerID = `fork-arrow-${Math.random().toString(36).slice(2, 8)}`
 
-/** Compute each Bezier curve from layout positions, using offsets rather than screen coordinates so canvas zoom does not affect it. */
+/** Connect the first flow horizontally; further flows branch from a shared vertical line. */
 function measure() {
   const el = root.value
   if (!el) return
   const starts = el.querySelectorAll<HTMLElement>('[data-fork-start] > .node-row > .node-col > .flow-node')
   paths.value = [...starts].map((card) => {
-    let x = card.offsetWidth / 2
-    let y = 0
+    let x = -4
+    let y = card.offsetHeight / 2
     for (let node: HTMLElement | null = card; node && node !== el; node = node.offsetParent as HTMLElement | null) {
       x += node.offsetLeft
       y += node.offsetTop
     }
-    const endY = y - 4
-    return `M 0 ${ORIGIN_Y} C ${x * 0.55} ${ORIGIN_Y}, ${x} ${ORIGIN_Y + (endY - ORIGIN_Y) * 0.2}, ${x} ${endY}`
+    return y === ORIGIN_Y ? `M 0 ${ORIGIN_Y} H ${x}` : `M 0 ${ORIGIN_Y} H 36 V ${y} H ${x}`
   })
 }
 
@@ -68,7 +67,7 @@ watch(
 <style scoped>
 .fork {
   position: relative;
-  padding: 96px 0 0 72px;
+  padding: 0 0 0 72px;
 }
 .fork-links {
   position: absolute;
@@ -89,7 +88,7 @@ watch(
 }
 .fork-cols {
   display: flex;
-  align-items: flex-start;
+  flex-direction: column;
   gap: 48px;
 }
 .fork-col {
