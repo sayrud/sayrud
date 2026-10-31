@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { ArrowLeftRight, ListChecks, X, Zap } from '@lucide/vue'
-import { computed, ref, watch } from 'vue'
+import { ArrowLeftRight, ListChecks, Zap } from '@lucide/vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import ModulePanel from '@/components/workflow/module/ModulePanel.vue'
@@ -16,6 +16,49 @@ import { findStep, issueMessage, stepMeta, triggerMetaOf } from '@/utils/workflo
 const { t } = useI18n()
 const store = useWorkflowEditorStore()
 const { change: changeTrigger } = useTriggerSwitch()
+
+const drawerContainer = ref<HTMLElement>()
+const viewportWidth = ref(window.innerWidth)
+const preferredWidth = ref(440)
+const maxWidth = computed(() => Math.floor(viewportWidth.value / 3))
+const minWidth = computed(() => Math.min(320, maxWidth.value))
+const drawerWidth = computed(() => Math.min(maxWidth.value, Math.max(minWidth.value, preferredWidth.value)))
+let resizing: { pointerId: number; startX: number; startWidth: number } | null = null
+
+function setWidth(width: number) {
+  preferredWidth.value = Math.min(maxWidth.value, Math.max(minWidth.value, width))
+}
+
+function startResize(e: PointerEvent) {
+  if (e.button !== 0 || !e.isPrimary) return
+  e.preventDefault()
+  resizing = { pointerId: e.pointerId, startX: e.clientX, startWidth: drawerWidth.value }
+  const handle = e.currentTarget as HTMLElement
+  handle.focus({ preventScroll: true })
+  handle.setPointerCapture(e.pointerId)
+}
+
+function moveResize(e: PointerEvent) {
+  if (resizing?.pointerId !== e.pointerId) return
+  setWidth(resizing.startWidth + resizing.startX - e.clientX)
+}
+
+function stopResize() {
+  resizing = null
+}
+
+function resizeWithKey(e: KeyboardEvent) {
+  if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) return
+  e.preventDefault()
+  setWidth(e.key === 'Home' ? minWidth.value : e.key === 'End' ? maxWidth.value : drawerWidth.value + (e.key === 'ArrowLeft' ? 20 : -20))
+}
+
+function updateViewportWidth() {
+  viewportWidth.value = window.innerWidth
+}
+
+onMounted(() => window.addEventListener('resize', updateViewportWidth))
+onBeforeUnmount(() => window.removeEventListener('resize', updateViewportWidth))
 
 const step = computed(() => {
   const s = store.selection
@@ -83,83 +126,117 @@ const issues = computed(() => {
 </script>
 
 <template>
-  <aside v-if="head" class="inspector">
-    <header class="inspector-head">
-      <span class="head-icon" :style="{ background: head.color }"><component :is="head.icon" :size="16" /></span>
-      <a-input
-        v-if="nameEditable"
-        v-model="draftName"
-        class="head-name"
-        :max-length="40"
-        :placeholder="head.fallback"
-        :aria-label="t('workflow.inspector.name')"
-        @blur="commitName"
-        @press-enter="onNameEnter"
-      />
-      <span v-else class="head-name static ellipsis">{{ head.name || head.fallback }}</span>
-      <a-trigger
-        v-if="store.selection?.kind === 'trigger' && triggerType && !store.readonly"
-        v-model:popup-visible="switchOpen"
-        trigger="click"
-        position="br"
-        :popup-offset="6"
-      >
-        <a-tooltip :content="t('workflow.node.changeType')" mini>
-          <a-button type="text" class="btn-muted" :class="{ active: switchOpen }" :aria-label="t('workflow.node.changeType')">
-            <template #icon><ArrowLeftRight :size="16" /></template>
-          </a-button>
-        </a-tooltip>
-        <template #content>
-          <div class="switch-menu"><TriggerList compact :selected="triggerType || undefined" @select="pickTrigger" /></div>
-        </template>
-      </a-trigger>
-      <a-tooltip :content="t('workflow.inspector.close')" mini>
-        <a-button type="text" class="btn-muted" :aria-label="t('workflow.inspector.close')" @click="store.select(null)">
-          <template #icon><X :size="16" /></template>
-        </a-button>
-      </a-tooltip>
-    </header>
+  <div ref="drawerContainer" class="inspector-host">
+    <a-drawer
+      v-if="drawerContainer"
+      :visible="!!head"
+      :width="drawerWidth"
+      :popup-container="drawerContainer"
+      :render-to-body="false"
+      :mask="false"
+      :footer="false"
+      :body-style="{ padding: 0 }"
+      class="inspector"
+      unmount-on-close
+      @cancel="store.select(null)"
+    >
+      <template #title>
+        <div v-if="head" class="inspector-head">
+          <div
+            class="inspector-resize"
+            role="separator"
+            tabindex="0"
+            aria-orientation="vertical"
+            :aria-label="t('tableSidebar.resize')"
+            :aria-valuemin="minWidth"
+            :aria-valuemax="maxWidth"
+            :aria-valuenow="drawerWidth"
+            @pointerdown="startResize"
+            @pointermove="moveResize"
+            @pointerup="stopResize"
+            @pointercancel="stopResize"
+            @lostpointercapture="stopResize"
+            @keydown="resizeWithKey"
+          />
+          <span class="head-icon" :style="{ background: head.color }"><component :is="head.icon" :size="16" /></span>
+          <a-input
+            v-if="nameEditable"
+            v-model="draftName"
+            class="head-name"
+            :max-length="40"
+            :placeholder="head.fallback"
+            :aria-label="t('workflow.inspector.name')"
+            @blur="commitName"
+            @press-enter="onNameEnter"
+          />
+          <span v-else class="head-name static ellipsis">{{ head.name || head.fallback }}</span>
+          <a-trigger
+            v-if="store.selection?.kind === 'trigger' && triggerType && !store.readonly"
+            v-model:popup-visible="switchOpen"
+            trigger="click"
+            position="br"
+            :popup-offset="6"
+          >
+            <a-tooltip :content="t('workflow.node.changeType')" mini>
+              <a-button type="text" class="btn-muted" :class="{ active: switchOpen }" :aria-label="t('workflow.node.changeType')">
+                <template #icon><ArrowLeftRight :size="16" /></template>
+              </a-button>
+            </a-tooltip>
+            <template #content>
+              <div class="switch-menu"><TriggerList compact :selected="triggerType || undefined" @select="pickTrigger" /></div>
+            </template>
+          </a-trigger>
+        </div>
+      </template>
 
-    <a-alert v-if="issues.length" type="error" class="issue-box">
-      <div v-for="(issue, i) in issues" :key="i">{{ issueMessage(issue) }}</div>
-    </a-alert>
+      <template v-if="head">
+        <a-alert v-if="issues.length" type="error" class="issue-box">
+          <div v-for="(issue, i) in issues" :key="i">{{ issueMessage(issue) }}</div>
+        </a-alert>
 
-    <div class="inspector-body">
-      <a-form layout="vertical" :model="{}" :disabled="store.readonly" class="inspector-form" auto-label-width>
-        <TriggerPanel v-if="store.selection?.kind === 'trigger'" />
-        <ParamsPanel v-else-if="store.selection?.kind === 'params'" />
-        <ModulePanel v-else-if="step" :key="step.id" :step-id="step.id" />
-        <AsyncPanel v-else-if="flow" :key="flow.id" :flow-id="flow.id" />
-      </a-form>
-    </div>
-  </aside>
+        <a-form layout="vertical" :model="{}" :disabled="store.readonly" class="inspector-form" auto-label-width>
+          <TriggerPanel v-if="store.selection?.kind === 'trigger'" />
+          <ParamsPanel v-else-if="store.selection?.kind === 'params'" />
+          <ModulePanel v-else-if="step" :key="step.id" :step-id="step.id" />
+          <AsyncPanel v-else-if="flow" :key="flow.id" :flow-id="flow.id" />
+        </a-form>
+      </template>
+    </a-drawer>
+  </div>
 </template>
 
 <style scoped>
-/* Card floating on the right side of the canvas; hidden when no node is selected. */
-.inspector {
+.inspector-host {
   position: absolute;
-  top: 12px;
-  right: 12px;
-  bottom: 12px;
+  inset: 0;
   z-index: 5;
-  display: flex;
-  flex-direction: column;
-  width: 440px;
-  min-height: 0;
-  overflow: hidden;
-  border: 1px solid var(--line-border);
-  border-radius: 12px;
-  background: var(--bg-body);
-  box-shadow: var(--shadow-popover);
+  pointer-events: none;
+}
+.inspector-host :deep(.arco-drawer) {
+  border: 1px solid var(--color-border-2);
+  border-top: none;
+}
+.inspector-host :deep(.arco-drawer-title) {
+  flex: 1;
+  min-width: 0;
+}
+.inspector-resize {
+  position: absolute;
+  inset: 0 auto 0 0;
+  z-index: 1;
+  width: 6px;
+  cursor: col-resize;
+  touch-action: none;
+  user-select: none;
+}
+.inspector-host:has(.inspector-resize:hover, .inspector-resize:focus-visible) :deep(.arco-drawer) {
+  border-left-color: var(--color-primary);
+  box-shadow: inset 1px 0 0 var(--color-primary);
 }
 .inspector-head {
   display: flex;
   align-items: center;
   gap: 8px;
-  height: 60px;
-  padding: 0 12px 0 20px;
-  flex: none;
 }
 .head-icon {
   display: inline-flex;
@@ -210,13 +287,8 @@ const issues = computed(() => {
 }
 .issue-box {
   width: auto;
-  margin: 0 20px 4px;
+  margin: 16px 20px 4px;
   flex: none;
-}
-.inspector-body {
-  flex: 1;
-  min-height: 0;
-  overflow: auto;
 }
 .inspector-form :deep(.arco-form-item) {
   margin-bottom: 16px;

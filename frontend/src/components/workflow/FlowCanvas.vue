@@ -84,9 +84,9 @@ function resetZoom() {
 }
 
 /** Width on the right covered by the inspector panel when a node is selected. */
-const INSPECTOR_COVER = 464
 function covered() {
-  return store.selection ? INSPECTOR_COVER : 0
+  if (!store.selection) return 0
+  return viewport.value?.closest('.canvas-area')?.querySelector('.inspector .arco-drawer')?.getBoundingClientRect().width ?? 0
 }
 
 /** Zoom so the whole flow is visible, capped at 100%. */

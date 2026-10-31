@@ -20,7 +20,7 @@ defineProps<{ title: string; description?: string }>()
   padding: 16px 20px;
 }
 .panel-section + .panel-section {
-  border-top: 1px solid var(--line-border);
+  border-top: 1px solid var(--color-border-2);
 }
 .section-head {
   display: flex;
