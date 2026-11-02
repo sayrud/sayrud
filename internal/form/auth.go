@@ -1,6 +1,9 @@
 package form
 
-import "mime/multipart"
+import (
+	"mime/multipart"
+	"time"
+)
 
 type SignUp struct {
 	Email    string `json:"email" valid:"required;email;maxlen:254"`
@@ -38,6 +41,16 @@ type LDAPSignIn struct {
 	UserName string `json:"username" valid:"required;maxlen:254"`
 	Password string `json:"password" valid:"required;maxlen:256"`
 } // @name LDAPSignIn
+
+type CreateAccessToken struct {
+	Name string `json:"name" valid:"required;maxlen:64"`
+	// Scopes are granted to the token, at least one.
+	Scopes []string `json:"scopes" enums:"read,write,events"`
+	// Projects are the UIDs of the projects the token is restricted to, empty to follow the memberships of the user.
+	Projects []string `json:"projects"`
+	// ExpiresAt is in the future, the token never expires if it is empty.
+	ExpiresAt *time.Time `json:"expiresAt,omitempty"`
+} // @name CreateAccessToken
 
 type UpdatePassword struct {
 	OldPassword string `json:"oldPassword" valid:"required"`

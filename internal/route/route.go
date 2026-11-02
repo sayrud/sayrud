@@ -38,6 +38,13 @@ type Options struct {
 // @Title Sayrud API
 // @Version 1.0
 // @BasePath /_
+// @Security BearerAuth
+// @SecurityDefinitions.apikey BearerAuth
+// @In header
+// @Name Authorization
+// @Description A personal access token as `Bearer sat_...`, created in the account settings or for a bot in the admin console. The web app signs in with the session cookie instead.
+// @Description Tokens act as their user within the granted scopes: GET and HEAD need `read`, the other methods need `write`, except the read-only POST of querying and fetching records and resolving field options.
+// @Description Tokens can not call the admin console, the account, session, sign-in method and token routes, or the WebSockets.
 func New(opts Options) *flamego.Flame {
 	f := flamego.Classic()
 	frontendHandler := frontend.Handler()
@@ -71,7 +78,7 @@ func New(opts Options) *flamego.Flame {
 			f.Post("/unlock", api.Share.LimitBody, form.Bind(form.UnlockLinkShare{}), api.Share.Unlock)
 			f.Group("", func() {
 				f.Get("", api.Share.Open)
-				f.Get("/ws", api.Share.Serve)
+				f.Get("/ws", api.Auth.SessionOnly, api.Share.Serve)
 				f.Group("/tables/{tableUID}", func() {
 					f.Get("/snapshot", api.Share.Snapshot)
 					f.Get("/changesets", api.Share.Changesets)
@@ -88,9 +95,9 @@ func New(opts Options) *flamego.Flame {
 			f.Post("/sign-in", form.Bind(form.SignIn{}), api.Auth.SignIn)
 			f.Post("/sign-out", api.Auth.SignOut)
 
-			f.Combo("/profile", api.Auth.Authenticator).
-				Get(api.Auth.Profile).
-				Put(form.Bind(form.UpdateProfile{}), api.Auth.UpdateProfile)
+			f.Combo("/profile").
+				Get(api.Auth.TokenAuthenticator, api.Auth.Profile).
+				Put(api.Auth.Authenticator, form.Bind(form.UpdateProfile{}), api.Auth.UpdateProfile)
 			f.Put("/password", api.Auth.Authenticator, form.Bind(form.UpdatePassword{}), api.Auth.UpdatePassword)
 			f.Combo("/avatar", api.Auth.Authenticator).
 				Post(
@@ -109,6 +116,33 @@ func New(opts Options) *flamego.Flame {
 				Get(api.Account.GetSettings).
 				Put(form.Bind(form.UpdateUserSettings{}), api.Account.UpdateSettings)
 			f.Delete("/account", api.Auth.Authenticator, form.Bind(form.DeleteAccount{}), api.Account.DeleteAccount)
+			f.Group("/tokens", func() {
+				f.Combo("").
+					Get(api.Account.ListTokens).
+					Post(form.Bind(form.CreateAccessToken{}), api.Account.CreateToken)
+				f.Delete("/{tokenID}", api.Account.RevokeToken)
+			}, api.Auth.Authenticator)
+			f.Group("/bots", func() {
+				f.Combo("").
+					Get(api.Account.ListBots).
+					Post(form.Bind(form.CreateBot{}), api.Account.CreateBot)
+				f.Group("/{userID}", func() {
+					f.Combo("").
+						Get(api.Account.GetBot).
+						Put(form.Bind(form.UpdateBot{}), api.Account.UpdateBot).
+						Delete(api.Account.DeleteBot)
+					f.Put("/status", form.Bind(form.SetBotStatus{}), api.Account.SetBotStatus)
+					f.Combo("/avatar").
+						Post(
+							api.Auth.LimitAvatarUpload,
+							binding.MultipartForm(form.UploadAvatar{}, binding.Options{MaxMemory: api.AvatarMaxSize}),
+							api.Account.UploadBotAvatar,
+						).
+						Delete(api.Account.RemoveBotAvatar)
+					f.Put("/access", form.Bind(form.UpdateBotAccess{}), api.Account.UpdateBotAccess)
+					f.Post("/token", api.Account.ResetBotToken)
+				}, api.Account.OwnBotTargeter)
+			}, api.Auth.Authenticator)
 
 			f.Group("/sso/{slug}", func() {
 				f.Get("/start", api.SSO.Start)
@@ -139,6 +173,24 @@ func New(opts Options) *flamego.Flame {
 					f.Put("/password", form.Bind(form.AdminResetPassword{}), api.Admin.ResetUserPassword)
 					f.Delete("/sessions", api.Admin.RevokeUserSessions)
 				}, api.Admin.Targeter)
+			})
+			f.Group("/bots", func() {
+				f.Combo("").
+					Get(api.Admin.ListBots).
+					Post(form.Bind(form.CreateBot{}), api.Admin.CreateBot)
+				f.Group("/{userID}", func() {
+					f.Combo("/avatar").
+						Post(
+							api.Auth.LimitAvatarUpload,
+							binding.MultipartForm(form.UploadAvatar{}, binding.Options{MaxMemory: api.AvatarMaxSize}),
+							api.Admin.UploadBotAvatar,
+						).
+						Delete(api.Admin.RemoveBotAvatar)
+					f.Get("", api.Admin.GetBot)
+					f.Put("/access", form.Bind(form.UpdateBotAccess{}), api.Admin.UpdateBotAccess)
+					f.Post("/token", api.Admin.ResetBotToken)
+					f.Put("/owner", form.Bind(form.SetBotOwner{}), api.Admin.SetBotOwner)
+				}, api.Admin.BotTargeter)
 			})
 			f.Group("/projects", func() {
 				f.Get("", api.Admin.ListProjects)
@@ -216,12 +268,13 @@ func New(opts Options) *flamego.Flame {
 						Get(api.Project.ListMembers).
 						Post(canManage, form.Bind(form.AddProjectMember{}), api.Project.AddMember)
 					f.Get("/lookup", canManage, api.Project.LookupMemberCandidate)
+					f.Get("/bots", canManage, api.Project.SearchMemberBots)
 					f.Combo("/{userID}").
 						Put(canManage, form.Bind(form.UpdateProjectMember{}), api.Project.UpdateMember).
 						Delete(api.Project.RemoveMember)
 				})
 
-				f.Get("/ws", api.Collab.Serve)
+				f.Get("/ws", api.Auth.SessionOnly, api.Collab.Serve)
 				f.Get("/field-shortcuts", api.Shortcut.List)
 
 				f.Group("/workflows", func() {
@@ -324,7 +377,7 @@ func New(opts Options) *flamego.Flame {
 					}, api.Schemaless.Tabler)
 				})
 			}, api.Project.Projecter)
-		}, api.Auth.Authenticator)
+		}, api.Auth.TokenAuthenticator)
 	})
 
 	// The API-triggered workflows live under a separate prefix, so they never shadow /_, /- and the frontend pages.

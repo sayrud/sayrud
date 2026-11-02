@@ -185,6 +185,25 @@ func TestResolve(t *testing.T) {
 		assert.Equal(t, CodeAccountDisabled, code(err))
 	})
 
+	t.Run("bot", func(t *testing.T) {
+		fu, fi := withFakeStores(t)
+		bot := &db.User{Email: "bot-agent@bots.invalid", UserName: "Agent", Kind: db.UserKindBot}
+		bot.ID = 3
+		fu.users[3] = bot
+		p := provider(func(p *db.AuthProvider) {
+			p.LinkByEmail = true
+			p.AutoCreateUser = true
+		})
+		_, err := Resolve(ctx, p, &Identity{Subject: "s1", Email: bot.Email, EmailVerified: true}, 0)
+		assert.Equal(t, CodeAccessDenied, code(err), "a bot is never linked by email")
+		_, err = Resolve(ctx, p, &Identity{Subject: "s1"}, bot.ID)
+		assert.Equal(t, CodeAccessDenied, code(err), "a bot can not bind an account")
+		fi.identities = append(fi.identities, &db.UserIdentity{Model: dbutil.Model{ID: 1}, UserID: bot.ID, ProviderID: 7, Subject: "s2"})
+		_, err = Resolve(ctx, p, &Identity{Subject: "s2"}, 0)
+		assert.Equal(t, CodeAccessDenied, code(err), "a bound bot can not sign in")
+		assert.Len(t, fi.identities, 1)
+	})
+
 	t.Run("link mode", func(t *testing.T) {
 		fu, fi := withFakeStores(t)
 		user, err := Resolve(ctx, provider(nil), &Identity{Subject: "gh-1", Email: "whatever@x.com"}, 1)

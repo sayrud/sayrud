@@ -8,6 +8,9 @@ import (
 	"github.com/wuhan005/sayrud/internal/db"
 )
 
+// errBotSignIn refuses binding a third-party account to a bot or signing in as one.
+var errBotSignIn = Errorf(CodeAccessDenied, errors.New("bots can not sign in with third-party accounts"))
+
 // Resolve maps the third-party account to a Sayrud user: a non-zero linkUserID binds it to that user, otherwise it looks up the bound identity, links by email or creates a user in order.
 func Resolve(ctx context.Context, p *db.AuthProvider, id *Identity, linkUserID int64) (*db.User, error) {
 	if !CheckAccess(id, p.AllowedEmailDomains, p.AllowedGroups) {
@@ -28,6 +31,9 @@ func Resolve(ctx context.Context, p *db.AuthProvider, id *Identity, linkUserID i
 	case identity != nil:
 		if user, err = db.Users.GetByID(ctx, identity.UserID); err != nil {
 			return nil, errors.Wrap(err, "get user of identity")
+		}
+		if user.IsBot() {
+			return nil, errBotSignIn
 		}
 	default:
 		if user, err = linkOrCreate(ctx, p, id); err != nil {
@@ -53,6 +59,9 @@ func link(ctx context.Context, p *db.AuthProvider, id *Identity, identity *db.Us
 	if err != nil {
 		return nil, errors.Wrap(err, "get user")
 	}
+	if user.IsBot() {
+		return nil, errBotSignIn
+	}
 	if identity != nil {
 		if err := db.UserIdentities.Touch(ctx, identity.ID, id.Email); err != nil {
 			return nil, errors.Wrap(err, "touch identity")
@@ -74,6 +83,9 @@ func linkOrCreate(ctx context.Context, p *db.AuthProvider, id *Identity) (*db.Us
 			return nil, errors.Wrap(err, "get user by email")
 		}
 		existing = user
+	}
+	if existing != nil && existing.IsBot() {
+		return nil, errBotSignIn
 	}
 
 	if existing != nil && p.LinkByEmail && id.EmailVerified {

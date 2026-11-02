@@ -42,7 +42,7 @@ func Init() (*gorm.DB, error) {
 	}
 
 	tables := []interface{}{
-		&User{}, &UserSession{}, &Setting{}, &AuthProvider{}, &UserIdentity{},
+		&User{}, &UserSession{}, &AccessToken{}, &Setting{}, &AuthProvider{}, &UserIdentity{},
 		&Project{}, &ProjectMember{},
 
 		&SLTable{}, &SLField{}, &SLRecord{}, &SLView{}, &SLChangeset{},
@@ -76,7 +76,10 @@ func Init() (*gorm.DB, error) {
 			return errors.Wrap(err, "initialize project navigation positions")
 		}
 
-		return tx.AutoMigrate(tables...)
+		if err := tx.AutoMigrate(tables...); err != nil {
+			return err
+		}
+		return errors.Wrap(assignBotOwners(tx), "assign bot owners")
 	}); err != nil {
 		return nil, errors.Wrap(err, "auto migrate")
 	}
@@ -100,6 +103,7 @@ func Init() (*gorm.DB, error) {
 func SetDatabaseStore(db *gorm.DB) {
 	Users = NewUsersStore(db)
 	UserSessions = NewUserSessionsStore(db)
+	AccessTokens = NewAccessTokensStore(db)
 	Settings = NewSettingsStore(db)
 	AuthProviders = NewAuthProvidersStore(db)
 	UserIdentities = NewUserIdentitiesStore(db)

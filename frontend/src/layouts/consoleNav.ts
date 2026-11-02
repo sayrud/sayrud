@@ -1,6 +1,8 @@
 import {
   BookOpen,
+  Bot,
   Globe,
+  KeyRound,
   LayoutDashboard,
   LockKeyhole,
   LogIn,
@@ -54,6 +56,15 @@ export const SETTINGS_NAV: NavGroup[] = [
   },
   {
     get title() {
+      return t('consoleNav.settingsDeveloper')
+    },
+    items: [
+      navItem('settings-tokens', KeyRound, () => t('consoleNav.tokens')),
+      navItem('settings-bots', Bot, () => t('consoleNav.myBots')),
+    ],
+  },
+  {
+    get title() {
       return t('consoleNav.settingsSecurity')
     },
     items: [
@@ -74,7 +85,10 @@ export const ADMIN_NAV: NavGroup[] = [
     get title() {
       return t('consoleNav.organization')
     },
-    items: [navItem('admin-users', UsersRound, () => t('consoleNav.users'))],
+    items: [
+      navItem('admin-users', UsersRound, () => t('consoleNav.users')),
+      navItem('admin-bots', Bot, () => t('consoleNav.bots')),
+    ],
   },
   {
     get title() {

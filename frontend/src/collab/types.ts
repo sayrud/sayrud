@@ -16,6 +16,7 @@ export interface Member {
   name: string
   color: string
   avatarUrl?: string
+  isBot?: boolean
   tableUID?: string
   viewUID?: string
   recordUID?: string

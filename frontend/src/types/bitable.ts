@@ -12,6 +12,12 @@ export interface UserBrief {
   userName: string
   avatarUrl?: string
   color: string
+  /** The user is a bot calling the API with access tokens. */
+  isBot?: boolean
+  /** Owner of the personal bot, 0 for the humans and the system bots. */
+  ownerId?: number
+  /** Name of the owner of the personal bot, only filled in the member lists. */
+  ownerName?: string
 }
 
 export interface Project {

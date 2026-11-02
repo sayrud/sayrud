@@ -26,6 +26,11 @@ type AuthAttemptsStore interface {
 	CheckPassword(ctx context.Context, email string) error
 	// ResetSignIn clears the attempts of the email after signing in successfully.
 	ResetSignIn(ctx context.Context, email string) error
+	// CheckToken reports whether the IP may present an access token, without counting it.
+	// It returns ErrTooManyAttempts if the IP has presented too many invalid tokens recently.
+	CheckToken(ctx context.Context, ip string) error
+	// CountTokenFailure counts an invalid access token presented by the IP, the valid ones are never counted.
+	CountTokenFailure(ctx context.Context, ip string) error
 }
 
 func NewAuthAttemptsStore(client *redis.Client) AuthAttemptsStore {
@@ -46,11 +51,15 @@ const (
 	signInIPLimit    = 30
 	signInEmailLimit = 10
 	signInWindow     = 10 * time.Minute
+
+	tokenFailureLimit  = 20
+	tokenFailureWindow = 10 * time.Minute
 )
 
 func signUpKey(ip string) string         { return "auth:sign_up:" + ip }
 func signInIPKey(ip string) string       { return "auth:sign_in:ip:" + ip }
 func signInEmailKey(email string) string { return "auth:sign_in:email:" + email }
+func tokenFailureKey(ip string) string   { return "auth:token:ip:" + ip }
 
 func (db *authAttempts) CheckSignUp(ctx context.Context, ip string) error {
 	return db.count(ctx, signUpKey(ip), signUpLimit, signUpWindow)
@@ -69,6 +78,28 @@ func (db *authAttempts) CheckPassword(ctx context.Context, email string) error {
 
 func (db *authAttempts) ResetSignIn(ctx context.Context, email string) error {
 	return db.Del(ctx, signInEmailKey(email)).Err()
+}
+
+func (db *authAttempts) CheckToken(ctx context.Context, ip string) error {
+	n, err := db.Get(ctx, tokenFailureKey(ip)).Int64()
+	if err != nil {
+		if errors.Is(err, redis.Nil) {
+			return nil
+		}
+		return errors.Wrap(err, "get")
+	}
+	if n >= tokenFailureLimit {
+		return ErrTooManyAttempts
+	}
+	return nil
+}
+
+func (db *authAttempts) CountTokenFailure(ctx context.Context, ip string) error {
+	err := db.count(ctx, tokenFailureKey(ip), tokenFailureLimit, tokenFailureWindow)
+	if errors.Is(err, ErrTooManyAttempts) {
+		return nil
+	}
+	return err
 }
 
 // count increases the counter of the key in a fixed window, and returns ErrTooManyAttempts once it exceeds max.

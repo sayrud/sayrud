@@ -257,7 +257,7 @@ func TestAvatarLifecycle(t *testing.T) {
 	uid := users.user.AvatarFileUID
 	require.Equal(t, "/_/avatars/"+uid, body.Data.AvatarURL)
 	require.Equal(t, body.Data.AvatarURL, dto.ToUserBrief(users.user).AvatarURL)
-	require.Equal(t, body.Data.AvatarURL, dto.ToAdminUser(users.user, 0, nil).AvatarURL)
+	require.Equal(t, body.Data.AvatarURL, dto.ToAdminUser(users.user, 0, 0, nil).AvatarURL)
 
 	file := files.files[uid]
 	require.Equal(t, "avatar.png", file.Name)

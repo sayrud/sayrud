@@ -31,11 +31,20 @@ func TestProjecter(t *testing.T) {
 	previousProjects, previousMembers := db.Projects, db.ProjectMembers
 	t.Cleanup(func() { db.Projects, db.ProjectMembers = previousProjects, previousMembers })
 	db.Projects = &shareProjectsStore{project: &db.Project{Model: dbutil.Model{ID: 1}, UID: "base", OwnerUserID: 1}}
-	db.ProjectMembers = &projecterMembersStore{roles: map[int64]db.ProjectRole{2: db.ProjectRoleViewer, 3: db.ProjectRoleViewer}}
+	db.ProjectMembers = &projecterMembersStore{roles: map[int64]db.ProjectRole{
+		2: db.ProjectRoleViewer, 3: db.ProjectRoleViewer,
+		// Bots of the viewer 2, the owner 1 and the stranger 5.
+		6: db.ProjectRoleEditor, 7: db.ProjectRoleEditor, 8: db.ProjectRoleManager,
+	}}
+	bot := func(id, owner int64) *db.User {
+		return &db.User{Model: dbutil.Model{ID: id}, Kind: db.UserKindBot, OwnerID: owner}
+	}
 
+	unrestricted := &db.AccessToken{ProjectIDs: []int64{}}
 	for _, tc := range []struct {
 		name     string
 		user     *db.User
+		token    *db.AccessToken
 		want     int
 		role     db.ProjectRole
 		viaAdmin bool
@@ -45,10 +54,18 @@ func TestProjecter(t *testing.T) {
 		{name: "admin collaborator", user: &db.User{Model: dbutil.Model{ID: 3}, IsAdmin: true}, want: http.StatusNoContent, role: db.ProjectRoleManager, viaAdmin: true},
 		{name: "admin", user: &db.User{Model: dbutil.Model{ID: 4}, IsAdmin: true}, want: http.StatusNoContent, role: db.ProjectRoleManager, viaAdmin: true},
 		{name: "stranger", user: &db.User{Model: dbutil.Model{ID: 5}}, want: http.StatusForbidden},
+		{name: "owner token", user: &db.User{Model: dbutil.Model{ID: 1}, IsAdmin: true}, token: unrestricted, want: http.StatusNoContent, role: db.ProjectRoleOwner},
+		{name: "admin collaborator token", user: &db.User{Model: dbutil.Model{ID: 3}, IsAdmin: true}, token: unrestricted, want: http.StatusNoContent, role: db.ProjectRoleViewer},
+		{name: "admin token", user: &db.User{Model: dbutil.Model{ID: 4}, IsAdmin: true}, token: unrestricted, want: http.StatusForbidden},
+		{name: "allowed project", user: &db.User{Model: dbutil.Model{ID: 2}}, token: &db.AccessToken{ProjectIDs: []int64{1}}, want: http.StatusNoContent, role: db.ProjectRoleViewer},
+		{name: "other project", user: &db.User{Model: dbutil.Model{ID: 2}}, token: &db.AccessToken{ProjectIDs: []int64{9}}, want: http.StatusForbidden},
+		{name: "bot capped by its viewer owner", user: bot(6, 2), token: unrestricted, want: http.StatusNoContent, role: db.ProjectRoleViewer},
+		{name: "bot of the project owner", user: bot(8, 1), token: unrestricted, want: http.StatusNoContent, role: db.ProjectRoleManager},
+		{name: "bot whose owner left", user: bot(7, 5), token: unrestricted, want: http.StatusForbidden},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			f := flamego.New()
-			f.Use(i18n.Middleware(), context.Contexter(nil), func(c flamego.Context) { c.Map(tc.user) })
+			f.Use(i18n.Middleware(), context.Contexter(nil), func(c flamego.Context) { c.Map(tc.user, tc.token) })
 			f.Get("/{projectUID}", Project.Projecter, func(ctx context.Context, role db.ProjectRole, access projectAccess) error {
 				require.Equal(t, tc.role, role)
 				require.Equal(t, tc.viaAdmin, access.ViaAdmin)
@@ -60,6 +77,20 @@ func TestProjecter(t *testing.T) {
 			require.Equal(t, tc.want, response.Code)
 		})
 	}
+}
+
+func TestVisibleCandidate(t *testing.T) {
+	alice := &db.User{Model: dbutil.Model{ID: 1}}
+	bob := &db.User{Model: dbutil.Model{ID: 2}}
+	require.True(t, visibleCandidate(alice, bob))
+	require.True(t, visibleCandidate(alice, &db.User{Model: dbutil.Model{ID: 4}, Kind: db.UserKindBot, OwnerID: 1}))
+	require.False(t, visibleCandidate(alice, &db.User{Model: dbutil.Model{ID: 5}, Kind: db.UserKindBot, OwnerID: 2}))
+}
+
+func TestLowerRole(t *testing.T) {
+	require.Equal(t, db.ProjectRoleViewer, db.LowerRole(db.ProjectRoleManager, db.ProjectRoleViewer))
+	require.Equal(t, db.ProjectRoleEditor, db.LowerRole(db.ProjectRoleEditor, db.ProjectRoleOwner))
+	require.Empty(t, db.LowerRole(db.ProjectRoleEditor, ""))
 }
 
 func TestRequireRole(t *testing.T) {

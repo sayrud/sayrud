@@ -31,6 +31,10 @@ type ProjectsStore interface {
 	// GetByUID returns the project with the given UID.
 	// It returns ErrProjectNotFound if the project does not exist.
 	GetByUID(ctx context.Context, projectUID string) (*Project, error)
+	// ListByIDs returns the projects with the given IDs, the missing ones are omitted.
+	ListByIDs(ctx context.Context, projectIDs []int64) ([]*Project, error)
+	// ListByUIDs returns the projects with the given UIDs, the missing ones are omitted.
+	ListByUIDs(ctx context.Context, projectUIDs []string) ([]*Project, error)
 	// Create creates a new project with the given options.
 	Create(ctx context.Context, opts CreateProjectOptions) (*Project, error)
 	// Update updates the project with the given ID.
@@ -97,6 +101,10 @@ type ListByUserIDOptions struct {
 	dbutil.Pagination
 	// Scope selects the owned or shared projects, both are listed if empty.
 	Scope ProjectScope
+	// IDs restricts the list to these projects if not nil.
+	IDs []int64
+	// AlsoAccessibleBy restricts the list to the projects this user owns or collaborates on as well if not 0.
+	AlsoAccessibleBy int64
 }
 
 func (db *projects) ListByUserID(ctx context.Context, userID int64, options ListByUserIDOptions) ([]*Project, int64, error) {
@@ -110,6 +118,13 @@ func (db *projects) ListByUserID(ctx context.Context, userID int64, options List
 		q = q.Where("id IN (?)", shared)
 	default:
 		q = q.Where("owner_user_id = ? OR id IN (?)", userID, shared)
+	}
+	if options.IDs != nil {
+		q = q.Where("id IN ?", options.IDs)
+	}
+	if options.AlsoAccessibleBy != 0 {
+		other := db.WithContext(ctx).Model(&ProjectMember{}).Select("project_id").Where("user_id = ?", options.AlsoAccessibleBy)
+		q = q.Where("owner_user_id = ? OR id IN (?)", options.AlsoAccessibleBy, other)
 	}
 	if err := q.Count(&total).Error; err != nil {
 		return nil, 0, errors.Wrap(err, "count")
@@ -126,6 +141,22 @@ func (db *projects) GetByID(ctx context.Context, projectID int64) (*Project, err
 
 func (db *projects) GetByUID(ctx context.Context, projectUID string) (*Project, error) {
 	return db.getBy(ctx, "uid = ?", projectUID)
+}
+
+func (db *projects) ListByIDs(ctx context.Context, projectIDs []int64) ([]*Project, error) {
+	var projects []*Project
+	if len(projectIDs) == 0 {
+		return projects, nil
+	}
+	return projects, db.WithContext(ctx).Where("id IN ?", projectIDs).Find(&projects).Error
+}
+
+func (db *projects) ListByUIDs(ctx context.Context, projectUIDs []string) ([]*Project, error) {
+	var projects []*Project
+	if len(projectUIDs) == 0 {
+		return projects, nil
+	}
+	return projects, db.WithContext(ctx).Where("uid IN ?", projectUIDs).Find(&projects).Error
 }
 
 // CreateProjectOptions are the options of creating a project.

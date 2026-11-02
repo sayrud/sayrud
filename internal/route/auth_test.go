@@ -50,3 +50,44 @@ func TestAPIRequiresSignIn(t *testing.T) {
 		})
 	}
 }
+
+func TestAccessTokensRejectedOnSessionRoutes(t *testing.T) {
+	router := New(Options{})
+	for _, tc := range []struct {
+		method string
+		path   string
+	}{
+		{http.MethodPut, "/_/auth/profile"},
+		{http.MethodPut, "/_/auth/password"},
+		{http.MethodPost, "/_/auth/avatar"},
+		{http.MethodDelete, "/_/auth/avatar"},
+		{http.MethodGet, "/_/auth/sessions"},
+		{http.MethodDelete, "/_/auth/sessions"},
+		{http.MethodDelete, "/_/auth/sessions/1"},
+		{http.MethodGet, "/_/auth/settings"},
+		{http.MethodDelete, "/_/auth/account"},
+		{http.MethodGet, "/_/auth/identities"},
+		{http.MethodDelete, "/_/auth/identities/1"},
+		{http.MethodGet, "/_/auth/tokens"},
+		{http.MethodPost, "/_/auth/tokens"},
+		{http.MethodDelete, "/_/auth/tokens/1"},
+		{http.MethodGet, "/_/auth/bots"},
+		{http.MethodPost, "/_/auth/bots"},
+		{http.MethodPost, "/_/auth/bots/1/token"},
+		{http.MethodPut, "/_/auth/bots/1/access"},
+		{http.MethodDelete, "/_/auth/bots/1"},
+		{http.MethodGet, "/_/admin/overview"},
+		{http.MethodGet, "/_/admin/users"},
+		{http.MethodPost, "/_/admin/bots"},
+		{http.MethodPost, "/_/admin/bots/1/token"},
+		{http.MethodGet, "/_/admin/swagger/index.html"},
+	} {
+		t.Run(tc.method+" "+tc.path, func(t *testing.T) {
+			r := httptest.NewRequest(tc.method, tc.path, nil)
+			r.Header.Set("Authorization", "Bearer sat_anything")
+			response := httptest.NewRecorder()
+			router.ServeHTTP(response, r)
+			require.Equal(t, http.StatusForbidden, response.Code)
+		})
+	}
+}

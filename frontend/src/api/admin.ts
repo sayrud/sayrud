@@ -7,6 +7,7 @@ import type {
   SystemSettings,
   UpdateAISettings,
 } from './api'
+import type { Bot } from './bots'
 import { client } from './client'
 
 export type { AdminAISettings, AdminProject, SystemSettings, UpdateAISettings }
@@ -15,6 +16,7 @@ export type { AdminAISettings, AdminProject, SystemSettings, UpdateAISettings }
 export type AdminUser = Omit<ApiAdminUser, 'lastSignInAt'> & { lastSignInAt: string | null }
 export type AdminOverview = Omit<ApiOverview, 'recentUsers'> & { recentUsers: AdminUser[] }
 export type UserStatusFilter = '' | 'active' | 'disabled' | 'admin'
+export type BotStatusFilter = '' | 'active' | 'disabled'
 
 export interface ListParams {
   page?: number
@@ -25,8 +27,9 @@ export interface ListParams {
 export const adminApi = {
   overview: async () => (await client.admin.getAdminOverview()).data as AdminOverview,
 
-  users: async ({ status, ...params }: ListParams & { status?: UserStatusFilter }) =>
-    (await client.admin.listAdminUsers({ ...params, status: status || undefined })).data as {
+  /** kind is empty to list both the people and the bots. */
+  users: async ({ status, kind, ...params }: ListParams & { status?: UserStatusFilter; kind?: '' | 'human' | 'bot' }) =>
+    (await client.admin.listAdminUsers({ ...params, status: status || undefined, kind: kind || undefined })).data as {
       users: AdminUser[]
       total: number
     },
@@ -49,6 +52,11 @@ export const adminApi = {
   deleteUser: async (userId: number, transferTo?: number) => {
     await client.admin.deleteAdminUser(userId, transferTo ? { transferTo } : undefined)
   },
+
+  bots: async ({ status, ...params }: ListParams & { status?: BotStatusFilter }) =>
+    (await client.admin.listAdminBots({ ...params, status: status || undefined })).data as { bots: Bot[]; total: number },
+  /** Hands the bot over to another member, who then limits its access and alone can invite it. */
+  setBotOwner: async (botId: number, ownerId: number) => (await client.admin.setAdminBotOwner(botId, { ownerId })).data as Bot,
 
   projects: async (params: ListParams) =>
     (await client.admin.listAdminProjects(params)).data as { projects: AdminProject[]; total: number },

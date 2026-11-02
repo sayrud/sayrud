@@ -80,6 +80,7 @@ type Member struct {
 	Name      string `json:"name"`
 	Color     string `json:"color"`
 	AvatarURL string `json:"avatarUrl"`
+	IsBot     bool   `json:"isBot,omitempty"`
 	TableUID  string `json:"tableUID,omitempty"`
 	ViewUID   string `json:"viewUID,omitempty"`
 	RecordUID string `json:"recordUID,omitempty"`

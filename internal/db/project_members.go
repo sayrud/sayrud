@@ -36,6 +36,17 @@ func (r ProjectRole) AtLeast(min ProjectRole) bool {
 	return projectRoleLevels[r] > 0 && projectRoleLevels[r] >= projectRoleLevels[min]
 }
 
+// LowerRole returns the role with fewer permissions, empty if either is empty.
+func LowerRole(a, b ProjectRole) ProjectRole {
+	if projectRoleLevels[a] == 0 || projectRoleLevels[b] == 0 {
+		return ""
+	}
+	if projectRoleLevels[a] < projectRoleLevels[b] {
+		return a
+	}
+	return b
+}
+
 // IsMemberRole reports whether the role can be granted to a collaborator.
 func (r ProjectRole) IsMemberRole() bool {
 	return r == ProjectRoleManager || r == ProjectRoleEditor || r == ProjectRoleViewer

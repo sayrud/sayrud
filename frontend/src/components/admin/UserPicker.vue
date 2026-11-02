@@ -34,7 +34,8 @@ async function search(keyword: string) {
   const current = ++seq
   loading.value = true
   try {
-    const { users } = await adminApi.users({ keyword, status: 'active', pageSize: 20 })
+    // Only the enabled people may receive bases or own bots.
+    const { users } = await adminApi.users({ keyword, status: 'active', kind: 'human', pageSize: 20 })
     if (current !== seq) return
     const exclude = new Set(props.excludeIds ?? [])
     const selected = options.value.find((u) => u.id === props.modelValue)

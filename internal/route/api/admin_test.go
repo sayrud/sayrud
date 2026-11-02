@@ -38,7 +38,7 @@ func TestAdminNetworkAllowlistSettings(t *testing.T) {
 	db.Settings = store
 	settingsForm := form.UpdateSystemSettings{
 		SiteName: "Sayrud", PasswordMinLength: 8, SessionTTLDays: 30, AllowPasswordSignIn: true,
-		NetworkAllowlist: []string{"10.0.0.10", "192.168.1.0/24", "fd00::/64"},
+		NetworkAllowlist: []string{"10.0.0.10", "192.168.1.0/24", "fd00::/64"}, AllowMemberBots: true, MemberBotLimit: 5,
 	}
 	f := flamego.New()
 	f.Use(i18n.Middleware(), context.Contexter(nil))

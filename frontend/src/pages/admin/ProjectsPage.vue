@@ -173,7 +173,7 @@ onMounted(load)
         </template>
         <template #owner="{ record }">
           <div v-if="record.owner" class="owner-cell">
-            <UserAvatar :name="record.owner.userName" :color="record.owner.color" :avatar-url="record.owner.avatarUrl" :size="24" />
+            <UserAvatar :name="record.owner.userName" :color="record.owner.color" :avatar-url="record.owner.avatarUrl" :size="24" :bot="record.owner.isBot" />
             <span class="ellipsis">{{ record.owner.userName }}</span>
           </div>
           <span v-else class="text-desc">{{ t('admin.projects.deletedUser') }}</span>

@@ -136,6 +136,10 @@ func toAdminUsers(ctx context.Context, users []*db.User) ([]*dto.AdminUser, erro
 	if err != nil {
 		return nil, err
 	}
+	botCounts, err := db.Users.CountBotsByOwners(ctx.Request().Context(), ids)
+	if err != nil {
+		return nil, errors.Wrap(err, "count bots")
+	}
 	identities, err := db.UserIdentities.ListByUserIDs(ctx.Request().Context(), ids)
 	if err != nil {
 		return nil, errors.Wrap(err, "list identities")
@@ -156,7 +160,7 @@ func toAdminUsers(ctx context.Context, users []*db.User) ([]*dto.AdminUser, erro
 	}
 	items := make([]*dto.AdminUser, 0, len(users))
 	for _, u := range users {
-		items = append(items, dto.ToAdminUser(u, counts[u.ID], briefs[u.ID]))
+		items = append(items, dto.ToAdminUser(u, counts[u.ID], botCounts[u.ID], briefs[u.ID]))
 	}
 	return items, nil
 }
@@ -170,16 +174,22 @@ func toAdminUsers(ctx context.Context, users []*db.User) ([]*dto.AdminUser, erro
 // @Param pageSize query int false "Page size, defaults to 20"
 // @Param keyword query string false "Matches the user name or email"
 // @Param status query string false "Filter by status, all if empty" Enums(active, disabled, admin)
+// @Param kind query string false "Filter by account type, all if empty" Enums(human, bot)
 // @Success 200 {object} dto.ListAdminUsersResp
 // @Failure 403 {string} string "Not an admin"
 // @Failure 500 {string} string "Internal server error"
 // @ID listAdminUsers
 // @Router /admin/users [get]
 func (adminRoute) ListUsers(ctx context.Context) error {
+	kind := db.UserKind(ctx.Query("kind"))
+	if kind != db.UserKindHuman && kind != db.UserKindBot {
+		kind = ""
+	}
 	users, total, err := db.Users.List(ctx.Request().Context(), db.ListUsersOptions{
 		Pagination: dbutil.Pagination{Page: ctx.QueryInt("page"), PageSize: ctx.QueryInt("pageSize")},
 		Keyword:    ctx.Query("keyword"),
 		Status:     db.UserStatus(ctx.Query("status")),
+		Kind:       kind,
 	})
 	if err != nil {
 		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to list users")
@@ -235,7 +245,7 @@ func (adminRoute) CreateUser(ctx context.Context, f form.AdminCreateUser) error 
 		}
 		user.IsAdmin = true
 	}
-	return ctx.ApiSuccess(dto.ToAdminUser(user, 0, nil))
+	return ctx.ApiSuccess(dto.ToAdminUser(user, 0, 0, nil))
 }
 
 // UpdateUser
@@ -267,7 +277,7 @@ func (adminRoute) UpdateUser(ctx context.Context, target *adminTarget, f form.Ad
 // SetUserAdmin
 // @Summary Grant or revoke the admin
 // @Tags Admin - Members
-// @Description Requires the admin. The admin can not revoke itself, and at least one enabled admin is kept.
+// @Description Requires the admin. The admin can not revoke itself, at least one enabled admin is kept, and bots can not be admins.
 // @Accept json
 // @Param userID path int true "User ID"
 // @Param data body form.AdminSetUserAdmin true "Whether the user is an admin"
@@ -287,8 +297,11 @@ func (adminRoute) SetUserAdmin(ctx context.Context, user *db.User, target *admin
 		return ctx.ApiError(http.StatusBadRequest, "admin::disabled_cannot_be_admin")
 	}
 	if err := db.Users.SetAdmin(ctx.Request().Context(), target.ID, f.IsAdmin); err != nil {
-		if errors.Is(err, db.ErrLastAdmin) {
+		switch {
+		case errors.Is(err, db.ErrLastAdmin):
 			return ctx.ApiError(http.StatusConflict, lastAdminKey)
+		case errors.Is(err, db.ErrUserIsBot):
+			return ctx.ApiError(http.StatusBadRequest, "admin::bot_cannot_be_admin")
 		}
 		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to set admin")
 		return ctx.ApiServerError()
@@ -333,18 +346,21 @@ func (adminRoute) SetUserStatus(ctx context.Context, hub *collab.Hub, user *db.U
 // ResetUserPassword
 // @Summary Reset the password of a user
 // @Tags Admin - Members
-// @Description Requires the admin. The user is signed out everywhere.
+// @Description Requires the admin. The user is signed out everywhere. Bots have no password.
 // @Accept json
 // @Param userID path int true "User ID"
 // @Param data body form.AdminResetPassword true "New password"
 // @Success 204 "No Content"
-// @Failure 400 {string} string "Invalid request body"
+// @Failure 400 {string} string "Invalid request body, or the user is a bot"
 // @Failure 403 {string} string "Not an admin"
 // @Failure 404 {string} string "User not found"
 // @Failure 500 {string} string "Internal server error"
 // @ID resetAdminUserPassword
 // @Router /admin/users/{userID}/password [put]
 func (adminRoute) ResetUserPassword(ctx context.Context, hub *collab.Hub, target *adminTarget, f form.AdminResetPassword) error {
+	if target.IsBot() {
+		return ctx.ApiError(http.StatusBadRequest, "admin::bot_no_password")
+	}
 	settings, ok := loadSettings(ctx)
 	if !ok {
 		return nil
@@ -586,6 +602,8 @@ func (adminRoute) UpdateSettings(ctx context.Context, f form.UpdateSystemSetting
 		ExternalURL:         f.ExternalURL,
 		LoginNotice:         strings.TrimSpace(f.LoginNotice),
 		NetworkAllowlist:    f.NetworkAllowlist,
+		AllowMemberBots:     f.AllowMemberBots,
+		MemberBotLimit:      f.MemberBotLimit,
 	}
 	if err := settings.Validate(); err != nil {
 		return ctx.ApiErrorFrom(http.StatusBadRequest, err)

@@ -28,17 +28,19 @@ func TestParseSystemSettings(t *testing.T) {
 }
 
 func TestSystemSettingsValidate(t *testing.T) {
-	ok := SystemSettings{SiteName: "Sayrud", AllowSignUp: true, PasswordMinLength: 8, SessionTTLDays: 30}
+	ok := SystemSettings{SiteName: "Sayrud", AllowSignUp: true, PasswordMinLength: 8, SessionTTLDays: 30, MemberBotLimit: 5}
 	require.NoError(t, ok.Validate())
 
 	for _, s := range []SystemSettings{
-		{SiteName: "", PasswordMinLength: 8, SessionTTLDays: 30},
-		{SiteName: "   ", PasswordMinLength: 8, SessionTTLDays: 30},
-		{SiteName: "这是一个非常非常非常非常非常非常非常非常非常非常长的站点名称超过三十二", PasswordMinLength: 8, SessionTTLDays: 30},
-		{SiteName: "a", PasswordMinLength: 7, SessionTTLDays: 30},
-		{SiteName: "a", PasswordMinLength: 65, SessionTTLDays: 30},
-		{SiteName: "a", PasswordMinLength: 8, SessionTTLDays: 0},
-		{SiteName: "a", PasswordMinLength: 8, SessionTTLDays: 366},
+		{SiteName: "", PasswordMinLength: 8, SessionTTLDays: 30, MemberBotLimit: 5},
+		{SiteName: "   ", PasswordMinLength: 8, SessionTTLDays: 30, MemberBotLimit: 5},
+		{SiteName: "这是一个非常非常非常非常非常非常非常非常非常非常长的站点名称超过三十二", PasswordMinLength: 8, SessionTTLDays: 30, MemberBotLimit: 5},
+		{SiteName: "a", PasswordMinLength: 7, SessionTTLDays: 30, MemberBotLimit: 5},
+		{SiteName: "a", PasswordMinLength: 65, SessionTTLDays: 30, MemberBotLimit: 5},
+		{SiteName: "a", PasswordMinLength: 8, SessionTTLDays: 0, MemberBotLimit: 5},
+		{SiteName: "a", PasswordMinLength: 8, SessionTTLDays: 366, MemberBotLimit: 5},
+		{SiteName: "a", PasswordMinLength: 8, SessionTTLDays: 30, MemberBotLimit: 0},
+		{SiteName: "a", PasswordMinLength: 8, SessionTTLDays: 30, MemberBotLimit: 51},
 	} {
 		require.Error(t, s.Validate(), "%+v", s)
 	}

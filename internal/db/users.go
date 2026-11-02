@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/cockroachdb/errors"
+	"github.com/thanhpk/randstr"
 	"github.com/wuhan005/gadget"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
@@ -39,10 +40,20 @@ type UsersStore interface {
 	// Create creates a new user with the given options.
 	// It returns ErrUserAlreadyExisted if the email has been used.
 	Create(ctx context.Context, options CreateUserOptions) (*User, error)
-	// CreateFirstAdmin creates an admin with the given options when there is no user, which concurrent callers can not bypass.
-	// It returns ErrUsersExist if there is any user.
+	// CreateBot creates an enabled bot without a password owned by the member, its email is generated under the reserved bots.invalid domain.
+	// It returns ErrBotOwnerRequired if ownerID is 0.
+	CreateBot(ctx context.Context, userName string, ownerID int64) (*User, error)
+	// CountBotsByOwner returns the number of the bots owned by the member.
+	CountBotsByOwner(ctx context.Context, ownerID int64) (int64, error)
+	// CountBotsByOwners returns the number of the bots keyed by owner ID, the members without bots are omitted.
+	CountBotsByOwners(ctx context.Context, ownerIDs []int64) (map[int64]int64, error)
+	// SetBotOwner hands the bot over to another member.
+	// It returns ErrUserNotFound if there is no such bot.
+	SetBotOwner(ctx context.Context, id, ownerID int64) error
+	// CreateFirstAdmin creates an admin with the given options when there is no human user, which concurrent callers can not bypass.
+	// It returns ErrUsersExist if there is any human user.
 	CreateFirstAdmin(ctx context.Context, options CreateUserOptions) (*User, error)
-	// Exists reports whether there is any user, including soft-deleted users.
+	// Exists reports whether there is any human user, including soft-deleted users.
 	Exists(ctx context.Context) (bool, error)
 	// ClaimLegacyDefault lets the new user take over the passwordless default user of the versions without accounts, along with its projects.
 	// It returns ErrUserNotFound if there is no such user, and ErrUserAlreadyExisted if the email has been used.
@@ -61,17 +72,17 @@ type UsersStore interface {
 
 	// List returns the paginated users along with the total count, the newest first.
 	List(ctx context.Context, opts ListUsersOptions) ([]*User, int64, error)
-	// Stats returns the user counts.
+	// Stats returns the counts of the human users.
 	Stats(ctx context.Context) (*UserStats, error)
-	// Recent returns the limit most recently created users.
+	// Recent returns the limit most recently created human users.
 	Recent(ctx context.Context, limit int) ([]*User, error)
-	// EnsureAdmin makes the user with the smallest ID an admin if there is no enabled admin.
+	// EnsureAdmin makes the human user with the smallest ID an admin if there is no enabled admin.
 	EnsureAdmin(ctx context.Context) error
-	// SetAdmin grants or revokes the admin, it returns ErrLastAdmin when revoking the last enabled admin.
+	// SetAdmin grants or revokes the admin, it returns ErrLastAdmin when revoking the last enabled admin, and ErrUserIsBot when granting a bot.
 	SetAdmin(ctx context.Context, id int64, isAdmin bool) error
 	// SetDisabled disables or enables the user, disabling also deletes all its sessions. It returns ErrLastAdmin when disabling the last enabled admin.
 	SetDisabled(ctx context.Context, id int64, disabled bool) error
-	// Delete deletes the user along with its collaborator records, sessions, settings and identities, the owned projects are transferred to transferTo.
+	// Delete deletes the user along with its collaborator records, sessions, access tokens, settings, identities and bots, the owned projects are transferred to transferTo.
 	// It returns ErrUserOwnsProjects if transferTo is 0 and the user still owns projects, and ErrLastAdmin when deleting the last enabled admin.
 	Delete(ctx context.Context, id, transferTo int64) error
 }
@@ -79,6 +90,18 @@ type UsersStore interface {
 func NewUsersStore(db *gorm.DB) UsersStore {
 	return &users{db}
 }
+
+// UserKind tells the people apart from the bots used by agents.
+type UserKind string
+
+const (
+	UserKindHuman UserKind = "human"
+	// UserKindBot can only call the API with access tokens, it has no password, sessions or third-party accounts.
+	UserKindBot UserKind = "bot"
+)
+
+// BotEmailDomain is the reserved domain of the generated bot emails, which no identity provider can assert.
+const BotEmailDomain = "bots.invalid"
 
 // User is a user of the application.
 type User struct {
@@ -96,6 +119,10 @@ type User struct {
 	Password string `json:"-"`
 	// IsAdmin reports whether the user is a system admin.
 	IsAdmin bool `gorm:"not null;default:false"`
+	// Kind is the account type, existing users are humans.
+	Kind UserKind `gorm:"type:varchar(16);not null;default:'human'"`
+	// OwnerID is the member who owns the bot, whose access the bot never exceeds; 0 for the humans.
+	OwnerID int64 `gorm:"not null;default:0;index"`
 	// DisabledAt is the time the user was disabled, nil if enabled.
 	DisabledAt *time.Time
 	// LastSignInAt is the time of the last sign-in.
@@ -105,6 +132,11 @@ type User struct {
 // Disabled reports whether the user is disabled.
 func (u *User) Disabled() bool {
 	return u.DisabledAt != nil
+}
+
+// IsBot reports whether the user is a bot.
+func (u *User) IsBot() bool {
+	return u.Kind == UserKindBot
 }
 
 // HasPassword reports whether the user has a password, the users created by third-party sign-in have none.
@@ -163,7 +195,7 @@ func (db *users) Authenticate(ctx context.Context, email, password string) (*Use
 		}
 		return nil, errors.Wrap(err, "get by email")
 	}
-	if user.Password == "" || bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password)) != nil {
+	if user.IsBot() || user.Password == "" || bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password)) != nil {
 		return nil, ErrBadCredential
 	}
 	return user, nil
@@ -209,6 +241,7 @@ func (db *users) Create(ctx context.Context, options CreateUserOptions) (*User, 
 		EmailMd5: gadget.Md5(email),
 		UserName: options.UserName,
 		Password: password,
+		Kind:     UserKindHuman,
 	}
 	if err := db.WithContext(ctx).Create(user).Error; err != nil {
 		if dbutil.IsUniqueViolation(err, "idx_user_email") {
@@ -217,6 +250,67 @@ func (db *users) Create(ctx context.Context, options CreateUserOptions) (*User, 
 		return nil, err
 	}
 	return user, nil
+}
+
+var ErrBotOwnerRequired = errors.New("a bot must be owned by a member")
+
+func (db *users) CreateBot(ctx context.Context, userName string, ownerID int64) (*User, error) {
+	if ownerID == 0 {
+		return nil, ErrBotOwnerRequired
+	}
+	email := "bot-" + strings.ToLower(randstr.String(10)) + "@" + BotEmailDomain
+	user := &User{
+		Email:    email,
+		EmailMd5: gadget.Md5(email),
+		UserName: userName,
+		Kind:     UserKindBot,
+		OwnerID:  ownerID,
+	}
+	if err := db.WithContext(ctx).Create(user).Error; err != nil {
+		return nil, errors.Wrap(err, "create")
+	}
+	return user, nil
+}
+
+func (db *users) CountBotsByOwner(ctx context.Context, ownerID int64) (int64, error) {
+	var count int64
+	return count, db.WithContext(ctx).Model(&User{}).Where("kind = ? AND owner_id = ?", UserKindBot, ownerID).Count(&count).Error
+}
+
+func (db *users) CountBotsByOwners(ctx context.Context, ownerIDs []int64) (map[int64]int64, error) {
+	counts := make(map[int64]int64, len(ownerIDs))
+	if len(ownerIDs) == 0 {
+		return counts, nil
+	}
+	var rows []struct {
+		OwnerID int64
+		Count   int64
+	}
+	if err := db.WithContext(ctx).Model(&User{}).
+		Select("owner_id, COUNT(*) AS count").
+		Where("kind = ? AND owner_id IN ?", UserKindBot, ownerIDs).
+		Group("owner_id").
+		Scan(&rows).Error; err != nil {
+		return nil, errors.Wrap(err, "count")
+	}
+	for _, r := range rows {
+		counts[r.OwnerID] = r.Count
+	}
+	return counts, nil
+}
+
+func (db *users) SetBotOwner(ctx context.Context, id, ownerID int64) error {
+	if ownerID == 0 {
+		return ErrBotOwnerRequired
+	}
+	result := db.WithContext(ctx).Model(&User{}).Where("id = ? AND kind = ?", id, UserKindBot).Update("owner_id", ownerID)
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return ErrUserNotFound
+	}
+	return nil
 }
 
 var ErrUsersExist = errors.New("users exist")
@@ -237,6 +331,7 @@ func (db *users) CreateFirstAdmin(ctx context.Context, options CreateUserOptions
 		UserName: options.UserName,
 		Password: password,
 		IsAdmin:  true,
+		Kind:     UserKindHuman,
 	}
 	err = db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := tx.Exec("SELECT pg_advisory_xact_lock(?)", firstAdminLockKey).Error; err != nil {
@@ -244,7 +339,7 @@ func (db *users) CreateFirstAdmin(ctx context.Context, options CreateUserOptions
 		}
 
 		var exists bool
-		if err := tx.Raw("SELECT EXISTS (SELECT 1 FROM users)").Scan(&exists).Error; err != nil {
+		if err := tx.Raw("SELECT EXISTS (SELECT 1 FROM users WHERE kind <> ?)", UserKindBot).Scan(&exists).Error; err != nil {
 			return errors.Wrap(err, "check users")
 		}
 		if exists {
@@ -261,7 +356,7 @@ func (db *users) CreateFirstAdmin(ctx context.Context, options CreateUserOptions
 
 func (db *users) Exists(ctx context.Context) (bool, error) {
 	var exists bool
-	err := db.WithContext(ctx).Raw("SELECT EXISTS (SELECT 1 FROM users)").Scan(&exists).Error
+	err := db.WithContext(ctx).Raw("SELECT EXISTS (SELECT 1 FROM users WHERE kind <> ?)", UserKindBot).Scan(&exists).Error
 
 	return exists, err
 }
@@ -368,6 +463,10 @@ type ListUsersOptions struct {
 	// Keyword matches the user name or email case-insensitively.
 	Keyword string
 	Status  UserStatus
+	// Kind filters the account type, all if empty.
+	Kind UserKind
+	// OwnerID restricts the list to the bots of this member if not 0.
+	OwnerID int64
 }
 
 func (db *users) List(ctx context.Context, opts ListUsersOptions) ([]*User, int64, error) {
@@ -375,6 +474,12 @@ func (db *users) List(ctx context.Context, opts ListUsersOptions) ([]*User, int6
 	if k := strings.TrimSpace(opts.Keyword); k != "" {
 		pattern := "%" + dbutil.EscapeLike(strings.ToLower(k)) + "%"
 		q = q.Where("LOWER(user_name) LIKE ? OR email LIKE ?", pattern, pattern)
+	}
+	if opts.Kind != "" {
+		q = q.Where("kind = ?", opts.Kind)
+	}
+	if opts.OwnerID != 0 {
+		q = q.Where("owner_id = ?", opts.OwnerID)
 	}
 	switch opts.Status {
 	case UserStatusActive:
@@ -405,7 +510,7 @@ type UserStats struct {
 func (db *users) Stats(ctx context.Context) (*UserStats, error) {
 	var stats UserStats
 	count := func(dst *int64, where string, args ...interface{}) error {
-		q := db.WithContext(ctx).Model(&User{})
+		q := db.WithContext(ctx).Model(&User{}).Where("kind <> ?", UserKindBot)
 		if where != "" {
 			q = q.Where(where, args...)
 		}
@@ -428,16 +533,19 @@ func (db *users) Stats(ctx context.Context) (*UserStats, error) {
 
 func (db *users) Recent(ctx context.Context, limit int) ([]*User, error) {
 	var users []*User
-	return users, db.WithContext(ctx).Order("id DESC").Limit(limit).Find(&users).Error
+	return users, db.WithContext(ctx).Where("kind <> ?", UserKindBot).Order("id DESC").Limit(limit).Find(&users).Error
 }
 
 func (db *users) EnsureAdmin(ctx context.Context) error {
 	return db.WithContext(ctx).Exec(`UPDATE users SET is_admin = TRUE
-WHERE id = (SELECT MIN(id) FROM users WHERE deleted_at IS NULL AND disabled_at IS NULL)
-  AND NOT EXISTS (SELECT 1 FROM users WHERE is_admin AND deleted_at IS NULL AND disabled_at IS NULL)`).Error
+WHERE id = (SELECT MIN(id) FROM users WHERE deleted_at IS NULL AND disabled_at IS NULL AND kind <> ?)
+  AND NOT EXISTS (SELECT 1 FROM users WHERE is_admin AND deleted_at IS NULL AND disabled_at IS NULL)`, UserKindBot).Error
 }
 
-var ErrLastAdmin = errors.New("at least one enabled admin is required")
+var (
+	ErrLastAdmin = errors.New("at least one enabled admin is required")
+	ErrUserIsBot = errors.New("the user is a bot")
+)
 
 // lockAdmins locks all the admin rows, and returns ErrLastAdmin if no enabled admin would be left after target loses the admin or is disabled or deleted.
 func lockAdmins(tx *gorm.DB, target int64) error {
@@ -464,6 +572,14 @@ func (db *users) SetAdmin(ctx context.Context, id int64, isAdmin bool) error {
 		if !isAdmin {
 			if err := lockAdmins(tx, id); err != nil {
 				return err
+			}
+		} else {
+			var kinds []UserKind
+			if err := tx.Model(&User{}).Where("id = ?", id).Pluck("kind", &kinds).Error; err != nil {
+				return errors.Wrap(err, "get kind")
+			}
+			if len(kinds) > 0 && kinds[0] == UserKindBot {
+				return ErrUserIsBot
 			}
 		}
 		return updateUser(tx, id, map[string]interface{}{"is_admin": isAdmin})
@@ -520,17 +636,33 @@ func (db *users) Delete(ctx context.Context, id, transferTo int64) error {
 			}
 		}
 
-		if err := tx.Where("user_id = ?", id).Delete(&ProjectMember{}).Error; err != nil {
+		// Bots never own projects, so they go away with their owner.
+		ids := []int64{id}
+		var bots []int64
+		if err := tx.Model(&User{}).Where("kind = ? AND owner_id = ?", UserKindBot, id).Pluck("id", &bots).Error; err != nil {
+			return errors.Wrap(err, "list bots")
+		}
+		ids = append(ids, bots...)
+
+		if err := tx.Where("user_id IN ?", ids).Delete(&ProjectMember{}).Error; err != nil {
 			return errors.Wrap(err, "delete memberships")
 		}
-		if err := tx.Where("user_id = ?", id).Delete(&UserSession{}).Error; err != nil {
+		if err := tx.Where("user_id IN ?", ids).Delete(&UserSession{}).Error; err != nil {
 			return errors.Wrap(err, "delete sessions")
 		}
-		if err := tx.Where("user_id = ?", id).Delete(&Setting{}).Error; err != nil {
+		if err := tx.Where("user_id IN ?", ids).Delete(&AccessToken{}).Error; err != nil {
+			return errors.Wrap(err, "delete access tokens")
+		}
+		if err := tx.Where("user_id IN ?", ids).Delete(&Setting{}).Error; err != nil {
 			return errors.Wrap(err, "delete settings")
 		}
-		if err := tx.Where("user_id = ?", id).Delete(&UserIdentity{}).Error; err != nil {
+		if err := tx.Where("user_id IN ?", ids).Delete(&UserIdentity{}).Error; err != nil {
 			return errors.Wrap(err, "delete identities")
+		}
+		if len(bots) > 0 {
+			if err := tx.Delete(&User{}, bots).Error; err != nil {
+				return errors.Wrap(err, "delete bots")
+			}
 		}
 		result := tx.Delete(&User{}, id)
 		if result.Error != nil {

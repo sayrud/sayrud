@@ -18,6 +18,10 @@ type Profile struct {
 	Color string `json:"color"`
 	// IsAdmin reports whether the user is a system admin.
 	IsAdmin bool `json:"isAdmin"`
+	// IsBot reports whether the user is a bot calling the API with access tokens.
+	IsBot bool `json:"isBot"`
+	// OwnerID is the member owning the bot, 0 for the humans.
+	OwnerID int64 `json:"ownerId"`
 	// HasPassword reports whether the user has a password, the users created by third-party sign-in have none.
 	HasPassword bool      `json:"hasPassword"`
 	CreatedAt   time.Time `json:"createdAt"`
@@ -32,6 +36,8 @@ func ToProfile(user *db.User) *Profile {
 		AvatarURL:   UserAvatarURL(user),
 		Color:       UserColor(user.ID),
 		IsAdmin:     user.IsAdmin,
+		IsBot:       user.IsBot(),
+		OwnerID:     user.OwnerID,
 		HasPassword: user.HasPassword(),
 		CreatedAt:   user.CreatedAt,
 	}
@@ -45,6 +51,12 @@ type UserBrief struct {
 	UserName  string `json:"userName"`
 	AvatarURL string `json:"avatarUrl"`
 	Color     string `json:"color"`
+	// IsBot reports whether the user is a bot calling the API with access tokens.
+	IsBot bool `json:"isBot"`
+	// OwnerID is the member owning the bot, 0 for the humans.
+	OwnerID int64 `json:"ownerId"`
+	// OwnerName is the name of the member owning the bot, only filled in the member lists.
+	OwnerName string `json:"ownerName,omitempty"`
 } // @name UserBrief
 
 func ToUserBrief(user *db.User) *UserBrief {
@@ -55,6 +67,8 @@ func ToUserBrief(user *db.User) *UserBrief {
 		UserName:  user.UserName,
 		AvatarURL: UserAvatarURL(user),
 		Color:     UserColor(user.ID),
+		IsBot:     user.IsBot(),
+		OwnerID:   user.OwnerID,
 	}
 }
 

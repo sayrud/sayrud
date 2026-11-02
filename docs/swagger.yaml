@@ -1,5 +1,71 @@
 basePath: /_
 definitions:
+  AccessToken:
+    properties:
+      createdAt:
+        type: string
+      expired:
+        type: boolean
+      expiresAt:
+        description: ExpiresAt is nil if the token never expires.
+        type: string
+      id:
+        type: integer
+      lastUsedAt:
+        type: string
+      lastUsedIP:
+        type: string
+      name:
+        type: string
+      prefix:
+        type: string
+      projects:
+        description: Projects are the projects the token is restricted to, empty if
+          it follows the memberships of the user.
+        items:
+          $ref: '#/definitions/AccessTokenProject'
+        type: array
+      scopes:
+        items:
+          enum:
+          - read
+          - write
+          - events
+          type: string
+        type: array
+    required:
+    - createdAt
+    - expired
+    - expiresAt
+    - id
+    - lastUsedAt
+    - lastUsedIP
+    - name
+    - prefix
+    - projects
+    - scopes
+    type: object
+  AccessTokenProject:
+    properties:
+      color:
+        type: string
+      deleted:
+        description: Deleted reports whether the project has been deleted, the token
+          can no longer access it.
+        type: boolean
+      icon:
+        type: string
+      name:
+        type: string
+      uid:
+        type: string
+    required:
+    - color
+    - deleted
+    - icon
+    - name
+    - uid
+    type: object
   Action:
     properties:
       action:
@@ -456,9 +522,18 @@ definitions:
         type: integer
       isAdmin:
         type: boolean
+      isBot:
+        type: boolean
       lastSignInAt:
         type: string
+      ownedBotCount:
+        description: OwnedBotCount is the number of its bots, which are deleted along
+          with it.
+        type: integer
       ownedProjectCount:
+        type: integer
+      ownerId:
+        description: OwnerID is the member owning the bot, 0 for the humans.
         type: integer
       providers:
         description: Providers are the sign-in methods bound by the user.
@@ -476,8 +551,11 @@ definitions:
     - emailMd5
     - id
     - isAdmin
+    - isBot
     - lastSignInAt
+    - ownedBotCount
     - ownedProjectCount
+    - ownerId
     - providers
     - userName
     type: object
@@ -625,6 +703,43 @@ definitions:
     required:
     - data
     type: object
+  Bot:
+    properties:
+      avatarUrl:
+        type: string
+      color:
+        type: string
+      createdAt:
+        type: string
+      disabled:
+        type: boolean
+      email:
+        type: string
+      id:
+        type: integer
+      owner:
+        allOf:
+        - $ref: '#/definitions/UserBrief'
+        description: Owner is the member owning the bot, whose access the bot never
+          exceeds.
+      token:
+        allOf:
+        - $ref: '#/definitions/AccessToken'
+        description: Token is the only access token of the bot without its secret,
+          nil if it has none.
+      userName:
+        type: string
+    required:
+    - avatarUrl
+    - color
+    - createdAt
+    - disabled
+    - email
+    - id
+    - owner
+    - token
+    - userName
+    type: object
   Changeset:
     properties:
       clientId:
@@ -649,6 +764,46 @@ definitions:
     - rev
     - signature
     - tableUID
+    type: object
+  CreateAccessToken:
+    properties:
+      expiresAt:
+        description: ExpiresAt is in the future, the token never expires if it is
+          empty.
+        type: string
+      name:
+        type: string
+      projects:
+        description: Projects are the UIDs of the projects the token is restricted
+          to, empty to follow the memberships of the user.
+        items:
+          type: string
+        type: array
+      scopes:
+        description: Scopes are granted to the token, at least one.
+        items:
+          enum:
+          - read
+          - write
+          - events
+          type: string
+        type: array
+    required:
+    - name
+    - projects
+    - scopes
+    type: object
+  CreateAccessTokenResp:
+    properties:
+      secret:
+        description: Secret is the plaintext of the token, it can not be retrieved
+          again.
+        type: string
+      token:
+        $ref: '#/definitions/AccessToken'
+    required:
+    - secret
+    - token
     type: object
   CreateAuthProvider:
     properties:
@@ -702,6 +857,51 @@ definitions:
     - name
     - slug
     - type
+    type: object
+  CreateBot:
+    properties:
+      expiresAt:
+        description: ExpiresAt is in the future, the token never expires if it is
+          empty.
+        type: string
+      ownerId:
+        description: OwnerID is the member owning the bot, only taken from admins
+          and defaults to the admin.
+        type: integer
+      projects:
+        description: Projects are the UIDs of the projects the bot is restricted to,
+          empty to follow its memberships.
+        items:
+          type: string
+        type: array
+      scopes:
+        description: Scopes are granted to the only access token of the bot, at least
+          one.
+        items:
+          enum:
+          - read
+          - write
+          - events
+          type: string
+        type: array
+      userName:
+        type: string
+    required:
+    - projects
+    - scopes
+    - userName
+    type: object
+  CreateBotResp:
+    properties:
+      bot:
+        $ref: '#/definitions/Bot'
+      secret:
+        description: Secret is the plaintext of the token, it can not be retrieved
+          again.
+        type: string
+    required:
+    - bot
+    - secret
     type: object
   CreateField:
     properties:
@@ -1708,6 +1908,18 @@ definitions:
     - providers
     - secretsReady
     type: object
+  ListAdminBotsResp:
+    properties:
+      bots:
+        items:
+          $ref: '#/definitions/Bot'
+        type: array
+      total:
+        type: integer
+    required:
+    - bots
+    - total
+    type: object
   ListAdminFieldShortcutsResp:
     properties:
       shortcuts:
@@ -1757,6 +1969,24 @@ definitions:
     required:
     - changesets
     - hasMore
+    type: object
+  ListMyBotsResp:
+    properties:
+      bots:
+        items:
+          $ref: '#/definitions/Bot'
+        type: array
+      canCreate:
+        description: CanCreate reports whether the member may create another bot now.
+        type: boolean
+      limit:
+        description: Limit is the maximum number of the own bots, 0 if not limited
+          for admins.
+        type: integer
+    required:
+    - bots
+    - canCreate
+    - limit
     type: object
   ListProjectsResp:
     properties:
@@ -1926,6 +2156,13 @@ definitions:
       isAdmin:
         description: IsAdmin reports whether the user is a system admin.
         type: boolean
+      isBot:
+        description: IsBot reports whether the user is a bot calling the API with
+          access tokens.
+        type: boolean
+      ownerId:
+        description: OwnerID is the member owning the bot, 0 for the humans.
+        type: integer
       userName:
         type: string
     required:
@@ -1937,6 +2174,8 @@ definitions:
     - hasPassword
     - id
     - isAdmin
+    - isBot
+    - ownerId
     - userName
     type: object
   Project:
@@ -2501,6 +2740,20 @@ definitions:
     required:
     - ids
     type: object
+  SetBotOwner:
+    properties:
+      ownerId:
+        type: integer
+    required:
+    - ownerId
+    type: object
+  SetBotStatus:
+    properties:
+      disabled:
+        type: boolean
+    required:
+    - disabled
+    type: object
   SetWorkflowEnabled:
     properties:
       enabled:
@@ -2937,6 +3190,10 @@ definitions:
     type: object
   SystemSettings:
     properties:
+      allowMemberBots:
+        description: AllowMemberBots reports whether the members other than admins
+          can create their own bots.
+        type: boolean
       allowPasswordSignIn:
         description: AllowPasswordSignIn being false allows only the admins to sign
           in with email and password.
@@ -2952,6 +3209,10 @@ definitions:
         description: LoginNotice is the plain text shown above the sign-in form, empty
           if hidden.
         type: string
+      memberBotLimit:
+        description: MemberBotLimit is the maximum number of the own bots of each
+          member other than admins.
+        type: integer
       networkAllowlist:
         description: NetworkAllowlist permits shortcut fetches to these otherwise
           blocked IP addresses or CIDRs.
@@ -2969,10 +3230,12 @@ definitions:
         description: SiteName is shown in the page title and the sign-in page.
         type: string
     required:
+    - allowMemberBots
     - allowPasswordSignIn
     - allowSignUp
     - externalURL
     - loginNotice
+    - memberBotLimit
     - networkAllowlist
     - passwordMinLength
     - sessionTTLDays
@@ -3238,6 +3501,39 @@ definitions:
     - linkByEmail
     - name
     type: object
+  UpdateBot:
+    properties:
+      userName:
+        type: string
+    required:
+    - userName
+    type: object
+  UpdateBotAccess:
+    properties:
+      expiresAt:
+        description: ExpiresAt is in the future, the token never expires if it is
+          empty.
+        type: string
+      projects:
+        description: Projects are the UIDs of the projects the bot is restricted to,
+          empty to follow its memberships.
+        items:
+          type: string
+        type: array
+      scopes:
+        description: Scopes are granted to the only access token of the bot, at least
+          one.
+        items:
+          enum:
+          - read
+          - write
+          - events
+          type: string
+        type: array
+    required:
+    - projects
+    - scopes
+    type: object
   UpdateField:
     properties:
       label:
@@ -3335,6 +3631,10 @@ definitions:
     type: object
   UpdateSystemSettings:
     properties:
+      allowMemberBots:
+        description: AllowMemberBots reports whether the members other than admins
+          can create their own bots.
+        type: boolean
       allowPasswordSignIn:
         type: boolean
       allowSignUp:
@@ -3346,6 +3646,10 @@ definitions:
         description: LoginNotice is the plain text shown above the sign-in form, empty
           if hidden.
         type: string
+      memberBotLimit:
+        description: MemberBotLimit is the maximum number of the own bots of each
+          member other than admins.
+        type: integer
       networkAllowlist:
         description: NetworkAllowlist permits shortcut fetches to these otherwise
           blocked IP addresses or CIDRs.
@@ -3359,10 +3663,12 @@ definitions:
       siteName:
         type: string
     required:
+    - allowMemberBots
     - allowPasswordSignIn
     - allowSignUp
     - externalURL
     - loginNotice
+    - memberBotLimit
     - networkAllowlist
     - passwordMinLength
     - sessionTTLDays
@@ -3407,6 +3713,17 @@ definitions:
         type: string
       id:
         type: integer
+      isBot:
+        description: IsBot reports whether the user is a bot calling the API with
+          access tokens.
+        type: boolean
+      ownerId:
+        description: OwnerID is the member owning the bot, 0 for the humans.
+        type: integer
+      ownerName:
+        description: OwnerName is the name of the member owning the bot, only filled
+          in the member lists.
+        type: string
       userName:
         type: string
     required:
@@ -3415,6 +3732,8 @@ definitions:
     - email
     - emailMd5
     - id
+    - isBot
+    - ownerId
     - userName
     type: object
   UserIdentity:
@@ -4976,6 +5295,320 @@ paths:
       summary: Test the connection of a sign-in method
       tags:
       - Admin - Sign-in methods
+  /admin/bots:
+    get:
+      description: Requires the admin. The newest bots come first.
+      operationId: listAdminBots
+      parameters:
+      - description: Page number, starting from 1
+        in: query
+        name: page
+        type: integer
+      - description: Page size, defaults to 20
+        in: query
+        name: pageSize
+        type: integer
+      - description: Matches the name or email
+        in: query
+        name: keyword
+        type: string
+      - description: Filter by status, all if empty
+        enum:
+        - active
+        - disabled
+        in: query
+        name: status
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/ListAdminBotsResp'
+        "403":
+          description: Not an admin
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      summary: List the bots
+      tags:
+      - Admin - Bots
+    post:
+      consumes:
+      - application/json
+      description: Requires the admin. The bot is owned by the given member or the
+        admin, and created together with its only access token whose secret is only
+        returned once. Bots have no password and join the projects by the generated
+        email.
+      operationId: createAdminBot
+      parameters:
+      - description: Bot to create
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/CreateBot'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/CreateBotResp'
+        "400":
+          description: Invalid name, owner, scopes, projects or expiration
+          schema:
+            type: string
+        "403":
+          description: Not an admin
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      summary: Create a bot
+      tags:
+      - Admin - Bots
+  /admin/bots/{userID}:
+    get:
+      description: Requires the admin. The bot comes with its owner and its only access
+        token without the secret.
+      operationId: getAdminBot
+      parameters:
+      - description: User ID of the bot
+        in: path
+        name: userID
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/Bot'
+        "403":
+          description: Not an admin
+          schema:
+            type: string
+        "404":
+          description: Bot not found
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      summary: Get a bot
+      tags:
+      - Admin - Bots
+  /admin/bots/{userID}/access:
+    put:
+      consumes:
+      - application/json
+      description: Requires the admin. Changes the scopes, the projects and the expiration
+        of its access token, the secret stays the same.
+      operationId: updateAdminBotAccess
+      parameters:
+      - description: User ID of the bot
+        in: path
+        name: userID
+        required: true
+        type: integer
+      - description: Access
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/UpdateBotAccess'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/Bot'
+        "400":
+          description: Invalid scopes, projects or expiration
+          schema:
+            type: string
+        "403":
+          description: Not an admin
+          schema:
+            type: string
+        "404":
+          description: Bot or token not found
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      summary: Change the access of a bot
+      tags:
+      - Admin - Bots
+  /admin/bots/{userID}/avatar:
+    delete:
+      description: Requires the admin.
+      operationId: removeAdminBotAvatar
+      parameters:
+      - description: User ID of the bot
+        in: path
+        name: userID
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/UserBrief'
+        "403":
+          description: Not an admin
+          schema:
+            type: string
+        "404":
+          description: Bot not found
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      summary: Restore the default avatar of a bot
+      tags:
+      - Admin - Bots
+    post:
+      consumes:
+      - multipart/form-data
+      description: Requires the admin. Accept a PNG, JPEG or GIF up to 2 MiB and 4096
+        pixels per edge.
+      operationId: uploadAdminBotAvatar
+      parameters:
+      - description: User ID of the bot
+        in: path
+        name: userID
+        required: true
+        type: integer
+      - description: Avatar image
+        in: formData
+        name: file
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/UserBrief'
+        "400":
+          description: Invalid image or multipart body
+          schema:
+            type: string
+        "403":
+          description: Not an admin
+          schema:
+            type: string
+        "404":
+          description: Bot not found
+          schema:
+            type: string
+        "413":
+          description: Image is too large
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      summary: Upload the avatar of a bot
+      tags:
+      - Admin - Bots
+  /admin/bots/{userID}/owner:
+    put:
+      consumes:
+      - application/json
+      description: Requires the admin. The memberships are kept, but the bot is limited
+        by the access of the new owner and only the new owner can invite it.
+      operationId: setAdminBotOwner
+      parameters:
+      - description: User ID of the bot
+        in: path
+        name: userID
+        required: true
+        type: integer
+      - description: New owner
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/SetBotOwner'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/Bot'
+        "400":
+          description: The new owner is not an enabled member
+          schema:
+            type: string
+        "403":
+          description: Not an admin
+          schema:
+            type: string
+        "404":
+          description: Bot not found
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      summary: Hand a bot over to another member
+      tags:
+      - Admin - Bots
+  /admin/bots/{userID}/token:
+    post:
+      description: Requires the admin. The old secret stops working at once and the
+        access is kept, the new secret is only returned once.
+      operationId: resetAdminBotToken
+      parameters:
+      - description: User ID of the bot
+        in: path
+        name: userID
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/CreateAccessTokenResp'
+        "403":
+          description: Not an admin
+          schema:
+            type: string
+        "404":
+          description: Bot not found
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      summary: Reset the access token of a bot
+      tags:
+      - Admin - Bots
   /admin/field-shortcuts:
     get:
       description: Requires the admin. The credential values are not returned.
@@ -5620,6 +6253,13 @@ paths:
         in: query
         name: status
         type: string
+      - description: Filter by account type, all if empty
+        enum:
+        - human
+        - bot
+        in: query
+        name: kind
+        type: string
       produces:
       - application/json
       responses:
@@ -5760,8 +6400,8 @@ paths:
     put:
       consumes:
       - application/json
-      description: Requires the admin. The admin can not revoke itself, and at least
-        one enabled admin is kept.
+      description: Requires the admin. The admin can not revoke itself, at least one
+        enabled admin is kept, and bots can not be admins.
       operationId: setAdminUserAdmin
       parameters:
       - description: User ID
@@ -5805,7 +6445,8 @@ paths:
     put:
       consumes:
       - application/json
-      description: Requires the admin. The user is signed out everywhere.
+      description: Requires the admin. The user is signed out everywhere. Bots have
+        no password.
       operationId: resetAdminUserPassword
       parameters:
       - description: User ID
@@ -5823,7 +6464,7 @@ paths:
         "204":
           description: No Content
         "400":
-          description: Invalid request body
+          description: Invalid request body, or the user is a bot
           schema:
             type: string
         "403":
@@ -6258,6 +6899,372 @@ paths:
       summary: Upload the avatar of the signed-in user
       tags:
       - Account
+  /auth/bots:
+    get:
+      description: The newest first, along with the limit of the own bots. Not available
+        to access tokens.
+      operationId: listMyBots
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/ListMyBotsResp'
+        "401":
+          description: Not signed in
+          schema:
+            type: string
+        "403":
+          description: Called with an access token
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      summary: List the bots of the signed-in member
+      tags:
+      - My bots
+    post:
+      consumes:
+      - application/json
+      description: The bot is only visible to the member, its access never exceeds
+        the own role of the member in each project, and it is deleted with the member.
+        It comes with its only access token, whose secret is only returned once. Not
+        available to access tokens.
+      operationId: createMyBot
+      parameters:
+      - description: Bot to create
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/CreateBot'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/CreateBotResp'
+        "400":
+          description: Invalid name, scopes, projects or expiration
+          schema:
+            type: string
+        "401":
+          description: Not signed in
+          schema:
+            type: string
+        "403":
+          description: Member bots are turned off, or called with an access token
+          schema:
+            type: string
+        "409":
+          description: Too many bots
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      summary: Create an own bot
+      tags:
+      - My bots
+  /auth/bots/{userID}:
+    delete:
+      description: Its access tokens are revoked and it leaves every project. Not
+        available to access tokens.
+      operationId: deleteMyBot
+      parameters:
+      - description: User ID of the bot
+        in: path
+        name: userID
+        required: true
+        type: integer
+      responses:
+        "204":
+          description: No Content
+        "401":
+          description: Not signed in
+          schema:
+            type: string
+        "404":
+          description: Bot not found
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      summary: Delete an own bot
+      tags:
+      - My bots
+    get:
+      description: The bot comes with its only access token without the secret. Not
+        available to access tokens.
+      operationId: getMyBot
+      parameters:
+      - description: User ID of the bot
+        in: path
+        name: userID
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/Bot'
+        "401":
+          description: Not signed in
+          schema:
+            type: string
+        "404":
+          description: Bot not found
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      summary: Get an own bot
+      tags:
+      - My bots
+    put:
+      consumes:
+      - application/json
+      description: Not available to access tokens.
+      operationId: updateMyBot
+      parameters:
+      - description: User ID of the bot
+        in: path
+        name: userID
+        required: true
+        type: integer
+      - description: Name
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/UpdateBot'
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Invalid request body
+          schema:
+            type: string
+        "401":
+          description: Not signed in
+          schema:
+            type: string
+        "404":
+          description: Bot not found
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      summary: Rename an own bot
+      tags:
+      - My bots
+  /auth/bots/{userID}/access:
+    put:
+      consumes:
+      - application/json
+      description: Changes the scopes, the projects and the expiration of its access
+        token, the secret stays the same. Not available to access tokens.
+      operationId: updateMyBotAccess
+      parameters:
+      - description: User ID of the bot
+        in: path
+        name: userID
+        required: true
+        type: integer
+      - description: Access
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/UpdateBotAccess'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/Bot'
+        "400":
+          description: Invalid scopes, projects or expiration
+          schema:
+            type: string
+        "401":
+          description: Not signed in
+          schema:
+            type: string
+        "404":
+          description: Bot or token not found
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      summary: Change the access of an own bot
+      tags:
+      - My bots
+  /auth/bots/{userID}/avatar:
+    delete:
+      description: Not available to access tokens.
+      operationId: removeMyBotAvatar
+      parameters:
+      - description: User ID of the bot
+        in: path
+        name: userID
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/UserBrief'
+        "401":
+          description: Not signed in
+          schema:
+            type: string
+        "404":
+          description: Bot not found
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      summary: Restore the default avatar of an own bot
+      tags:
+      - My bots
+    post:
+      consumes:
+      - multipart/form-data
+      description: Accept a PNG, JPEG or GIF up to 2 MiB and 4096 pixels per edge.
+        Not available to access tokens.
+      operationId: uploadMyBotAvatar
+      parameters:
+      - description: User ID of the bot
+        in: path
+        name: userID
+        required: true
+        type: integer
+      - description: Avatar image
+        in: formData
+        name: file
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/UserBrief'
+        "400":
+          description: Invalid image or multipart body
+          schema:
+            type: string
+        "401":
+          description: Not signed in
+          schema:
+            type: string
+        "404":
+          description: Bot not found
+          schema:
+            type: string
+        "413":
+          description: Image is too large
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      summary: Upload the avatar of an own bot
+      tags:
+      - My bots
+  /auth/bots/{userID}/status:
+    put:
+      consumes:
+      - application/json
+      description: Its access tokens stop working while it is disabled. Not available
+        to access tokens.
+      operationId: setMyBotStatus
+      parameters:
+      - description: User ID of the bot
+        in: path
+        name: userID
+        required: true
+        type: integer
+      - description: Whether the bot is disabled
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/SetBotStatus'
+      responses:
+        "204":
+          description: No Content
+        "401":
+          description: Not signed in
+          schema:
+            type: string
+        "404":
+          description: Bot not found
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      summary: Disable or enable an own bot
+      tags:
+      - My bots
+  /auth/bots/{userID}/token:
+    post:
+      description: The old secret stops working at once and the access is kept, the
+        new secret is only returned once. Not available to access tokens.
+      operationId: resetMyBotToken
+      parameters:
+      - description: User ID of the bot
+        in: path
+        name: userID
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/CreateAccessTokenResp'
+        "401":
+          description: Not signed in
+          schema:
+            type: string
+        "404":
+          description: Bot not found
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      summary: Reset the access token of an own bot
+      tags:
+      - My bots
   /auth/identities:
     get:
       operationId: listIdentities
@@ -6790,6 +7797,109 @@ paths:
       summary: Start a third-party sign-in
       tags:
       - Single sign-on
+  /auth/tokens:
+    get:
+      description: The newest first. Not available to access tokens.
+      operationId: listAccessTokens
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/AccessToken'
+            type: array
+        "401":
+          description: Not signed in
+          schema:
+            type: string
+        "403":
+          description: Called with an access token
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      summary: List the access tokens of the signed-in user
+      tags:
+      - Access tokens
+    post:
+      consumes:
+      - application/json
+      description: The token acts as the user with the granted scopes, the secret
+        is only returned once. Not available to access tokens.
+      operationId: createAccessToken
+      parameters:
+      - description: Token
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/CreateAccessToken'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/CreateAccessTokenResp'
+        "400":
+          description: Invalid name, scopes, projects or expiration
+          schema:
+            type: string
+        "401":
+          description: Not signed in
+          schema:
+            type: string
+        "403":
+          description: Called with an access token
+          schema:
+            type: string
+        "409":
+          description: Too many tokens
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      summary: Create an access token of the signed-in user
+      tags:
+      - Access tokens
+  /auth/tokens/{tokenID}:
+    delete:
+      description: Not available to access tokens.
+      operationId: revokeAccessToken
+      parameters:
+      - description: Token ID
+        in: path
+        name: tokenID
+        required: true
+        type: integer
+      responses:
+        "204":
+          description: No Content
+        "401":
+          description: Not signed in
+          schema:
+            type: string
+        "403":
+          description: Called with an access token
+          schema:
+            type: string
+        "404":
+          description: Token not found
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      summary: Revoke an access token of the signed-in user
+      tags:
+      - Access tokens
   /avatars/{fileUID}:
     get:
       operationId: getAvatar
@@ -6860,7 +7970,8 @@ paths:
     post:
       consumes:
       - application/json
-      description: Create a project owned by the signed-in user.
+      description: Create a project owned by the signed-in user. Bots can not own
+        projects.
       operationId: createProject
       parameters:
       - description: Project to create
@@ -6882,6 +7993,10 @@ paths:
             type: string
         "401":
           description: Not signed in
+          schema:
+            type: string
+        "403":
+          description: Called by a bot
           schema:
             type: string
         "500":
@@ -7517,7 +8632,8 @@ paths:
       consumes:
       - application/json
       description: Add the registered user as a collaborator, or change the role if
-        it has been one. Requires the manager role.
+        it has been one. Requires the manager role, a bot can only be added by its
+        owner.
       operationId: addProjectMember
       parameters:
       - description: Project UID
@@ -7640,10 +8756,45 @@ paths:
       summary: Change the role of a collaborator
       tags:
       - Project members
+  /projects/{projectUID}/members/bots:
+    get:
+      description: Search the own enabled bots by name or email, at most 20, requires
+        the manager role. Add them by the email like the other users.
+      operationId: searchProjectMemberBots
+      parameters:
+      - description: Project UID
+        in: path
+        name: projectUID
+        required: true
+        type: string
+      - description: Matches the name or email of the bot
+        in: query
+        name: keyword
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/UserBrief'
+            type: array
+        "403":
+          description: Permission denied
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      summary: Find the bots to invite
+      tags:
+      - Project members
   /projects/{projectUID}/members/lookup:
     get:
       description: Find the registered user by the exact email, requires the manager
-        role.
+        role. The bots of the others are not found.
       operationId: lookupProjectMemberCandidate
       parameters:
       - description: Project UID
@@ -10285,4 +11436,15 @@ paths:
       summary: Get the site information
       tags:
       - Site
+security:
+- BearerAuth: []
+securityDefinitions:
+  BearerAuth:
+    description: |-
+      A personal access token as `Bearer sat_...`, created in the account settings or for a bot in the admin console. The web app signs in with the session cookie instead.
+      Tokens act as their user within the granted scopes: GET and HEAD need `read`, the other methods need `write`, except the read-only POST of querying and fetching records and resolving field options.
+      Tokens can not call the admin console, the account, session, sign-in method and token routes, or the WebSockets.
+    in: header
+    name: Authorization
+    type: apiKey
 swagger: "2.0"

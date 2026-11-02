@@ -128,6 +128,10 @@ type SystemSettings struct {
 	LoginNotice string `json:"loginNotice"`
 	// NetworkAllowlist permits shortcut fetches to these otherwise blocked IP addresses or CIDRs.
 	NetworkAllowlist []string `json:"networkAllowlist"`
+	// AllowMemberBots reports whether the members other than admins can create their own bots.
+	AllowMemberBots bool `json:"allowMemberBots"`
+	// MemberBotLimit is the maximum number of the own bots of each member other than admins.
+	MemberBotLimit int `json:"memberBotLimit"`
 } // @name SystemSettings
 
 const (
@@ -137,6 +141,8 @@ const (
 	PasswordMinLengthMax = 64
 	SessionTTLDaysMin    = 1
 	SessionTTLDaysMax    = 365
+	MemberBotLimitMin    = 1
+	MemberBotLimitMax    = 50
 )
 
 // DefaultSystemSettings returns the defaults before any settings are saved, signing up follows the config file.
@@ -148,6 +154,8 @@ func DefaultSystemSettings() SystemSettings {
 		SessionTTLDays:      30,
 		AllowPasswordSignIn: true,
 		NetworkAllowlist:    []string{},
+		AllowMemberBots:     true,
+		MemberBotLimit:      5,
 	}
 }
 
@@ -215,6 +223,9 @@ func ParseSystemSettings(raw []byte, defaults SystemSettings) SystemSettings {
 	if _, err := ParseNetworkAllowlist(s.NetworkAllowlist); err != nil || s.NetworkAllowlist == nil {
 		s.NetworkAllowlist = defaults.NetworkAllowlist
 	}
+	if s.MemberBotLimit < MemberBotLimitMin || s.MemberBotLimit > MemberBotLimitMax {
+		s.MemberBotLimit = defaults.MemberBotLimit
+	}
 	return s
 }
 
@@ -234,6 +245,9 @@ func (s SystemSettings) Validate() error {
 	}
 	if utf8.RuneCountInString(strings.TrimSpace(s.LoginNotice)) > LoginNoticeMaxLength {
 		return i18n.Errorf("settings::login_notice_length", LoginNoticeMaxLength)
+	}
+	if s.MemberBotLimit < MemberBotLimitMin || s.MemberBotLimit > MemberBotLimitMax {
+		return i18n.Errorf("settings::member_bot_limit_range", MemberBotLimitMin, MemberBotLimitMax)
 	}
 	_, err := ParseNetworkAllowlist(s.NetworkAllowlist)
 	return err

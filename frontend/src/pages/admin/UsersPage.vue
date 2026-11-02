@@ -52,6 +52,7 @@ async function load() {
       pageSize: pagination.pageSize,
       keyword: query.keyword.trim() || undefined,
       status: query.status,
+      kind: 'human',
     })
     users.value = resp.users
     pagination.total = resp.total

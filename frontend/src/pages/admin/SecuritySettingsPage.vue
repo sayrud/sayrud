@@ -47,6 +47,32 @@ const { draft, loading, saving, dirty, save, reset } = useSystemSettings()
         </SettingRow>
       </SettingsSection>
 
+      <SettingsSection :title="t('admin.security.bots')">
+        <SettingRow :label="t('admin.security.allowMemberBots')" :description="t('admin.security.allowMemberBotsDescription')">
+          <template #action>
+            <a-tag :color="draft.allowMemberBots ? 'green' : 'gray'" size="small">
+              {{ draft.allowMemberBots ? t('admin.security.open') : t('admin.security.closed') }}
+            </a-tag>
+            <a-switch v-model="draft.allowMemberBots" />
+          </template>
+        </SettingRow>
+        <SettingRow :label="t('admin.security.memberBotLimit')" :description="t('admin.security.memberBotLimitDescription')">
+          <template #action>
+            <a-input-number
+              v-model="draft.memberBotLimit"
+              :min="1"
+              :max="50"
+              :step="1"
+              mode="button"
+              :disabled="!draft.allowMemberBots"
+              class="num"
+            >
+              <template #suffix>{{ t('admin.security.botsUnit') }}</template>
+            </a-input-number>
+          </template>
+        </SettingRow>
+      </SettingsSection>
+
       <SettingsSection :title="t('admin.security.networkRequests')">
         <SettingRow :label="t('admin.security.networkAllowlist')" :description="t('admin.security.networkAllowlistDescription')">
           <a-input-tag

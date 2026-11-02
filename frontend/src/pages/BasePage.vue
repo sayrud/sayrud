@@ -372,8 +372,8 @@ onBeforeUnmount(() => {
       <span class="spacer" />
       <template v-if="!store.accessDenied && store.project">
         <div class="members">
-          <a-tooltip v-for="m in otherMembers.slice(0, 5)" :key="m.memberId" :content="m.name">
-            <UserAvatar :name="m.name" :color="m.color" :avatar-url="m.avatarUrl" :size="28" class="member" />
+          <a-tooltip v-for="m in otherMembers.slice(0, 5)" :key="m.memberId" :content="m.isBot ? `${m.name} · ${t('common.bot')}` : m.name">
+            <UserAvatar :name="m.name" :color="m.color" :avatar-url="m.avatarUrl" :size="28" :bot="m.isBot" class="member" />
           </a-tooltip>
           <a-avatar v-if="otherMembers.length > 5" :size="28" class="member more">+{{ otherMembers.length - 5 }}</a-avatar>
         </div>

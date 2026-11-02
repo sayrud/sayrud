@@ -66,76 +66,88 @@ var (
 // @ID uploadAvatar
 // @Router /auth/avatar [post]
 func (authRoute) UploadAvatar(ctx context.Context, user *db.User, hub *collab.Hub, f form.UploadAvatar, errs binding.Errors) error {
+	updated, ok := saveAvatar(ctx, hub, user.ID, f, errs)
+	if !ok {
+		return nil
+	}
+	return ctx.ApiSuccess(dto.ToProfile(updated))
+}
+
+// saveAvatar stores the uploaded avatar of the user and returns the updated user, the error response has been written if ok is false.
+func saveAvatar(ctx context.Context, hub *collab.Hub, userID int64, f form.UploadAvatar, errs binding.Errors) (_ *db.User, ok bool) {
 	r := ctx.Request().Request
+	fail := func(status int, key string) (*db.User, bool) {
+		_ = ctx.ApiError(status, key)
+		return nil, false
+	}
 	for _, err := range errs {
 		var tooLarge *http.MaxBytesError
 		if errors.As(err.Err, &tooLarge) {
-			return ctx.ApiError(http.StatusRequestEntityTooLarge, "auth::avatar_too_large")
+			return fail(http.StatusRequestEntityTooLarge, "auth::avatar_too_large")
 		}
 
 		if err.Category == binding.ErrorCategoryDeserialization {
-			return ctx.ApiError(http.StatusBadRequest, "common::invalid_body")
+			return fail(http.StatusBadRequest, "common::invalid_body")
 		}
 	}
 
 	if len(errs) > 0 {
-		return ctx.ApiError(http.StatusBadRequest, "auth::avatar_invalid")
+		return fail(http.StatusBadRequest, "auth::avatar_invalid")
 	}
 
 	if f.File.Size > AvatarMaxSize {
-		return ctx.ApiError(http.StatusRequestEntityTooLarge, "auth::avatar_too_large")
+		return fail(http.StatusRequestEntityTooLarge, "auth::avatar_too_large")
 	}
 
 	file, err := f.File.Open()
 	if err != nil {
 		logrus.WithContext(r.Context()).WithError(err).Error("Failed to open uploaded avatar")
-		return ctx.ApiServerError()
+		return fail(http.StatusInternalServerError, "common::internal_error")
 	}
 	defer func() { _ = file.Close() }()
 
 	input, err := io.ReadAll(io.LimitReader(file, AvatarMaxSize+1))
 	if err != nil {
-		return ctx.ApiError(http.StatusBadRequest, "auth::avatar_invalid")
+		return fail(http.StatusBadRequest, "auth::avatar_invalid")
 	}
 	if len(input) > AvatarMaxSize {
-		return ctx.ApiError(http.StatusRequestEntityTooLarge, "auth::avatar_too_large")
+		return fail(http.StatusRequestEntityTooLarge, "auth::avatar_too_large")
 	}
 
 	content, err := normalizeAvatar(input)
 	if err != nil {
 		if errors.Is(err, errAvatarDimensions) {
-			return ctx.ApiError(http.StatusBadRequest, "auth::avatar_dimensions")
+			return fail(http.StatusBadRequest, "auth::avatar_dimensions")
 		}
 
-		return ctx.ApiError(http.StatusBadRequest, "auth::avatar_invalid")
+		return fail(http.StatusBadRequest, "auth::avatar_invalid")
 	}
 
 	avatar, err := storage.Upload(r.Context(), storage.UploadOptions{
 		Category: storage.CategoryAvatar,
-		UserID:   user.ID,
+		UserID:   userID,
 		Name:     "avatar.png",
 		Reader:   bytes.NewReader(content),
 		Size:     int64(len(content)),
 	})
 	if err != nil {
 		logrus.WithContext(r.Context()).WithError(err).Error("Failed to upload avatar")
-		return ctx.ApiServerError()
+		return fail(http.StatusInternalServerError, "common::internal_error")
 	}
 
-	updated, previous, err := db.Users.SetAvatar(r.Context(), user.ID, avatar.UID)
+	updated, previous, err := db.Users.SetAvatar(r.Context(), userID, avatar.UID)
 	if err != nil {
 		if cleanupErr := storage.Remove(stdcontext.WithoutCancel(r.Context()), avatar); cleanupErr != nil {
 			logrus.WithContext(r.Context()).WithError(cleanupErr).Warn("Failed to remove unassigned avatar")
 		}
 
 		logrus.WithContext(r.Context()).WithError(err).Error("Failed to update avatar")
-		return ctx.ApiServerError()
+		return fail(http.StatusInternalServerError, "common::internal_error")
 	}
 
-	removePreviousAvatar(r.Context(), user.ID, previous)
+	removePreviousAvatar(r.Context(), userID, previous)
 	hub.UpdateUserAvatar(updated.ID, dto.UserAvatarURL(updated), updated.UpdatedAt)
-
-	return ctx.ApiSuccess(dto.ToProfile(updated))
+	return updated, true
 }
 
 // normalizeAvatar decodes before storing, strips metadata and trailing content, and uses only the first frame of a GIF.
@@ -199,17 +211,25 @@ func normalizeAvatar(input []byte) ([]byte, error) {
 // @ID removeAvatar
 // @Router /auth/avatar [delete]
 func (authRoute) RemoveAvatar(ctx context.Context, user *db.User, hub *collab.Hub) error {
-	c := ctx.Request().Context()
-	updated, previous, err := db.Users.SetAvatar(c, user.ID, "")
+	updated, err := clearAvatar(ctx, hub, user.ID)
 	if err != nil {
-		logrus.WithContext(c).WithError(err).Error("Failed to remove avatar")
+		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to remove avatar")
 		return ctx.ApiServerError()
 	}
-
-	removePreviousAvatar(c, user.ID, previous)
-	hub.UpdateUserAvatar(updated.ID, "", updated.UpdatedAt)
-
 	return ctx.ApiSuccess(dto.ToProfile(updated))
+}
+
+// clearAvatar restores the default avatar of the user and returns the updated user.
+func clearAvatar(ctx context.Context, hub *collab.Hub, userID int64) (*db.User, error) {
+	c := ctx.Request().Context()
+	updated, previous, err := db.Users.SetAvatar(c, userID, "")
+	if err != nil {
+		return nil, err
+	}
+
+	removePreviousAvatar(c, userID, previous)
+	hub.UpdateUserAvatar(updated.ID, "", updated.UpdatedAt)
+	return updated, nil
 }
 
 // removePreviousAvatar is best effort after committing the replacement, so cleanup failure never discards the new avatar.

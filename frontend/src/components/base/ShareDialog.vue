@@ -59,6 +59,35 @@ watch(visible, (v) => {
   load()
 })
 
+const bots = ref<UserBrief[]>([])
+let botTimer: ReturnType<typeof setTimeout> | undefined
+let botSeq = 0
+
+/** Text that is not an email searches the bots by name, a picked bot is invited by its email. */
+function searchBots(keyword: string) {
+  clearTimeout(botTimer)
+  const seq = ++botSeq
+  bots.value = []
+  if (!store.canManage || !keyword) return
+  botTimer = setTimeout(async () => {
+    try {
+      const found = await membersApi.searchBots(projectUID.value, keyword)
+      if (seq === botSeq) bots.value = found.slice(0, 5)
+    } catch {
+      if (seq === botSeq) bots.value = []
+    }
+  }, 300)
+}
+
+function pickBot(bot: UserBrief) {
+  email.value = bot.email
+}
+
+/** Bots are told apart by their owner, the people by their email. */
+function userLine(user: UserBrief) {
+  return user.ownerName ? t('share.botOwner', { name: user.ownerName }) : user.email
+}
+
 let lookupTimer: ReturnType<typeof setTimeout> | undefined
 let lookupSeq = 0
 watch(email, (value) => {
@@ -67,6 +96,7 @@ watch(email, (value) => {
   lookupError.value = ''
   const v = value.trim()
   lookingUp.value = false
+  searchBots(isEmail(v) ? '' : v)
   if (!store.canManage || !isEmail(v)) return
   const seq = ++lookupSeq
   lookingUp.value = true
@@ -219,26 +249,37 @@ function copyLink() {
       </div>
       <div v-if="lookingUp" class="candidate hint"><a-spin :size="14" /> {{ t('share.lookingUp') }}</div>
       <div v-else-if="candidate" class="candidate">
-        <UserAvatar :name="candidate.userName" :color="candidate.color" :avatar-url="candidate.avatarUrl" :size="28" />
+        <UserAvatar :name="candidate.userName" :color="candidate.color" :avatar-url="candidate.avatarUrl" :size="28" :bot="candidate.isBot" />
         <div class="member-text">
-          <div class="member-name ellipsis">{{ candidate.userName }}</div>
-          <div class="member-email ellipsis">{{ candidate.email }}</div>
+          <div class="member-name ellipsis">
+            {{ candidate.userName }}<a-tag v-if="candidate.isBot" size="small" color="arcoblue" class="bot-tag">{{ t('common.bot') }}</a-tag>
+          </div>
+          <div class="member-email ellipsis">{{ userLine(candidate) }}</div>
         </div>
         <span v-if="existing" class="candidate-tip">{{ t('share.existing', { role: ROLE_LABELS[existing.role] }) }}</span>
       </div>
       <div v-else-if="lookupError" class="candidate hint error">{{ lookupError }}</div>
+      <div v-else-if="bots.length" class="bot-results" role="listbox" :aria-label="t('share.bots')">
+        <div class="bot-results-title">{{ t('share.bots') }}</div>
+        <button v-for="b in bots" :key="b.id" type="button" role="option" class="bot-result" @click="pickBot(b)">
+          <UserAvatar :name="b.userName" :color="b.color" :avatar-url="b.avatarUrl" :size="24" bot />
+          <span class="member-name ellipsis">{{ b.userName }}</span>
+          <span class="member-email ellipsis">{{ userLine(b) }}</span>
+        </button>
+      </div>
     </div>
     <div v-else class="invite-tip">{{ t('share.cannotInvite', { role: ROLE_LABELS[store.role ?? 'viewer'] }) }}</div>
 
     <div class="section-title">{{ t('share.members', { n: members.length }, members.length) }}</div>
     <a-spin :loading="loading" class="list">
       <div v-for="m in members" :key="m.user.id" class="member">
-        <UserAvatar :name="m.user.userName" :color="m.user.color" :avatar-url="m.user.avatarUrl" :size="32" />
+        <UserAvatar :name="m.user.userName" :color="m.user.color" :avatar-url="m.user.avatarUrl" :size="32" :bot="m.user.isBot" />
         <div class="member-text">
           <div class="member-name ellipsis">
             {{ m.user.userName }}<span v-if="m.user.id === myID" class="me">{{ t('share.me') }}</span>
+            <a-tag v-if="m.user.isBot" size="small" color="arcoblue" class="bot-tag">{{ t('common.bot') }}</a-tag>
           </div>
-          <div class="member-email ellipsis">{{ m.user.email }}</div>
+          <div class="member-email ellipsis">{{ userLine(m.user) }}</div>
         </div>
         <a-dropdown
           v-if="editable(m)"
@@ -264,7 +305,7 @@ function copyLink() {
               </a-doption>
               <a-divider :margin="4" />
             </template>
-            <a-doption v-if="store.role === 'owner' && m.user.id !== myID" value="transfer">{{ t('share.transfer') }}</a-doption>
+            <a-doption v-if="store.role === 'owner' && m.user.id !== myID && !m.user.isBot" value="transfer">{{ t('share.transfer') }}</a-doption>
             <a-doption value="remove" :style="{ color: 'var(--color-danger)' }">
               {{ m.user.id === myID ? t('home.leave') : t('share.remove') }}
             </a-doption>
@@ -351,6 +392,42 @@ function copyLink() {
 }
 .candidate.error {
   color: var(--color-danger);
+}
+.bot-tag {
+  margin-left: 6px;
+  vertical-align: 1px;
+}
+.bot-results {
+  margin-top: 8px;
+  padding: 4px;
+  border-radius: 6px;
+  background: var(--bg-base);
+}
+.bot-results-title {
+  padding: 4px 6px;
+  font-size: 12px;
+  color: var(--text-placeholder);
+}
+.bot-result {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 6px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.bot-result:hover,
+.bot-result:focus-visible {
+  background: var(--fill-hover);
+  outline: none;
+}
+.bot-result .member-email {
+  margin-left: auto;
 }
 .candidate-tip {
   margin-left: auto;

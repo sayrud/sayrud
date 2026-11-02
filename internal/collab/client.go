@@ -38,6 +38,7 @@ type Identity struct {
 	Name         string
 	Color        string
 	AvatarURL    string
+	IsBot        bool
 	UpdatedAt    time.Time
 	Role         db.ProjectRole
 	Share        *ShareSession
@@ -99,6 +100,7 @@ func (h *Hub) Serve(w http.ResponseWriter, r *http.Request, project *db.Project,
 			Name:      identity.Name,
 			Color:     identity.Color,
 			AvatarURL: identity.AvatarURL,
+			IsBot:     identity.IsBot,
 		},
 		role:            identity.Role,
 		avatarUpdatedAt: identity.UpdatedAt,

@@ -63,6 +63,14 @@ const router = createRouter({
         },
         { path: 'security', name: 'settings-security', component: () => import('@/pages/settings/SecurityPage.vue') },
         { path: 'devices', name: 'settings-devices', component: () => import('@/pages/settings/DevicesPage.vue') },
+        { path: 'tokens', name: 'settings-tokens', component: () => import('@/pages/settings/TokensPage.vue') },
+        { path: 'bots', name: 'settings-bots', component: () => import('@/pages/settings/MyBotsPage.vue') },
+        {
+          path: 'bots/:botId',
+          name: 'settings-bot',
+          component: () => import('@/pages/settings/MyBotPage.vue'),
+          meta: { nav: 'settings-bots' },
+        },
       ],
     },
     {
@@ -74,6 +82,8 @@ const router = createRouter({
       children: [
         { path: 'overview', name: 'admin-overview', component: () => import('@/pages/admin/OverviewPage.vue') },
         { path: 'users', name: 'admin-users', component: () => import('@/pages/admin/UsersPage.vue') },
+        { path: 'bots', name: 'admin-bots', component: () => import('@/pages/admin/BotsPage.vue') },
+        { path: 'bots/:botId', name: 'admin-bot', component: () => import('@/pages/admin/BotPage.vue'), meta: { nav: 'admin-bots' } },
         { path: 'projects', name: 'admin-projects', component: () => import('@/pages/admin/ProjectsPage.vue') },
         {
           path: 'sign-in-methods',

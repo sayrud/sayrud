@@ -47,6 +47,7 @@ func (collabRoute) Serve(ctx context.Context, hub *collab.Hub, project *db.Proje
 		Name:         user.UserName,
 		Color:        dto.UserColor(user.ID),
 		AvatarURL:    dto.UserAvatarURL(user),
+		IsBot:        user.IsBot(),
 		UpdatedAt:    user.UpdatedAt,
 		Role:         role,
 		SessionToken: sessionToken,

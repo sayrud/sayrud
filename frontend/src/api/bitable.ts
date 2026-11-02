@@ -71,6 +71,9 @@ export const membersApi = {
   list: async (projectUID: string) => (await client.projects.listProjectMembers(projectUID)).data as ProjectMember[],
   lookup: async (projectUID: string, email: string) =>
     (await client.projects.lookupProjectMemberCandidate(projectUID, { email })).data as UserBrief,
+  /** Finds the enabled bots by name or email, they are added by email like the other users. */
+  searchBots: async (projectUID: string, keyword: string) =>
+    (await client.projects.searchProjectMemberBots(projectUID, { keyword })).data as UserBrief[],
   add: async (projectUID: string, email: string, role: MemberRole) =>
     (await client.projects.addProjectMember(projectUID, { email, role })).data as ProjectMember,
   update: async (projectUID: string, userID: number, role: MemberRole) => {

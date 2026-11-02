@@ -18,6 +18,8 @@ export function useSystemSettings() {
     allowPasswordSignIn: true,
     loginNotice: '',
     networkAllowlist: [],
+    allowMemberBots: true,
+    memberBotLimit: 5,
   })
   const loading = ref(true)
   const saving = ref(false)

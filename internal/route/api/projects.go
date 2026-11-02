@@ -31,7 +31,8 @@ type projectAccess struct {
 }
 
 // Projecter maps the project of the projectUID path parameter as *db.Project, the effective role of the signed-in user on it as db.ProjectRole, and how the role is granted as projectAccess.
-func (projectRoute) Projecter(ctx context.Context, user *db.User) error {
+// An access token must allow the project and its role is never raised by the system admin, a bot never exceeds the own role of its owner.
+func (projectRoute) Projecter(ctx context.Context, user *db.User, token *db.AccessToken) error {
 	projectUID := ctx.Param("projectUID")
 	project, err := db.Projects.GetByUID(ctx.Request().Context(), projectUID)
 	if err != nil {
@@ -41,24 +42,47 @@ func (projectRoute) Projecter(ctx context.Context, user *db.User) error {
 		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to get project by UID")
 		return ctx.ApiServerError()
 	}
-
-	ownRole := db.ProjectRoleOwner
-	if project.OwnerUserID != user.ID {
-		ownRole, err = db.ProjectMembers.GetRole(ctx.Request().Context(), project.ID, user.ID)
-		if err != nil && !errors.Is(err, db.ErrProjectMemberNotFound) {
-			logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to get project role")
-			return ctx.ApiServerError()
-		}
+	if token != nil && !token.AllowsProject(project.ID) {
+		return ctx.ApiError(http.StatusForbidden, "auth::token_project_denied")
 	}
-	role := db.EffectiveRole(ownRole, user.IsAdmin)
+
+	ownRole, err := ownProjectRole(ctx, project, user.ID)
+	if err != nil {
+		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to get project role")
+		return ctx.ApiServerError()
+	}
+	role := db.EffectiveRole(ownRole, user.IsAdmin && token == nil)
 	if role == "" {
 		return ctx.ApiError(http.StatusForbidden, "project::no_access")
+	}
+	if user.IsBot() {
+		ownerRole, err := ownProjectRole(ctx, project, user.OwnerID)
+		if err != nil {
+			logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to get project role of bot owner")
+			return ctx.ApiServerError()
+		}
+		if role = db.LowerRole(role, ownerRole); role == "" {
+			return ctx.ApiError(http.StatusForbidden, "project::bot_owner_no_access")
+		}
+		ownRole = role
 	}
 
 	ctx.Map(project)
 	ctx.Map(role)
 	ctx.Map(projectAccess{ViaAdmin: role != ownRole})
 	return nil
+}
+
+// ownProjectRole returns the role of the user as the owner or a collaborator of the project, empty if neither.
+func ownProjectRole(ctx context.Context, project *db.Project, userID int64) (db.ProjectRole, error) {
+	if project.OwnerUserID == userID {
+		return db.ProjectRoleOwner, nil
+	}
+	role, err := db.ProjectMembers.GetRole(ctx.Request().Context(), project.ID, userID)
+	if errors.Is(err, db.ErrProjectMemberNotFound) {
+		return "", nil
+	}
+	return role, err
 }
 
 var roleDeniedKeys = map[db.ProjectRole]string{
@@ -90,13 +114,23 @@ func (projectRoute) RequireRole(min db.ProjectRole) flamego.Handler {
 // @Failure 500 {string} string "Internal server error"
 // @ID listProjects
 // @Router /projects [get]
-func (projectRoute) ListProjects(ctx context.Context, user *db.User) error {
+func (projectRoute) ListProjects(ctx context.Context, user *db.User, token *db.AccessToken) error {
+	var restrictTo []int64
+	if token != nil && len(token.ProjectIDs) > 0 {
+		restrictTo = token.ProjectIDs
+	}
+	var ownerID int64
+	if user.IsBot() {
+		ownerID = user.OwnerID
+	}
 	projects, total, err := db.Projects.ListByUserID(ctx.Request().Context(), user.ID, db.ListByUserIDOptions{
 		Pagination: dbutil.Pagination{
 			Page:     ctx.QueryInt("page"),
 			PageSize: ctx.QueryInt("pageSize"),
 		},
-		Scope: db.ProjectScope(ctx.Query("scope")),
+		Scope:            db.ProjectScope(ctx.Query("scope")),
+		IDs:              restrictTo,
+		AlsoAccessibleBy: ownerID,
 	})
 	if err != nil {
 		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to list projects")
@@ -158,17 +192,21 @@ func usersByID(ctx context.Context, userIDs []int64) (map[int64]*db.User, error)
 // CreateProject
 // @Summary Create a project
 // @Tags Projects
-// @Description Create a project owned by the signed-in user.
+// @Description Create a project owned by the signed-in user. Bots can not own projects.
 // @Accept json
 // @Produce json
 // @Param data body form.CreateProject true "Project to create"
 // @Success 200 {object} dto.Project
 // @Failure 400 {string} string "Invalid request body"
 // @Failure 401 {string} string "Not signed in"
+// @Failure 403 {string} string "Called by a bot"
 // @Failure 500 {string} string "Internal server error"
 // @ID createProject
 // @Router /projects [post]
 func (projectRoute) CreateProject(ctx context.Context, user *db.User, f form.CreateProject) error {
+	if user.IsBot() {
+		return ctx.ApiError(http.StatusForbidden, "project::bot_cannot_own")
+	}
 	project, err := db.Projects.Create(ctx.Request().Context(), db.CreateProjectOptions{
 		OwnerUserID: user.ID,
 		Name:        f.Name,
@@ -318,6 +356,9 @@ func transferTargetError(ctx context.Context, userID int64) (string, error) {
 	if user.Disabled() {
 		return "project::recipient_disabled", nil
 	}
+	if user.IsBot() {
+		return "project::bot_cannot_own", nil
+	}
 	return "", nil
 }
 
@@ -357,28 +398,61 @@ func (projectRoute) ListMembers(ctx context.Context, project *db.Project) error 
 	for _, m := range members {
 		userIDs = append(userIDs, m.UserID)
 	}
-	users, err := usersByID(ctx, userIDs)
+	users, err := db.Users.ListByIDs(ctx.Request().Context(), userIDs)
 	if err != nil {
 		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to list member users")
 		return ctx.ApiServerError()
 	}
+	briefs, err := userBriefs(ctx, users)
+	if err != nil {
+		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to list owners of member bots")
+		return ctx.ApiServerError()
+	}
 
 	resp := make([]*dto.ProjectMember, 0, len(members)+1)
-	if owner, ok := users[project.OwnerUserID]; ok {
-		resp = append(resp, &dto.ProjectMember{User: dto.ToUserBrief(owner), Role: string(db.ProjectRoleOwner)})
+	if owner, ok := briefs[project.OwnerUserID]; ok {
+		resp = append(resp, &dto.ProjectMember{User: owner, Role: string(db.ProjectRoleOwner)})
 	}
 	for _, m := range members {
-		if u, ok := users[m.UserID]; ok {
-			resp = append(resp, &dto.ProjectMember{User: dto.ToUserBrief(u), Role: string(m.Role)})
+		if u, ok := briefs[m.UserID]; ok {
+			resp = append(resp, &dto.ProjectMember{User: u, Role: string(m.Role)})
 		}
 	}
 	return ctx.ApiSuccess(resp)
 }
 
+// userBriefs converts the users keyed by ID, naming the owners of the bots.
+func userBriefs(ctx context.Context, users []*db.User) (map[int64]*dto.UserBrief, error) {
+	var ownerIDs []int64
+	for _, u := range users {
+		if u.IsBot() {
+			ownerIDs = append(ownerIDs, u.OwnerID)
+		}
+	}
+	owners, err := usersByID(ctx, ownerIDs)
+	if err != nil {
+		return nil, err
+	}
+	briefs := make(map[int64]*dto.UserBrief, len(users))
+	for _, u := range users {
+		brief := dto.ToUserBrief(u)
+		if owner, ok := owners[u.OwnerID]; ok && u.IsBot() {
+			brief.OwnerName = owner.UserName
+		}
+		briefs[u.ID] = brief
+	}
+	return briefs, nil
+}
+
+// visibleCandidate reports whether the operator may find and invite the user, the bots are only visible to their owners.
+func visibleCandidate(operator, user *db.User) bool {
+	return !user.IsBot() || user.OwnerID == operator.ID
+}
+
 // LookupMemberCandidate
 // @Summary Find a user to invite
 // @Tags Project members
-// @Description Find the registered user by the exact email, requires the manager role.
+// @Description Find the registered user by the exact email, requires the manager role. The bots of the others are not found.
 // @Produce json
 // @Param projectUID path string true "Project UID"
 // @Param email query string true "Email of the user"
@@ -388,22 +462,61 @@ func (projectRoute) ListMembers(ctx context.Context, project *db.Project) error 
 // @Failure 500 {string} string "Internal server error"
 // @ID lookupProjectMemberCandidate
 // @Router /projects/{projectUID}/members/lookup [get]
-func (projectRoute) LookupMemberCandidate(ctx context.Context) error {
+func (projectRoute) LookupMemberCandidate(ctx context.Context, operator *db.User) error {
 	user, err := db.Users.GetByEmail(ctx.Request().Context(), ctx.Query("email"))
-	if err != nil {
-		if errors.Is(err, db.ErrUserNotFound) {
-			return ctx.ApiError(http.StatusNotFound, "project::email_not_registered")
-		}
+	if err != nil && !errors.Is(err, db.ErrUserNotFound) {
 		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to get user by email")
 		return ctx.ApiServerError()
 	}
-	return ctx.ApiSuccess(dto.ToUserBrief(user))
+	if user == nil || !visibleCandidate(operator, user) {
+		return ctx.ApiError(http.StatusNotFound, "project::email_not_registered")
+	}
+	brief := dto.ToUserBrief(user)
+	if user.IsBot() {
+		brief.OwnerName = operator.UserName
+	}
+	return ctx.ApiSuccess(brief)
+}
+
+// SearchMemberBots
+// @Summary Find the bots to invite
+// @Tags Project members
+// @Description Search the own enabled bots by name or email, at most 20, requires the manager role. Add them by the email like the other users.
+// @Produce json
+// @Param projectUID path string true "Project UID"
+// @Param keyword query string false "Matches the name or email of the bot"
+// @Success 200 {array} dto.UserBrief
+// @Failure 403 {string} string "Permission denied"
+// @Failure 500 {string} string "Internal server error"
+// @ID searchProjectMemberBots
+// @Router /projects/{projectUID}/members/bots [get]
+func (projectRoute) SearchMemberBots(ctx context.Context, operator *db.User) error {
+	bots, _, err := db.Users.List(ctx.Request().Context(), db.ListUsersOptions{
+		Pagination: dbutil.Pagination{PageSize: 20},
+		Keyword:    ctx.Query("keyword"),
+		Status:     db.UserStatusActive,
+		Kind:       db.UserKindBot,
+		OwnerID:    operator.ID,
+	})
+	if err != nil {
+		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to search bots")
+		return ctx.ApiServerError()
+	}
+	resp := make([]*dto.UserBrief, 0, len(bots))
+	for _, b := range bots {
+		brief := dto.ToUserBrief(b)
+		if b.IsBot() {
+			brief.OwnerName = operator.UserName
+		}
+		resp = append(resp, brief)
+	}
+	return ctx.ApiSuccess(resp)
 }
 
 // AddMember
 // @Summary Add a collaborator
 // @Tags Project members
-// @Description Add the registered user as a collaborator, or change the role if it has been one. Requires the manager role.
+// @Description Add the registered user as a collaborator, or change the role if it has been one. Requires the manager role, a bot can only be added by its owner.
 // @Accept json
 // @Produce json
 // @Param projectUID path string true "Project UID"
@@ -415,18 +528,18 @@ func (projectRoute) LookupMemberCandidate(ctx context.Context) error {
 // @Failure 500 {string} string "Internal server error"
 // @ID addProjectMember
 // @Router /projects/{projectUID}/members [post]
-func (projectRoute) AddMember(ctx context.Context, hub *collab.Hub, project *db.Project, f form.AddProjectMember) error {
+func (projectRoute) AddMember(ctx context.Context, hub *collab.Hub, operator *db.User, project *db.Project, f form.AddProjectMember) error {
 	role := db.ProjectRole(f.Role)
 	if !role.IsMemberRole() {
 		return ctx.ApiError(http.StatusBadRequest, "project::unsupported_role")
 	}
 	user, err := db.Users.GetByEmail(ctx.Request().Context(), f.Email)
-	if err != nil {
-		if errors.Is(err, db.ErrUserNotFound) {
-			return ctx.ApiError(http.StatusNotFound, "project::email_not_registered")
-		}
+	if err != nil && !errors.Is(err, db.ErrUserNotFound) {
 		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to get user by email")
 		return ctx.ApiServerError()
+	}
+	if user == nil || !visibleCandidate(operator, user) {
+		return ctx.ApiError(http.StatusNotFound, "project::email_not_registered")
 	}
 	if user.ID == project.OwnerUserID {
 		return ctx.ApiError(http.StatusBadRequest, "project::user_is_owner")
@@ -437,7 +550,11 @@ func (projectRoute) AddMember(ctx context.Context, hub *collab.Hub, project *db.
 		return ctx.ApiServerError()
 	}
 	hub.SetUserRole(project.UID, user.ID, db.EffectiveRole(role, user.IsAdmin))
-	return ctx.ApiSuccess(&dto.ProjectMember{User: dto.ToUserBrief(user), Role: string(role)})
+	brief := dto.ToUserBrief(user)
+	if user.IsBot() {
+		brief.OwnerName = operator.UserName
+	}
+	return ctx.ApiSuccess(&dto.ProjectMember{User: brief, Role: string(role)})
 }
 
 // UpdateMember

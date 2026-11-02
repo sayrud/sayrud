@@ -6,6 +6,7 @@ package api
 
 import (
 	"net/http"
+	"regexp"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -27,8 +28,32 @@ type authRoute struct{}
 
 const sessionCookieName = "sayrud_session"
 
-// Authenticator maps the user of the session cookie as *db.User and the session as *db.UserSession, and responds 401 if not signed in or the user is disabled.
+// Authenticator maps the user of the session cookie as *db.User, the session as *db.UserSession and a nil *db.AccessToken, and responds 401 if not signed in or the user is disabled. Requests with an access token get 403.
 func (authRoute) Authenticator(ctx context.Context) error {
+	if _, ok := bearerToken(ctx.Request().Request); ok {
+		return ctx.ApiError(http.StatusForbidden, "auth::token_not_allowed")
+	}
+	return authenticateSession(ctx)
+}
+
+// TokenAuthenticator is the Authenticator that also accepts an `Authorization: Bearer` access token, which is mapped as *db.AccessToken instead of the session.
+// The cookie is ignored once the header is present, and the token needs the scope of the request method.
+func (authRoute) TokenAuthenticator(ctx context.Context) error {
+	if plaintext, ok := bearerToken(ctx.Request().Request); ok {
+		return authenticateToken(ctx, plaintext)
+	}
+	return authenticateSession(ctx)
+}
+
+// SessionOnly responds 403 to the requests with an access token, for the routes only the signed-in browser can use.
+func (authRoute) SessionOnly(ctx context.Context) error {
+	if _, ok := bearerToken(ctx.Request().Request); ok {
+		return ctx.ApiError(http.StatusForbidden, "auth::token_not_allowed")
+	}
+	return nil
+}
+
+func authenticateSession(ctx context.Context) error {
 	user, session, key, err := sessionUser(ctx)
 	if err != nil {
 		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to authenticate session")
@@ -39,7 +64,97 @@ func (authRoute) Authenticator(ctx context.Context) error {
 	}
 	ctx.Map(user)
 	ctx.Map(session)
+	ctx.Map((*db.AccessToken)(nil))
 	return nil
+}
+
+// bearerToken returns the credential of the `Authorization: Bearer` header, ok is false if there is no such header.
+func bearerToken(r *http.Request) (string, bool) {
+	scheme, credential, found := strings.Cut(r.Header.Get("Authorization"), " ")
+	if !found || !strings.EqualFold(scheme, "Bearer") {
+		return "", false
+	}
+	return strings.TrimSpace(credential), true
+}
+
+// readOnlyPost matches the POST routes that only read, which need the read scope like GET.
+var readOnlyPost = regexp.MustCompile(`^/_/projects/[^/]+/tables/[^/]+/(records/(query|fetch)|fields/options/resolve)$`)
+
+// requiredScope returns the scope an access token needs for the request.
+func requiredScope(r *http.Request) db.AccessTokenScope {
+	if r.Method == http.MethodGet || r.Method == http.MethodHead || (r.Method == http.MethodPost && readOnlyPost.MatchString(r.URL.Path)) {
+		return db.AccessTokenScopeRead
+	}
+	return db.AccessTokenScopeWrite
+}
+
+func authenticateToken(ctx context.Context, plaintext string) error {
+	c := ctx.Request().Context()
+	ip := ctx.IP()
+	if err := redis.AuthAttempts.CheckToken(c, ip); err != nil {
+		if errors.Is(err, redis.ErrTooManyAttempts) {
+			return ctx.ApiError(http.StatusTooManyRequests, "common::too_many_attempts")
+		}
+		logrus.WithContext(c).WithError(err).Warn("Failed to check access token attempts")
+	}
+
+	token, user, key, err := tokenUser(ctx, plaintext)
+	if err != nil {
+		logrus.WithContext(c).WithError(err).Error("Failed to authenticate access token")
+		return ctx.ApiServerError()
+	}
+	if key != "" {
+		// Only the unknown tokens are counted, since guessing them is the attack to slow down.
+		if key == "auth::token_invalid" {
+			if err := redis.AuthAttempts.CountTokenFailure(c, ip); err != nil {
+				logrus.WithContext(c).WithError(err).Warn("Failed to count access token failure")
+			}
+		}
+		return ctx.ApiError(http.StatusUnauthorized, key)
+	}
+	if scope := requiredScope(ctx.Request().Request); !token.HasScope(scope) {
+		return ctx.ApiError(http.StatusForbidden, "auth::token_scope_required", string(scope))
+	}
+	if err := db.AccessTokens.Touch(c, token, ip); err != nil {
+		logrus.WithContext(c).WithError(err).Warn("Failed to record access token use")
+	}
+	ctx.Map(user)
+	ctx.Map(token)
+	return nil
+}
+
+// tokenUser returns the token of the plaintext and its enabled user, or the message key of 401, err is only for server errors.
+func tokenUser(ctx context.Context, plaintext string) (*db.AccessToken, *db.User, string, error) {
+	token, err := db.AccessTokens.Verify(ctx.Request().Context(), plaintext)
+	if err != nil {
+		switch {
+		case errors.Is(err, db.ErrAccessTokenNotFound):
+			return nil, nil, "auth::token_invalid", nil
+		case errors.Is(err, db.ErrAccessTokenExpired):
+			return nil, nil, "auth::token_expired", nil
+		}
+		return nil, nil, "", errors.Wrap(err, "verify token")
+	}
+	user, err := db.Users.GetByID(ctx.Request().Context(), token.UserID)
+	if err != nil {
+		if errors.Is(err, db.ErrUserNotFound) {
+			return nil, nil, "auth::token_invalid", nil
+		}
+		return nil, nil, "", errors.Wrap(err, "get user of token")
+	}
+	if user.Disabled() {
+		return nil, nil, "auth::account_disabled", nil
+	}
+	if user.IsBot() {
+		owner, err := db.Users.GetByID(ctx.Request().Context(), user.OwnerID)
+		if err != nil && !errors.Is(err, db.ErrUserNotFound) {
+			return nil, nil, "", errors.Wrap(err, "get owner of bot")
+		}
+		if owner == nil || owner.Disabled() {
+			return nil, nil, "auth::bot_owner_disabled", nil
+		}
+	}
+	return token, user, "", nil
 }
 
 // sessionUser returns the enabled user of the session cookie, or the message key of 401 if not signed in, err is only for server errors.
