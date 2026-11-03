@@ -5,7 +5,7 @@ import type { RecordWriter, SLField, SLRecord, UserBrief } from '@/types/bitable
 /** A user referenced by the member and system fields. */
 export interface DirectoryUser {
   user: UserBrief
-  /** The user has been removed from the project. */
+  /** The user was a collaborator and has been removed from the project; the other non-members, e.g. the admins writing records, are not left. */
   left: boolean
 }
 
@@ -44,11 +44,15 @@ export function resetDirectory(currentUserId = 0) {
   directory.value = { ...empty(), currentUserId }
 }
 
-/** Replaces the members, the other known users are marked as left. */
+/** Replaces the members, the previous members missing from them are marked as left. */
 export function setMembers(members: UserBrief[]) {
   update((s) => {
     const users = new Map(s.users)
-    for (const [id, item] of users) users.set(id, { ...item, left: true })
+    const current = new Set(members.map((u) => u.id))
+    for (const user of s.members) {
+      const item = users.get(user.id)
+      if (item && !current.has(user.id)) users.set(user.id, { ...item, left: true })
+    }
     for (const user of members) users.set(user.id, { user, left: false })
     return { members, users }
   })
@@ -64,7 +68,7 @@ export function addResolved(
   update((s) => {
     const nextUsers = new Map(s.users)
     const memberIDs = new Set(s.members.map((u) => u.id))
-    for (const item of users) nextUsers.set(item.user.id, { user: item.user, left: s.members.length ? !memberIDs.has(item.user.id) : item.left })
+    for (const item of users) nextUsers.set(item.user.id, { user: item.user, left: item.left && !memberIDs.has(item.user.id) })
     const nextWorkflows = new Map(s.workflows)
     for (const w of workflows) nextWorkflows.set(w.id, w.name)
     const missingUsers = new Set(s.missingUsers)

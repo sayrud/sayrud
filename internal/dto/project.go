@@ -57,7 +57,7 @@ type ProjectMember struct {
 
 // ResolvedMembers are the users and the workflows referenced by the member and system fields of the project.
 type ResolvedMembers struct {
-	// Users are the requested users who are or were members of the project, the others are omitted.
+	// Users are the requested users who are or were members of the project or wrote its records, the others are omitted.
 	Users []*ResolvedUser `json:"users"`
 	// Workflows are the requested workflows of the project, including the deleted ones.
 	Workflows []*WorkflowName `json:"workflows"`
@@ -66,7 +66,7 @@ type ResolvedMembers struct {
 // ResolvedUser is a user referenced by the member and system fields.
 type ResolvedUser struct {
 	User *UserBrief `json:"user"`
-	// Left reports whether the user has been removed from the project.
+	// Left reports whether the user was a collaborator and has been removed from the project.
 	Left bool `json:"left"`
 } // @name ResolvedUser
 

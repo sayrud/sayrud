@@ -5499,7 +5499,7 @@ const docTemplate = `{
         },
         "/projects/{projectUID}/members/resolve": {
             "post": {
-                "description": "Return the requested users who are or were members of the project, and the requested workflows of the project including the deleted ones; the others are omitted.",
+                "description": "Return the requested users who are or were members of the project or wrote its records, and the requested workflows of the project including the deleted ones; the others are omitted.",
                 "consumes": [
                     "application/json"
                 ],
@@ -12809,7 +12809,7 @@ const docTemplate = `{
             ],
             "properties": {
                 "users": {
-                    "description": "Users are the requested users who are or were members of the project, the others are omitted.",
+                    "description": "Users are the requested users who are or were members of the project or wrote its records, the others are omitted.",
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/ResolvedUser"
@@ -12832,7 +12832,7 @@ const docTemplate = `{
             ],
             "properties": {
                 "left": {
-                    "description": "Left reports whether the user has been removed from the project.",
+                    "description": "Left reports whether the user was a collaborator and has been removed from the project.",
                     "type": "boolean"
                 },
                 "user": {

@@ -242,6 +242,7 @@ func (a *applier) addRecords(actions []Action) ([]Action, error) {
 			a.dirty.addRecords(action.RecordUID)
 		}
 		a.change.AddRecord(action.RecordUID, lo.Keys(data))
+		a.change.AddWritten(action.RecordUID, true, a.origin.Writer())
 		jsonBytes, err := json.Marshal(data)
 		if err != nil {
 			return nil, errors.Wrap(err, "encode data")
@@ -305,6 +306,7 @@ func (a *applier) setRecords(actions []Action) ([]Action, error) {
 			}
 		}
 		a.change.AddRecord(action.RecordUID, lo.Keys(action.Values))
+		a.change.AddWritten(action.RecordUID, false, a.origin.Writer())
 		kept = append(kept, action)
 	}
 

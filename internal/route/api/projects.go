@@ -428,7 +428,7 @@ const maxResolvedMembers = 1000
 // ResolveMembers
 // @Summary Resolve the users and workflows of the member and system fields
 // @Tags Project members
-// @Description Return the requested users who are or were members of the project, and the requested workflows of the project including the deleted ones; the others are omitted.
+// @Description Return the requested users who are or were members of the project or wrote its records, and the requested workflows of the project including the deleted ones; the others are omitted.
 // @Accept json
 // @Produce json
 // @Param projectUID path string true "Project UID"
@@ -460,7 +460,13 @@ func respondResolvedMembers(ctx context.Context, project *db.Project, f form.Res
 		logrus.WithContext(c).WithError(err).Error("Failed to list former project members")
 		return ctx.ApiServerError()
 	}
-	ids := lo.Intersect(lo.Uniq(f.UserIDs), append(current, former...))
+	requested := lo.Uniq(f.UserIDs)
+	writers, err := db.SLRecords.WriterUserIDs(c, project.ID, lo.Without(requested, append(current, former...)...))
+	if err != nil {
+		logrus.WithContext(c).WithError(err).Error("Failed to list record writers")
+		return ctx.ApiServerError()
+	}
+	ids := lo.Intersect(requested, append(append(current, former...), writers...))
 	users, err := db.Users.ListByIDs(c, ids)
 	if err != nil {
 		logrus.WithContext(c).WithError(err).Error("Failed to list member users")
@@ -483,7 +489,7 @@ func respondResolvedMembers(ctx context.Context, project *db.Project, f form.Res
 		if public {
 			brief.Email, brief.EmailMd5, brief.OwnerName = "", "", ""
 		}
-		resp.Users = append(resp.Users, &dto.ResolvedUser{User: brief, Left: !lo.Contains(current, u.ID)})
+		resp.Users = append(resp.Users, &dto.ResolvedUser{User: brief, Left: lo.Contains(former, u.ID)})
 	}
 	for id, name := range names {
 		resp.Workflows = append(resp.Workflows, &dto.WorkflowName{ID: id, Name: name})

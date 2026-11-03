@@ -356,6 +356,7 @@ func (e *Engine) handleChange(ctx context.Context, project *db.Project, table *d
 			}
 		}
 
+		readsUpdate, readsCreation := readsSystemFields(fields, deps)
 		var uids []string
 		switch {
 		case lo.Contains(change.Shortcuts, field.UID),
@@ -365,7 +366,8 @@ func (e *Engine) handleChange(ctx context.Context, project *db.Project, table *d
 			}
 		case field.Shortcut.AutoUpdate:
 			for recordUID, changed := range change.Records {
-				if changed == nil || lo.Some(changed, deps) {
+				created, written := change.Written[recordUID]
+				if changed == nil || lo.Some(changed, deps) || (written && (readsUpdate || (created && readsCreation))) {
 					uids = append(uids, recordUID)
 				}
 			}
@@ -376,6 +378,22 @@ func (e *Engine) handleChange(ctx context.Context, project *db.Project, table *d
 		}
 	}
 	return nil
+}
+
+// readsSystemFields reports whether the dependencies include the update writer or time, and the creation writer or time, which are not in the record data.
+func readsSystemFields(fields []*db.SLField, deps []string) (update, creation bool) {
+	for _, f := range fields {
+		if !lo.Contains(deps, f.UID) {
+			continue
+		}
+		switch f.Type {
+		case db.UpdatedByFieldType, db.UpdatedAtFieldType:
+			update = true
+		case db.CreatedByFieldType, db.CreatedAtFieldType:
+			creation = true
+		}
+	}
+	return update, creation
 }
 
 func (e *Engine) process(ctx context.Context, job *db.SLShortcutJob) {

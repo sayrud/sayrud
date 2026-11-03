@@ -97,3 +97,12 @@ func TestImportMembers(t *testing.T) {
 	assert.Equal(t, map[string]interface{}{"multiple": true}, importMetadata(db.MemberFieldType, cells, directory))
 	assert.Equal(t, map[string]interface{}{"multiple": false}, importMetadata(db.MemberFieldType, cells[:2], directory))
 }
+
+func TestChangeWritten(t *testing.T) {
+	var change Change
+	change.AddWritten("rec1", false, db.SLRecordWriter{UserID: 1})
+	change.AddWritten("rec1", true, db.SLRecordWriter{WorkflowID: 2})
+	change.AddWritten("rec2", false, db.SLRecordWriter{UserID: 1})
+	change.AddWritten("rec3", true, db.SLRecordWriter{})
+	assert.Equal(t, map[string]bool{"rec1": true, "rec2": false}, change.Written, "the writes of the server are not recorded")
+}

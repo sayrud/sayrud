@@ -158,7 +158,7 @@ const layout = computed(() => {
   } else {
     const walk = (nodes: GroupNode[], preset: RecordData) => {
       for (const node of nodes) {
-        const p = { ...preset, [node.field.uid]: presetOf(node) }
+        const p = isReadOnlyField(node.field) ? preset : { ...preset, [node.field.uid]: presetOf(node) }
         items.push({ kind: 'group', key: node.id, top, height: GROUP_H, node })
         top += GROUP_H
         if (collapsed.value.has(node.id)) continue

@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs'
 import test from 'node:test'
 
 import type { FieldType, QueryFilter, QuerySort, RecordWriter, SLField, SLRecord, UserBrief } from '../src/types/bitable.ts'
-import { addResolved, resetDirectory, setMembers, unresolvedIds } from '../src/utils/directory.ts'
+import { addResolved, resetDirectory, setMembers, unresolvedIds, userOf } from '../src/utils/directory.ts'
 import { queryRecords, TableContext } from '../src/utils/engine.ts'
 import { cellValue, textToValue, valueToText } from '../src/utils/format.ts'
 
@@ -103,4 +103,18 @@ test('members are shown, pasted and resolved by the directory', () => {
     { ...record, data: { fldTeam0001: [1, 4, 99] }, createdBy: { userId: 5 }, updatedBy: { workflowId: 8 } },
   ])
   assert.deepEqual(pending, { userIds: [4, 5], workflowIds: [8] }, 'the known and missing IDs are not requested again')
+})
+
+test('only the removed collaborators are left, the other writers such as admins are not', () => {
+  resetDirectory(1)
+  const ann = user(1, 'Ann', 'ann@example.com')
+  const bob = user(2, 'Bob', 'bob@example.com')
+  setMembers([ann, bob])
+  addResolved([{ user: user(5, 'Admin', 'admin@example.com'), left: false }], [], [5])
+  setMembers([ann])
+  assert.equal(userOf(2)?.left, true, 'a member missing from the refreshed list has left')
+  assert.equal(userOf(5)?.left, false, 'a writer who never joined is not shown as left')
+  addResolved([{ user: bob, left: true }], [], [2])
+  setMembers([ann, bob])
+  assert.equal(userOf(2)?.left, false, 'a member added back is current again')
 })

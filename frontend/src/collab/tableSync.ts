@@ -12,8 +12,8 @@ interface Inflight {
   operations: Operation[]
 }
 
-/** Entry of the buffer: a remote changeset, or the revision taken by an accepted local changeset. */
-type BufferEntry = { kind: 'remote'; changeset: Changeset } | { kind: 'own'; signature: string }
+/** Entry of the buffer: a remote changeset, fetched over HTTP if history is set, or the revision taken by an accepted local changeset. */
+type BufferEntry = { kind: 'remote'; changeset: Changeset; history?: boolean } | { kind: 'own'; signature: string }
 
 const GAP_WAIT = 800
 
@@ -240,7 +240,8 @@ export class TableSync {
         if (this.inflight && (entry.kind === 'remote' || entry.signature === this.inflight.signature)) this.inflight = null
         continue
       }
-      this.applyRemote((entry as { changeset: Changeset }).changeset)
+      const remote = entry as { changeset: Changeset; history?: boolean }
+      this.applyRemote(remote.changeset, remote.history)
     }
 
     clearTimeout(this.gapTimer)
@@ -249,8 +250,13 @@ export class TableSync {
     this.flush()
   }
 
-  private applyRemote(changeset: Changeset) {
+  private applyRemote(changeset: Changeset, history = false) {
     const dirty = changeset.operations.flatMap((op) => op.actions.filter((a) => a.action === 'table.dirty' && a.dirty).map((a) => a.dirty!))
+    // The changesets fetched over HTTP have no actor, the written records are reloaded for their writers.
+    if (history && !changeset.actor) {
+      const records = [...new Set(changeset.operations.flatMap((op) => op.actions.filter((a) => (a.action === 'record.add' || a.action === 'record.set') && a.recordUID).map((a) => a.recordUID!)))]
+      if (records.length) dirty.push({ records })
+    }
     const remote = applyOperations(this.data, changeset.operations, this.tableUID, changeset.actor)
     this.setData(applyOperations(remote, this.pendingOperations(), this.tableUID, this.hooks.actor))
     this.hooks.onRemoteChange?.()
@@ -264,7 +270,7 @@ export class TableSync {
       const changesets = await this.api.changesets(this.projectUID, this.tableUID, this.rev)
       if (this.disposed) return
       for (const cs of changesets) {
-        if (cs.rev > this.rev && !this.buffer.has(cs.rev)) this.buffer.set(cs.rev, { kind: 'remote', changeset: cs })
+        if (cs.rev > this.rev && !this.buffer.has(cs.rev)) this.buffer.set(cs.rev, { kind: 'remote', changeset: cs, history: true })
       }
     } catch (error) {
       if (!this.disposed) this.hooks.onReadError?.(error)

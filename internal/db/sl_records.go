@@ -64,6 +64,8 @@ type SLRecordsStore interface {
 	DeleteByUIDs(ctx context.Context, slTableID int64, uids []string) error
 	// RemoveFieldData removes the value of the field from all the records of the table.
 	RemoveFieldData(ctx context.Context, slTableID int64, fieldUID string) error
+	// WriterUserIDs returns the users among userIDs who created or last wrote any record of the project, e.g. the admins editing it without being members.
+	WriterUserIDs(ctx context.Context, projectID int64, userIDs []int64) ([]int64, error)
 }
 
 func NewSLRecordsStore(db *gorm.DB) SLRecordsStore {
@@ -803,6 +805,23 @@ func (db *slRecords) RemoveFieldData(ctx context.Context, slTableID int64, field
 		return errors.Wrap(err, "update")
 	}
 	return nil
+}
+
+func (db *slRecords) WriterUserIDs(ctx context.Context, projectID int64, userIDs []int64) ([]int64, error) {
+	if len(userIDs) == 0 {
+		return []int64{}, nil
+	}
+	tables := db.WithContext(ctx).Model(&SLTable{}).Select("id").Where("project_id = ?", projectID)
+	var created, updated []int64
+	if err := db.WithContext(ctx).Model(&SLRecord{}).Where("sl_table_id IN (?) AND created_by_id IN ?", tables, userIDs).
+		Distinct().Pluck("created_by_id", &created).Error; err != nil {
+		return nil, errors.Wrap(err, "pluck creators")
+	}
+	if err := db.WithContext(ctx).Model(&SLRecord{}).Where("sl_table_id IN (?) AND updated_by_id IN ?", tables, userIDs).
+		Distinct().Pluck("updated_by_id", &updated).Error; err != nil {
+		return nil, errors.Wrap(err, "pluck modifiers")
+	}
+	return lo.Union(created, updated), nil
 }
 
 func (db *slRecords) Update(ctx context.Context, slRecordID int64, jsonBytes json.RawMessage, writer SLRecordWriter) error {

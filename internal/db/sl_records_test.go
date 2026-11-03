@@ -147,3 +147,27 @@ func TestQuerySystemTimes(t *testing.T) {
 	require.NoError(t, err)
 	assert.Empty(t, got, "the creation time is never empty")
 }
+
+func TestWriterUserIDs(t *testing.T) {
+	ctx := context.Background()
+	gormDB := newTestDB(t, &Project{}, &SLTable{}, &SLRecord{}, &Workflow{})
+	projects := NewProjectsStore(gormDB)
+	project, err := projects.Create(ctx, CreateProjectOptions{OwnerUserID: 1, Name: "Tasks"})
+	require.NoError(t, err)
+	another, err := projects.Create(ctx, CreateProjectOptions{OwnerUserID: 1, Name: "Other"})
+	require.NoError(t, err)
+	own, err := NewSLTablesStore(gormDB).Create(ctx, project.ID, CreateSLTableOptions{Name: "Tasks"})
+	require.NoError(t, err)
+	other, err := NewSLTablesStore(gormDB).Create(ctx, another.ID, CreateSLTableOptions{Name: "Other"})
+	require.NoError(t, err)
+	records := NewSLRecordsStore(gormDB)
+	record, err := records.Create(ctx, own.ID, json.RawMessage(`{}`), SLRecordWriter{UserID: 7})
+	require.NoError(t, err)
+	require.NoError(t, records.Update(ctx, record.ID, json.RawMessage(`{}`), SLRecordWriter{UserID: 8}))
+	_, err = records.Create(ctx, other.ID, json.RawMessage(`{}`), SLRecordWriter{UserID: 9})
+	require.NoError(t, err)
+
+	ids, err := records.WriterUserIDs(ctx, project.ID, []int64{7, 8, 9, 10})
+	require.NoError(t, err)
+	assert.ElementsMatch(t, []int64{7, 8}, ids, "only the writers of the records of the project are returned")
+}

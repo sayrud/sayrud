@@ -210,7 +210,7 @@ func (schemalessRoute) CreateRecord(ctx context.Context, hub *collab.Hub, user *
 		return ctx.ApiServerError()
 	}
 
-	notifyRecordsChange(ctx, hub, project, table, map[string][]string{slRecord.UID: dataKeys(slRecord.Data)})
+	notifyRecordsChange(ctx, hub, project, table, map[string][]string{slRecord.UID: dataKeys(slRecord.Data)}, true, origin.Writer())
 
 	return ctx.ApiSuccess(dto.ToRecord(table, slRecord))
 }
@@ -263,7 +263,7 @@ func (schemalessRoute) BatchCreateRecords(ctx context.Context, hub *collab.Hub, 
 		return ctx.ApiServerError()
 	}
 
-	notifyRecordsChange(ctx, hub, project, table, lo.SliceToMap(slRecords, func(r *db.SLRecord) (string, []string) { return r.UID, dataKeys(r.Data) }))
+	notifyRecordsChange(ctx, hub, project, table, lo.SliceToMap(slRecords, func(r *db.SLRecord) (string, []string) { return r.UID, dataKeys(r.Data) }), true, origin.Writer())
 
 	return ctx.ApiSuccess(dto.ToRecords(table, slRecords))
 }
@@ -314,7 +314,7 @@ func (schemalessRoute) UpdateRecord(ctx context.Context, hub *collab.Hub, user *
 		return ctx.ApiServerError()
 	}
 
-	notifyRecordsChange(ctx, hub, project, table, map[string][]string{record.UID: changed})
+	notifyRecordsChange(ctx, hub, project, table, map[string][]string{record.UID: changed}, false, origin.Writer())
 
 	return ctx.Status(http.StatusNoContent)
 }
@@ -353,9 +353,13 @@ func (schemalessRoute) DeleteRecord(ctx context.Context, hub *collab.Hub, user *
 	return ctx.Status(http.StatusNoContent)
 }
 
-// notifyRecordsChange tells the field shortcuts the changed fields of the records, keyed by record UID.
-func notifyRecordsChange(ctx context.Context, hub *collab.Hub, project *db.Project, table *db.SLTable, records map[string][]string) {
-	hub.NotifyChange(ctx.Request().Context(), project, table, &collab.Change{Records: records})
+// notifyRecordsChange tells the field shortcuts the changed fields of the records keyed by record UID, which the writer has created or updated.
+func notifyRecordsChange(ctx context.Context, hub *collab.Hub, project *db.Project, table *db.SLTable, records map[string][]string, created bool, writer db.SLRecordWriter) {
+	change := &collab.Change{Records: records}
+	for uid := range records {
+		change.AddWritten(uid, created, writer)
+	}
+	hub.NotifyChange(ctx.Request().Context(), project, table, change)
 }
 
 // dataKeys returns the field UIDs of the stored record data.

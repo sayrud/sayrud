@@ -868,13 +868,19 @@ export const useBaseStore = defineStore('base', () => {
 
   // ---- Records ----
 
+  /** The values of the new records, the read-only fields are dropped as the server rejects them. */
+  function writableData(data: RecordData): RecordData {
+    const readOnly = new Set(fields.value.filter(isReadOnlyField).map((f) => f.uid))
+    return Object.fromEntries(Object.entries(cleanData(data)).filter(([uid]) => !readOnly.has(uid)))
+  }
+
   function defaultsFor(extra: RecordData = {}): RecordData {
     const data: RecordData = {}
     for (const f of fields.value) {
       const v = defaultValueOf(f)
       if (!isEmptyValue(v)) data[f.uid] = v
     }
-    return cleanData({ ...data, ...extra })
+    return writableData({ ...data, ...extra })
   }
 
   function pushHistory(entry: HistoryEntry) {
@@ -887,7 +893,7 @@ export const useBaseStore = defineStore('base', () => {
 
   async function createRecords(dataList: RecordData[], opts: { history?: boolean; withDefaults?: boolean } = {}) {
     if (!ensureEditable()) return []
-    const list = dataList.map((d) => ({ uid: newRecordUID(), data: opts.withDefaults === false ? cleanData(d) : defaultsFor(d) }))
+    const list = dataList.map((d) => ({ uid: newRecordUID(), data: opts.withDefaults === false ? writableData(d) : defaultsFor(d) }))
     if (!list.length) return []
     const redo = [op('AddRecords', addRecordActions(list))]
     submit(redo)

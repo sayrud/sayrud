@@ -1121,14 +1121,14 @@ export interface ResolvedLinkShare {
 }
 
 export interface ResolvedMembers {
-  /** Users are the requested users who are or were members of the project, the others are omitted. */
+  /** Users are the requested users who are or were members of the project or wrote its records, the others are omitted. */
   users: ResolvedUser[];
   /** Workflows are the requested workflows of the project, including the deleted ones. */
   workflows: WorkflowName[];
 }
 
 export interface ResolvedUser {
-  /** Left reports whether the user has been removed from the project. */
+  /** Left reports whether the user was a collaborator and has been removed from the project. */
   left: boolean;
   user: UserBrief;
 }
@@ -5104,7 +5104,7 @@ export class Api<
       }),
 
     /**
-     * @description Return the requested users who are or were members of the project, and the requested workflows of the project including the deleted ones; the others are omitted.
+     * @description Return the requested users who are or were members of the project or wrote its records, and the requested workflows of the project including the deleted ones; the others are omitted.
      *
      * @tags Project members
      * @name ResolveProjectMembers

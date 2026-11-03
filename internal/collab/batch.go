@@ -156,6 +156,7 @@ func (b *Batch) CreateRecord(table *db.SLTable, data map[string]interface{}) (*d
 
 	bt.dirty.addRecords(record.UID)
 	bt.change.AddRecord(record.UID, keysOf(raw))
+	bt.change.AddWritten(record.UID, true, b.writer)
 	bt.events = append(bt.events, RecordEvent{Kind: RecordCreated, Record: record})
 	return record, nil
 }
@@ -191,6 +192,7 @@ func (b *Batch) UpdateRecord(table *db.SLTable, recordUID string, update func(cu
 
 	bt.dirty.addRecords(record.UID)
 	bt.change.AddRecord(record.UID, changed)
+	bt.change.AddWritten(record.UID, false, b.writer)
 	bt.events = append(bt.events, RecordEvent{Kind: RecordUpdated, Record: record, Previous: previous, Fields: changed})
 	return record, nil
 }

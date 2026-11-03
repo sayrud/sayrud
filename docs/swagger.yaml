@@ -2425,7 +2425,7 @@ definitions:
     properties:
       users:
         description: Users are the requested users who are or were members of the
-          project, the others are omitted.
+          project or wrote its records, the others are omitted.
         items:
           $ref: '#/definitions/ResolvedUser'
         type: array
@@ -2442,7 +2442,8 @@ definitions:
   ResolvedUser:
     properties:
       left:
-        description: Left reports whether the user has been removed from the project.
+        description: Left reports whether the user was a collaborator and has been
+          removed from the project.
         type: boolean
       user:
         $ref: '#/definitions/UserBrief'
@@ -8942,9 +8943,9 @@ paths:
     post:
       consumes:
       - application/json
-      description: Return the requested users who are or were members of the project,
-        and the requested workflows of the project including the deleted ones; the
-        others are omitted.
+      description: Return the requested users who are or were members of the project
+        or wrote its records, and the requested workflows of the project including
+        the deleted ones; the others are omitted.
       operationId: resolveProjectMembers
       parameters:
       - description: Project UID
