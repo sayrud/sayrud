@@ -1,6 +1,7 @@
 package workflow
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"math"
@@ -10,6 +11,7 @@ import (
 
 	"github.com/cockroachdb/errors"
 	"github.com/samber/lo"
+	"gorm.io/gorm"
 
 	"github.com/wuhan005/sayrud/internal/db"
 	"github.com/wuhan005/sayrud/internal/routeutil"
@@ -20,10 +22,25 @@ type tableInfo struct {
 	table  *db.SLTable
 	fields []*db.SLField
 	byUID  map[string]*db.SLField
+	// directory resolves the members of the member and writer fields, nil if the table has none of them.
+	directory *routeutil.Directory
 }
 
 func newTableInfo(table *db.SLTable, fields []*db.SLField) *tableInfo {
 	return &tableInfo{table: table, fields: fields, byUID: lo.KeyBy(fields, func(f *db.SLField) string { return f.UID })}
+}
+
+// loadDirectory loads the members of the project if the table has member or writer fields.
+func (info *tableInfo) loadDirectory(ctx context.Context, tx *gorm.DB) error {
+	if info.directory != nil || !lo.ContainsBy(info.fields, func(f *db.SLField) bool { return f.Type == db.MemberFieldType || f.Type.IsWriter() }) {
+		return nil
+	}
+	directory, err := routeutil.LoadDirectory(ctx, tx, info.table.ProjectID)
+	if err != nil {
+		return errors.Wrap(err, "load members")
+	}
+	info.directory = directory
+	return nil
 }
 
 // FieldValueError means a value can not be written to a field and results in a 422 response.
@@ -49,9 +66,9 @@ func fieldOptions(field *db.SLField) []selectOption {
 	return options
 }
 
-// WritableField reports whether the field can be written by the API: formula, attachment and shortcut-generated fields are not writable.
+// WritableField reports whether the field can be written by the API: formula, attachment, system and shortcut-generated fields are not writable.
 func WritableField(field *db.SLField) bool {
-	return field.Type != db.FormulaFieldType && field.Type != db.AttachmentFieldType && field.Shortcut == nil && !field.Type.IsUnknown()
+	return field.Type != db.FormulaFieldType && field.Type != db.AttachmentFieldType && !field.Type.IsSystem() && field.Shortcut == nil && !field.Type.IsUnknown()
 }
 
 // applyDefaults fills only unmapped writable fields when a workflow creates a record.
@@ -84,8 +101,9 @@ func (info *tableInfo) applyDefaults(values map[string]interface{}) {
 	}
 }
 
-// toCellValue converts a value to the field's stored value; single and multiple selects accept option names or UIDs.
-func toCellValue(field *db.SLField, v interface{}) (interface{}, error) {
+// toCellValue converts a value to the field's stored value; single and multiple selects accept option names or UIDs,
+// and member fields accept the IDs or emails of the members, or the member objects of the variables.
+func toCellValue(field *db.SLField, v interface{}, directory *routeutil.Directory) (interface{}, error) {
 	if v == nil {
 		return nil, nil
 	}
@@ -174,8 +192,80 @@ func toCellValue(field *db.SLField, v interface{}) (interface{}, error) {
 			uids = append(uids, uid)
 		}
 		return lo.Uniq(uids), nil
+	case db.MemberFieldType:
+		var items []interface{}
+		switch t := v.(type) {
+		case []interface{}:
+			items = t
+		case string:
+			if strings.TrimSpace(t) == "" {
+				return nil, nil
+			}
+			items = []interface{}{t}
+		case float64, map[string]interface{}:
+			items = []interface{}{t}
+		default:
+			return nil, mismatch("member IDs or emails")
+		}
+		ids := make([]interface{}, 0, len(items))
+		for _, item := range items {
+			if m, ok := item.(map[string]interface{}); ok {
+				item = m["id"]
+			}
+			id, ok := directory.ResolveMember(item)
+			if !ok {
+				return nil, &FieldValueError{Field: field.Label, Message: fmt.Sprintf("has no member %q", Text(item))}
+			}
+			if !lo.Contains(ids, interface{}(float64(id))) {
+				ids = append(ids, float64(id))
+			}
+		}
+		if len(ids) == 0 {
+			return nil, nil
+		}
+		if len(ids) > 1 && !db.MemberMultiple(field) {
+			return nil, mismatch("a single member")
+		}
+		return ids, nil
 	}
 	return nil, &FieldValueError{Field: field.Label, Message: "is not writable"}
+}
+
+// userOutput returns the variable of a user: id, name, email and isBot, the name and email are empty for a deleted user.
+func userOutput(directory *routeutil.Directory, id int64) map[string]interface{} {
+	out := map[string]interface{}{"id": float64(id), "name": "", "email": "", "isBot": false}
+	if user := directory.User(id); user != nil {
+		out["name"], out["email"], out["isBot"] = user.UserName, user.Email, user.IsBot()
+	}
+	return out
+}
+
+// writerOutput returns the variable of the writer of a record, the user variable with workflowId; a workflow writer has id 0 and its name.
+func writerOutput(directory *routeutil.Directory, writer db.SLRecordWriter) interface{} {
+	if writer.IsZero() {
+		return nil
+	}
+	if writer.WorkflowID != 0 {
+		return map[string]interface{}{"id": 0.0, "name": directory.WorkflowName(writer.WorkflowID), "email": "", "isBot": false, "workflowId": float64(writer.WorkflowID)}
+	}
+	out := userOutput(directory, writer.UserID)
+	out["workflowId"] = 0.0
+	return out
+}
+
+// systemValue returns the output value of a system field of the record.
+func systemValue(directory *routeutil.Directory, field *db.SLField, record *db.SLRecord) interface{} {
+	switch field.Type {
+	case db.CreatedAtFieldType:
+		return record.CreatedAt.UTC().Format(time.RFC3339)
+	case db.UpdatedAtFieldType:
+		return record.UpdatedAt.UTC().Format(time.RFC3339)
+	case db.CreatedByFieldType:
+		return writerOutput(directory, record.CreatedBy())
+	case db.UpdatedByFieldType:
+		return writerOutput(directory, record.UpdatedBy())
+	}
+	return nil
 }
 
 func optionUID(field *db.SLField, nameOrUID string) (string, bool) {
@@ -193,9 +283,17 @@ func optionUID(field *db.SLField, nameOrUID string) (string, bool) {
 	return "", false
 }
 
-// displayValue converts a stored value to the output value: option UIDs become names.
-func displayValue(field *db.SLField, v interface{}) interface{} {
+// displayValue converts a stored value to the output value: option UIDs become names, and user IDs become the user variables.
+func displayValue(field *db.SLField, v interface{}, directory *routeutil.Directory) interface{} {
 	switch field.Type {
+	case db.MemberFieldType:
+		ids := routeutil.MemberIDs(v)
+		_ = directory.Preload(ids, nil)
+		out := make([]interface{}, 0, len(ids))
+		for _, id := range ids {
+			out = append(out, userOutput(directory, id))
+		}
+		return out
 	case db.SingleSelectFieldType:
 		s, _ := v.(string)
 		for _, o := range fieldOptions(field) {
@@ -220,13 +318,19 @@ func displayValue(field *db.SLField, v interface{}) interface{} {
 }
 
 // recordOutput returns the shape of a record in variables: uid, createdAt, updatedAt, and fields keyed by field UID.
-// Formula fields are calculated in loc like the table view, and are omitted when empty or invalid.
+// Formula fields are calculated in loc like the table view, and are omitted when empty or invalid, so are the unknown writers.
 func recordOutput(info *tableInfo, record *db.SLRecord, loc *time.Location) map[string]interface{} {
 	data := map[string]interface{}{}
 	_ = json.Unmarshal(record.Data, &data)
 	fields := map[string]interface{}{}
-	formulas := &recordFormulas{info: info, data: data, loc: loc, stack: map[string]bool{}}
+	formulas := &recordFormulas{info: info, record: record, data: data, loc: loc, stack: map[string]bool{}}
 	for _, field := range info.fields {
+		if field.Type.IsSystem() {
+			if v := systemValue(info.directory, field, record); v != nil {
+				fields[field.UID] = v
+			}
+			continue
+		}
 		if field.Type == db.FormulaFieldType {
 			v, err := formulas.eval(field)
 			if t, ok := v.(time.Time); ok {
@@ -238,7 +342,7 @@ func recordOutput(info *tableInfo, record *db.SLRecord, loc *time.Location) map[
 			continue
 		}
 		if v, ok := data[field.UID]; ok {
-			fields[field.UID] = displayValue(field, v)
+			fields[field.UID] = displayValue(field, v, info.directory)
 		}
 	}
 	return map[string]interface{}{
@@ -251,10 +355,11 @@ func recordOutput(info *tableInfo, record *db.SLRecord, loc *time.Location) map[
 
 // recordFormulas calculates the formula fields of a record, matching TableContext in the frontend utils/engine.ts.
 type recordFormulas struct {
-	info  *tableInfo
-	data  map[string]interface{}
-	loc   *time.Location
-	stack map[string]bool
+	info   *tableInfo
+	record *db.SLRecord
+	data   map[string]interface{}
+	loc    *time.Location
+	stack  map[string]bool
 }
 
 // eval returns the raw formula value of the field; a non-finite number becomes nil.
@@ -280,8 +385,8 @@ func (r *recordFormulas) eval(field *db.SLField) (interface{}, error) {
 	return v, nil
 }
 
-// input converts the value of a referenced field to a formula value: options and attachments become names joined by commas,
-// and a missing field or a circular reference is an error.
+// input converts the value of a referenced field to a formula value: options, members and attachments become names joined by commas,
+// writers become the names of the users or workflows, and a missing field or a circular reference is an error.
 func (r *recordFormulas) input(uid string) (interface{}, error) {
 	field, ok := r.info.byUID[uid]
 	if !ok {
@@ -292,6 +397,18 @@ func (r *recordFormulas) input(uid string) (interface{}, error) {
 			return nil, formulaErrorf("circular reference")
 		}
 		return r.eval(field)
+	}
+	switch field.Type {
+	case db.CreatedAtFieldType:
+		return r.record.CreatedAt, nil
+	case db.UpdatedAtFieldType:
+		return r.record.UpdatedAt, nil
+	case db.CreatedByFieldType, db.UpdatedByFieldType:
+		writer := lo.Ternary(field.Type == db.CreatedByFieldType, r.record.CreatedBy(), r.record.UpdatedBy())
+		if name := r.info.directory.WriterName(writer); name != "" {
+			return name, nil
+		}
+		return nil, nil
 	}
 	v := r.data[uid]
 	if list, ok := v.([]interface{}); v == nil || v == "" || (ok && len(list) == 0) {
@@ -316,8 +433,13 @@ func (r *recordFormulas) input(uid string) (interface{}, error) {
 		}
 		return Text(v), nil
 	case db.SingleSelectFieldType, db.MultiSelectFieldType:
-		s, _ := fromScope(displayValue(field, v)).(string)
+		s, _ := fromScope(displayValue(field, v, r.info.directory)).(string)
 		return s, nil
+	case db.MemberFieldType:
+		if names := r.info.directory.MemberNames(v); names != "" {
+			return names, nil
+		}
+		return nil, nil
 	case db.AttachmentFieldType:
 		list, _ := v.([]interface{})
 		names := make([]string, 0, len(list))
@@ -358,7 +480,7 @@ func buildFilters(info *tableInfo, scope Scope, filters []Filter) ([]db.QuerySLR
 		if v == nil {
 			continue
 		}
-		value, err := filterValue(field, f.Op, v)
+		value, err := filterValue(field, f.Op, v, info.directory)
 		if err != nil {
 			return nil, err
 		}
@@ -367,9 +489,13 @@ func buildFilters(info *tableInfo, scope Scope, filters []Filter) ([]db.QuerySLR
 	return out, nil
 }
 
-func filterValue(field *db.SLField, op string, v interface{}) (string, error) {
+func filterValue(field *db.SLField, op string, v interface{}, directory *routeutil.Directory) (string, error) {
 	scalar := func(item interface{}) (interface{}, error) {
 		switch field.Type {
+		case db.MemberFieldType, db.CreatedByFieldType, db.UpdatedByFieldType:
+			return userFilterValue(field, item, directory)
+		case db.CreatedAtFieldType, db.UpdatedAtFieldType:
+			return toCellValue(&db.SLField{Label: field.Label, Type: db.DateTimeFieldType}, item, directory)
 		case db.SingleSelectFieldType, db.MultiSelectFieldType:
 			s := Text(item)
 			if uid, ok := optionUID(field, s); ok {
@@ -377,7 +503,7 @@ func filterValue(field *db.SLField, op string, v interface{}) (string, error) {
 			}
 			return s, nil
 		case db.NumberFieldType, db.CheckboxFieldType, db.DateTimeFieldType:
-			return toCellValue(field, item)
+			return toCellValue(field, item, directory)
 		}
 		return Text(item), nil
 	}
@@ -402,4 +528,30 @@ func filterValue(field *db.SLField, op string, v interface{}) (string, error) {
 		return "", err
 	}
 	return Text(s), nil
+}
+
+// userFilterValue converts a condition value of the member and writer fields to the user ID: IDs and the member objects are kept, emails are matched with the members,
+// and db.MeFilterValue is kept for the querying user.
+func userFilterValue(field *db.SLField, item interface{}, directory *routeutil.Directory) (interface{}, error) {
+	if m, ok := item.(map[string]interface{}); ok {
+		item = m["id"]
+	}
+	switch t := item.(type) {
+	case float64:
+		if t >= 1 && t == math.Trunc(t) {
+			return strconv.FormatInt(int64(t), 10), nil
+		}
+	case string:
+		s := strings.TrimSpace(t)
+		if s == db.MeFilterValue {
+			return s, nil
+		}
+		if n, err := strconv.ParseInt(s, 10, 64); err == nil && n > 0 {
+			return s, nil
+		}
+		if id, ok := directory.ResolveMember(s); ok {
+			return strconv.FormatInt(id, 10), nil
+		}
+	}
+	return nil, &FieldValueError{Field: field.Label, Message: fmt.Sprintf("has no member %q", Text(item))}
 }

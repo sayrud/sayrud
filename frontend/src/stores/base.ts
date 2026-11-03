@@ -2,7 +2,7 @@ import { Message, Modal } from '@arco-design/web-vue'
 import { defineStore } from 'pinia'
 import { computed, reactive, ref, shallowRef, watch } from 'vue'
 
-import { createSyncApi, importsApi, projectsApi, syncApi, tablesApi, type ImportState } from '@/api/bitable'
+import { createSyncApi, importsApi, membersApi, projectsApi, syncApi, tablesApi, type ImportState } from '@/api/bitable'
 import { ApiError } from '@/api/client'
 import { sharesApi } from '@/api/share'
 import {
@@ -34,8 +34,9 @@ import type {
   ViewConfig,
   ViewType,
 } from '@/types/bitable'
+import { addResolved, directory, resetDirectory, setMembers, unresolvedIds } from '@/utils/directory'
 import { TableContext } from '@/utils/engine'
-import { defaultMetadata } from '@/utils/fieldTypes'
+import { defaultMetadata, isKanbanGroupField, isReadOnlyField } from '@/utils/fieldTypes'
 import { defaultValueOf, isEmptyValue } from '@/utils/format'
 import { newFieldUID, newOptionUID, newRecordUID, newViewUID } from '@/utils/id'
 import { ROLE_LABELS, roleAtLeast } from '@/utils/role'
@@ -120,7 +121,7 @@ function cleanViewConfig(config: ViewConfig, fieldUID: string, mode: 'delete' | 
     delete c.fieldWidths[fieldUID]
     if (c.form) c.form.fields = c.form.fields.filter((x) => x.fieldUID !== fieldUID)
   }
-  if (c.kanbanFieldUID === fieldUID && (mode === 'delete' || mode !== 'single_select')) c.kanbanFieldUID = undefined
+  if (c.kanbanFieldUID === fieldUID && mode !== 'single_select' && mode !== 'member') c.kanbanFieldUID = undefined
   return JSON.stringify(c) === JSON.stringify(config) ? null : c
 }
 
@@ -213,7 +214,8 @@ export const useBaseStore = defineStore('base', () => {
   const loadingTable = computed(() => switchingTable.value || !!activeSync.value?.loading.value)
   const activeTable = computed(() => tableList.value.find((t) => t.uid === activeTableUID.value) ?? null)
   const activeView = computed(() => views.value.find((v) => v.uid === activeViewUID.value) ?? null)
-  const ctx = computed(() => new TableContext(fields.value))
+  // The formulas and texts read the names of the directory, so the context is recreated when it changes.
+  const ctx = computed(() => new TableContext(fields.value, directory.value.currentUserId))
   const primaryField = computed(() => fields.value[0] ?? null)
   const recordMap = computed(() => new Map(records.value.map((r) => [r.uid, r])))
 
@@ -269,6 +271,49 @@ export const useBaseStore = defineStore('base', () => {
     sendPresence()
   })
 
+  // ---- Directory ----
+
+  /** Loads the members of the project, the candidates of the member fields. */
+  async function loadMembers() {
+    if (!project.value || isPublic.value) return
+    const projectUID = pid()
+    try {
+      const list = await membersApi.list(projectUID)
+      if (project.value?.uid === projectUID) setMembers(list.map((m) => m.user))
+    } catch {
+      // The names are resolved from the values on demand.
+    }
+  }
+
+  const resolvingUsers = new Set<number>()
+  const resolvingWorkflows = new Set<number>()
+  /** Resolves the users and workflows of the current records unknown to the directory. */
+  async function resolveDirectory() {
+    const sync = activeSync.value
+    if (!project.value || !sync) return
+    const projectUID = pid()
+    const ids = unresolvedIds(fields.value, records.value)
+    const userIds = ids.userIds.filter((id) => !resolvingUsers.has(id)).slice(0, 1000)
+    const workflowIds = ids.workflowIds.filter((id) => !resolvingWorkflows.has(id)).slice(0, 1000)
+    if (!userIds.length && !workflowIds.length) return
+    userIds.forEach((id) => resolvingUsers.add(id))
+    workflowIds.forEach((id) => resolvingWorkflows.add(id))
+    try {
+      const resolved = await (shareToken.value ? createSyncApi(shareToken.value) : syncApi).resolveMembers(projectUID, sync.tableUID, userIds, workflowIds)
+      if (project.value?.uid === projectUID) addResolved(resolved.users, resolved.workflows, userIds, workflowIds)
+    } catch {
+      // Unknown users are shown without names, they are resolved again with the next change.
+    } finally {
+      userIds.forEach((id) => resolvingUsers.delete(id))
+      workflowIds.forEach((id) => resolvingWorkflows.delete(id))
+    }
+  }
+  let resolveTimer: ReturnType<typeof setTimeout> | undefined
+  watch([records, fields], () => {
+    clearTimeout(resolveTimer)
+    resolveTimer = setTimeout(() => void resolveDirectory(), 50)
+  })
+
   // ---- Projects / tables ----
 
   async function refreshTables() {
@@ -298,6 +343,7 @@ export const useBaseStore = defineStore('base', () => {
   }
 
   function closeProject() {
+    clearTimeout(resolveTimer)
     projectOffs.forEach((off) => off())
     projectOffs = []
     for (const sync of syncs.values()) sync.dispose()
@@ -337,6 +383,7 @@ export const useBaseStore = defineStore('base', () => {
       toastError(e)
       return
     }
+    void loadMembers()
     if (canEdit.value) localViewConfigs.value = {}
     Message.info(t('base.roleChanged', { role: ROLE_LABELS[data.role] }))
   }
@@ -344,6 +391,7 @@ export const useBaseStore = defineStore('base', () => {
   async function openProject(projectUID: string) {
     if (!isPublic.value && project.value?.uid === projectUID && socket.value) return
     closeProject()
+    resetDirectory(auth.user?.id ?? 0)
     loadingProject.value = true
     try {
       const [p, t] = await Promise.all([projectsApi.get(projectUID), tablesApi.list(projectUID)])
@@ -388,6 +436,7 @@ export const useBaseStore = defineStore('base', () => {
     socket.value = s
     s.connect()
     void loadShortcutCatalog()
+    void loadMembers()
   }
 
   function onSharedReadError(error: unknown) {
@@ -400,6 +449,7 @@ export const useBaseStore = defineStore('base', () => {
   async function openSharedProject(token: string, reload = false) {
     if (shareToken.value === token && project.value && !reload) return
     closeProject()
+    resetDirectory()
     shareToken.value = token
     loadingProject.value = true
     try {
@@ -468,6 +518,7 @@ export const useBaseStore = defineStore('base', () => {
       const token = shareToken.value
       sync = new TableSync(socket.value!, pid(), tableUID, {
         onReject: (msg) => Message.error(t('base.syncFailed', { msg })),
+        ...(auth.user && !token ? { actor: { userId: auth.user.id } } : {}),
         ...(token ? {
           readOnly: true,
           onReadError: onSharedReadError,
@@ -863,6 +914,8 @@ export const useBaseStore = defineStore('base', () => {
       const prevValues: Record<string, CellValue> = {}
       const nextValues: Record<string, CellValue> = {}
       for (const uid of Object.keys(p.data)) {
+        const field = fields.value.find((f) => f.uid === uid)
+        if (field && isReadOnlyField(field)) continue
         if (JSON.stringify(r.data[uid] ?? null) === JSON.stringify(next[uid] ?? null)) continue
         prevValues[uid] = r.data[uid] ?? null
         nextValues[uid] = next[uid] ?? null
@@ -1024,7 +1077,7 @@ export const useBaseStore = defineStore('base', () => {
     for (let i = 2; views.value.some((v) => v.name === n); i++) n = `${base} ${i}`
     const extra: Partial<ViewConfig> = { ...config }
     if (type === 'kanban' && !extra.kanbanFieldUID) {
-      extra.kanbanFieldUID = fields.value.find((f) => f.type === 'single_select')?.uid
+      extra.kanbanFieldUID = fields.value.find(isKanbanGroupField)?.uid
     }
     const action = addViewAction(n, type, defaultViewConfig(extra))
     submit([op('AddView', [action])])
@@ -1111,6 +1164,7 @@ export const useBaseStore = defineStore('base', () => {
     refreshing,
     myClientId,
     members,
+    loadMembers,
     onlineMembers,
     peerCells,
     setCellPresence,

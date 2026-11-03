@@ -206,6 +206,9 @@ func (x *execution) table(uid string) (*tableInfo, error) {
 		return nil, err
 	}
 	info := newTableInfo(table, fields)
+	if err := info.loadDirectory(x.ctx, x.reader()); err != nil {
+		return nil, err
+	}
 	x.tables[uid] = info
 	return info, nil
 }
@@ -406,7 +409,7 @@ func (x *execution) cellValues(info *tableInfo, cfg *WriteConfig) (map[string]in
 		if err != nil {
 			return nil, err
 		}
-		cell, err := toCellValue(field, v)
+		cell, err := toCellValue(field, v, info.directory)
 		if err != nil {
 			return nil, err
 		}

@@ -5,8 +5,10 @@ import { useI18n } from 'vue-i18n'
 
 import { useBaseStore } from '@/stores/base'
 import type { SelectOption, SLField, SLRecord } from '@/types/bitable'
-import { findOption } from '@/utils/format'
+import { cellValue, findOption } from '@/utils/format'
 import { attachmentsOf, isAttachmentImage } from '@/utils/attachments'
+import { isWriter, memberIds } from '@/utils/directory'
+import MemberTag from './MemberTag.vue'
 import SelectTag from './SelectTag.vue'
 
 const props = withDefaults(
@@ -31,7 +33,9 @@ const store = useBaseStore()
 function toggle() {
   if (store.canEdit) emit('toggle')
 }
-const value = computed(() => props.record.data[props.field.uid])
+const value = computed(() => cellValue(props.record, props.field))
+const members = computed(() => (props.field.type === 'member' ? memberIds(value.value) : []))
+const writer = computed(() => (isWriter(value.value) ? value.value : null))
 
 const options = computed<SelectOption[]>(() => {
   const v = value.value
@@ -65,6 +69,16 @@ const isNumeric = computed(
     <template v-else-if="field.type === 'single_select' || field.type === 'multi_select'">
       <div class="tags" :class="{ wrap: wrap || lines > 1 }">
         <SelectTag v-for="o in options" :key="o.uid" :name="o.name" :color="o.color" />
+      </div>
+    </template>
+    <template v-else-if="field.type === 'member'">
+      <div class="tags members" :class="{ wrap: wrap || lines > 1 }">
+        <MemberTag v-for="id in members" :key="id" :user-id="id" />
+      </div>
+    </template>
+    <template v-else-if="field.type === 'created_by' || field.type === 'updated_by'">
+      <div class="tags members">
+        <MemberTag v-if="writer" :user-id="writer.userId" :workflow-id="writer.workflowId" />
       </div>
     </template>
     <template v-else-if="field.type === 'attachment'">
@@ -158,6 +172,10 @@ const isNumeric = computed(
 }
 .tags.wrap {
   flex-wrap: wrap;
+}
+/* The member names have no background, so they sit closer than the option tags. */
+.tags.members {
+  gap: 2px;
 }
 .checkbox {
   display: inline-flex;

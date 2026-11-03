@@ -85,6 +85,7 @@ func New(opts Options) *flamego.Flame {
 					f.Get("/fields", api.Share.Fields)
 					f.Get("/views", api.Share.Views)
 					f.Post("/records/fetch", api.Collab.LimitFetchBody, form.Bind(form.FetchRecords{}), api.Share.FetchRecords)
+					f.Post("/members/resolve", api.Collab.LimitFetchBody, form.Bind(form.ResolveMembers{}), api.Share.ResolveMembers)
 					f.Get("/attachments/{fileUID}", api.Share.Attachment)
 				}, api.Share.Tabler)
 			}, api.Share.RequirePassword)
@@ -267,6 +268,7 @@ func New(opts Options) *flamego.Flame {
 					f.Combo("").
 						Get(api.Project.ListMembers).
 						Post(canManage, form.Bind(form.AddProjectMember{}), api.Project.AddMember)
+					f.Post("/resolve", api.Collab.LimitFetchBody, form.Bind(form.ResolveMembers{}), api.Project.ResolveMembers)
 					f.Get("/lookup", canManage, api.Project.LookupMemberCandidate)
 					f.Get("/bots", canManage, api.Project.SearchMemberBots)
 					f.Combo("/{userID}").

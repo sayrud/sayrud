@@ -3,11 +3,14 @@ import { Ellipsis, Pencil, Plus, SquareKanban, Trash } from '@lucide/vue'
 import { computed, nextTick, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 
+import MemberTag from '@/components/cell/MemberTag.vue'
 import SelectTag from '@/components/cell/SelectTag.vue'
 import { openMenu } from '@/composables/useContextMenu'
 import { keepRecordInView, useViewData } from '@/composables/useViewData'
 import { useBaseStore } from '@/stores/base'
 import type { SelectOption, SLField, SLRecord, SLView } from '@/types/bitable'
+import { directory, memberIds } from '@/utils/directory'
+import { isKanbanGroupField } from '@/utils/fieldTypes'
 import { newOptionUID } from '@/utils/id'
 import RecordCard from './RecordCard.vue'
 
@@ -20,31 +23,52 @@ const { visibleFields, searchedRows } = useViewData(viewRef)
 
 const groupField = computed(() => {
   const f = store.fields.find((x) => x.uid === props.view.config.kanbanFieldUID)
-  return f?.type === 'single_select' ? (f as SLField<'single_select'>) : undefined
+  return f && isKanbanGroupField(f) ? (f as SLField<'single_select' | 'member'>) : undefined
 })
-const options = computed<SelectOption[]>(() => groupField.value?.metadata.options ?? [])
+/** Grouping by a single member field, the columns are the members instead of the options. */
+const byMember = computed(() => groupField.value?.type === 'member')
+const options = computed<SelectOption[]>(() => (groupField.value?.type === 'single_select' ? (groupField.value as SLField<'single_select'>).metadata.options ?? [] : []))
 const cardFields = computed(() => visibleFields.value.filter((f) => f.uid !== groupField.value?.uid))
 
 interface Column {
   key: string
   option?: SelectOption
+  userId?: number
   records: SLRecord[]
+}
+
+/** Keys of the member columns: the members, then the users who left but still have cards. */
+function memberKeys(g: SLField): string[] {
+  const keys = directory.value.members.map((u) => String(u.id))
+  for (const r of searchedRows.value) {
+    const id = memberIds(r.data[g.uid])[0]
+    if (id && !keys.includes(String(id))) keys.push(String(id))
+  }
+  return keys
 }
 
 const columns = computed<Column[]>(() => {
   const g = groupField.value
   if (!g) return []
-  const map = new Map<string, SLRecord[]>([['', []], ...options.value.map((o) => [o.uid, []] as [string, SLRecord[]])])
+  const keys = byMember.value ? memberKeys(g) : options.value.map((o) => o.uid)
+  const map = new Map<string, SLRecord[]>([['', []], ...keys.map((k) => [k, []] as [string, SLRecord[]])])
   for (const r of searchedRows.value) {
-    const v = r.data[g.uid]
+    const v = byMember.value ? String(memberIds(r.data[g.uid])[0] ?? '') : r.data[g.uid]
     const key = typeof v === 'string' && map.has(v) ? v : ''
     map.get(key)!.push(r)
   }
+  if (byMember.value) return [{ key: '', records: map.get('')! }, ...keys.map((k) => ({ key: k, userId: Number(k), records: map.get(k)! }))]
   return [
     { key: '', records: map.get('')! },
     ...options.value.map((o) => ({ key: o.uid, option: o, records: map.get(o.uid)! })),
   ]
 })
+
+/** Value of the group field for the cards in the column. */
+function columnValue(col: Column) {
+  if (!col.key) return null
+  return byMember.value ? [Number(col.key)] : col.key
+}
 
 const allUIDs = computed(() => columns.value.flatMap((c) => c.records.map((r) => r.uid)))
 
@@ -64,9 +88,10 @@ function onColumnDrop(col: Column) {
   overColumn.value = null
   if (!uid || !groupField.value) return
   const rec = store.recordMap.get(uid)
-  const current = rec?.data[groupField.value.uid] ?? ''
+  const raw = rec?.data[groupField.value.uid]
+  const current = byMember.value ? String(memberIds(raw)[0] ?? '') : raw ?? ''
   if (current === col.key) return
-  store.updateCell(uid, groupField.value.uid, col.key || null)
+  store.updateCell(uid, groupField.value.uid, columnValue(col))
 }
 
 // ---- Dragging columns to reorder the options ----
@@ -77,7 +102,7 @@ function onColumnHeadDrop(col: Column) {
   const from = dragColumn.value
   dragColumn.value = null
   overColumnHead.value = null
-  if (!from || !groupField.value || !col.key || from === col.key) return
+  if (!from || !groupField.value || byMember.value || !col.key || from === col.key) return
   const list = [...options.value]
   const fromIdx = list.findIndex((o) => o.uid === from)
   const toIdx = list.findIndex((o) => o.uid === col.key)
@@ -87,7 +112,7 @@ function onColumnHeadDrop(col: Column) {
 }
 
 async function addCard(col: Column) {
-  const data = groupField.value && col.key ? { [groupField.value.uid]: col.key } : {}
+  const data = groupField.value && col.key ? { [groupField.value.uid]: columnValue(col) } : {}
   const r = await store.createRecord(data)
   if (r) {
     keepRecordInView(props.view.uid, r.uid)
@@ -107,7 +132,7 @@ function startAddGroup() {
 async function confirmAddGroup() {
   const name = newGroupName.value.trim()
   addingGroup.value = false
-  if (!name || !groupField.value) return
+  if (!name || !groupField.value || byMember.value) return
   if (options.value.some((o) => o.name === name)) return
   await store.updateField(groupField.value.uid, {
     metadata: {
@@ -170,13 +195,13 @@ async function createGroupField(e: MouseEvent) {
 
 function pickGroupField() {
   store.toolbarRequest = null
-  const f = store.fields.find((x) => x.type === 'single_select')
+  const f = store.fields.find(isKanbanGroupField)
   if (f) store.updateViewConfig({ kanbanFieldUID: f.uid })
 }
 
 const vFocus = { mounted: (el: HTMLElement) => el.focus() }
 
-const singleSelects = computed(() => store.fields.filter((f) => f.type === 'single_select'))
+const singleSelects = computed(() => store.fields.filter(isKanbanGroupField))
 </script>
 
 <template>
@@ -201,7 +226,7 @@ const singleSelects = computed(() => store.fields.filter((f) => f.type === 'sing
     >
       <div
         class="column-head"
-        :draggable="!!col.key && store.canEdit"
+        :draggable="!!col.key && !byMember && store.canEdit"
         @dragstart="(e: DragEvent) => { if (col.key) { dragColumn = col.key; e.dataTransfer?.setData('text/plain', col.key) } }"
         @dragend="(dragColumn = null), (overColumnHead = null)"
       >
@@ -217,6 +242,7 @@ const singleSelects = computed(() => store.fields.filter((f) => f.type === 'sing
         </template>
         <template v-else>
           <SelectTag v-if="col.option" :name="col.option.name" :color="col.option.color" />
+          <MemberTag v-else-if="col.userId" :user-id="col.userId" />
           <span v-else class="ungrouped">{{ t('kanban.ungrouped') }}</span>
           <span class="count">{{ col.records.length }}</span>
         </template>
@@ -242,7 +268,7 @@ const singleSelects = computed(() => store.fields.filter((f) => f.type === 'sing
       </div>
     </div>
 
-    <div v-if="store.canEdit" class="column add-column">
+    <div v-if="store.canEdit && !byMember" class="column add-column">
       <input
         v-if="addingGroup"
         ref="newGroupInput"

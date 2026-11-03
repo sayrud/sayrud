@@ -45,15 +45,15 @@ type SLRecordsStore interface {
 	// and ErrUnsupportedFilterOperation, ErrInvalidFilterValue or ErrInvalidSortOrder if the options are invalid.
 	Query(ctx context.Context, slTableID int64, options QuerySLRecordsOptions) ([]*SLRecord, int64, error)
 	// MatchData checks whether the record values in data match the filters with the same semantics as Query and returns the matching keys; all filters must match if matchAny is false.
-	// data may be keyed by any identifier, e.g. the record UID.
+	// data may be keyed by any identifier, e.g. the record UID. The system fields are not in data, they return ErrSLFieldNotQueryable.
 	MatchData(ctx context.Context, slTableID int64, filters []QuerySLRecordsFilter, matchAny bool, data map[string]json.RawMessage) ([]string, error)
 	// Import creates the records in batch and returns them in the same order as the options.
 	// It returns ErrSLRecordExists if any UID has been used in the table.
 	Import(ctx context.Context, slTableID int64, options ImportSLRecordsOptions) ([]*SLRecord, error)
-	// Create creates a record in the table with the data keyed by field UID.
-	Create(ctx context.Context, slTableID int64, jsonBytes json.RawMessage) (*SLRecord, error)
-	// Update replaces the data of the record with the given ID.
-	Update(ctx context.Context, slRecordID int64, jsonBytes json.RawMessage) error
+	// Create creates a record in the table with the data keyed by field UID, the writer is both its creator and modifier.
+	Create(ctx context.Context, slTableID int64, jsonBytes json.RawMessage, writer SLRecordWriter) (*SLRecord, error)
+	// Update replaces the data of the record with the given ID, a zero writer keeps the previous modifier.
+	Update(ctx context.Context, slRecordID int64, jsonBytes json.RawMessage, writer SLRecordWriter) error
 	// CountByTableID returns the number of records in the table.
 	CountByTableID(ctx context.Context, slTableID int64) (int64, error)
 	// Count returns the number of records in the projects that are not deleted.
@@ -93,6 +93,44 @@ type SLRecord struct {
 	UID string `gorm:"uniqueIndex:idx_sl_table_id_uid, where:deleted_at IS NULL"`
 	// Data is the sparse cell values keyed by field UID, the empty values are omitted.
 	Data datatypes.JSON `gorm:"type:jsonb"`
+
+	// CreatedByID is the user who created the record, 0 if it was created by a workflow or the writer is unknown.
+	CreatedByID int64 `gorm:"not null;default:0"`
+	// CreatedByWorkflowID is the workflow which created the record, 0 if it was not created by a workflow.
+	CreatedByWorkflowID int64 `gorm:"not null;default:0"`
+	// UpdatedByID is the user who last wrote the record, 0 if it was written by a workflow or the writer is unknown.
+	UpdatedByID int64 `gorm:"not null;default:0"`
+	// UpdatedByWorkflowID is the workflow which last wrote the record, 0 if it was not written by a workflow.
+	UpdatedByWorkflowID int64 `gorm:"not null;default:0"`
+}
+
+// SLRecordWriter is the user or the workflow writing a record, at most one of them is set; the zero value means unknown,
+// e.g. the server writing back the generated values or converting a field.
+type SLRecordWriter struct {
+	UserID     int64 `json:"userId,omitempty"`
+	WorkflowID int64 `json:"workflowId,omitempty"`
+} // @name RecordWriter
+
+// IsZero reports whether the writer is unknown.
+func (w SLRecordWriter) IsZero() bool {
+	return w.UserID == 0 && w.WorkflowID == 0
+}
+
+// CreatedBy returns the creator of the record.
+func (slRecord *SLRecord) CreatedBy() SLRecordWriter {
+	return SLRecordWriter{UserID: slRecord.CreatedByID, WorkflowID: slRecord.CreatedByWorkflowID}
+}
+
+// UpdatedBy returns the last writer of the record.
+func (slRecord *SLRecord) UpdatedBy() SLRecordWriter {
+	return SLRecordWriter{UserID: slRecord.UpdatedByID, WorkflowID: slRecord.UpdatedByWorkflowID}
+}
+
+// SetUpdatedBy sets the last writer of the record in memory, a zero writer keeps the previous one as Update does.
+func (slRecord *SLRecord) SetUpdatedBy(writer SLRecordWriter) {
+	if !writer.IsZero() {
+		slRecord.UpdatedByID, slRecord.UpdatedByWorkflowID = writer.UserID, writer.WorkflowID
+	}
 }
 
 func (slRecord *SLRecord) BeforeCreate(_ *gorm.DB) error {
@@ -169,7 +207,12 @@ type QuerySLRecordsOptions struct {
 	Limit int
 	// Offset is the number of records to skip.
 	Offset int
+	// CurrentUserID replaces the MeFilterValue in the filters of the member and writer fields, which matches nobody if it is 0.
+	CurrentUserID int64
 }
+
+// MeFilterValue stands for the user querying the records in the filters of the member and writer fields.
+const MeFilterValue = "@me"
 
 var (
 	ErrSLFieldNotQueryable        = errors.New("sl_field is not queryable")
@@ -188,14 +231,14 @@ func (db *slRecords) Query(ctx context.Context, slTableID int64, options QuerySL
 
 	orders := make([]string, 0, len(options.Group)+len(options.Order)+1)
 	for _, group := range options.Group {
-		orders = append(orders, slRecordFieldExpr(fields[group.FieldUID])+" ASC NULLS LAST")
+		orders = append(orders, slRecordSortExpr(fields[group.FieldUID])+" ASC NULLS LAST")
 	}
 	for _, sort := range options.Order {
 		direction, err := parseSLRecordSortOrder(sort.Order)
 		if err != nil {
 			return nil, 0, err
 		}
-		orders = append(orders, slRecordFieldExpr(fields[sort.FieldUID])+" "+direction+" NULLS LAST")
+		orders = append(orders, slRecordSortExpr(fields[sort.FieldUID])+" "+direction+" NULLS LAST")
 	}
 	orders = append(orders, "id DESC")
 
@@ -203,7 +246,7 @@ func (db *slRecords) Query(ctx context.Context, slTableID int64, options QuerySL
 	conditions := make([]string, 0, len(options.Filter))
 	var args []interface{}
 	for _, filter := range options.Filter {
-		condition, conditionArgs, err := buildSLRecordFilter(fields[filter.FieldUID], filter)
+		condition, conditionArgs, err := buildSLRecordFilter(fields[filter.FieldUID], filter, options.CurrentUserID)
 		if err != nil {
 			return nil, 0, err
 		}
@@ -252,7 +295,11 @@ func (db *slRecords) MatchData(ctx context.Context, slTableID int64, filters []Q
 	conditions := make([]string, 0, len(filters))
 	var args []interface{}
 	for _, filter := range filters {
-		condition, conditionArgs, err := buildSLRecordFilter(fields[filter.FieldUID], filter)
+		// Only the data is matched, the system values live in the columns of the records.
+		if field := fields[filter.FieldUID]; field.Type.IsSystem() {
+			return nil, errors.Wrapf(ErrSLFieldNotQueryable, "field %q", field.UID)
+		}
+		condition, conditionArgs, err := buildSLRecordFilter(fields[filter.FieldUID], filter, 0)
 		if err != nil {
 			return nil, err
 		}
@@ -336,21 +383,54 @@ func slRecordFieldExpr(field *SLField) string {
 		return "(CASE WHEN jsonb_typeof(data -> " + key + ") = 'string' THEN (data ->> " + key + ")::TIMESTAMPTZ END)"
 	case MultiSelectFieldType:
 		return "(data -> " + key + ")"
+	case MemberFieldType:
+		return "(CASE WHEN jsonb_typeof(data -> " + key + ") = 'array' THEN data -> " + key + " END)"
+	case CreatedAtFieldType:
+		return "created_at"
+	case UpdatedAtFieldType:
+		return "updated_at"
+	case CreatedByFieldType:
+		return "created_by_id"
+	case UpdatedByFieldType:
+		return "updated_by_id"
 	default:
 		return "(data ->> " + key + ")"
 	}
 }
 
+// slRecordSortExpr returns the SQL expression sorting by the field: members by the first user ID and writers by the user ID, empty values are NULL.
+func slRecordSortExpr(field *SLField) string {
+	switch field.Type {
+	case MemberFieldType:
+		key := escape.Literal(field.UID)
+		return "(CASE WHEN jsonb_typeof(data -> " + key + " -> 0) = 'number' THEN (data -> " + key + " ->> 0)::NUMERIC END)"
+	case CreatedByFieldType, UpdatedByFieldType:
+		return "NULLIF(" + slRecordFieldExpr(field) + ", 0)"
+	default:
+		return slRecordFieldExpr(field)
+	}
+}
+
 var slRecordLikeEscaper = strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`)
 
-func buildSLRecordFilter(field *SLField, filter QuerySLRecordsFilter) (string, []interface{}, error) {
+func buildSLRecordFilter(field *SLField, filter QuerySLRecordsFilter, currentUserID int64) (string, []interface{}, error) {
 	expr := slRecordFieldExpr(field)
 	if filter.Operation == FilterOperationEmpty || filter.Operation == FilterOperationNotEmpty {
 		condition := "(data -> ? IS NULL OR data -> ? IN ('null'::jsonb, '\"\"'::jsonb, '[]'::jsonb))"
-		if field.Type == CheckboxFieldType {
+		switch field.Type {
+		case CheckboxFieldType:
 			condition = "NOT " + expr
 			if filter.Operation == FilterOperationNotEmpty {
 				condition = expr
+			}
+			return condition, nil, nil
+		case CreatedAtFieldType, UpdatedAtFieldType:
+			return lo.Ternary(filter.Operation == FilterOperationEmpty, "FALSE", "TRUE"), nil, nil
+		case CreatedByFieldType, UpdatedByFieldType:
+			// The records written by workflows have no user but are not empty.
+			condition = "(" + expr + " = 0 AND " + strings.TrimSuffix(expr, "_id") + "_workflow_id = 0)"
+			if filter.Operation == FilterOperationNotEmpty {
+				condition = "NOT " + condition
 			}
 			return condition, nil, nil
 		}
@@ -361,6 +441,43 @@ func buildSLRecordFilter(field *SLField, filter QuerySLRecordsFilter) (string, [
 	}
 
 	unsupported := errors.Wrapf(ErrUnsupportedFilterOperation, "field %q (%s) operation %q", field.UID, field.Type, filter.Operation)
+
+	if field.Type == MemberFieldType || field.Type.IsWriter() {
+		return buildSLRecordUserFilter(field, filter, currentUserID, unsupported)
+	}
+	// The creation and update times are compared as dates.
+	if field.Type == CreatedAtFieldType || field.Type == UpdatedAtFieldType {
+		field = &SLField{UID: field.UID, Type: DateTimeFieldType}
+		if filter.Operation == FilterOperationIn || filter.Operation == FilterOperationNotIn {
+			values, err := parseSLRecordFilterValues(field.Type, filter.Value)
+			if err != nil {
+				return "", nil, err
+			}
+			if filter.Operation == FilterOperationIn {
+				return expr + " IN ?", []interface{}{values}, nil
+			}
+			return expr + " NOT IN ?", []interface{}{values}, nil
+		}
+		if filter.Operation == FilterOperationLike {
+			return "", nil, unsupported
+		}
+		value, err := parseSLRecordFilterValue(field.Type, filter.Value)
+		if err != nil {
+			return "", nil, err
+		}
+		operator, ok := map[FilterOperation]string{
+			FilterOperationEqual:              "=",
+			FilterOperationNotEqual:           "<>",
+			FilterOperationGreaterThan:        ">",
+			FilterOperationLessThan:           "<",
+			FilterOperationGreaterThanOrEqual: ">=",
+			FilterOperationLessThanOrEqual:    "<=",
+		}[filter.Operation]
+		if !ok {
+			return "", nil, unsupported
+		}
+		return expr + " " + operator + " ?", []interface{}{value}, nil
+	}
 
 	// Multi-select values are arrays of option UIDs, matched with "contains" semantics.
 	if field.Type == MultiSelectFieldType {
@@ -462,18 +579,13 @@ func parseSLRecordFilterValue(fieldType SLFieldType, value string) (interface{},
 
 // parseSLRecordFilterValues parses the JSON array value of in / nin, whose elements can be strings or raw JSON values.
 func parseSLRecordFilterValues(fieldType SLFieldType, value string) ([]interface{}, error) {
-	var raws []json.RawMessage
-	if err := json.Unmarshal([]byte(value), &raws); err != nil || len(raws) == 0 {
-		return nil, errors.Wrapf(ErrInvalidFilterValue, "%q is not a non-empty JSON array", value)
+	items, err := parseSLRecordFilterList(value)
+	if err != nil {
+		return nil, err
 	}
 
-	values := make([]interface{}, 0, len(raws))
-	for _, raw := range raws {
-		s := string(raw)
-		var str string
-		if err := json.Unmarshal(raw, &str); err == nil {
-			s = str
-		}
+	values := make([]interface{}, 0, len(items))
+	for _, s := range items {
 		v, err := parseSLRecordFilterValue(fieldType, s)
 		if err != nil {
 			return nil, err
@@ -481,6 +593,86 @@ func parseSLRecordFilterValues(fieldType SLFieldType, value string) ([]interface
 		values = append(values, v)
 	}
 	return values, nil
+}
+
+// parseSLRecordFilterList returns the elements of the non-empty JSON array value, the strings are unquoted and the other values are kept as raw JSON.
+func parseSLRecordFilterList(value string) ([]string, error) {
+	var raws []json.RawMessage
+	if err := json.Unmarshal([]byte(value), &raws); err != nil || len(raws) == 0 {
+		return nil, errors.Wrapf(ErrInvalidFilterValue, "%q is not a non-empty JSON array", value)
+	}
+	items := make([]string, 0, len(raws))
+	for _, raw := range raws {
+		s := string(raw)
+		var str string
+		if err := json.Unmarshal(raw, &str); err == nil {
+			s = str
+		}
+		items = append(items, s)
+	}
+	return items, nil
+}
+
+// buildSLRecordUserFilter matches the member and writer fields by user ID: eq / neq contain or not contain the user, in / nin contain any or none of the users.
+func buildSLRecordUserFilter(field *SLField, filter QuerySLRecordsFilter, currentUserID int64, unsupported error) (string, []interface{}, error) {
+	var values []string
+	switch filter.Operation {
+	case FilterOperationEqual, FilterOperationNotEqual:
+		values = []string{filter.Value}
+	case FilterOperationIn, FilterOperationNotIn:
+		var err error
+		if values, err = parseSLRecordFilterList(filter.Value); err != nil {
+			return "", nil, err
+		}
+	default:
+		return "", nil, unsupported
+	}
+	ids, err := parseSLRecordUserIDs(values, currentUserID)
+	if err != nil {
+		return "", nil, err
+	}
+
+	negate := filter.Operation == FilterOperationNotEqual || filter.Operation == FilterOperationNotIn
+	if len(ids) == 0 {
+		return lo.Ternary(negate, "TRUE", "FALSE"), nil, nil
+	}
+	expr := slRecordFieldExpr(field)
+	var condition string
+	var args []interface{}
+	if field.Type == MemberFieldType {
+		parts := make([]string, 0, len(ids))
+		for _, id := range ids {
+			parts = append(parts, expr+" @> ?::jsonb")
+			args = append(args, "["+strconv.FormatInt(id, 10)+"]")
+		}
+		condition = "COALESCE(" + strings.Join(parts, " OR ") + ", FALSE)"
+	} else {
+		condition, args = expr+" IN ?", []interface{}{ids}
+	}
+	if negate {
+		condition = "NOT " + condition
+	}
+	return condition, args, nil
+}
+
+// parseSLRecordUserIDs parses the user IDs of the filter values, MeFilterValue is replaced by the current user and dropped if there is none.
+func parseSLRecordUserIDs(values []string, currentUserID int64) ([]int64, error) {
+	ids := make([]int64, 0, len(values))
+	for _, v := range values {
+		v = strings.TrimSpace(v)
+		if v == MeFilterValue {
+			if currentUserID > 0 {
+				ids = append(ids, currentUserID)
+			}
+			continue
+		}
+		id, err := strconv.ParseInt(v, 10, 64)
+		if err != nil || id <= 0 {
+			return nil, errors.Wrapf(ErrInvalidFilterValue, "parse %q as user ID", v)
+		}
+		ids = append(ids, id)
+	}
+	return lo.Uniq(ids), nil
 }
 
 func parseSLRecordSortOrder(order string) (string, error) {
@@ -511,16 +703,27 @@ type ImportSLRecordsOptions struct {
 	Data []json.RawMessage
 	// UIDs are the UIDs of the records in the same order as Data, random UIDs are generated if it is empty.
 	UIDs []string
+	// Writer is the creator and modifier of all the records.
+	Writer SLRecordWriter
+}
+
+// newSLRecord returns the record to create, the writer is both its creator and modifier.
+func newSLRecord(slTableID int64, jsonBytes json.RawMessage, writer SLRecordWriter) *SLRecord {
+	return &SLRecord{
+		SLTableID:           slTableID,
+		Data:                datatypes.JSON(jsonBytes),
+		CreatedByID:         writer.UserID,
+		CreatedByWorkflowID: writer.WorkflowID,
+		UpdatedByID:         writer.UserID,
+		UpdatedByWorkflowID: writer.WorkflowID,
+	}
 }
 
 // Import creates the records in batch and returns them in the same order as options.Data.
 func (db *slRecords) Import(ctx context.Context, slTableID int64, options ImportSLRecordsOptions) ([]*SLRecord, error) {
 	records := make([]*SLRecord, 0, len(options.Data))
 	for i, jsonBytes := range options.Data {
-		record := &SLRecord{
-			SLTableID: slTableID,
-			Data:      datatypes.JSON(jsonBytes),
-		}
+		record := newSLRecord(slTableID, jsonBytes, options.Writer)
 		if i < len(options.UIDs) {
 			record.UID = options.UIDs[i]
 		}
@@ -539,11 +742,8 @@ func (db *slRecords) Import(ctx context.Context, slTableID int64, options Import
 	return records, nil
 }
 
-func (db *slRecords) Create(ctx context.Context, slTableID int64, jsonBytes json.RawMessage) (*SLRecord, error) {
-	slRecord := &SLRecord{
-		SLTableID: slTableID,
-		Data:      datatypes.JSON(jsonBytes),
-	}
+func (db *slRecords) Create(ctx context.Context, slTableID int64, jsonBytes json.RawMessage, writer SLRecordWriter) (*SLRecord, error) {
+	slRecord := newSLRecord(slTableID, jsonBytes, writer)
 	if err := db.WithContext(ctx).Create(slRecord).Error; err != nil {
 		return nil, errors.Wrap(err, "create")
 	}
@@ -605,10 +805,12 @@ func (db *slRecords) RemoveFieldData(ctx context.Context, slTableID int64, field
 	return nil
 }
 
-func (db *slRecords) Update(ctx context.Context, slRecordID int64, jsonBytes json.RawMessage) error {
-	if err := db.WithContext(ctx).Model(&SLRecord{}).Where("id = ?", slRecordID).Updates(map[string]interface{}{
-		"data": jsonBytes,
-	}).Error; err != nil {
+func (db *slRecords) Update(ctx context.Context, slRecordID int64, jsonBytes json.RawMessage, writer SLRecordWriter) error {
+	updates := map[string]interface{}{"data": jsonBytes}
+	if !writer.IsZero() {
+		updates["updated_by_id"], updates["updated_by_workflow_id"] = writer.UserID, writer.WorkflowID
+	}
+	if err := db.WithContext(ctx).Model(&SLRecord{}).Where("id = ?", slRecordID).Updates(updates).Error; err != nil {
 		return errors.Wrap(err, "update")
 	}
 	return nil

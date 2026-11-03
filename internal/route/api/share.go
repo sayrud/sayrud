@@ -517,6 +517,22 @@ func (shareRoute) FetchRecords(ctx context.Context, table *db.SLTable, f form.Fe
 	return Collab.FetchRecords(ctx, table, f)
 }
 
+// ResolveMembers
+// @Summary Resolve the users and workflows of the member and system fields for a public share
+// @Tags Sharing
+// @Description The same as resolving them in the project, without the emails.
+// @Accept json
+// @Produce json
+// @Param shareToken path string true "Share token"
+// @Param tableUID path string true "Table UID"
+// @Param data body form.ResolveMembers true "User and workflow IDs"
+// @Success 200 {object} dto.ResolvedMembers
+// @ID resolveSharedMembers
+// @Router /shares/{shareToken}/tables/{tableUID}/members/resolve [post]
+func (shareRoute) ResolveMembers(ctx context.Context, project *db.Project, f form.ResolveMembers) error {
+	return respondResolvedMembers(ctx, project, f, true)
+}
+
 // Attachment
 // @Summary Read an attachment referenced by a shared table
 // @Tags Sharing

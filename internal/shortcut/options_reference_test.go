@@ -44,7 +44,7 @@ func TestReferencedOptionsSyncAndExecute(t *testing.T) {
 
 	for _, data := range []map[string]interface{}{{parent.UID: "North", category.UID: "srcA"}, {parent.UID: "South", category.UID: "srcB"}} {
 		b, _ := json.Marshal(data)
-		_, err := db.NewSLRecordsStore(tx).Create(ctx, source.ID, b)
+		_, err := db.NewSLRecordsStore(tx).Create(ctx, source.ID, b, db.SLRecordWriter{})
 		require.NoError(t, err)
 	}
 
@@ -73,7 +73,7 @@ func TestReferencedOptionsSyncAndExecute(t *testing.T) {
 	require.Nil(t, data[host.UID])
 
 	b, _ := json.Marshal(map[string]interface{}{local.UID: "North", host.UID: "keepA"})
-	record, err := db.NewSLRecordsStore(tx).Create(ctx, target.ID, b)
+	record, err := db.NewSLRecordsStore(tx).Create(ctx, target.ID, b, db.SLRecordWriter{})
 	require.NoError(t, err)
 	hub := collab.NewHub(tx)
 	engine := NewEngine(tx, hub, 1)

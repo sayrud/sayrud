@@ -5,7 +5,7 @@ import { useI18n } from 'vue-i18n'
 import CellDisplay from '@/components/cell/CellDisplay.vue'
 import { useBaseStore } from '@/stores/base'
 import type { SLField, SLRecord } from '@/types/bitable'
-import { isEmptyValue } from '@/utils/format'
+import { cellValue, isEmptyValue } from '@/utils/format'
 
 const { t } = useI18n()
 
@@ -21,7 +21,7 @@ const title = computed(() => (primary.value ? store.ctx.text(props.record, prima
 const bodyFields = computed(() =>
   props.fields
     .filter((f) => f.uid !== primary.value?.uid)
-    .filter((f) => props.showEmpty || f.type === 'formula' || f.type === 'checkbox' || !isEmptyValue(props.record.data[f.uid]))
+    .filter((f) => props.showEmpty || f.type === 'formula' || f.type === 'checkbox' || !isEmptyValue(cellValue(props.record, f)))
     .slice(0, props.maxFields),
 )
 </script>

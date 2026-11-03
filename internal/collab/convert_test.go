@@ -56,7 +56,7 @@ func TestDateConversionPreservesSeconds(t *testing.T) {
 	field := newTestField("fldDate", db.DateTimeFieldType, map[string]interface{}{"format": "YYYY-MM-DD", "with_time": true})
 	value := time.Date(2026, 10, 18, 13, 14, 37, 0, time.Local).Format(time.RFC3339)
 	records := []*db.SLRecord{newTestRecord(t, "recDate", map[string]interface{}{field.UID: value})}
-	conversion, err := convertField(field, db.TextFieldType, map[string]interface{}{}, records, testBoolText)
+	conversion, err := convertField(field, db.TextFieldType, map[string]interface{}{}, records, testBoolText, nil)
 	require.NoError(t, err)
 	assert.Equal(t, "2026-10-18 13:14:37", conversion.values["recDate"])
 	assert.Equal(t, "2026/10/18 13:14:37", formatDate(value, "YYYY/MM/DD", true))
@@ -80,10 +80,10 @@ func TestAttachmentConversions(t *testing.T) {
 	raw, err := json.Marshal(map[string]interface{}{field.UID: values})
 	require.NoError(t, err)
 	records := []*db.SLRecord{{UID: "recOne", Data: raw}}
-	conversion, err := convertField(field, db.TextFieldType, map[string]interface{}{}, records, testBoolText)
+	conversion, err := convertField(field, db.TextFieldType, map[string]interface{}{}, records, testBoolText, nil)
 	require.NoError(t, err)
 	require.Equal(t, "photo.png, report.pdf", conversion.values["recOne"])
-	conversion, err = convertField(field, db.AttachmentFieldType, map[string]interface{}{}, records, testBoolText)
+	conversion, err = convertField(field, db.AttachmentFieldType, map[string]interface{}{}, records, testBoolText, nil)
 	require.NoError(t, err)
 	require.Equal(t, values, conversion.values["recOne"])
 }
@@ -107,7 +107,7 @@ func TestConvertField_TextToSingleSelect(t *testing.T) {
 		newTestRecord(t, "rec4", map[string]interface{}{}),
 	}
 
-	conversion, err := convertField(field, db.SingleSelectFieldType, map[string]interface{}{"default": ""}, records, testBoolText)
+	conversion, err := convertField(field, db.SingleSelectFieldType, map[string]interface{}{"default": ""}, records, testBoolText, nil)
 	require.NoError(t, err)
 
 	options := conversion.metadata["options"].([]interface{})
@@ -130,13 +130,13 @@ func TestConvertField_NumberAndCheckbox(t *testing.T) {
 		newTestRecord(t, "rec2", map[string]interface{}{"fldBBBBBBB": 0.0}),
 	}
 
-	conversion, err := convertField(number, db.CheckboxFieldType, map[string]interface{}{}, records, testBoolText)
+	conversion, err := convertField(number, db.CheckboxFieldType, map[string]interface{}{}, records, testBoolText, nil)
 	require.NoError(t, err)
 	assert.Equal(t, true, conversion.values["rec1"])
 	// Unchecked checkboxes are not stored.
 	assert.Nil(t, conversion.values["rec2"])
 
-	conversion, err = convertField(number, db.TextFieldType, map[string]interface{}{}, records, testBoolText)
+	conversion, err = convertField(number, db.TextFieldType, map[string]interface{}{}, records, testBoolText, nil)
 	require.NoError(t, err)
 	assert.Equal(t, "2", conversion.values["rec1"])
 }
@@ -151,7 +151,7 @@ func TestConvertField_MultiToSingleSelect(t *testing.T) {
 		newTestRecord(t, "rec1", map[string]interface{}{"fldCCCCCCC": []interface{}{"optB", "optA"}}),
 	}
 
-	conversion, err := convertField(field, db.SingleSelectFieldType, map[string]interface{}{"options": options}, records, testBoolText)
+	conversion, err := convertField(field, db.SingleSelectFieldType, map[string]interface{}{"options": options}, records, testBoolText, nil)
 	require.NoError(t, err)
 	assert.Equal(t, "optB", conversion.values["rec1"])
 }
@@ -170,7 +170,7 @@ func TestConvertField_CheckboxToText(t *testing.T) {
 		newTestRecord(t, "rec2", map[string]interface{}{"fldCCCCCCC": false}),
 	}
 
-	conversion, err := convertField(checkbox, db.TextFieldType, map[string]interface{}{}, records, testBoolText)
+	conversion, err := convertField(checkbox, db.TextFieldType, map[string]interface{}{}, records, testBoolText, nil)
 	require.NoError(t, err)
 	assert.Equal(t, "Yes", conversion.values["rec1"])
 	assert.Equal(t, "No", conversion.values["rec2"])

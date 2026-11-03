@@ -30,6 +30,12 @@ type AddProjectMember struct {
 	Role  string `json:"role" valid:"required" enums:"manager,editor,viewer"`
 } // @name AddProjectMember
 
+// ResolveMembers lists the IDs referenced by the member and system fields, at most 1000 of each.
+type ResolveMembers struct {
+	UserIDs     []int64 `json:"userIDs"`
+	WorkflowIDs []int64 `json:"workflowIDs"`
+} // @name ResolveMembers
+
 type TransferProjectOwner struct {
 	UserID int64 `json:"userID" valid:"required"`
 } // @name TransferProjectOwner

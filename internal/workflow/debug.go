@@ -38,6 +38,9 @@ func (e *Engine) SampleTrigger(ctx context.Context, project *db.Project, spec *S
 		return nil, err
 	}
 	info := newTableInfo(table, fields)
+	if err := info.loadDirectory(ctx, e.db); err != nil {
+		return nil, err
+	}
 
 	records := db.NewSLRecordsStore(e.db)
 	var record *db.SLRecord

@@ -17,12 +17,21 @@ import (
 	"github.com/wuhan005/sayrud/internal/db"
 )
 
-var ErrFieldTypeMismatch = errors.New("field type mismatch")
+var (
+	ErrFieldTypeMismatch = errors.New("field type mismatch")
+	ErrFieldReadOnly     = errors.New("field is read-only")
+	ErrInvalidMember     = errors.New("user is not a member of the project")
+)
+
+// maxUserID is the largest user ID the member values can hold, the IDs are JSON numbers which JavaScript reads as doubles.
+const maxUserID = 1<<53 - 1
 
 // Validate checks the cell values keyed by field UID against the table fields, and returns the data to be stored.
-// Empty values, unchecked checkboxes and formula values are dropped, as they are not stored.
-// It returns db.ErrSLFieldNotFound if any key is not a field of the table, and ErrFieldTypeMismatch if any value mismatches its field type.
-func Validate(ctx context.Context, tx *gorm.DB, tableID int64, data map[string]interface{}) (json.RawMessage, error) {
+// Empty values, unchecked checkboxes and formula values are dropped, as they are not stored. previous is the stored data
+// of the record being replaced, nil when creating; the members already in the previous value of a cell are kept after they left.
+// It returns db.ErrSLFieldNotFound if any key is not a field of the table, ErrFieldTypeMismatch if any value mismatches its field type,
+// ErrFieldReadOnly if any system field has a value, and ErrInvalidMember if any member value has a user out of the project.
+func Validate(ctx context.Context, tx *gorm.DB, tableID int64, data map[string]interface{}, previous json.RawMessage) (json.RawMessage, error) {
 	fields, err := db.NewSLFieldsStore(tx).ListByTableID(ctx, tableID)
 	if err != nil {
 		return nil, errors.Wrap(err, "list fields")
@@ -32,6 +41,19 @@ func Validate(ctx context.Context, tx *gorm.DB, tableID int64, data map[string]i
 	result, err := validator.Validate(data)
 	if err != nil {
 		return nil, err
+	}
+	if len(validator.memberFields) > 0 {
+		table, err := db.NewSLTablesStore(tx).GetByID(ctx, tableID)
+		if err != nil {
+			return nil, errors.Wrap(err, "get table")
+		}
+		before := map[string]interface{}{}
+		if len(previous) > 0 {
+			_ = json.Unmarshal(previous, &before)
+		}
+		if err := validator.ValidateMembers(ctx, tx, table.ProjectID, result, before); err != nil {
+			return nil, err
+		}
 	}
 	if _, err := validator.ValidateAttachments(ctx, tx, tableID, result); err != nil {
 		return nil, err
@@ -91,11 +113,15 @@ func (v *RecordValidator) NormalizeReferencedOptions(ctx context.Context, tx *go
 type RecordValidator struct {
 	fields       map[string]*db.SLField
 	optionFields []*db.SLField
+	memberFields []*db.SLField
+	// members are the user IDs of the project, loaded by the first member value to check.
+	members map[int64]bool
 }
 
 func NewRecordValidator(fields []*db.SLField) *RecordValidator {
 	v := &RecordValidator{
-		fields: lo.KeyBy(fields, func(field *db.SLField) string { return field.UID }),
+		fields:       lo.KeyBy(fields, func(field *db.SLField) string { return field.UID }),
+		memberFields: lo.Filter(fields, func(field *db.SLField, _ int) bool { return field.Type == db.MemberFieldType }),
 	}
 
 	// Normalize parent fields before their dependent option fields.
@@ -142,6 +168,9 @@ func (v *RecordValidator) Validate(data map[string]interface{}) (map[string]inte
 		if !ok {
 			return nil, errors.Wrapf(db.ErrSLFieldNotFound, "field %q", uid)
 		}
+		if field.Type.IsSystem() && !isEmptyValue(value) {
+			return nil, errors.Wrapf(ErrFieldReadOnly, "field %q", field.Label)
+		}
 		if !IsStoredValue(field, value) {
 			continue
 		}
@@ -151,6 +180,61 @@ func (v *RecordValidator) Validate(data map[string]interface{}) (map[string]inte
 		result[uid] = value
 	}
 	return result, nil
+}
+
+// ReadOnlyField returns the first system field given a non-empty value, or nil if there is none.
+func (v *RecordValidator) ReadOnlyField(data map[string]interface{}) *db.SLField {
+	for uid, value := range data {
+		if field, ok := v.fields[uid]; ok && field.Type.IsSystem() && !isEmptyValue(value) {
+			return field
+		}
+	}
+	return nil
+}
+
+// ValidateMembers checks every user of the member values is the owner or a collaborator of the project, except the ones already in previous of the same cell.
+// It returns ErrInvalidMember wrapping the field label if not.
+func (v *RecordValidator) ValidateMembers(ctx context.Context, tx *gorm.DB, projectID int64, data, previous map[string]interface{}) error {
+	for _, field := range v.memberFields {
+		ids := MemberIDs(data[field.UID])
+		kept := lo.SliceToMap(MemberIDs(previous[field.UID]), func(id int64) (int64, bool) { return id, true })
+		for _, id := range ids {
+			if kept[id] {
+				continue
+			}
+			if v.members == nil {
+				userIDs, err := db.NewProjectMembersStore(tx).UserIDs(ctx, projectID)
+				if err != nil {
+					return errors.Wrap(err, "list members")
+				}
+				v.members = lo.SliceToMap(userIDs, func(id int64) (int64, bool) { return id, true })
+			}
+			if !v.members[id] {
+				return errors.Wrapf(ErrInvalidMember, "field %q", field.Label)
+			}
+		}
+	}
+	return nil
+}
+
+// MemberIDs returns the user IDs of a member value, the invalid items are skipped.
+func MemberIDs(value interface{}) []int64 {
+	values, _ := value.([]interface{})
+	ids := make([]int64, 0, len(values))
+	for _, item := range values {
+		if id, ok := memberID(item); ok {
+			ids = append(ids, id)
+		}
+	}
+	return ids
+}
+
+func memberID(value interface{}) (int64, bool) {
+	v, ok := value.(float64)
+	if !ok || v < 1 || v > maxUserID || v != math.Trunc(v) {
+		return 0, false
+	}
+	return int64(v), true
 }
 
 // Normalize is the lenient version of Validate, it drops the unknown fields and the mismatched values instead of returning an error.
@@ -175,9 +259,9 @@ func (v *RecordValidator) Normalize(data map[string]interface{}) (result map[str
 	return result, dropped
 }
 
-// IsStoredValue reports whether the value needs to be stored: empty values, unchecked checkboxes and formula values are not stored.
+// IsStoredValue reports whether the value needs to be stored: empty values, unchecked checkboxes, formula and system values are not stored.
 func IsStoredValue(field *db.SLField, value interface{}) bool {
-	if field.Type == db.FormulaFieldType || isEmptyValue(value) {
+	if field.Type == db.FormulaFieldType || field.Type.IsSystem() || isEmptyValue(value) {
 		return false
 	}
 	return field.Type != db.CheckboxFieldType || value != false
@@ -233,6 +317,20 @@ func CheckValue(field *db.SLField, value interface{}) bool {
 		return true
 	case db.AttachmentFieldType:
 		return checkAttachmentValue(value)
+	case db.MemberFieldType:
+		values, ok := value.([]interface{})
+		if !ok || (len(values) > 1 && !db.MemberMultiple(field)) {
+			return false
+		}
+		seen := make(map[int64]bool, len(values))
+		for _, item := range values {
+			id, ok := memberID(item)
+			if !ok || seen[id] {
+				return false
+			}
+			seen[id] = true
+		}
+		return true
 	default:
 		return false
 	}

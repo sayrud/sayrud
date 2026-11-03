@@ -26,6 +26,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } 
 import { useI18n } from 'vue-i18n'
 
 import CellDisplay from '@/components/cell/CellDisplay.vue'
+import MemberTag from '@/components/cell/MemberTag.vue'
 import SelectTag from '@/components/cell/SelectTag.vue'
 import StateIllustration from '@/components/common/StateIllustration.vue'
 import FieldTypeIcon from '@/components/field/FieldTypeIcon.vue'
@@ -34,7 +35,8 @@ import { keepRecordInView, useViewData } from '@/composables/useViewData'
 import { useBaseStore } from '@/stores/base'
 import type { CellValue, RecordData, SLField, SLRecord, SLView, SummaryType } from '@/types/bitable'
 import { computeSummary, groupLabel, SUMMARY_LABELS, summaryTypesFor, type GroupNode } from '@/utils/engine'
-import { isQueryable } from '@/utils/fieldTypes'
+import { isWriter, memberIds } from '@/utils/directory'
+import { isQueryable, isReadOnlyField, isSystemField } from '@/utils/fieldTypes'
 import { findOption, parseTSV, textToValue, toTSV } from '@/utils/format'
 import { DEFAULT_FIELD_WIDTH, PRIMARY_FIELD_WIDTH, ROW_HEIGHTS } from '@/utils/view'
 import GridCellEditor, { type EditorMove } from './GridCellEditor.vue'
@@ -335,7 +337,7 @@ function startTypingEdit(text: string) {
   const rc = rect.value
   if (!rc) return
   const col = cols.value[rc.a.c]
-  if (!col || col.field.type === 'formula' || col.field.type === 'checkbox' || col.field.type === 'datetime' || col.field.type === 'attachment') return
+  if (!col || isReadOnlyField(col.field) || col.field.type === 'checkbox' || col.field.type === 'datetime' || col.field.type === 'attachment') return
   startEdit(text)
 }
 
@@ -429,7 +431,7 @@ const isTextualEditing = computed(() => editingField.value?.type === 'text' || e
 // ---- Expanding the selected cell downward within its width to show the truncated content ----
 
 const EXPANDED_LINES = 8
-const EXPANDABLE_TYPES = new Set(['text', 'formula', 'multi_select'])
+const EXPANDABLE_TYPES = new Set(['text', 'formula', 'multi_select', 'member'])
 const expandedKey = ref<CellKey | null>(null)
 let measureSeq = 0
 
@@ -480,6 +482,10 @@ function startEdit(initial?: string) {
   if (!store.canEdit && f.type !== 'attachment') return
   if (f.type === 'formula') {
     Message.info({ content: t('grid.formulaReadonly'), duration: 1500 })
+    return
+  }
+  if (isSystemField(f)) {
+    Message.info({ content: t('grid.systemReadonly'), duration: 1500 })
     return
   }
   if (f.type === 'checkbox') {
@@ -608,7 +614,7 @@ function onKeyDown(e: KeyboardEvent) {
   }
   if (e.key.length === 1 && !e.altKey && rect.value) {
     const col = cols.value[rect.value.a.c]
-    if (!col || col.field.type === 'formula' || col.field.type === 'checkbox' || col.field.type === 'attachment') return
+    if (!col || isReadOnlyField(col.field) || col.field.type === 'checkbox' || col.field.type === 'attachment') return
     e.preventDefault()
     startEdit(col.field.type === 'datetime' ? undefined : e.key)
   }
@@ -632,7 +638,7 @@ function clearRange() {
   if (!store.ensureEditable()) return
   const byRecord = new Map<string, RecordData>()
   for (const { record, field } of rangeCells()) {
-    if (field.type === 'formula') continue
+    if (isReadOnlyField(field)) continue
     if (!byRecord.has(record.uid)) byRecord.set(record.uid, {})
     byRecord.get(record.uid)![field.uid] = null
   }
@@ -731,7 +737,7 @@ async function pasteText(text: string) {
   for (const tg of targets) {
     const rec = nav[tg.r]
     const f = store.fields.find((x) => x.uid === cols.value[tg.c]!.field.uid)
-    if (!rec || !f || f.type === 'formula' || f.type === 'attachment') continue
+    if (!rec || !f || isReadOnlyField(f) || f.type === 'attachment') continue
     if (!patches.has(rec.uid)) patches.set(rec.uid, {})
     patches.get(rec.uid)![f.uid] = textToValue(f, tg.text).value
   }
@@ -875,6 +881,12 @@ function groupOption(node: GroupNode) {
 function groupOptions(node: GroupNode) {
   if (node.field.type !== 'multi_select' || !Array.isArray(node.value)) return []
   return node.value.flatMap((u) => typeof u === 'string' ? findOption(node.field, u) ?? [] : [])
+}
+function groupMembers(node: GroupNode) {
+  return node.field.type === 'member' ? memberIds(node.value) : []
+}
+function groupWriter(node: GroupNode) {
+  return isWriter(node.value) ? node.value : null
 }
 
 // ---- Header: dragging to reorder, resizing and field menu ----
@@ -1255,6 +1267,10 @@ defineExpose({ addRecord })
               <component :is="collapsed.has(item.node.id) ? ChevronRight : ChevronDown" :size="16" class="group-arrow" />
               <span class="group-field">{{ item.node.field.label }}</span>
               <SelectTag v-if="groupOption(item.node)" :name="groupOption(item.node)!.name" :color="groupOption(item.node)!.color" />
+              <template v-else-if="groupMembers(item.node).length">
+                <MemberTag v-for="id in groupMembers(item.node)" :key="id" :user-id="id" />
+              </template>
+              <MemberTag v-else-if="groupWriter(item.node)" :user-id="groupWriter(item.node)!.userId" :workflow-id="groupWriter(item.node)!.workflowId" />
               <template v-else-if="groupOptions(item.node).length">
                 <SelectTag v-for="o in groupOptions(item.node)" :key="o!.uid" :name="o!.name" :color="o!.color" />
               </template>
@@ -1530,6 +1546,10 @@ defineExpose({ addRecord })
 .grid-row.checked,
 .grid-row.checked .cell {
   background: var(--grid-selected-row);
+}
+/* The selected cell keeps the base background while its row is hovered or checked. */
+.grid-row .data-cell.active {
+  background: var(--bg-body);
 }
 .data-cell {
   cursor: default;

@@ -69,7 +69,7 @@ func TestImportSchema(t *testing.T) {
 			},
 		},
 		ViewName: "Grid",
-	})
+	}, nil)
 	require.NoError(t, err)
 	require.Len(t, actions, 3)
 
@@ -89,7 +89,7 @@ func TestImportSchema(t *testing.T) {
 			Index:    0,
 			FieldUID: "fldFormula1",
 		}},
-	})
+	}, nil)
 	assert.Equal(t, "import::field_not_found", err.(*OperationError).Key)
 	_, _, err = importSchema(nil, ImportOptions{
 		Columns: []ImportColumn{{
@@ -97,7 +97,7 @@ func TestImportSchema(t *testing.T) {
 			Label: "File",
 			Type:  db.AttachmentFieldType,
 		}},
-	})
+	}, nil)
 	assert.Equal(t, "collab::invalid_field_type", err.(*OperationError).Key)
 }
 
@@ -115,31 +115,31 @@ func TestImportValue(t *testing.T) {
 		},
 	})
 
-	assert.Equal(t, 0.15, importValue(number, &importer.Cell{Text: "15%"}, shanghai))
-	assert.Equal(t, 15.0, importValue(number, &importer.Cell{Text: "15"}, shanghai))
+	assert.Equal(t, 0.15, importValue(number, &importer.Cell{Text: "15%"}, shanghai, nil))
+	assert.Equal(t, 15.0, importValue(number, &importer.Cell{Text: "15"}, shanghai, nil))
 	percentCell := &importer.Cell{
 		Text:   "50%",
 		Kind:   importer.KindNumber,
 		Number: 0.5,
 	}
-	assert.Equal(t, 0.5, importValue(number, percentCell, shanghai))
-	assert.Nil(t, importValue(number, &importer.Cell{Text: "n/a"}, shanghai))
+	assert.Equal(t, 0.5, importValue(number, percentCell, shanghai, nil))
+	assert.Nil(t, importValue(number, &importer.Cell{Text: "n/a"}, shanghai, nil))
 
 	excelDate := &importer.Cell{
 		Kind: importer.KindDate,
 		Time: time.Date(2024, 1, 15, 9, 30, 0, 0, time.UTC),
 	}
-	assert.Equal(t, "2024-01-15T01:30:00.000Z", importValue(date, excelDate, shanghai))
-	assert.Equal(t, "2024-01-14T16:00:00.000Z", importValue(date, &importer.Cell{Text: "2024年1月15日"}, shanghai))
+	assert.Equal(t, "2024-01-15T01:30:00.000Z", importValue(date, excelDate, shanghai, nil))
+	assert.Equal(t, "2024-01-14T16:00:00.000Z", importValue(date, &importer.Cell{Text: "2024年1月15日"}, shanghai, nil))
 
-	assert.Equal(t, true, importValue(checkbox, &importer.Cell{Text: "是"}, shanghai))
+	assert.Equal(t, true, importValue(checkbox, &importer.Cell{Text: "是"}, shanghai, nil))
 	uncheckedCell := &importer.Cell{
 		Text: "FALSE",
 		Kind: importer.KindBool,
 	}
-	assert.Nil(t, importValue(checkbox, uncheckedCell, shanghai))
+	assert.Nil(t, importValue(checkbox, uncheckedCell, shanghai, nil))
 
-	assert.Equal(t, []interface{}{"optRed0001"}, importValue(tags, &importer.Cell{Text: "red, unknown"}, shanghai))
-	assert.Nil(t, importValue(tags, &importer.Cell{Text: "unknown"}, shanghai))
-	assert.Nil(t, importValue(tags, nil, shanghai))
+	assert.Equal(t, []interface{}{"optRed0001"}, importValue(tags, &importer.Cell{Text: "red, unknown"}, shanghai, nil))
+	assert.Nil(t, importValue(tags, &importer.Cell{Text: "unknown"}, shanghai, nil))
+	assert.Nil(t, importValue(tags, nil, shanghai, nil))
 }

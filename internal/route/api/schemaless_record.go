@@ -90,7 +90,7 @@ func (schemalessRoute) ListRecords(ctx context.Context, table *db.SLTable) error
 // @Failure 500 {string} string "Internal server error"
 // @ID queryRecords
 // @Router /projects/{projectUID}/tables/{tableUID}/records/query [post]
-func (schemalessRoute) QueryRecords(ctx context.Context, table *db.SLTable, f form.QueryRecords) error {
+func (schemalessRoute) QueryRecords(ctx context.Context, user *db.User, table *db.SLTable, f form.QueryRecords) error {
 	slRecords, total, err := db.SLRecords.Query(ctx.Request().Context(), table.ID, db.QuerySLRecordsOptions{
 		Filter: lo.Map(f.Filter, func(item form.QueryRecordsFilter, _ int) db.QuerySLRecordsFilter {
 			return db.QuerySLRecordsFilter{
@@ -110,8 +110,9 @@ func (schemalessRoute) QueryRecords(ctx context.Context, table *db.SLTable, f fo
 				FieldUID: item.FieldUID,
 			}
 		}),
-		Limit:  f.Limit,
-		Offset: f.Offset,
+		Limit:         f.Limit,
+		Offset:        f.Offset,
+		CurrentUserID: user.ID,
 	})
 	if err != nil {
 		switch {
@@ -163,6 +164,10 @@ func recordErrorResponse(err error) (statusCode int, msg string, ok bool) {
 		return http.StatusBadRequest, "record::referenced_field_not_found", true
 	case errors.Is(err, routeutil.ErrInvalidAttachment):
 		return http.StatusBadRequest, "attachment::invalid_reference", true
+	case errors.Is(err, routeutil.ErrFieldReadOnly):
+		return http.StatusBadRequest, "record::field_read_only", true
+	case errors.Is(err, routeutil.ErrInvalidMember):
+		return http.StatusBadRequest, "record::invalid_member", true
 	default:
 		return 0, "", false
 	}
@@ -177,21 +182,22 @@ func recordErrorResponse(err error) (statusCode int, msg string, ok bool) {
 // @Param tableUID path string true "Table UID"
 // @Param data body form.CreateRecord true "Record to create"
 // @Success 200 {object} dto.Record
-// @Failure 400 {string} string "Field not found or value mismatches the field type"
+// @Failure 400 {string} string "Field not found, value mismatches the field type, read-only field or user out of the project"
 // @Failure 403 {string} string "Permission denied"
 // @Failure 404 {string} string "Project or table not found"
 // @Failure 500 {string} string "Internal server error"
 // @ID createRecord
 // @Router /projects/{projectUID}/tables/{tableUID}/records [post]
-func (schemalessRoute) CreateRecord(ctx context.Context, hub *collab.Hub, project *db.Project, table *db.SLTable, f form.CreateRecord) error {
+func (schemalessRoute) CreateRecord(ctx context.Context, hub *collab.Hub, user *db.User, project *db.Project, table *db.SLTable, f form.CreateRecord) error {
 	var slRecord *db.SLRecord
-	if err := hub.MutateRecords(ctx.Request().Context(), project, table, func(tx *gorm.DB) ([]collab.RecordEvent, error) {
-		jsonBytes, err := routeutil.Validate(ctx.Request().Context(), tx, table.ID, f.Data)
+	origin := collab.Origin{UserID: user.ID}
+	if err := hub.MutateRecords(ctx.Request().Context(), project, table, origin, func(tx *gorm.DB) ([]collab.RecordEvent, error) {
+		jsonBytes, err := routeutil.Validate(ctx.Request().Context(), tx, table.ID, f.Data, nil)
 		if err != nil {
 			return nil, errors.Wrap(err, "validate")
 		}
 
-		slRecord, err = db.NewSLRecordsStore(tx).Create(ctx.Request().Context(), table.ID, jsonBytes)
+		slRecord, err = db.NewSLRecordsStore(tx).Create(ctx.Request().Context(), table.ID, jsonBytes, origin.Writer())
 		if err != nil {
 			return nil, errors.Wrap(err, "create sl record")
 		}
@@ -219,18 +225,19 @@ func (schemalessRoute) CreateRecord(ctx context.Context, hub *collab.Hub, projec
 // @Param tableUID path string true "Table UID"
 // @Param data body form.BatchCreateRecords true "Records to create"
 // @Success 200 {array} dto.Record
-// @Failure 400 {string} string "Field not found or value mismatches the field type"
+// @Failure 400 {string} string "Field not found, value mismatches the field type, read-only field or user out of the project"
 // @Failure 403 {string} string "Permission denied"
 // @Failure 404 {string} string "Project or table not found"
 // @Failure 500 {string} string "Internal server error"
 // @ID batchCreateRecords
 // @Router /projects/{projectUID}/tables/{tableUID}/records/batch [post]
-func (schemalessRoute) BatchCreateRecords(ctx context.Context, hub *collab.Hub, project *db.Project, table *db.SLTable, f form.BatchCreateRecords) error {
+func (schemalessRoute) BatchCreateRecords(ctx context.Context, hub *collab.Hub, user *db.User, project *db.Project, table *db.SLTable, f form.BatchCreateRecords) error {
 	var slRecords []*db.SLRecord
-	if err := hub.MutateRecords(ctx.Request().Context(), project, table, func(tx *gorm.DB) ([]collab.RecordEvent, error) {
+	origin := collab.Origin{UserID: user.ID}
+	if err := hub.MutateRecords(ctx.Request().Context(), project, table, origin, func(tx *gorm.DB) ([]collab.RecordEvent, error) {
 		dataList := make([]json.RawMessage, 0, len(f.Data))
 		for _, data := range f.Data {
-			jsonBytes, err := routeutil.Validate(ctx.Request().Context(), tx, table.ID, data)
+			jsonBytes, err := routeutil.Validate(ctx.Request().Context(), tx, table.ID, data, nil)
 			if err != nil {
 				return nil, errors.Wrap(err, "validate")
 			}
@@ -239,7 +246,8 @@ func (schemalessRoute) BatchCreateRecords(ctx context.Context, hub *collab.Hub, 
 
 		var err error
 		slRecords, err = db.NewSLRecordsStore(tx).Import(ctx.Request().Context(), table.ID, db.ImportSLRecordsOptions{
-			Data: dataList,
+			Data:   dataList,
+			Writer: origin.Writer(),
 		})
 		if err != nil {
 			return nil, errors.Wrap(err, "import sl records")
@@ -270,31 +278,33 @@ func (schemalessRoute) BatchCreateRecords(ctx context.Context, hub *collab.Hub, 
 // @Param recordUID path string true "Record UID"
 // @Param data body form.UpdateRecord true "Record data"
 // @Success 204 "No Content"
-// @Failure 400 {string} string "Field not found or value mismatches the field type"
+// @Failure 400 {string} string "Field not found, value mismatches the field type, read-only field or user out of the project"
 // @Failure 403 {string} string "Permission denied"
 // @Failure 404 {string} string "Project, table or record not found"
 // @Failure 500 {string} string "Internal server error"
 // @ID updateRecord
 // @Router /projects/{projectUID}/tables/{tableUID}/records/{recordUID} [put]
-func (schemalessRoute) UpdateRecord(ctx context.Context, hub *collab.Hub, project *db.Project, table *db.SLTable, record *db.SLRecord, f form.UpdateRecord) error {
+func (schemalessRoute) UpdateRecord(ctx context.Context, hub *collab.Hub, user *db.User, project *db.Project, table *db.SLTable, record *db.SLRecord, f form.UpdateRecord) error {
 	var changed []string
-	if err := hub.MutateRecords(ctx.Request().Context(), project, table, func(tx *gorm.DB) ([]collab.RecordEvent, error) {
+	origin := collab.Origin{UserID: user.ID}
+	if err := hub.MutateRecords(ctx.Request().Context(), project, table, origin, func(tx *gorm.DB) ([]collab.RecordEvent, error) {
 		latest, err := db.NewSLRecordsStore(tx).GetByID(ctx.Request().Context(), record.ID)
 		if err != nil {
 			return nil, err
 		}
 
-		jsonBytes, err := routeutil.Validate(ctx.Request().Context(), tx, record.SLTableID, f.Data)
+		jsonBytes, err := routeutil.Validate(ctx.Request().Context(), tx, record.SLTableID, f.Data, json.RawMessage(latest.Data))
 		if err != nil {
 			return nil, errors.Wrap(err, "validate")
 		}
 		changed = changedKeys(latest.Data, jsonBytes)
 
-		if err := db.NewSLRecordsStore(tx).Update(ctx.Request().Context(), record.ID, jsonBytes); err != nil {
+		if err := db.NewSLRecordsStore(tx).Update(ctx.Request().Context(), record.ID, jsonBytes, origin.Writer()); err != nil {
 			return nil, errors.Wrap(err, "update sl record")
 		}
 		updated := *latest
 		updated.Data, updated.UpdatedAt = datatypes.JSON(jsonBytes), time.Now()
+		updated.SetUpdatedBy(origin.Writer())
 		return []collab.RecordEvent{{Kind: collab.RecordUpdated, Record: &updated, Previous: latest.Data, Fields: changed}}, nil
 	}, func() collab.DirtyScope { return collab.DirtyScope{Records: []string{record.UID}} }); err != nil {
 		if statusCode, msg, ok := recordErrorResponse(err); ok {
@@ -322,8 +332,8 @@ func (schemalessRoute) UpdateRecord(ctx context.Context, hub *collab.Hub, projec
 // @Failure 500 {string} string "Internal server error"
 // @ID deleteRecord
 // @Router /projects/{projectUID}/tables/{tableUID}/records/{recordUID} [delete]
-func (schemalessRoute) DeleteRecord(ctx context.Context, hub *collab.Hub, project *db.Project, table *db.SLTable, record *db.SLRecord) error {
-	if err := hub.MutateRecords(ctx.Request().Context(), project, table, func(tx *gorm.DB) ([]collab.RecordEvent, error) {
+func (schemalessRoute) DeleteRecord(ctx context.Context, hub *collab.Hub, user *db.User, project *db.Project, table *db.SLTable, record *db.SLRecord) error {
+	if err := hub.MutateRecords(ctx.Request().Context(), project, table, collab.Origin{UserID: user.ID}, func(tx *gorm.DB) ([]collab.RecordEvent, error) {
 		if err := db.NewSLShortcutJobsStore(tx).DeleteByRecords(ctx.Request().Context(), table.ID, []string{record.UID}); err != nil {
 			return nil, errors.Wrap(err, "delete shortcut jobs")
 		}

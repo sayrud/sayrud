@@ -5497,6 +5497,72 @@ const docTemplate = `{
                 }
             }
         },
+        "/projects/{projectUID}/members/resolve": {
+            "post": {
+                "description": "Return the requested users who are or were members of the project, and the requested workflows of the project including the deleted ones; the others are omitted.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Project members"
+                ],
+                "summary": "Resolve the users and workflows of the member and system fields",
+                "operationId": "resolveProjectMembers",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Project UID",
+                        "name": "projectUID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "User and workflow IDs",
+                        "name": "data",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/ResolveMembers"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/ResolvedMembers"
+                        }
+                    },
+                    "400": {
+                        "description": "Too many IDs",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "403": {
+                        "description": "Permission denied",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "404": {
+                        "description": "Project not found",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
         "/projects/{projectUID}/members/{userID}": {
             "put": {
                 "description": "Requires the manager role, the owner and the signed-in user itself can not be changed.",
@@ -6848,7 +6914,7 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "Field not found or value mismatches the field type",
+                        "description": "Field not found, value mismatches the field type, read-only field or user out of the project",
                         "schema": {
                             "type": "string"
                         }
@@ -6924,7 +6990,7 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "Field not found or value mismatches the field type",
+                        "description": "Field not found, value mismatches the field type, read-only field or user out of the project",
                         "schema": {
                             "type": "string"
                         }
@@ -7208,7 +7274,7 @@ const docTemplate = `{
                         "description": "No Content"
                     },
                     "400": {
-                        "description": "Field not found or value mismatches the field type",
+                        "description": "Field not found, value mismatches the field type, read-only field or user out of the project",
                         "schema": {
                             "type": "string"
                         }
@@ -9208,6 +9274,55 @@ const docTemplate = `{
                 }
             }
         },
+        "/shares/{shareToken}/tables/{tableUID}/members/resolve": {
+            "post": {
+                "description": "The same as resolving them in the project, without the emails.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Sharing"
+                ],
+                "summary": "Resolve the users and workflows of the member and system fields for a public share",
+                "operationId": "resolveSharedMembers",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Share token",
+                        "name": "shareToken",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Table UID",
+                        "name": "tableUID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "User and workflow IDs",
+                        "name": "data",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/ResolveMembers"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/ResolvedMembers"
+                        }
+                    }
+                }
+            }
+        },
         "/shares/{shareToken}/tables/{tableUID}/records/fetch": {
             "post": {
                 "consumes": [
@@ -10450,6 +10565,14 @@ const docTemplate = `{
                 "tableUID"
             ],
             "properties": {
+                "actor": {
+                    "description": "Actor is the writer of the records changed by the changeset, it is only sent with the live broadcasts and absent for the changesets generated by the server.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/RecordWriter"
+                        }
+                    ]
+                },
                 "clientId": {
                     "description": "ClientID is the connection that submits the changeset, it is empty for the changesets generated by the server.",
                     "type": "string"
@@ -10672,8 +10795,13 @@ const docTemplate = `{
                         "datetime",
                         "number",
                         "checkbox",
+                        "member",
                         "attachment",
-                        "formula"
+                        "formula",
+                        "created_by",
+                        "created_at",
+                        "updated_by",
+                        "updated_at"
                     ]
                 }
             }
@@ -11025,8 +11153,13 @@ const docTemplate = `{
                         "datetime",
                         "number",
                         "checkbox",
+                        "member",
                         "attachment",
-                        "formula"
+                        "formula",
+                        "created_by",
+                        "created_at",
+                        "updated_by",
+                        "updated_at"
                     ]
                 }
             }
@@ -12566,7 +12699,7 @@ const docTemplate = `{
                     ]
                 },
                 "value": {
-                    "description": "Value is a JSON array (e.g. ` + "`" + `[\"a\",\"b\"]` + "`" + `) for in / nin, and a single value for other operations.",
+                    "description": "Value is a JSON array (e.g. ` + "`" + `[\"a\",\"b\"]` + "`" + `) for in / nin, and a single value for other operations.\nThe member, created_by and updated_by fields take user IDs, and ` + "`" + `@me` + "`" + ` stands for the requester.",
                     "type": "string"
                 }
             }
@@ -12600,6 +12733,17 @@ const docTemplate = `{
                 }
             }
         },
+        "RecordWriter": {
+            "type": "object",
+            "properties": {
+                "userId": {
+                    "type": "integer"
+                },
+                "workflowId": {
+                    "type": "integer"
+                }
+            }
+        },
         "ResolveFieldOptions": {
             "type": "object",
             "required": [
@@ -12625,6 +12769,27 @@ const docTemplate = `{
                 }
             }
         },
+        "ResolveMembers": {
+            "type": "object",
+            "required": [
+                "userIDs",
+                "workflowIDs"
+            ],
+            "properties": {
+                "userIDs": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "workflowIDs": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                }
+            }
+        },
         "ResolvedLinkShare": {
             "type": "object",
             "required": [
@@ -12633,6 +12798,45 @@ const docTemplate = `{
             "properties": {
                 "token": {
                     "type": "string"
+                }
+            }
+        },
+        "ResolvedMembers": {
+            "type": "object",
+            "required": [
+                "users",
+                "workflows"
+            ],
+            "properties": {
+                "users": {
+                    "description": "Users are the requested users who are or were members of the project, the others are omitted.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/ResolvedUser"
+                    }
+                },
+                "workflows": {
+                    "description": "Workflows are the requested workflows of the project, including the deleted ones.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/WorkflowName"
+                    }
+                }
+            }
+        },
+        "ResolvedUser": {
+            "type": "object",
+            "required": [
+                "left",
+                "user"
+            ],
+            "properties": {
+                "left": {
+                    "description": "Left reports whether the user has been removed from the project.",
+                    "type": "boolean"
+                },
+                "user": {
+                    "$ref": "#/definitions/UserBrief"
                 }
             }
         },
@@ -12736,8 +12940,13 @@ const docTemplate = `{
                         "datetime",
                         "number",
                         "checkbox",
+                        "member",
                         "attachment",
-                        "formula"
+                        "formula",
+                        "created_by",
+                        "created_at",
+                        "updated_by",
+                        "updated_at"
                     ]
                 },
                 "uid": {
@@ -12759,8 +12968,13 @@ const docTemplate = `{
                 "datetime",
                 "number",
                 "checkbox",
+                "member",
                 "attachment",
                 "formula",
+                "created_by",
+                "created_at",
+                "updated_by",
+                "updated_at",
                 "unknown"
             ],
             "x-enum-varnames": [
@@ -12770,8 +12984,13 @@ const docTemplate = `{
                 "DateTimeFieldType",
                 "NumberFieldType",
                 "CheckboxFieldType",
+                "MemberFieldType",
                 "AttachmentFieldType",
                 "FormulaFieldType",
+                "CreatedByFieldType",
+                "CreatedAtFieldType",
+                "UpdatedByFieldType",
+                "UpdatedAtFieldType",
                 "UnknownFieldType"
             ]
         },
@@ -12803,8 +13022,16 @@ const docTemplate = `{
                 "createdAt": {
                     "type": "string"
                 },
+                "createdBy": {
+                    "description": "CreatedBy is the user or workflow creating the record, the values of the created_by fields; absent if unknown.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/RecordWriter"
+                        }
+                    ]
+                },
                 "data": {
-                    "description": "Data is the cell values keyed by field UID.",
+                    "description": "Data is the cell values keyed by field UID, the system fields are not in it.",
                     "type": "object",
                     "additionalProperties": true
                 },
@@ -12816,6 +13043,14 @@ const docTemplate = `{
                 },
                 "updatedAt": {
                     "type": "string"
+                },
+                "updatedBy": {
+                    "description": "UpdatedBy is the user or workflow last writing the record, the values of the updated_by fields; absent if unknown.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/RecordWriter"
+                        }
+                    ]
                 }
             }
         },
@@ -13711,7 +13946,8 @@ const docTemplate = `{
                         "multi_select",
                         "datetime",
                         "number",
-                        "checkbox"
+                        "checkbox",
+                        "member"
                     ]
                 }
             }
@@ -14191,8 +14427,13 @@ const docTemplate = `{
                         "datetime",
                         "number",
                         "checkbox",
+                        "member",
                         "attachment",
-                        "formula"
+                        "formula",
+                        "created_by",
+                        "created_at",
+                        "updated_by",
+                        "updated_at"
                     ]
                 }
             }
@@ -15313,6 +15554,21 @@ const docTemplate = `{
                 "secretsReady": {
                     "description": "SecretsReady is false if auth.secret_key is not configured, in which case secret fields can not be saved.",
                     "type": "boolean"
+                }
+            }
+        },
+        "WorkflowName": {
+            "type": "object",
+            "required": [
+                "id",
+                "name"
+            ],
+            "properties": {
+                "id": {
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
                 }
             }
         },

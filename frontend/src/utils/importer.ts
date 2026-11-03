@@ -8,7 +8,7 @@ import { t } from '../i18n/translate.ts'
 export const MAX_IMPORT_FILE_MB = 20
 
 /** Field types the imported values can be converted to, formulas and attachments are not importable. */
-export const IMPORTABLE_TYPES: FieldType[] = ['text', 'number', 'single_select', 'multi_select', 'datetime', 'checkbox']
+export const IMPORTABLE_TYPES: FieldType[] = ['text', 'number', 'single_select', 'multi_select', 'datetime', 'checkbox', 'member']
 
 /** Value of the accept attribute of the file input. */
 export const IMPORT_ACCEPT = '.xlsx,.xlsm,.csv,.tsv,.txt'

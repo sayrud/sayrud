@@ -487,12 +487,21 @@ export function asyncContext(spec: WorkflowSpec, flow: WorkflowAsyncFlow): VarCo
   return { steps, requestOnly: flow.event === 'request_received', response: flow.event === 'succeeded' }
 }
 
+/** Kind of the variable of a field: members are lists of user objects, and writers are user objects. */
+function fieldVarKind(f: SLField): VarNode['kind'] {
+  if (f.type === 'number') return 'number'
+  if (f.type === 'checkbox') return 'boolean'
+  if (f.type === 'multi_select' || f.type === 'attachment' || f.type === 'member') return 'array'
+  if (f.type === 'created_by' || f.type === 'updated_by') return 'object'
+  return 'string'
+}
+
 function recordNodes(prefix: string, table: TableMeta | undefined): VarNode[] {
   return [
     { path: `${prefix}.uid`, label: t('workflow.vars.uid'), kind: 'string' },
     { path: `${prefix}.createdAt`, label: t('workflow.vars.createdAt'), kind: 'string' },
     { path: `${prefix}.updatedAt`, label: t('workflow.vars.updatedAt'), kind: 'string' },
-    ...(table?.fields ?? []).map((f): VarNode => ({ path: `${prefix}.fields.${f.uid}`, label: f.label, kind: f.type === 'number' ? 'number' : f.type === 'checkbox' ? 'boolean' : f.type === 'multi_select' || f.type === 'attachment' ? 'array' : 'string' })),
+    ...(table?.fields ?? []).map((f): VarNode => ({ path: `${prefix}.fields.${f.uid}`, label: f.label, kind: fieldVarKind(f) })),
   ]
 }
 
@@ -721,7 +730,15 @@ export const FILTER_OPS: Partial<Record<SLField['type'], string[]>> = {
   datetime: ['eq', 'neq', 'gt', 'gte', 'lt', 'lte', 'empty', 'not_empty'],
   checkbox: ['eq', 'neq'],
   attachment: ['empty', 'not_empty'],
+  member: ['eq', 'neq', 'in', 'nin', 'empty', 'not_empty'],
+  created_by: ['eq', 'neq', 'in', 'nin', 'empty', 'not_empty'],
+  updated_by: ['eq', 'neq', 'in', 'nin', 'empty', 'not_empty'],
+  created_at: ['eq', 'neq', 'gt', 'gte', 'lt', 'lte', 'empty', 'not_empty'],
+  updated_at: ['eq', 'neq', 'gt', 'gte', 'lt', 'lte', 'empty', 'not_empty'],
 }
+
+/** Field types the record triggers can not filter by, their values are not in the record data. */
+export const TRIGGER_EXCLUDED_TYPES: SLField['type'][] = ['created_by', 'created_at', 'updated_by', 'updated_at']
 
 export const CONDITION_OPS = ['eq', 'neq', 'gt', 'gte', 'lt', 'lte', 'contains', 'not_contains', 'empty', 'not_empty']
 
@@ -745,9 +762,9 @@ export function filterOpLabel(op: string) {
   return OP_LABELS[op]?.() ?? op
 }
 
-/** Fields writable via the API: formula, attachment, and shortcut-generated fields are not writable. */
+/** Fields writable via the API: formula, attachment, system, and shortcut-generated fields are not writable. */
 export function writableField(field: SLField) {
-  return field.type !== 'formula' && field.type !== 'attachment' && !field.shortcut
+  return field.type !== 'formula' && field.type !== 'attachment' && !TRIGGER_EXCLUDED_TYPES.includes(field.type) && !field.shortcut
 }
 
 // ---- Summaries and issues ----

@@ -43,7 +43,7 @@ func TestOptionReference(t *testing.T) {
 	} {
 		b, err := json.Marshal(data)
 		require.NoError(t, err)
-		_, err = NewSLRecordsStore(tx).Create(ctx, source.ID, b)
+		_, err = NewSLRecordsStore(tx).Create(ctx, source.ID, b, SLRecordWriter{})
 		require.NoError(t, err)
 	}
 
@@ -70,9 +70,9 @@ func TestOptionReference(t *testing.T) {
 	// Any-condition matching combines fields while keeping missing values and other tables excluded.
 	foreignData, err := json.Marshal(map[string]interface{}{parent.UID: "srcSouth", category.UID: []string{"srcD"}})
 	require.NoError(t, err)
-	_, err = NewSLRecordsStore(tx).Create(ctx, target.ID, foreignData)
+	_, err = NewSLRecordsStore(tx).Create(ctx, target.ID, foreignData, SLRecordWriter{})
 	require.NoError(t, err)
-	deleted, err := NewSLRecordsStore(tx).Create(ctx, source.ID, foreignData)
+	deleted, err := NewSLRecordsStore(tx).Create(ctx, source.ID, foreignData, SLRecordWriter{})
 	require.NoError(t, err)
 	require.NoError(t, tx.Delete(deleted).Error)
 

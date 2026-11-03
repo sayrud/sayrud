@@ -8,7 +8,7 @@ import FieldValueInput from '@/components/workflow/FieldValueInput.vue'
 import PanelSection from '@/components/workflow/PanelSection.vue'
 import { useWorkflowEditorStore } from '@/stores/workflowEditor'
 import type { RecordTrigger } from '@/types/workflow'
-import { constValue, FILTER_OPS, filterOpLabel, offsetParts } from '@/utils/workflow'
+import { constValue, FILTER_OPS, filterOpLabel, offsetParts, TRIGGER_EXCLUDED_TYPES } from '@/utils/workflow'
 
 const { t } = useI18n()
 const store = useWorkflowEditorStore()
@@ -16,7 +16,7 @@ const type = computed(() => store.spec!.trigger.type)
 const record = computed(() => store.spec!.trigger.record as RecordTrigger)
 const table = computed(() => (record.value.tableUID ? store.fields.get(record.value.tableUID) : undefined))
 const fields = computed(() => table.value?.fields ?? [])
-const filterable = computed(() => fields.value.filter((f) => f.type !== 'formula' && FILTER_OPS[f.type]))
+const filterable = computed(() => fields.value.filter((f) => f.type !== 'formula' && !TRIGGER_EXCLUDED_TYPES.includes(f.type) && FILTER_OPS[f.type]))
 const dateFields = computed(() => fields.value.filter((f) => f.type === 'datetime'))
 
 watch(() => record.value.tableUID, (uid) => void store.ensureFields(uid), { immediate: true })

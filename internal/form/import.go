@@ -27,5 +27,5 @@ type StartImportColumn struct {
 	// Label is the title of the new field.
 	Label string `json:"label,omitempty"`
 	// Type is the type of the new field.
-	Type string `json:"type,omitempty" enums:"text,single_select,multi_select,datetime,number,checkbox"`
+	Type string `json:"type,omitempty" enums:"text,single_select,multi_select,datetime,number,checkbox,member"`
 } // @name StartImportColumn

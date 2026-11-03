@@ -54,8 +54,16 @@ export type FieldType =
   | 'datetime'
   | 'number'
   | 'checkbox'
+  | 'member'
   | 'attachment'
   | 'formula'
+  | 'created_by'
+  | 'created_at'
+  | 'updated_by'
+  | 'updated_at'
+
+/** Fields whose values are read from the record itself, they are read-only. */
+export type SystemFieldType = 'created_by' | 'created_at' | 'updated_by' | 'updated_at'
 
 export interface SelectOption {
   uid: string
@@ -113,6 +121,21 @@ export interface FormulaMetadata {
   exp: string
 }
 
+export interface MemberMetadata {
+  /** Allows more than one member in a cell. */
+  multiple: boolean
+}
+
+export interface SystemTimeMetadata {
+  format: string
+  with_time: boolean
+}
+
+export type WriterMetadata = Record<string, never>
+
+/** The user or the workflow writing a record, both are absent if unknown. */
+export type RecordWriter = import('@/api/api').RecordWriter
+
 export interface FieldMetadataMap {
   text: TextMetadata
   single_select: SingleSelectMetadata
@@ -120,8 +143,13 @@ export interface FieldMetadataMap {
   datetime: DateTimeMetadata
   number: NumberMetadata
   checkbox: CheckboxMetadata
+  member: MemberMetadata
   attachment: AttachmentMetadata
   formula: FormulaMetadata
+  created_by: WriterMetadata
+  created_at: SystemTimeMetadata
+  updated_by: WriterMetadata
+  updated_at: SystemTimeMetadata
 }
 
 export type FieldMetadata = FieldMetadataMap[FieldType]
@@ -157,8 +185,9 @@ export interface SLField<T extends FieldType = FieldType> {
   updatedAt: string
 }
 
-/** Cell value: string for text, option UID for single select, option UID[] for multiple select, attachment files, RFC 3339 string for date, number and boolean for checkbox. */
-export type CellValue = string | number | boolean | string[] | Attachment[] | null | undefined
+/** Cell value: string for text, option UID for single select, option UID[] for multiple select, attachment files, RFC 3339 string for date, number and boolean for checkbox,
+ * user ID[] for member, and the writer for created_by / updated_by. */
+export type CellValue = string | number | boolean | string[] | number[] | Attachment[] | RecordWriter | null | undefined
 
 export type RecordData = Record<string, CellValue>
 
@@ -168,6 +197,8 @@ export interface SLRecord {
   data: RecordData
   createdAt: string
   updatedAt: string
+  createdBy?: RecordWriter
+  updatedBy?: RecordWriter
 }
 
 // ---- Query ----

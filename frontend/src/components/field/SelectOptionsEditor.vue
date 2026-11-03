@@ -8,6 +8,7 @@ import { syncApi } from '@/api/bitable'
 import FieldSelect from '@/components/toolbar/FieldSelect.vue'
 import { useBaseStore } from '@/stores/base'
 import type { OptionReference, SelectOption, SLField } from '@/types/bitable'
+import { isSystemField } from '@/utils/fieldTypes'
 import { defaultFilterFor, FILTER_OPERATIONS, needsValue } from '@/utils/filters'
 import { optionsOf } from '@/utils/format'
 import { newOptionUID } from '@/utils/id'
@@ -27,8 +28,10 @@ let loadID = 0
 let manual: SelectOption[] | undefined
 
 const selectable = computed(() => sourceFields.value.filter((f) => (f.type === 'single_select' || f.type === 'multi_select') && f.uid !== props.fieldUID))
-const conditionFields = computed(() => sourceFields.value.filter((f) => f.type !== 'formula' && f.type !== 'attachment' && f.uid !== props.fieldUID))
-const localFields = computed(() => store.fields.filter((f) => f.uid !== props.fieldUID && f.type !== 'formula' && f.type !== 'attachment'))
+// The option reference conditions match the record data, so the member and system fields can not be used.
+const conditionable = (f: SLField) => f.type !== 'formula' && f.type !== 'attachment' && f.type !== 'member' && !isSystemField(f)
+const conditionFields = computed(() => sourceFields.value.filter((f) => conditionable(f) && f.uid !== props.fieldUID))
+const localFields = computed(() => store.fields.filter((f) => f.uid !== props.fieldUID && conditionable(f)))
 const sourceField = (uid: string) => sourceFields.value.find((f) => f.uid === uid)
 const source = computed(() => sourceField(reference.value?.fieldUID ?? ''))
 

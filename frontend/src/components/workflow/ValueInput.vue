@@ -54,7 +54,7 @@ function labelOf(path: string) {
 const fieldWidget = computed(() => {
   const f = props.field
   if (!f) return false
-  return props.op === 'in' || props.op === 'nin' || ['single_select', 'multi_select', 'number', 'datetime', 'checkbox'].includes(f.type)
+  return props.op === 'in' || props.op === 'nin' || ['single_select', 'multi_select', 'number', 'datetime', 'checkbox', 'member', 'created_by', 'updated_by', 'created_at', 'updated_at'].includes(f.type)
 })
 
 type Mode = 'formula' | 'literal' | 'field' | 'text'

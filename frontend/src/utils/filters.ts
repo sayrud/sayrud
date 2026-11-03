@@ -20,6 +20,23 @@ const EMPTY: OperationOption[] = [
   op('not_empty', () => t('filter.notEmpty')),
 ]
 
+const DATE_OPERATIONS: OperationOption[] = [
+  op('eq', () => t('filter.eq')),
+  op('neq', () => t('filter.neq')),
+  op('lt', () => t('filter.before')),
+  op('gt', () => t('filter.after')),
+  op('lte', () => t('filter.onOrBefore')),
+  op('gte', () => t('filter.onOrAfter')),
+  ...EMPTY,
+]
+
+/** The users are picked as a list, "@me" stands for the current user. */
+const USER_OPERATIONS: OperationOption[] = [
+  op('in', () => t('filter.contains')),
+  op('nin', () => t('filter.notContains')),
+  ...EMPTY,
+]
+
 export const FILTER_OPERATIONS: Record<FieldType, OperationOption[]> = {
   text: [
     op('eq', () => t('filter.eq')),
@@ -50,18 +67,15 @@ export const FILTER_OPERATIONS: Record<FieldType, OperationOption[]> = {
     op('nin', () => t('filter.containsNoneOf')),
     ...EMPTY,
   ],
-  datetime: [
-    op('eq', () => t('filter.eq')),
-    op('neq', () => t('filter.neq')),
-    op('lt', () => t('filter.before')),
-    op('gt', () => t('filter.after')),
-    op('lte', () => t('filter.onOrBefore')),
-    op('gte', () => t('filter.onOrAfter')),
-    ...EMPTY,
-  ],
+  datetime: DATE_OPERATIONS,
   checkbox: [op('eq', () => t('filter.eq'))],
+  member: USER_OPERATIONS,
   attachment: [...EMPTY],
   formula: [],
+  created_by: USER_OPERATIONS,
+  created_at: DATE_OPERATIONS,
+  updated_by: USER_OPERATIONS,
+  updated_at: DATE_OPERATIONS,
 }
 
 export function defaultFilterFor(field: SLField): QueryFilter {
@@ -83,6 +97,8 @@ export function sortOrderLabels(field: SLField | undefined): { asc: string; desc
     case 'formula':
       return { asc: '1 → 9', desc: '9 → 1' }
     case 'datetime':
+    case 'created_at':
+    case 'updated_at':
       return { asc: t('sortOrder.dateAsc'), desc: t('sortOrder.dateDesc') }
     case 'checkbox':
       return { asc: t('sortOrder.checkboxAsc'), desc: t('sortOrder.checkboxDesc') }

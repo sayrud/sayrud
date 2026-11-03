@@ -2,7 +2,7 @@ import { ref, shallowRef } from 'vue'
 
 import { syncApi, type SyncReadApi } from '@/api/bitable'
 import { t } from '@/i18n'
-import type { SLField, SLRecord, SLView } from '@/types/bitable'
+import type { RecordWriter, SLField, SLRecord, SLView } from '@/types/bitable'
 import { applyOperations, type TableData } from './model'
 import type { ProjectSocket } from './socket'
 import type { Changeset, DirtyScope, Operation, SocketMessage } from './types'
@@ -40,6 +40,8 @@ export interface TableSyncHooks {
   onRemoteChange?: () => void
   /** Prevents public viewers from submitting optimistic changes. */
   readOnly?: boolean
+  /** Modifier of the records changed by the local operations, i.e. the signed-in user. */
+  actor?: RecordWriter
   onReadError?: (error: unknown) => void
 }
 
@@ -141,7 +143,7 @@ export class TableSync {
     if (this.hooks.readOnly || this.disposed) return
     const ops = operations.filter((op) => op.actions.length)
     if (!ops.length) return
-    this.setData(applyOperations(this.data, ops, this.tableUID))
+    this.setData(applyOperations(this.data, ops, this.tableUID, this.hooks.actor))
     for (const op of ops) {
       // Only keep the last unsent config change of the same view, e.g. dragging a column width.
       const key = configKey(op)
@@ -176,7 +178,7 @@ export class TableSync {
       if (this.disposed) return
       this.rev = s.rev
       for (const rev of this.buffer.keys()) if (rev <= s.rev) this.buffer.delete(rev)
-      this.setData(applyOperations({ fields: s.fields, records: s.records, views: s.views }, this.pendingOperations(), this.tableUID))
+      this.setData(applyOperations({ fields: s.fields, records: s.records, views: s.views }, this.pendingOperations(), this.tableUID, this.hooks.actor))
       this.loaded = true
     } finally {
       this.blocked--
@@ -249,7 +251,8 @@ export class TableSync {
 
   private applyRemote(changeset: Changeset) {
     const dirty = changeset.operations.flatMap((op) => op.actions.filter((a) => a.action === 'table.dirty' && a.dirty).map((a) => a.dirty!))
-    this.setData(applyOperations(applyOperations(this.data, changeset.operations, this.tableUID), this.pendingOperations(), this.tableUID))
+    const remote = applyOperations(this.data, changeset.operations, this.tableUID, changeset.actor)
+    this.setData(applyOperations(remote, this.pendingOperations(), this.tableUID, this.hooks.actor))
     this.hooks.onRemoteChange?.()
     for (const scope of dirty) void this.reload(scope)
   }
@@ -317,6 +320,6 @@ export class TableSync {
       nextRecords.push(...records.filter((r) => !known.has(r.uid)))
     }
     const base: TableData = { fields: fields ?? this.fields.value, views: views ?? this.views.value, records: nextRecords }
-    this.setData(applyOperations(base, this.pendingOperations(), this.tableUID))
+    this.setData(applyOperations(base, this.pendingOperations(), this.tableUID, this.hooks.actor))
   }
 }

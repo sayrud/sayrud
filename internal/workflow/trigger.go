@@ -54,6 +54,9 @@ func (e *Engine) RecordsChanged(ctx context.Context, tx *gorm.DB, project *db.Pr
 		return 0, errors.Wrap(err, "list fields")
 	}
 	info := newTableInfo(table, fields)
+	if err := info.loadDirectory(ctx, tx); err != nil {
+		return 0, err
+	}
 
 	total := 0
 	for _, wf := range list {

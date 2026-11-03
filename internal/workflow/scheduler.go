@@ -155,6 +155,9 @@ func dateTriggers(ctx context.Context, tx *gorm.DB, wf *db.Workflow, r *RecordTr
 	if _, ok := info.byUID[r.DateFieldUID]; !ok {
 		return nil, now, false, nil
 	}
+	if err := info.loadDirectory(ctx, tx); err != nil {
+		return nil, now, false, err
+	}
 
 	offset := time.Duration(r.Offset) * time.Minute
 	// The bounds keep fractional seconds, otherwise sub-second record times trigger again in the scan after a truncated one.

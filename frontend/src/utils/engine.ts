@@ -1,6 +1,6 @@
 import dayjs from 'dayjs'
 
-import { lazyLabels, t } from '@/i18n'
+import { lazyLabels, t } from '../i18n/translate.ts'
 
 import type {
   CellValue,
@@ -12,8 +12,9 @@ import type {
   SLRecord,
   SummaryType,
 } from '@/types/bitable'
-import { compileFormula, FormulaError, formulaToText, type FormulaValue } from './formula'
-import { findOption, formatNumber, isEmptyValue, optionsOf, valueToText } from './format'
+import { compileFormula, FormulaError, formulaToText, type FormulaValue } from './formula.ts'
+import { cellValue, findOption, formatNumber, isEmptyValue, optionsOf, valueToText } from './format.ts'
+import { directory, isWriter, ME_FILTER_VALUE, memberIds, memberNames, writerName } from './directory.ts'
 
 export interface FormulaResult {
   value: FormulaValue
@@ -23,11 +24,15 @@ export interface FormulaResult {
 /** Evaluation context bound to a set of fields, which calculates the formulas, display texts and sort keys. */
 export class TableContext {
   readonly byUID: Map<string, SLField>
-  // The data object is replaced as a whole when a record changes, so the formula results can be cached by the data reference.
+  // The record object is replaced as a whole when a record changes, so the formula results can be cached by the record reference.
   private formulaCache = new WeakMap<object, Map<string, FormulaResult>>()
+  /** The user "@me" stands for in the filters, 0 matches nobody. */
+  readonly currentUserId: number
 
-  constructor(readonly fields: SLField[]) {
+  /** The names of the members are read from the directory, create a new context after it changes. */
+  constructor(readonly fields: SLField[], currentUserId = directory.value.currentUserId) {
     this.byUID = new Map(fields.map((f) => [f.uid, f]))
+    this.currentUserId = currentUserId
   }
 
   field(uid: string) {
@@ -35,10 +40,10 @@ export class TableContext {
   }
 
   formula(record: SLRecord, field: SLField): FormulaResult {
-    let perRecord = this.formulaCache.get(record.data)
+    let perRecord = this.formulaCache.get(record)
     if (!perRecord) {
       perRecord = new Map()
-      this.formulaCache.set(record.data, perRecord)
+      this.formulaCache.set(record, perRecord)
     }
     const hit = perRecord.get(field.uid)
     if (hit) return hit
@@ -72,9 +77,17 @@ export class TableContext {
       if (r.error) throw new FormulaError(t('formula.error.refInvalid'), r.error)
       return r.value
     }
-    const v = record.data[uid]
+    const v = cellValue(record, f)
     if (isEmptyValue(v)) return f.type === 'checkbox' ? false : null
     switch (f.type) {
+      case 'created_at':
+      case 'updated_at':
+        return new Date(String(v))
+      case 'created_by':
+      case 'updated_by':
+        return writerName(v) || null
+      case 'member':
+        return memberNames(v) || null
       case 'number':
         return Number(v)
       case 'checkbox':
@@ -96,18 +109,26 @@ export class TableContext {
       const r = this.formula(record, field)
       return r.error ?? formulaToText(r.value)
     }
-    return valueToText(field, record.data[field.uid])
+    return valueToText(field, cellValue(record, field))
   }
 
   /** Sort key, null is an empty value which always comes last. */
   sortKey(record: SLRecord, field: SLField): number | string | null {
-    const v = record.data[field.uid]
+    const v = cellValue(record, field)
     switch (field.type) {
+      // Members sort by the first user ID and writers by the user ID, the same as the backend.
+      case 'member':
+        return memberIds(v)[0] ?? null
+      case 'created_by':
+      case 'updated_by':
+        return isWriter(v) && v.userId ? v.userId : null
       case 'number':
         return isEmptyValue(v) ? null : Number(v)
       case 'checkbox':
         return v ? 1 : 0
       case 'datetime':
+      case 'created_at':
+      case 'updated_at':
         return isEmptyValue(v) ? null : dayjs(String(v)).valueOf()
       case 'single_select': {
         if (isEmptyValue(v)) return null
@@ -157,18 +178,37 @@ function compareScalar(a: number | string, b: number | string): number {
   return String(a).localeCompare(String(b))
 }
 
+/** User IDs of the filter values, "@me" is replaced by the current user and dropped if there is none, the same as the backend. */
+function filterUserIds(ctx: TableContext, values: string[]): number[] {
+  return values.flatMap((v) => {
+    if (v === ME_FILTER_VALUE) return ctx.currentUserId ? [ctx.currentUserId] : []
+    const id = Number(v)
+    return Number.isSafeInteger(id) && id > 0 ? [id] : []
+  })
+}
+
 export function matchFilter(ctx: TableContext, record: SLRecord, filter: QueryFilter): boolean {
   const field = ctx.field(filter.fieldUID)
   if (!field) return true
   if (!isFilterComplete(filter)) return true
 
-  const raw: CellValue = field.type === 'formula' ? ctx.text(record, field) : record.data[field.uid]
+  const raw: CellValue = field.type === 'formula' ? ctx.text(record, field) : cellValue(record, field)
   const empty = field.type === 'checkbox' ? !raw : isEmptyValue(raw)
   const op = filter.operation
   if (op === 'empty') return empty
   if (op === 'not_empty') return !empty
 
   switch (field.type) {
+    case 'member':
+    case 'created_by':
+    case 'updated_by': {
+      const values = field.type === 'member' ? memberIds(raw) : isWriter(raw) && raw.userId ? [raw.userId] : []
+      const targets = filterUserIds(ctx, op === 'eq' || op === 'neq' ? [filter.value] : parseList(filter.value))
+      const found = targets.some((id) => values.includes(id))
+      if (op === 'eq' || op === 'in') return found
+      if (op === 'neq' || op === 'nin') return !found
+      return true
+    }
     case 'multi_select': {
       const values = Array.isArray(raw) ? raw.filter((v): v is string => typeof v === 'string') : []
       if (op === 'eq') return values.includes(filter.value)
@@ -196,7 +236,9 @@ export function matchFilter(ctx: TableContext, record: SLRecord, filter: QueryFi
       if (empty) return false
       return cmp(op, Number(raw) - target)
     }
-    case 'datetime': {
+    case 'datetime':
+    case 'created_at':
+    case 'updated_at': {
       // Dates are compared by day, which matches the intuition of conditions like "is 2026/01/01".
       const target = dayjs(filter.value).startOf('day')
       if (!target.isValid()) return true
@@ -298,13 +340,19 @@ export interface GroupNode {
 }
 
 function groupKey(ctx: TableContext, record: SLRecord, field: SLField): string {
-  const v = record.data[field.uid]
+  const v = cellValue(record, field)
   switch (field.type) {
     case 'multi_select':
+    case 'member':
       return Array.isArray(v) && v.length ? v.join('|') : ''
+    case 'created_by':
+    case 'updated_by':
+      return isWriter(v) ? (v.workflowId ? `w${v.workflowId}` : `u${v.userId}`) : ''
     case 'checkbox':
       return v ? 'true' : 'false'
     case 'datetime':
+    case 'created_at':
+    case 'updated_at':
       return isEmptyValue(v) ? '' : dayjs(String(v)).format('YYYY-MM-DD')
     case 'formula':
       return ctx.text(record, field)
@@ -324,7 +372,7 @@ export function buildGroups(ctx: TableContext, records: SLRecord[], groups: Quer
     const key = groupKey(ctx, r, field)
     let node = index.get(key)
     if (!node) {
-      const raw = field.type === 'formula' ? key : r.data[field.uid]
+      const raw = field.type === 'formula' ? key : cellValue(r, field)
       node = {
         id: `${parent}/${field.uid}:${key}`,
         level,
@@ -369,7 +417,7 @@ export function summaryTypesFor(field: SLField): SummaryType[] {
   const base: SummaryType[] = ['none', 'count_all', 'count_filled', 'count_empty', 'count_unique', 'percent_filled', 'percent_empty']
   if (field.type === 'number') return [...base, 'sum', 'average', 'max', 'min']
   if (field.type === 'checkbox') return ['none', 'count_all', 'checked', 'unchecked', 'percent_checked']
-  if (field.type === 'datetime') return [...base, 'earliest', 'latest']
+  if (field.type === 'datetime' || field.type === 'created_at' || field.type === 'updated_at') return [...base, 'earliest', 'latest']
   return base
 }
 
@@ -390,7 +438,7 @@ export function computeSummary(ctx: TableContext, records: SLRecord[], field: SL
     if (type === 'percent_checked') return pct(checked)
   }
   const filled = records.filter((r) =>
-    field.type === 'formula' ? ctx.text(r, field) !== '' : !isEmptyValue(r.data[field.uid]),
+    field.type === 'formula' ? ctx.text(r, field) !== '' : !isEmptyValue(cellValue(r, field)),
   )
   switch (type) {
     case 'count_filled':
@@ -413,8 +461,8 @@ export function computeSummary(ctx: TableContext, records: SLRecord[], field: SL
     if (type === 'max') return formatNumber(Math.max(...nums), fmt)
     if (type === 'min') return formatNumber(Math.min(...nums), fmt)
   }
-  if (field.type === 'datetime') {
-    const sorted = filled.map((r) => String(r.data[field.uid])).sort()
+  if (field.type === 'datetime' || field.type === 'created_at' || field.type === 'updated_at') {
+    const sorted = filled.map((r) => new Date(String(cellValue(r, field))).toISOString()).sort()
     if (!sorted.length) return '-'
     const pick = type === 'earliest' ? sorted[0]! : sorted[sorted.length - 1]!
     return valueToText(field, pick)

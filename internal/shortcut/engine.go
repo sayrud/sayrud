@@ -424,9 +424,9 @@ func (e *Engine) process(ctx context.Context, job *db.SLShortcutJob) {
 		e.fail(ctx, target, job, err)
 		return
 	}
-	data := map[string]interface{}{}
-	if err := json.Unmarshal(record.Data, &data); err != nil {
-		e.fail(ctx, target, job, errors.Wrap(err, "decode record"))
+	data, err := inputData(ctx, e.db, table.ProjectID, fields, record)
+	if err != nil {
+		e.fail(ctx, target, job, err)
 		return
 	}
 
@@ -551,8 +551,8 @@ func (e *Engine) Preview(ctx context.Context, project *db.Project, table *db.SLT
 			defer wg.Done()
 			result := &dto.ShortcutPreview{RecordUID: record.UID}
 			results[i] = result
-			data := map[string]interface{}{}
-			if err := json.Unmarshal(record.Data, &data); err != nil {
+			data, err := inputData(ctx, e.db, table.ProjectID, fields, record)
+			if err != nil {
 				result.Error = tr("shortcut::internal_error")
 				return
 			}

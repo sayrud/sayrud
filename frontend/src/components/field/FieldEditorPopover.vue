@@ -8,7 +8,7 @@ import type { FieldShortcutManifest } from '@/api/shortcut'
 import FloatingPanel from '@/components/common/FloatingPanel.vue'
 import { useBaseStore } from '@/stores/base'
 import type { FieldMetadata, FieldShortcut, FieldType, OptionReference, SelectOption } from '@/types/bitable'
-import { DATE_FORMATS, defaultMetadata, FIELD_TYPES, fieldTypeInfo, NUMBER_FORMATS, type FieldTypeInfo } from '@/utils/fieldTypes'
+import { DATE_FORMATS, defaultMetadata, FIELD_TYPES, fieldTypeInfo, isSystemField, NUMBER_FORMATS, type FieldTypeInfo } from '@/utils/fieldTypes'
 import { formatNumber } from '@/utils/format'
 import { expToDisplay } from '@/utils/formula'
 import { newOptionUID } from '@/utils/id'
@@ -373,6 +373,32 @@ const numberExample = computed(() => formatNumber(1234.5678, String(md.value.for
         </div>
       </template>
 
+      <template v-else-if="type === 'member'">
+        <div class="row inline">
+          <span>{{ t('fieldEditor.multipleMembers') }}</span>
+          <a-switch v-model="md.multiple" size="small" />
+        </div>
+        <div class="hint type-hint">{{ t('fieldEditor.memberHint') }}</div>
+      </template>
+
+      <template v-else-if="type === 'created_at' || type === 'updated_at'">
+        <div class="row">
+          <div class="row-label">{{ t('fieldEditor.dateFormat') }}</div>
+          <a-select v-model="md.format">
+            <a-option v-for="f in DATE_FORMATS" :key="f.value" :value="f.value">{{ f.label }}</a-option>
+          </a-select>
+        </div>
+        <div class="row inline">
+          <span>{{ t('fieldEditor.withTime') }}</span>
+          <a-switch v-model="md.with_time" size="small" />
+        </div>
+        <div class="hint type-hint">{{ t('fieldEditor.systemHint') }}</div>
+      </template>
+
+      <template v-else-if="type === 'created_by' || type === 'updated_by'">
+        <div class="hint type-hint">{{ t('fieldEditor.systemHint') }}</div>
+      </template>
+
       <template v-else-if="type === 'formula'">
         <div class="row">
           <div class="row-label">{{ t('fieldType.formula') }}</div>
@@ -405,20 +431,21 @@ const numberExample = computed(() => formatNumber(1234.5678, String(md.value.for
           <input ref="typeSearch" v-model="typeKeyword" :placeholder="t('fieldEditor.searchType')" @input="typeActive = 0" @keydown="onTypeSearchKey" />
         </div>
         <div class="type-list">
-          <div v-if="filteredTypes.length" class="type-group">{{ t('fieldEditor.basic') }}</div>
-          <div
-            v-for="(info, i) in filteredTypes"
-            :key="info.type"
-            class="type-item"
-            :class="{ active: i === typeActive }"
-            :title="info.description"
-            @mouseenter="typeActive = i"
-            @click="selectType(info.type)"
-          >
-            <FieldTypeIcon :type="info.type" :size="16" />
-            <span class="type-item-label">{{ info.label }}</span>
-            <Check v-if="info.type === type && !shortcut" :size="15" class="type-check" />
-          </div>
+          <div v-if="filteredTypes.length && !isSystemField(filteredTypes[0]!)" class="type-group">{{ t('fieldEditor.basic') }}</div>
+          <template v-for="(info, i) in filteredTypes" :key="info.type">
+            <div v-if="isSystemField(info) && (i === 0 || !isSystemField(filteredTypes[i - 1]!))" class="type-group">{{ t('fieldEditor.system') }}</div>
+            <div
+              class="type-item"
+              :class="{ active: i === typeActive }"
+              :title="info.description"
+              @mouseenter="typeActive = i"
+              @click="selectType(info.type)"
+            >
+              <FieldTypeIcon :type="info.type" :size="16" />
+              <span class="type-item-label">{{ info.label }}</span>
+              <Check v-if="info.type === type && !shortcut" :size="15" class="type-check" />
+            </div>
+          </template>
           <div v-if="filteredShortcuts.length" class="type-group">{{ t('fieldEditor.shortcuts') }}</div>
           <div
             v-for="(m, i) in filteredShortcuts"
@@ -566,6 +593,9 @@ const numberExample = computed(() => formatNumber(1234.5678, String(md.value.for
   margin: -6px 0 12px;
 }
 .auto-update-hint {
+  margin: -8px 0 14px;
+}
+.type-hint {
   margin: -8px 0 14px;
 }
 .type-empty {

@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/cockroachdb/errors"
+	"github.com/samber/lo"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 
@@ -83,6 +84,10 @@ type ProjectMembersStore interface {
 	DeleteByProjectID(ctx context.Context, projectID int64) error
 	// CountByProjectIDs returns the number of collaborators (excluding the owner) keyed by project ID, the projects without collaborators are omitted.
 	CountByProjectIDs(ctx context.Context, projectIDs []int64) (map[int64]int64, error)
+	// UserIDs returns the IDs of the owner and the collaborators of the project, the owner comes first.
+	UserIDs(ctx context.Context, projectID int64) ([]int64, error)
+	// FormerUserIDs returns the IDs of the users removed from the project who are neither the owner nor collaborators again.
+	FormerUserIDs(ctx context.Context, projectID int64) ([]int64, error)
 }
 
 func NewProjectMembersStore(db *gorm.DB) ProjectMembersStore {
@@ -164,6 +169,32 @@ func (db *projectMembers) Delete(ctx context.Context, projectID, userID int64) e
 
 func (db *projectMembers) DeleteByProjectID(ctx context.Context, projectID int64) error {
 	return db.WithContext(ctx).Where("project_id = ?", projectID).Delete(&ProjectMember{}).Error
+}
+
+func (db *projectMembers) UserIDs(ctx context.Context, projectID int64) ([]int64, error) {
+	var owners []int64
+	if err := db.WithContext(ctx).Model(&Project{}).Where("id = ?", projectID).Pluck("owner_user_id", &owners).Error; err != nil {
+		return nil, errors.Wrap(err, "get owner")
+	}
+	var members []int64
+	if err := db.WithContext(ctx).Model(&ProjectMember{}).Where("project_id = ?", projectID).Order("id ASC").Pluck("user_id", &members).Error; err != nil {
+		return nil, errors.Wrap(err, "list members")
+	}
+	return lo.Uniq(append(owners, members...)), nil
+}
+
+func (db *projectMembers) FormerUserIDs(ctx context.Context, projectID int64) ([]int64, error) {
+	current, err := db.UserIDs(ctx, projectID)
+	if err != nil {
+		return nil, err
+	}
+	var removed []int64
+	if err := db.WithContext(ctx).Unscoped().Model(&ProjectMember{}).
+		Where("project_id = ? AND deleted_at IS NOT NULL", projectID).
+		Distinct().Pluck("user_id", &removed).Error; err != nil {
+		return nil, errors.Wrap(err, "list removed members")
+	}
+	return lo.Without(removed, current...), nil
 }
 
 func (db *projectMembers) CountByProjectIDs(ctx context.Context, projectIDs []int64) (map[int64]int64, error) {

@@ -125,7 +125,7 @@ func TestRecordDeletedTrigger(t *testing.T) {
 		Steps:   []Step{{ID: "find", Type: StepQuery, Config: &QueryConfig{TableUID: f.table.UID, Limit: 1}}},
 	})
 	uid := f.create(t, map[string]interface{}{f.name.UID: "Ann"})
-	require.NoError(t, f.hub.MutateRecords(context.Background(), f.project, f.table, func(tx *gorm.DB) ([]collab.RecordEvent, error) {
+	require.NoError(t, f.hub.MutateRecords(context.Background(), f.project, f.table, collab.Origin{}, func(tx *gorm.DB) ([]collab.RecordEvent, error) {
 		record, err := db.NewSLRecordsStore(tx).GetByUID(context.Background(), uid)
 		if err != nil {
 			return nil, err

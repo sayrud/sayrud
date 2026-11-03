@@ -6,6 +6,9 @@ import { useI18n } from 'vue-i18n'
 
 import { useBaseStore } from '@/stores/base'
 import type { FilterConjunction, FilterOperation, QueryFilter, SLField, SLView } from '@/types/bitable'
+import UserAvatar from '@/components/common/UserAvatar.vue'
+import { directory, ME_FILTER_VALUE, userOf } from '@/utils/directory'
+import { isDateField, isUserField } from '@/utils/fieldTypes'
 import { defaultFilterFor, FILTER_OPERATIONS, isListOperation, needsValue } from '@/utils/filters'
 import { optionsOf } from '@/utils/format'
 import FieldSelect from './FieldSelect.vue'
@@ -61,6 +64,15 @@ function listValue(v: string): string[] {
   } catch {
     return []
   }
+}
+
+/** Users to filter by: the members, then the users of the current values who left. */
+function userChoices(value: string) {
+  const members = directory.value.members
+  const left = listValue(value)
+    .filter((v) => v !== ME_FILTER_VALUE && !members.some((u) => String(u.id) === v))
+    .flatMap((v) => userOf(Number(v))?.user ?? [])
+  return [...members, ...left]
 }
 
 function remove(i: number) {
@@ -139,8 +151,28 @@ defineExpose({ add })
             >
               <a-option v-for="o in optionsOf(field)" :key="o.uid" :value="o.uid">{{ o.name }}</a-option>
             </a-select>
+            <a-select
+              v-else-if="isUserField(field)"
+              :model-value="listValue(f.value)"
+              size="small"
+              multiple
+              allow-search
+              :max-tag-count="2"
+              :placeholder="t('common.selectPlaceholder')"
+              :filter-option="(input: string, option: { label?: string }) => (option.label ?? '').toLowerCase().includes(input.toLowerCase())"
+              @popup-visible-change="(v: boolean) => v && store.loadMembers()"
+              @change="(v) => patch(i, { value: (v as string[]).length ? JSON.stringify(v) : '' })"
+            >
+              <a-option :value="ME_FILTER_VALUE" :label="t('filter.currentUser')">{{ t('filter.currentUser') }}</a-option>
+              <a-option v-for="u in userChoices(f.value)" :key="u.id" :value="String(u.id)" :label="u.userName">
+                <span class="user-option">
+                  <UserAvatar :name="u.userName" :color="u.color" :avatar-url="u.avatarUrl" :bot="!!u.isBot" :size="18" />
+                  <span>{{ u.userName }}</span>
+                </span>
+              </a-option>
+            </a-select>
             <a-date-picker
-              v-else-if="field.type === 'datetime'"
+              v-else-if="isDateField(field)"
               :model-value="f.value ? new Date(f.value) : undefined"
               :day-start-of-week="1"
               size="small"
@@ -201,6 +233,11 @@ defineExpose({ add })
 .col-value {
   flex: 1;
   min-width: 0;
+}
+.user-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 .add {
   display: inline-flex;

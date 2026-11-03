@@ -51,6 +51,8 @@ type WorkflowsStore interface {
 	DeleteByID(ctx context.Context, workflowID int64) error
 	// FindReference returns a workflow of the project whose published spec contains the identifier (e.g. a field or table UID), it returns ErrWorkflowNotFound if there is no reference.
 	FindReference(ctx context.Context, projectID int64, identifier string) (*Workflow, error)
+	// NamesByIDs returns the names of the workflows of the project keyed by ID, including the deleted ones, so the records they wrote can show them.
+	NamesByIDs(ctx context.Context, projectID int64, workflowIDs []int64) (map[int64]string, error)
 }
 
 func NewWorkflowsStore(db *gorm.DB) WorkflowsStore {
@@ -363,4 +365,23 @@ func (db *workflows) FindReference(ctx context.Context, projectID int64, identif
 		return nil, errors.Wrap(err, "find reference")
 	}
 	return &w, nil
+}
+
+func (db *workflows) NamesByIDs(ctx context.Context, projectID int64, workflowIDs []int64) (map[int64]string, error) {
+	names := make(map[int64]string, len(workflowIDs))
+	if len(workflowIDs) == 0 {
+		return names, nil
+	}
+	var rows []struct {
+		ID   int64
+		Name string
+	}
+	if err := db.WithContext(ctx).Unscoped().Model(&Workflow{}).Select("id, name").
+		Where("project_id = ? AND id IN ?", projectID, workflowIDs).Scan(&rows).Error; err != nil {
+		return nil, errors.Wrap(err, "list names")
+	}
+	for _, r := range rows {
+		names[r.ID] = r.Name
+	}
+	return names, nil
 }
