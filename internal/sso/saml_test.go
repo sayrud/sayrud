@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/beevik/etree"
 	"github.com/crewjam/saml"
 	"github.com/crewjam/saml/logger"
 	"github.com/stretchr/testify/assert"
@@ -99,6 +100,11 @@ func (f *samlFixture) respond(t *testing.T, redirect string) *http.Request {
 func (f *samlFixture) post(t *testing.T, idpReq *saml.IdpAuthnRequest) *http.Request {
 	t.Helper()
 	require.NoError(t, saml.DefaultAssertionMaker{}.MakeAssertion(idpReq, f.session))
+	return f.postResponse(t, idpReq)
+}
+
+func (f *samlFixture) postResponse(t *testing.T, idpReq *saml.IdpAuthnRequest) *http.Request {
+	t.Helper()
 	form, err := idpReq.PostBinding()
 	require.NoError(t, err)
 	assert.Equal(t, testBaseURL+"/_/auth/sso/test/acs", form.URL)
@@ -162,6 +168,76 @@ func TestSAML_IdPInitiated(t *testing.T) {
 	id, err := f.sp.Complete(context.Background(), f.idpInitiated(t), nil)
 	require.NoError(t, err)
 	assert.Equal(t, "alice-persistent-id", id.Subject)
+}
+
+func TestSAMLRejectsMalformedAssertions(t *testing.T) {
+	f := newSAMLFixture(t, false)
+	state, err := NewState(7, ModeLogin, "/", 0)
+	require.NoError(t, err)
+	redirect, err := f.sp.Begin(context.Background(), state)
+	require.NoError(t, err)
+
+	for _, tc := range []struct {
+		name   string
+		edit   func(*etree.Element)
+		errMsg string
+	}{
+		{name: "valid"},
+		{
+			name:   "missing issuer",
+			edit:   func(a *etree.Element) { a.RemoveChild(a.FindElement("./saml:Issuer")) },
+			errMsg: "issuer is not",
+		},
+		{
+			name:   "missing subject",
+			edit:   func(a *etree.Element) { a.RemoveChild(a.FindElement("./saml:Subject")) },
+			errMsg: "assertion has no Subject",
+		},
+		{
+			name:   "missing conditions",
+			edit:   func(a *etree.Element) { a.RemoveChild(a.FindElement("./saml:Conditions")) },
+			errMsg: "assertion has no Conditions",
+		},
+		{
+			name: "missing subject confirmation data",
+			edit: func(a *etree.Element) {
+				sc := a.FindElement("./saml:Subject/saml:SubjectConfirmation")
+				sc.RemoveChild(sc.FindElement("./saml:SubjectConfirmationData"))
+			},
+			errMsg: "assertion SubjectConfirmation has no SubjectConfirmationData",
+		},
+		{
+			name: "foreign namespace NameID",
+			edit: func(a *etree.Element) {
+				nameID := a.FindElement("./saml:Subject/saml:NameID")
+				nameID.Space = "foreign"
+				nameID.CreateAttr("xmlns:foreign", "urn:foreign")
+				nameID.SetText("attacker@example.com")
+			},
+			errMsg: "missing NameID",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			idpReq, err := saml.NewIdpAuthnRequest(f.idp, httptest.NewRequest(http.MethodGet, redirect, nil))
+			require.NoError(t, err)
+			require.NoError(t, idpReq.Validate())
+			require.NoError(t, saml.DefaultAssertionMaker{}.MakeAssertion(idpReq, f.session))
+			idpReq.AssertionEl = idpReq.Assertion.Element()
+			if tc.edit != nil {
+				tc.edit(idpReq.AssertionEl)
+			}
+			// PostBinding signs the entire response, including the modified assertion.
+			id, err := f.sp.Complete(context.Background(), f.postResponse(t, idpReq), state)
+			if tc.errMsg == "" {
+				require.NoError(t, err)
+				assert.Equal(t, f.session.NameID, id.Subject)
+				return
+			}
+			require.ErrorContains(t, err, tc.errMsg)
+			assert.Equal(t, CodeIdPError, ErrorCode(err))
+			assert.Nil(t, id)
+		})
+	}
 }
 
 func TestSAMLIdentity_Fallbacks(t *testing.T) {
