@@ -15,8 +15,13 @@ var AllFieldTypes = []SLFieldType{
 	DateTimeFieldType,
 	NumberFieldType,
 	CheckboxFieldType,
+	MemberFieldType,
 	AttachmentFieldType,
 	FormulaFieldType,
+	CreatedByFieldType,
+	CreatedAtFieldType,
+	UpdatedByFieldType,
+	UpdatedAtFieldType,
 }
 
 // Check reports whether the field type is known.
@@ -29,6 +34,16 @@ func (t SLFieldType) IsUnknown() bool {
 	return !t.Check() || t == UnknownFieldType
 }
 
+// IsSystem reports whether the values of the field type are read from the record itself instead of its data, so they are read-only.
+func (t SLFieldType) IsSystem() bool {
+	return t == CreatedByFieldType || t == CreatedAtFieldType || t == UpdatedByFieldType || t == UpdatedAtFieldType
+}
+
+// IsWriter reports whether the values of the field type are the writers of the record.
+func (t SLFieldType) IsWriter() bool {
+	return t == CreatedByFieldType || t == UpdatedByFieldType
+}
+
 const (
 	TextFieldType         SLFieldType = "text"
 	SingleSelectFieldType SLFieldType = "single_select"
@@ -36,8 +51,13 @@ const (
 	DateTimeFieldType     SLFieldType = "datetime"
 	NumberFieldType       SLFieldType = "number"
 	CheckboxFieldType     SLFieldType = "checkbox"
+	MemberFieldType       SLFieldType = "member"
 	AttachmentFieldType   SLFieldType = "attachment"
 	FormulaFieldType      SLFieldType = "formula"
+	CreatedByFieldType    SLFieldType = "created_by"
+	CreatedAtFieldType    SLFieldType = "created_at"
+	UpdatedByFieldType    SLFieldType = "updated_by"
+	UpdatedAtFieldType    SLFieldType = "updated_at"
 	UnknownFieldType      SLFieldType = "unknown"
 )
 
@@ -60,6 +80,16 @@ func (t SLFieldType) LabelKey() string {
 		return "field_type::attachment"
 	case FormulaFieldType:
 		return "field_type::formula"
+	case MemberFieldType:
+		return "field_type::member"
+	case CreatedByFieldType:
+		return "field_type::created_by"
+	case CreatedAtFieldType:
+		return "field_type::created_at"
+	case UpdatedByFieldType:
+		return "field_type::updated_by"
+	case UpdatedAtFieldType:
+		return "field_type::updated_at"
 	default:
 		return "field_type::unknown"
 	}
@@ -111,4 +141,25 @@ type CheckboxMetadata struct{}
 type FormulaMetadata struct {
 	// Expression is the formula expression referencing the fields by `{fieldUID}`.
 	Expression string `json:"exp"`
+}
+
+// MemberMetadata is the metadata of the member fields, whose values are arrays of user IDs.
+type MemberMetadata struct {
+	// Multiple allows more than one member in a cell.
+	Multiple bool `json:"multiple"`
+}
+
+// SystemTimeMetadata is the metadata of the created_at and updated_at fields, the other system fields have no configuration.
+type SystemTimeMetadata struct {
+	// Format is the display format of the date, e.g. "YYYY/MM/DD".
+	Format string `json:"format"`
+	// WithTime reports whether the time is displayed along with the date.
+	WithTime bool `json:"with_time"`
+}
+
+// MemberMultiple reports whether the member field allows more than one member.
+func MemberMultiple(field *SLField) bool {
+	metadata, _ := field.Metadata.Data().(map[string]interface{})
+	multiple, _ := metadata["multiple"].(bool)
+	return multiple
 }

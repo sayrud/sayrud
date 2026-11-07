@@ -8,6 +8,7 @@ import FieldValueEditor from '@/components/cell/FieldValueEditor.vue'
 import FieldTypeIcon from '@/components/field/FieldTypeIcon.vue'
 import { useBaseStore } from '@/stores/base'
 import type { CellValue, FormFieldConfig, RecordData, SLField, SLView } from '@/types/bitable'
+import { isReadOnlyField } from '@/utils/fieldTypes'
 import { defaultValueOf, isEmptyValue } from '@/utils/format'
 
 const { t } = useI18n()
@@ -17,8 +18,8 @@ const store = useBaseStore()
 
 const form = computed(() => props.view.config.form ?? { title: props.view.name, description: '', fields: [] })
 
-/** Form field config in the saved order, with the new fields appended, the formula and shortcut fields are generated so they can not be filled. */
-const fillable = (f: SLField | undefined) => !!f && f.type !== 'formula' && !f.shortcut
+/** Form field config in the saved order, with the new fields appended, the formula, system and shortcut fields are generated so they can not be filled. */
+const fillable = (f: SLField | undefined) => !!f && !isReadOnlyField(f) && !f.shortcut
 const fieldConfigs = computed<FormFieldConfig[]>(() => {
   const saved = form.value.fields.filter((c) => store.fields.some((f) => f.uid === c.fieldUID))
   const known = new Set(saved.map((c) => c.fieldUID))

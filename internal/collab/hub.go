@@ -242,7 +242,11 @@ func (h *Hub) commit(ctx context.Context, project *db.Project, table *db.SLTable
 			}
 		}
 
-		a, err := newApplier(ctx, tx, table, sender.boolText, h.shortcuts)
+		var origin Origin
+		if sender != nil {
+			origin.UserID = sender.userID
+		}
+		a, err := newApplier(ctx, tx, table, origin, sender.boolText, h.shortcuts)
 		if err != nil {
 			return err
 		}
@@ -250,13 +254,16 @@ func (h *Hub) commit(ctx context.Context, project *db.Project, table *db.SLTable
 		if err != nil {
 			return err
 		}
-		if queued, err = h.recordsChanged(ctx, tx, project, table, Origin{}, a.events); err != nil {
+		if queued, err = h.recordsChanged(ctx, tx, project, table, origin, a.events); err != nil {
 			return err
 		}
 
 		changeset, err := appendChangeset(ctx, tx, table, signature, clientID, applied)
 		if err != nil {
 			return err
+		}
+		if writer := origin.Writer(); !writer.IsZero() {
+			changeset.Actor = &writer
 		}
 		changesets = append(changesets, changeset)
 

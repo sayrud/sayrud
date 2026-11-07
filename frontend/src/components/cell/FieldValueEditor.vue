@@ -6,8 +6,12 @@ import { useI18n } from 'vue-i18n'
 
 import FloatingPanel, { type Anchor } from '@/components/common/FloatingPanel.vue'
 import type { CellValue, RecordData, SelectOption, SLField, SLRecord } from '@/types/bitable'
+import { memberIds } from '@/utils/directory'
+import { isSystemField } from '@/utils/fieldTypes'
 import { formatNumber, optionsOf, parseNumber } from '@/utils/format'
 import CellDisplay from './CellDisplay.vue'
+import MemberPanel from './MemberPanel.vue'
+import MemberTag from './MemberTag.vue'
 import SelectPanel from './SelectPanel.vue'
 import SelectTag from './SelectTag.vue'
 import AttachmentPanel from './AttachmentPanel.vue'
@@ -63,6 +67,12 @@ const selectedOptions = computed(() => {
   return uids.map((u) => opts.find((o) => o.uid === u)).filter(Boolean) as SelectOption[]
 })
 
+const selectedMembers = computed(() => memberIds(props.value))
+function removeMember(id: number) {
+  const next = selectedMembers.value.filter((x) => x !== id)
+  emit('change', next.length ? next : null)
+}
+
 const dateValue = computed(() => (typeof props.value === 'string' && props.value ? new Date(props.value) : undefined))
 function onDate(_v: unknown, date?: Date) {
   if (!date) {
@@ -80,8 +90,12 @@ const formulaRecord = computed(() => props.record)
   <div class="field-editor" :class="`type-${field.type}`">
     <AttachmentPanel v-if="field.type === 'attachment'" :field="field" :value="value" :record-u-i-d="record?.uid" :readonly="readonly" @change="emit('change', $event)" @busy="emit('busy', $event)" />
 
-    <div v-else-if="readonly && record" class="readonly readonly-value">
+    <div v-else-if="(readonly || isSystemField(field)) && record" class="readonly readonly-value">
       <CellDisplay :field="field" :record="record" :lines="8" wrap />
+    </div>
+
+    <div v-else-if="isSystemField(field)" class="readonly">
+      <span class="placeholder">{{ t('cell.systemAfterSubmit') }}</span>
     </div>
 
     <a-textarea
@@ -120,6 +134,19 @@ const formulaRecord = computed(() => props.record)
       <ChevronDown :size="14" class="arrow" />
     </div>
 
+    <div
+      v-else-if="field.type === 'member'"
+      class="select-box"
+      :class="{ focused: !!selectAnchor }"
+      @click="openSelect"
+    >
+      <div class="select-tags">
+        <MemberTag v-for="id in selectedMembers" :key="id" :user-id="id" closable @close="removeMember(id)" />
+        <span v-if="!selectedMembers.length" class="placeholder">{{ placeholder ?? t('member.placeholder') }}</span>
+      </div>
+      <ChevronDown :size="14" class="arrow" />
+    </div>
+
     <a-date-picker
       v-else-if="field.type === 'datetime'"
       :model-value="dateValue"
@@ -149,7 +176,8 @@ const formulaRecord = computed(() => props.record)
       :width="Math.max(selectAnchor.width ?? 0, 260)"
       @close="selectAnchor = null"
     >
-      <SelectPanel :field="field" :value="value" :data="data ?? record?.data" @change="(v) => emit('change', v)" @close="selectAnchor = null" />
+      <MemberPanel v-if="field.type === 'member'" :field="field" :value="value" @change="(v) => emit('change', v)" @close="selectAnchor = null" />
+      <SelectPanel v-else :field="field" :value="value" :data="data ?? record?.data" @change="(v) => emit('change', v)" @close="selectAnchor = null" />
     </FloatingPanel>
   </div>
 </template>

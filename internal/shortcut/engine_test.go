@@ -251,3 +251,51 @@ func TestEngine(t *testing.T) {
 	require.NoError(t, err)
 	require.Empty(t, list)
 }
+
+func TestHandleChangeSystemFields(t *testing.T) {
+	gormDB := newTestDB(t)
+	ctx := context.Background()
+	project := &db.Project{Name: "Test"}
+	require.NoError(t, gormDB.Create(project).Error)
+	table, err := db.NewSLTablesStore(gormDB).Create(ctx, project.ID, db.CreateSLTableOptions{Name: "Tasks"})
+	require.NoError(t, err)
+	fields := db.NewSLFieldsStore(gormDB)
+	for _, f := range []db.CreateSLFieldOptions{
+		{UID: "fldTitle01", Label: "Title", Type: db.TextFieldType},
+		{UID: "fldEditor1", Label: "Modified by", Type: db.UpdatedByFieldType},
+		{UID: "fldCreatr1", Label: "Created by", Type: db.CreatedByFieldType},
+		{UID: "fldByEdit1", Label: "Note by editor", Type: db.TextFieldType, Shortcut: &db.FieldShortcut{ID: "fscSummary", Inputs: map[string]interface{}{"source": "fldEditor1"}, AutoUpdate: true}},
+		{UID: "fldByCrea1", Label: "Note by creator", Type: db.TextFieldType, Shortcut: &db.FieldShortcut{ID: "fscSummary", Inputs: map[string]interface{}{"source": "fldCreatr1"}, AutoUpdate: true}},
+	} {
+		f.SLTableID, f.Metadata = table.ID, map[string]interface{}{}
+		_, err := fields.Create(ctx, f)
+		require.NoError(t, err)
+	}
+	engine := NewEngine(gormDB, collab.NewHub(gormDB), 1)
+	queued := func() map[string][]string {
+		t.Helper()
+		list, err := db.NewSLShortcutJobsStore(gormDB).ListByTableID(ctx, table.ID)
+		require.NoError(t, err)
+		out := map[string][]string{}
+		for _, job := range list {
+			out[job.FieldUID] = append(out[job.FieldUID], job.RecordUID)
+		}
+		return out
+	}
+
+	server := &collab.Change{Records: map[string][]string{"recServer": {"fldTitle01"}}}
+	require.NoError(t, engine.handleChange(ctx, project, table, server))
+	require.Empty(t, queued(), "the writes of the server do not regenerate the shortcuts reading the writers")
+
+	updated := &collab.Change{Records: map[string][]string{"recUpdated": {"fldTitle01"}}}
+	updated.AddWritten("recUpdated", false, db.SLRecordWriter{UserID: 1})
+	require.NoError(t, engine.handleChange(ctx, project, table, updated))
+	require.Equal(t, map[string][]string{"fldByEdit1": {"recUpdated"}}, queued(), "an update changes the modifier only")
+
+	created := &collab.Change{Records: map[string][]string{"recCreated": {"fldTitle01"}}}
+	created.AddWritten("recCreated", true, db.SLRecordWriter{WorkflowID: 2})
+	require.NoError(t, engine.handleChange(ctx, project, table, created))
+	jobs := queued()
+	require.ElementsMatch(t, []string{"recUpdated", "recCreated"}, jobs["fldByEdit1"])
+	require.Equal(t, []string{"recCreated"}, jobs["fldByCrea1"])
+}

@@ -1,0 +1,224 @@
+package db
+
+import (
+	"context"
+	"encoding/json"
+	"os"
+	"strconv"
+	"testing"
+	"time"
+
+	"github.com/samber/lo"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"gorm.io/datatypes"
+)
+
+func TestReferencedMemberIDs(t *testing.T) {
+	ctx := context.Background()
+	tx := newTestDB(t, &User{}, &Workflow{}, &SLField{}, &SLRecord{})
+	for id := int64(1); id <= 7; id++ {
+		u := &User{Email: "member" + strconv.FormatInt(id, 10) + "@example.com"}
+		u.ID = id
+		require.NoError(t, tx.Create(u).Error)
+	}
+	for _, id := range []int64{10, 11, 12, 13} {
+		w := &Workflow{Name: "Workflow", Draft: datatypes.JSON(`{}`)}
+		w.ID = id
+		require.NoError(t, tx.Create(w).Error)
+	}
+	// Deleted workflows still identify the live records they wrote.
+	require.NoError(t, tx.Delete(&Workflow{}, 10).Error)
+	fields := NewSLFieldsStore(tx)
+	member, err := fields.Create(ctx, CreateSLFieldOptions{SLTableID: 1, Type: MemberFieldType})
+	require.NoError(t, err)
+	removed, err := fields.Create(ctx, CreateSLFieldOptions{SLTableID: 1, Type: MemberFieldType})
+	require.NoError(t, err)
+	require.NoError(t, tx.Delete(removed).Error)
+	number, err := fields.Create(ctx, CreateSLFieldOptions{SLTableID: 1, Type: NumberFieldType})
+	require.NoError(t, err)
+	data, err := json.Marshal(map[string]interface{}{member.UID: []int64{1, 2}, removed.UID: []int64{6}, number.UID: []int64{7}})
+	require.NoError(t, err)
+	records := NewSLRecordsStore(tx)
+	record, err := records.Create(ctx, 1, data, SLRecordWriter{UserID: 3})
+	require.NoError(t, err)
+	require.NoError(t, records.Update(ctx, record.ID, data, SLRecordWriter{WorkflowID: 10}))
+	_, err = records.Create(ctx, 1, json.RawMessage(`{}`), SLRecordWriter{WorkflowID: 13})
+	require.NoError(t, err)
+	_, err = records.Create(ctx, 2, json.RawMessage(`{}`), SLRecordWriter{UserID: 4})
+	require.NoError(t, err)
+	_, err = records.Create(ctx, 2, json.RawMessage(`{}`), SLRecordWriter{WorkflowID: 11})
+	require.NoError(t, err)
+	deleted := &SLRecord{SLTableID: 1, Data: datatypes.JSON(`{}`), CreatedByID: 5, UpdatedByWorkflowID: 12}
+	require.NoError(t, tx.Create(deleted).Error)
+	require.NoError(t, tx.Delete(deleted).Error)
+
+	users, workflows, err := records.ReferencedMemberIDs(ctx, 1, []int64{1, 2, 3, 4, 5, 6, 7, 99}, []int64{10, 11, 12, 13, 99})
+	require.NoError(t, err)
+	assert.ElementsMatch(t, []int64{1, 2, 3}, users)
+	assert.ElementsMatch(t, []int64{10, 13}, workflows)
+	users, workflows, err = records.ReferencedMemberIDs(ctx, 1, []int64{2}, nil)
+	require.NoError(t, err)
+	assert.Equal(t, []int64{2}, users, "only requested references are returned")
+	assert.Empty(t, workflows)
+}
+
+// memberFilterFixture is shared with the frontend engine tests, so both implementations of the filters are checked against the same cases.
+type memberFilterFixture struct {
+	CurrentUserID int64 `json:"currentUserId"`
+	Fields        []struct {
+		UID      string                 `json:"uid"`
+		Type     SLFieldType            `json:"type"`
+		Metadata map[string]interface{} `json:"metadata"`
+	} `json:"fields"`
+	Records []struct {
+		UID       string          `json:"uid"`
+		Data      json.RawMessage `json:"data"`
+		CreatedBy SLRecordWriter  `json:"createdBy"`
+		UpdatedBy SLRecordWriter  `json:"updatedBy"`
+	} `json:"records"`
+	Cases []struct {
+		Name          string `json:"name"`
+		CurrentUserID *int64 `json:"currentUserId"`
+		MatchAny      bool   `json:"matchAny"`
+		Filter        []struct {
+			FieldUID  string `json:"fieldUID"`
+			Operation string `json:"operation"`
+			Value     string `json:"value"`
+		} `json:"filter"`
+		Sort   []QuerySLRecordsSort `json:"sort"`
+		Expect []string             `json:"expect"`
+	} `json:"cases"`
+}
+
+func TestQueryMemberAndWriterFields(t *testing.T) {
+	ctx := context.Background()
+	gormDB := newTestDB(t, &SLField{}, &SLRecord{})
+	raw, err := os.ReadFile("testdata/member_filters.json")
+	require.NoError(t, err)
+	var fixture memberFilterFixture
+	require.NoError(t, json.Unmarshal(raw, &fixture))
+
+	const tableID = 1
+	for _, f := range fixture.Fields {
+		_, err := NewSLFieldsStore(gormDB).Create(ctx, CreateSLFieldOptions{SLTableID: tableID, UID: f.UID, Label: f.UID, Type: f.Type, Metadata: f.Metadata})
+		require.NoError(t, err)
+	}
+	records := NewSLRecordsStore(gormDB)
+	for _, r := range fixture.Records {
+		created, err := records.Import(ctx, tableID, ImportSLRecordsOptions{Data: []json.RawMessage{r.Data}, UIDs: []string{r.UID}, Writer: r.CreatedBy})
+		require.NoError(t, err)
+		if r.UpdatedBy != r.CreatedBy {
+			require.NoError(t, records.Update(ctx, created[0].ID, r.Data, r.UpdatedBy))
+		}
+	}
+
+	for _, c := range fixture.Cases {
+		t.Run(c.Name, func(t *testing.T) {
+			options := QuerySLRecordsOptions{CurrentUserID: fixture.CurrentUserID, MatchAny: c.MatchAny, Order: c.Sort, Limit: 100}
+			if c.CurrentUserID != nil {
+				options.CurrentUserID = *c.CurrentUserID
+			}
+			for _, f := range c.Filter {
+				options.Filter = append(options.Filter, QuerySLRecordsFilter{FieldUID: f.FieldUID, Operation: FilterOperation(f.Operation), Value: f.Value})
+			}
+			got, total, err := records.Query(ctx, tableID, options)
+			require.NoError(t, err)
+			uids := lo.Map(got, func(r *SLRecord, _ int) string { return r.UID })
+			if len(c.Sort) == 0 {
+				assert.ElementsMatch(t, c.Expect, uids)
+			} else {
+				assert.Equal(t, c.Expect, uids)
+			}
+			assert.Equal(t, int64(len(c.Expect)), total)
+		})
+	}
+
+	t.Run("invalid user IDs are rejected", func(t *testing.T) {
+		_, _, err := records.Query(ctx, tableID, QuerySLRecordsOptions{Filter: []QuerySLRecordsFilter{{FieldUID: "fldTeam0001", Operation: FilterOperationIn, Value: `["ann"]`}}})
+		assert.ErrorIs(t, err, ErrInvalidFilterValue)
+	})
+	t.Run("the trigger conditions do not match the system fields", func(t *testing.T) {
+		_, err := records.MatchData(ctx, tableID, []QuerySLRecordsFilter{{FieldUID: "fldCreator1", Operation: FilterOperationEmpty}}, false, map[string]json.RawMessage{"a": json.RawMessage(`{}`)})
+		assert.ErrorIs(t, err, ErrSLFieldNotQueryable)
+	})
+	t.Run("the trigger conditions match the members", func(t *testing.T) {
+		keys, err := records.MatchData(ctx, tableID, []QuerySLRecordsFilter{{FieldUID: "fldTeam0001", Operation: FilterOperationIn, Value: `["2"]`}}, false, map[string]json.RawMessage{
+			"a": json.RawMessage(`{"fldTeam0001":[1,2]}`), "b": json.RawMessage(`{"fldTeam0001":[3]}`), "c": json.RawMessage(`{}`),
+		})
+		require.NoError(t, err)
+		assert.Equal(t, []string{"a"}, keys)
+	})
+}
+
+func TestRecordWriters(t *testing.T) {
+	ctx := context.Background()
+	gormDB := newTestDB(t, &SLField{}, &SLRecord{})
+	records := NewSLRecordsStore(gormDB)
+
+	record, err := records.Create(ctx, 1, json.RawMessage(`{}`), SLRecordWriter{UserID: 3})
+	require.NoError(t, err)
+	assert.Equal(t, SLRecordWriter{UserID: 3}, record.CreatedBy())
+	assert.Equal(t, SLRecordWriter{UserID: 3}, record.UpdatedBy())
+
+	require.NoError(t, records.Update(ctx, record.ID, json.RawMessage(`{"a":1}`), SLRecordWriter{WorkflowID: 9}))
+	stored, err := records.GetByID(ctx, record.ID)
+	require.NoError(t, err)
+	assert.Equal(t, SLRecordWriter{UserID: 3}, stored.CreatedBy())
+	assert.Equal(t, SLRecordWriter{WorkflowID: 9}, stored.UpdatedBy())
+
+	require.NoError(t, records.Update(ctx, record.ID, json.RawMessage(`{"a":2}`), SLRecordWriter{}))
+	stored, err = records.GetByID(ctx, record.ID)
+	require.NoError(t, err)
+	assert.Equal(t, SLRecordWriter{WorkflowID: 9}, stored.UpdatedBy(), "the writes of the server keep the modifier")
+	assert.JSONEq(t, `{"a":2}`, string(stored.Data))
+}
+
+func TestQuerySystemTimes(t *testing.T) {
+	ctx := context.Background()
+	gormDB := newTestDB(t, &SLField{}, &SLRecord{})
+	_, err := NewSLFieldsStore(gormDB).Create(ctx, CreateSLFieldOptions{SLTableID: 1, UID: "fldCreated1", Label: "Created", Type: CreatedAtFieldType, Metadata: map[string]interface{}{}})
+	require.NoError(t, err)
+	records := NewSLRecordsStore(gormDB)
+	old, err := records.Create(ctx, 1, json.RawMessage(`{}`), SLRecordWriter{})
+	require.NoError(t, err)
+	require.NoError(t, gormDB.Model(&SLRecord{}).Where("id = ?", old.ID).UpdateColumn("created_at", time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)).Error)
+	recent, err := records.Create(ctx, 1, json.RawMessage(`{}`), SLRecordWriter{})
+	require.NoError(t, err)
+
+	got, _, err := records.Query(ctx, 1, QuerySLRecordsOptions{Filter: []QuerySLRecordsFilter{{FieldUID: "fldCreated1", Operation: FilterOperationGreaterThan, Value: "2021-01-01T00:00:00Z"}}})
+	require.NoError(t, err)
+	assert.Equal(t, []string{recent.UID}, lo.Map(got, func(r *SLRecord, _ int) string { return r.UID }))
+
+	got, _, err = records.Query(ctx, 1, QuerySLRecordsOptions{Order: []QuerySLRecordsSort{{FieldUID: "fldCreated1", Order: "asc"}}})
+	require.NoError(t, err)
+	assert.Equal(t, []string{old.UID, recent.UID}, lo.Map(got, func(r *SLRecord, _ int) string { return r.UID }))
+
+	got, _, err = records.Query(ctx, 1, QuerySLRecordsOptions{Filter: []QuerySLRecordsFilter{{FieldUID: "fldCreated1", Operation: FilterOperationEmpty}}})
+	require.NoError(t, err)
+	assert.Empty(t, got, "the creation time is never empty")
+}
+
+func TestWriterUserIDs(t *testing.T) {
+	ctx := context.Background()
+	gormDB := newTestDB(t, &Project{}, &SLTable{}, &SLRecord{}, &Workflow{})
+	projects := NewProjectsStore(gormDB)
+	project, err := projects.Create(ctx, CreateProjectOptions{OwnerUserID: 1, Name: "Tasks"})
+	require.NoError(t, err)
+	another, err := projects.Create(ctx, CreateProjectOptions{OwnerUserID: 1, Name: "Other"})
+	require.NoError(t, err)
+	own, err := NewSLTablesStore(gormDB).Create(ctx, project.ID, CreateSLTableOptions{Name: "Tasks"})
+	require.NoError(t, err)
+	other, err := NewSLTablesStore(gormDB).Create(ctx, another.ID, CreateSLTableOptions{Name: "Other"})
+	require.NoError(t, err)
+	records := NewSLRecordsStore(gormDB)
+	record, err := records.Create(ctx, own.ID, json.RawMessage(`{}`), SLRecordWriter{UserID: 7})
+	require.NoError(t, err)
+	require.NoError(t, records.Update(ctx, record.ID, json.RawMessage(`{}`), SLRecordWriter{UserID: 8}))
+	_, err = records.Create(ctx, other.ID, json.RawMessage(`{}`), SLRecordWriter{UserID: 9})
+	require.NoError(t, err)
+
+	ids, err := records.WriterUserIDs(ctx, project.ID, []int64{7, 8, 9, 10})
+	require.NoError(t, err)
+	assert.ElementsMatch(t, []int64{7, 8}, ids, "only the writers of the records of the project are returned")
+}

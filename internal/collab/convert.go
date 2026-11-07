@@ -28,22 +28,28 @@ type fieldConversion struct {
 // convertField converts the record values of the field to the new type: the values are converted to text first,
 // then parsed as the new type, except for a few direct conversions such as select to select and number to checkbox.
 // boolText returns the text of the checkbox values, in the language of the user who converts the field.
-func convertField(old *db.SLField, newType db.SLFieldType, metadata map[string]interface{}, records []*db.SLRecord, boolText func(bool) string) (*fieldConversion, error) {
+// directory names the members and matches them when converting from or to a member or writer field, it may be nil otherwise.
+func convertField(old *db.SLField, newType db.SLFieldType, metadata map[string]interface{}, records []*db.SLRecord, boolText func(bool) string, directory *routeutil.Directory) (*fieldConversion, error) {
 	conversion := &fieldConversion{metadata: metadata, values: make(map[string]interface{}, len(records))}
 
 	oldValues := make(map[string]interface{}, len(records))
-	texts := make(map[string]string, len(records))
 	for _, record := range records {
 		data := map[string]interface{}{}
 		if err := json.Unmarshal(record.Data, &data); err != nil {
 			return nil, errors.Wrapf(err, "decode record %q", record.UID)
 		}
-		oldValues[record.UID] = data[old.UID]
-		texts[record.UID] = valueToText(old, data[old.UID], boolText)
+		oldValues[record.UID] = recordValue(old, record, data)
+	}
+	if err := preloadNames(directory, old, lo.Values(oldValues)); err != nil {
+		return nil, err
+	}
+	texts := make(map[string]string, len(records))
+	for uid, value := range oldValues {
+		texts[uid] = valueToText(old, value, boolText, directory)
 	}
 
-	// The formula values are calculated by the clients rather than stored.
-	if newType == db.FormulaFieldType {
+	// The formula values are calculated by the clients, and the system values are read from the records.
+	if newType == db.FormulaFieldType || newType.IsSystem() {
 		for uid := range oldValues {
 			conversion.values[uid] = nil
 		}
@@ -90,8 +96,20 @@ func convertField(old *db.SLField, newType db.SLFieldType, metadata map[string]i
 			}
 		case old.Type == db.DateTimeFieldType && newType == db.TextFieldType:
 			next = lo.Ternary[interface{}](texts[uid] == "", nil, texts[uid])
+		case old.Type == db.MemberFieldType && newType == db.MemberFieldType:
+			values, _ := raw.([]interface{})
+			if len(values) > 1 && !db.MemberMultiple(newField) {
+				values = values[:1]
+			}
+			next = values
+		case old.Type.IsWriter() && newType == db.MemberFieldType:
+			if writer, _ := raw.(db.SLRecordWriter); writer.UserID != 0 {
+				next = []interface{}{float64(writer.UserID)}
+			}
+		case (old.Type == db.CreatedAtFieldType || old.Type == db.UpdatedAtFieldType) && newType == db.DateTimeFieldType:
+			next = raw
 		default:
-			next = textToValue(newField, texts[uid])
+			next = textToValue(newField, texts[uid], directory)
 		}
 
 		if !routeutil.IsStoredValue(newField, next) || !routeutil.CheckValue(newField, next) {
@@ -103,6 +121,38 @@ func convertField(old *db.SLField, newType db.SLFieldType, metadata map[string]i
 		conversion.values[uid] = next
 	}
 	return conversion, nil
+}
+
+// recordValue returns the value of the field in the record: the system values are read from the record, the others from its data.
+func recordValue(field *db.SLField, record *db.SLRecord, data map[string]interface{}) interface{} {
+	switch field.Type {
+	case db.CreatedAtFieldType:
+		return record.CreatedAt.UTC().Format(storedTimeLayout)
+	case db.UpdatedAtFieldType:
+		return record.UpdatedAt.UTC().Format(storedTimeLayout)
+	case db.CreatedByFieldType:
+		return record.CreatedBy()
+	case db.UpdatedByFieldType:
+		return record.UpdatedBy()
+	default:
+		return data[field.UID]
+	}
+}
+
+// preloadNames loads the users and the workflows of the member and writer values in batch.
+func preloadNames(directory *routeutil.Directory, field *db.SLField, values []interface{}) error {
+	var userIDs, workflowIDs []int64
+	for _, value := range values {
+		switch v := value.(type) {
+		case db.SLRecordWriter:
+			userIDs, workflowIDs = append(userIDs, v.UserID), append(workflowIDs, v.WorkflowID)
+		case []interface{}:
+			if field.Type == db.MemberFieldType {
+				userIDs = append(userIDs, routeutil.MemberIDs(v)...)
+			}
+		}
+	}
+	return directory.Preload(userIDs, workflowIDs)
 }
 
 // appendOptions appends the options whose names are found in the texts but not in the metadata.
@@ -188,15 +238,17 @@ func optionUID(field *db.SLField, name string) string {
 }
 
 // valueToText returns the display text of the value, the same as valueToText of the frontend.
-func valueToText(field *db.SLField, value interface{}, boolText func(bool) string) string {
+func valueToText(field *db.SLField, value interface{}, boolText func(bool) string, directory *routeutil.Directory) string {
 	switch v := value.(type) {
 	case nil:
 		return ""
+	case db.SLRecordWriter:
+		return directory.WriterName(v)
 	case string:
 		switch field.Type {
 		case db.SingleSelectFieldType:
 			return optionName(field, v)
-		case db.DateTimeFieldType:
+		case db.DateTimeFieldType, db.CreatedAtFieldType, db.UpdatedAtFieldType:
 			metadata, _ := field.Metadata.Data().(map[string]interface{})
 			withTime, _ := metadata["with_time"].(bool)
 			return formatDate(v, metadataString(field, "format"), withTime)
@@ -211,6 +263,9 @@ func valueToText(field *db.SLField, value interface{}, boolText func(bool) strin
 	case bool:
 		return boolText(v)
 	case []interface{}:
+		if field.Type == db.MemberFieldType {
+			return directory.MemberNames(v)
+		}
 		names := make([]string, 0, len(v))
 		if field.Type == db.AttachmentFieldType {
 			for _, value := range v {
@@ -238,8 +293,8 @@ func valueToText(field *db.SLField, value interface{}, boolText func(bool) strin
 var multiSelectSeparator = regexp.MustCompile(`[,，、;；\n]`)
 
 // textToValue parses the text as the value of the field, the same as textToValue of the frontend.
-// The select options must exist before parsing, the unknown option names are skipped.
-func textToValue(field *db.SLField, text string) interface{} {
+// The select options must exist before parsing, the unknown option names are skipped, and so are the texts matching no member.
+func textToValue(field *db.SLField, text string, directory *routeutil.Directory) interface{} {
 	t := strings.TrimSpace(text)
 	switch field.Type {
 	case db.TextFieldType:
@@ -269,6 +324,11 @@ func textToValue(field *db.SLField, text string) interface{} {
 			}
 		}
 		return uids
+	case db.MemberFieldType:
+		if ids := directory.ParseMembers(t, db.MemberMultiple(field)); len(ids) > 0 {
+			return ids
+		}
+		return nil
 	default:
 		return nil
 	}

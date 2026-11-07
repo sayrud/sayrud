@@ -13,6 +13,7 @@ import (
 	"github.com/wuhan005/sayrud/internal/db"
 	"github.com/wuhan005/sayrud/internal/dbutil"
 	"github.com/wuhan005/sayrud/internal/importer"
+	"github.com/wuhan005/sayrud/internal/routeutil"
 )
 
 // importChunkSize keeps the number of the bind parameters of an insert statement far below the limit of PostgreSQL.
@@ -20,7 +21,7 @@ const importChunkSize = 1000
 
 // ImportableFieldTypes are the field types the imported values can be converted to.
 var ImportableFieldTypes = []db.SLFieldType{
-	db.TextFieldType, db.NumberFieldType, db.SingleSelectFieldType, db.MultiSelectFieldType, db.DateTimeFieldType, db.CheckboxFieldType,
+	db.TextFieldType, db.NumberFieldType, db.SingleSelectFieldType, db.MultiSelectFieldType, db.DateTimeFieldType, db.CheckboxFieldType, db.MemberFieldType,
 }
 
 // ImportColumn maps a column of the imported rows to an existing field, or to a new field with the label and type if FieldUID is empty.
@@ -47,6 +48,8 @@ type ImportOptions struct {
 	Location *time.Location
 	// Progress is called after each chunk of the records is inserted, the changes are not visible to other connections before committing.
 	Progress func(done, total int)
+	// Origin is the user importing the rows, the creator of the records.
+	Origin Origin
 }
 
 // Import adds the new fields, the missing select options and the records of the rows in a single transaction.
@@ -66,12 +69,21 @@ func (h *Hub) Import(ctx context.Context, project *db.Project, table *db.SLTable
 		if err := dbutil.LockTable(ctx, tx, table.ID); err != nil {
 			return err
 		}
-		a, err := newApplier(ctx, tx, table, (*Client)(nil).boolText, h.shortcuts)
+		a, err := newApplier(ctx, tx, table, opts.Origin, (*Client)(nil).boolText, h.shortcuts)
 		if err != nil {
 			return err
 		}
 
-		actions, targets, err := importSchema(a.fields, opts)
+		var directory *routeutil.Directory
+		if lo.ContainsBy(opts.Columns, func(c ImportColumn) bool {
+			field := a.field(c.FieldUID)
+			return c.Type == db.MemberFieldType || (field != nil && field.Type == db.MemberFieldType)
+		}) {
+			if directory, err = a.members(); err != nil {
+				return err
+			}
+		}
+		actions, targets, err := importSchema(a.fields, opts, directory)
 		if err != nil {
 			return err
 		}
@@ -97,7 +109,7 @@ func (h *Hub) Import(ctx context.Context, project *db.Project, table *db.SLTable
 				return rejectf("import::field_not_found")
 			}
 		}
-		records := importRecords(opts, fields)
+		records := importRecords(opts, fields, directory)
 		for start := 0; start < len(records); start += importChunkSize {
 			if err := ctx.Err(); err != nil {
 				return err
@@ -127,7 +139,7 @@ func (h *Hub) Import(ctx context.Context, project *db.Project, table *db.SLTable
 		}
 		changesets = append(changesets, changeset)
 
-		if queued, err = h.recordsChanged(ctx, tx, project, table, Origin{}, a.events); err != nil {
+		if queued, err = h.recordsChanged(ctx, tx, project, table, opts.Origin, a.events); err != nil {
 			return err
 		}
 		if a.hasShortcuts() {
@@ -160,7 +172,7 @@ func (h *Hub) Import(ctx context.Context, project *db.Project, table *db.SLTable
 }
 
 // importSchema returns the actions adding the new fields, the missing options and the view, and the target field UIDs of the columns.
-func importSchema(fields []*db.SLField, opts ImportOptions) ([]Action, []string, error) {
+func importSchema(fields []*db.SLField, opts ImportOptions, directory *routeutil.Directory) ([]Action, []string, error) {
 	var actions []Action
 	targets := make([]string, 0, len(opts.Columns))
 	for _, c := range opts.Columns {
@@ -178,7 +190,7 @@ func importSchema(fields []*db.SLField, opts ImportOptions) ([]Action, []string,
 				Field: &FieldAttrs{
 					Label:    &label,
 					Type:     &typ,
-					Metadata: importMetadata(c.Type, cells),
+					Metadata: importMetadata(c.Type, cells, directory),
 				},
 			})
 			targets = append(targets, uid)
@@ -242,9 +254,13 @@ func cellTexts(cells []*importer.Cell) []string {
 	return texts
 }
 
-// importMetadata returns the metadata of a new field holding the cells, the select options are created from the values.
-func importMetadata(fieldType db.SLFieldType, cells []*importer.Cell) map[string]interface{} {
+// importMetadata returns the metadata of a new field holding the cells, the select options are created from the values,
+// and a member field allows multiple members if any cell matches more than one.
+func importMetadata(fieldType db.SLFieldType, cells []*importer.Cell, directory *routeutil.Directory) map[string]interface{} {
 	switch fieldType {
+	case db.MemberFieldType:
+		multiple := lo.ContainsBy(cells, func(c *importer.Cell) bool { return c != nil && len(directory.ParseMembers(c.Text, true)) > 1 })
+		return map[string]interface{}{"multiple": multiple}
 	case db.NumberFieldType:
 		return map[string]interface{}{
 			"format":  importer.NumberFormat(cells),
@@ -277,7 +293,7 @@ func importMetadata(fieldType db.SLFieldType, cells []*importer.Cell) map[string
 }
 
 // importRecords converts the rows to record.add actions, the rows empty in all the mapped columns are skipped.
-func importRecords(opts ImportOptions, fields []*db.SLField) []Action {
+func importRecords(opts ImportOptions, fields []*db.SLField, directory *routeutil.Directory) []Action {
 	actions := make([]Action, 0, len(opts.Rows))
 	for _, row := range opts.Rows {
 		values := map[string]interface{}{}
@@ -285,7 +301,7 @@ func importRecords(opts ImportOptions, fields []*db.SLField) []Action {
 			if c.Index >= len(row) {
 				continue
 			}
-			if v := importValue(fields[i], row[c.Index], opts.Location); v != nil {
+			if v := importValue(fields[i], row[c.Index], opts.Location, directory); v != nil {
 				values[fields[i].UID] = v
 			}
 		}
@@ -301,8 +317,8 @@ func importRecords(opts ImportOptions, fields []*db.SLField) []Action {
 }
 
 // importValue converts the cell to the value of the field, the typed spreadsheet values are used before parsing the text.
-// It returns nil for the empty values, including unchecked checkboxes.
-func importValue(field *db.SLField, cell *importer.Cell, loc *time.Location) interface{} {
+// It returns nil for the empty values, including unchecked checkboxes and the members not found by email or name.
+func importValue(field *db.SLField, cell *importer.Cell, loc *time.Location, directory *routeutil.Directory) interface{} {
 	if cell == nil {
 		return nil
 	}
@@ -342,7 +358,7 @@ func importValue(field *db.SLField, cell *importer.Cell, loc *time.Location) int
 			return nil
 		}
 	default:
-		v = textToValue(field, cell.Text)
+		v = textToValue(field, cell.Text, directory)
 		if uids, ok := v.([]interface{}); ok && len(uids) == 0 {
 			return nil
 		}

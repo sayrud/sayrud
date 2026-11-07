@@ -11,10 +11,14 @@ import (
 type Record struct {
 	UID      string `json:"uid"`
 	TableUID string `json:"tableUID"`
-	// Data is the cell values keyed by field UID.
+	// Data is the cell values keyed by field UID, the system fields are not in it.
 	Data      map[string]interface{} `json:"data"`
 	CreatedAt time.Time              `json:"createdAt"`
 	UpdatedAt time.Time              `json:"updatedAt"`
+	// CreatedBy is the user or workflow creating the record, the values of the created_by fields; absent if unknown.
+	CreatedBy *db.SLRecordWriter `json:"createdBy,omitempty"`
+	// UpdatedBy is the user or workflow last writing the record, the values of the updated_by fields; absent if unknown.
+	UpdatedBy *db.SLRecordWriter `json:"updatedBy,omitempty"`
 } // @name SLRecord
 
 func ToRecord(table *db.SLTable, record *db.SLRecord) *Record {
@@ -27,7 +31,16 @@ func ToRecord(table *db.SLTable, record *db.SLRecord) *Record {
 		Data:      data,
 		CreatedAt: record.CreatedAt,
 		UpdatedAt: record.UpdatedAt,
+		CreatedBy: writerOf(record.CreatedBy()),
+		UpdatedBy: writerOf(record.UpdatedBy()),
 	}
+}
+
+func writerOf(writer db.SLRecordWriter) *db.SLRecordWriter {
+	if writer.IsZero() {
+		return nil
+	}
+	return &writer
 }
 
 func ToRecords(table *db.SLTable, records []*db.SLRecord) []*Record {

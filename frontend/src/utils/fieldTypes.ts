@@ -1,8 +1,8 @@
 import type { Component } from 'vue'
-import { Calendar, CircleChevronDown, Hash, ListChecks, Paperclip, Sigma, SquareCheck, Type } from '@lucide/vue'
+import { Calendar, CalendarClock, CalendarPlus, CircleChevronDown, Hash, ListChecks, Paperclip, Sigma, SquareCheck, Type, UserRound, UserRoundPen, UserRoundPlus } from '@lucide/vue'
 
 import { t } from '@/i18n'
-import type { FieldMetadataMap, FieldType, SLField } from '@/types/bitable'
+import type { FieldMetadataMap, FieldType, SLField, SystemFieldType } from '@/types/bitable'
 
 export interface FieldTypeInfo {
   type: FieldType
@@ -74,6 +74,16 @@ export const FIELD_TYPES: FieldTypeInfo[] = [
     },
   },
   {
+    type: 'member',
+    icon: UserRound,
+    get label() {
+      return t('fieldType.member')
+    },
+    get description() {
+      return t('fieldType.memberDescription')
+    },
+  },
+  {
     type: 'attachment',
     icon: Paperclip,
     get label() {
@@ -93,6 +103,46 @@ export const FIELD_TYPES: FieldTypeInfo[] = [
       return t('fieldType.formulaDescription')
     },
   },
+  {
+    type: 'created_by',
+    icon: UserRoundPlus,
+    get label() {
+      return t('fieldType.createdBy')
+    },
+    get description() {
+      return t('fieldType.createdByDescription')
+    },
+  },
+  {
+    type: 'created_at',
+    icon: CalendarPlus,
+    get label() {
+      return t('fieldType.createdAt')
+    },
+    get description() {
+      return t('fieldType.createdAtDescription')
+    },
+  },
+  {
+    type: 'updated_by',
+    icon: UserRoundPen,
+    get label() {
+      return t('fieldType.updatedBy')
+    },
+    get description() {
+      return t('fieldType.updatedByDescription')
+    },
+  },
+  {
+    type: 'updated_at',
+    icon: CalendarClock,
+    get label() {
+      return t('fieldType.updatedAt')
+    },
+    get description() {
+      return t('fieldType.updatedAtDescription')
+    },
+  },
 ]
 
 const TYPE_MAP = Object.fromEntries(FIELD_TYPES.map((t) => [t.type, t])) as Record<FieldType, FieldTypeInfo>
@@ -109,10 +159,42 @@ export function defaultMetadata<T extends FieldType>(type: T): FieldMetadataMap[
     datetime: { format: 'YYYY/MM/DD', with_time: false, default: '' },
     number: { format: '0', default: null },
     checkbox: {},
+    member: { multiple: false },
     attachment: {},
     formula: { exp: '' },
+    created_by: {},
+    created_at: { format: 'YYYY/MM/DD', with_time: true },
+    updated_by: {},
+    updated_at: { format: 'YYYY/MM/DD', with_time: true },
   }
   return map[type]
+}
+
+const SYSTEM_TYPES: FieldType[] = ['created_by', 'created_at', 'updated_by', 'updated_at']
+
+/** System fields read the values from the records, so they are read-only. */
+export function isSystemField(field: Pick<SLField, 'type'>): field is SLField<SystemFieldType> {
+  return SYSTEM_TYPES.includes(field.type)
+}
+
+/** Values of formula and system fields can not be edited. */
+export function isReadOnlyField(field: Pick<SLField, 'type'>): boolean {
+  return field.type === 'formula' || isSystemField(field)
+}
+
+/** Fields whose values are dates, including the creation and update times. */
+export function isDateField(field: Pick<SLField, 'type'>): boolean {
+  return field.type === 'datetime' || field.type === 'created_at' || field.type === 'updated_at'
+}
+
+/** Fields the kanban view can group by: the single select fields and the single member fields. */
+export function isKanbanGroupField(field: SLField): boolean {
+  return field.type === 'single_select' || (field.type === 'member' && !(field.metadata as { multiple?: boolean }).multiple)
+}
+
+/** Fields whose values are users, including the writers of the records. */
+export function isUserField(field: Pick<SLField, 'type'>): boolean {
+  return field.type === 'member' || field.type === 'created_by' || field.type === 'updated_by'
 }
 
 /** Formula and attachment fields are excluded from server sorting and grouping. */

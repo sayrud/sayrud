@@ -5,10 +5,12 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import FieldValueEditor from '@/components/cell/FieldValueEditor.vue'
+import MemberTag from '@/components/cell/MemberTag.vue'
 import FieldTypeIcon from '@/components/field/FieldTypeIcon.vue'
 import { openMenu } from '@/composables/useContextMenu'
 import { visibleFieldsOf } from '@/composables/useViewData'
 import { useBaseStore } from '@/stores/base'
+import { isWriter } from '@/utils/directory'
 
 const { t } = useI18n()
 
@@ -22,6 +24,9 @@ const index = computed(() => (record.value ? list.value.indexOf(record.value.uid
 const visible = computed(() => visibleFieldsOf(store.fields, store.activeView))
 const hidden = computed(() => store.fields.filter((f) => !visible.value.includes(f)))
 const showHidden = ref(false)
+
+const createdBy = computed(() => (isWriter(record.value?.createdBy) ? record.value!.createdBy! : null))
+const updatedBy = computed(() => (isWriter(record.value?.updatedBy) ? record.value!.updatedBy! : null))
 
 const title = computed(() => {
   const p = store.fields[0]
@@ -144,13 +149,15 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKey))
       <button v-if="store.canEdit" class="add-field" @click="addField"><Plus :size="14" /> {{ t('grid.addField') }}</button>
 
       <div class="meta">
-        {{
-          t('record.meta', {
-            created: dayjs(record.createdAt).format('YYYY/MM/DD HH:mm'),
-            updated: dayjs(record.updatedAt).format('YYYY/MM/DD HH:mm'),
-          })
-        }}
-        · {{ record.uid }}
+        <span class="meta-item">
+          <MemberTag v-if="createdBy" :user-id="createdBy.userId" :workflow-id="createdBy.workflowId" small />
+          {{ t('record.createdAt', { time: dayjs(record.createdAt).format('YYYY/MM/DD HH:mm') }) }}
+        </span>
+        <span class="meta-item">
+          <MemberTag v-if="updatedBy" :user-id="updatedBy.userId" :workflow-id="updatedBy.workflowId" small />
+          {{ t('record.updatedAt', { time: dayjs(record.updatedAt).format('YYYY/MM/DD HH:mm') }) }}
+        </span>
+        <span class="meta-item">{{ record.uid }}</span>
       </div>
     </div>
   </a-modal>
@@ -233,11 +240,21 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKey))
   color: var(--color-primary);
 }
 .meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 16px;
   margin-top: 16px;
   padding-top: 12px;
   border-top: 1px solid var(--line-divider);
   font-size: 12px;
   color: var(--text-placeholder);
+}
+.meta-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
 }
 </style>
 

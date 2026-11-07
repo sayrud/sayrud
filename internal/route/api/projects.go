@@ -9,6 +9,7 @@ import (
 
 	"github.com/cockroachdb/errors"
 	"github.com/flamego/flamego"
+	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
 	"gorm.io/gorm"
 
@@ -417,6 +418,89 @@ func (projectRoute) ListMembers(ctx context.Context, project *db.Project) error 
 		if u, ok := briefs[m.UserID]; ok {
 			resp = append(resp, &dto.ProjectMember{User: u, Role: string(m.Role)})
 		}
+	}
+	return ctx.ApiSuccess(resp)
+}
+
+// maxResolvedMembers is the maximum number of the user IDs or the workflow IDs resolved by a request.
+const maxResolvedMembers = 1000
+
+// ResolveMembers
+// @Summary Resolve the users and workflows of the member and system fields
+// @Tags Project members
+// @Description Return the requested users who are or were members of the project or wrote its records, and the requested workflows of the project including the deleted ones; the others are omitted.
+// @Accept json
+// @Produce json
+// @Param projectUID path string true "Project UID"
+// @Param data body form.ResolveMembers true "User and workflow IDs"
+// @Success 200 {object} dto.ResolvedMembers
+// @Failure 400 {string} string "Too many IDs"
+// @Failure 403 {string} string "Permission denied"
+// @Failure 404 {string} string "Project not found"
+// @Failure 500 {string} string "Internal server error"
+// @ID resolveProjectMembers
+// @Router /projects/{projectUID}/members/resolve [post]
+func (projectRoute) ResolveMembers(ctx context.Context, project *db.Project, f form.ResolveMembers) error {
+	return respondResolvedMembers(ctx, project, f, nil)
+}
+
+// respondResolvedMembers responds the users and workflows of the IDs; public responses are scoped to the table and omit emails.
+func respondResolvedMembers(ctx context.Context, project *db.Project, f form.ResolveMembers, publicTable *db.SLTable) error {
+	if len(f.UserIDs) > maxResolvedMembers || len(f.WorkflowIDs) > maxResolvedMembers {
+		return ctx.ApiError(http.StatusBadRequest, "record::too_many_ids")
+	}
+	c := ctx.Request().Context()
+	if publicTable != nil {
+		var err error
+		f.UserIDs, f.WorkflowIDs, err = db.SLRecords.ReferencedMemberIDs(c, publicTable.ID, lo.Uniq(f.UserIDs), lo.Uniq(f.WorkflowIDs))
+		if err != nil {
+			logrus.WithContext(c).WithError(err).Error("Failed to list shared record members")
+			return ctx.ApiServerError()
+		}
+	}
+	current, err := db.ProjectMembers.UserIDs(c, project.ID)
+	if err != nil {
+		logrus.WithContext(c).WithError(err).Error("Failed to list project members")
+		return ctx.ApiServerError()
+	}
+	former, err := db.ProjectMembers.FormerUserIDs(c, project.ID)
+	if err != nil {
+		logrus.WithContext(c).WithError(err).Error("Failed to list former project members")
+		return ctx.ApiServerError()
+	}
+	requested := lo.Uniq(f.UserIDs)
+	writers, err := db.SLRecords.WriterUserIDs(c, project.ID, lo.Without(requested, append(current, former...)...))
+	if err != nil {
+		logrus.WithContext(c).WithError(err).Error("Failed to list record writers")
+		return ctx.ApiServerError()
+	}
+	ids := lo.Intersect(requested, append(append(current, former...), writers...))
+	users, err := db.Users.ListByIDs(c, ids)
+	if err != nil {
+		logrus.WithContext(c).WithError(err).Error("Failed to list member users")
+		return ctx.ApiServerError()
+	}
+	briefs, err := userBriefs(ctx, users)
+	if err != nil {
+		logrus.WithContext(c).WithError(err).Error("Failed to list owners of member bots")
+		return ctx.ApiServerError()
+	}
+	names, err := db.Workflows.NamesByIDs(c, project.ID, lo.Uniq(f.WorkflowIDs))
+	if err != nil {
+		logrus.WithContext(c).WithError(err).Error("Failed to list workflow names")
+		return ctx.ApiServerError()
+	}
+
+	resp := dto.ResolvedMembers{Users: make([]*dto.ResolvedUser, 0, len(users)), Workflows: make([]*dto.WorkflowName, 0, len(names))}
+	for _, u := range users {
+		brief := briefs[u.ID]
+		if publicTable != nil {
+			brief.Email, brief.EmailMd5, brief.OwnerName = "", "", ""
+		}
+		resp.Users = append(resp.Users, &dto.ResolvedUser{User: brief, Left: lo.Contains(former, u.ID)})
+	}
+	for id, name := range names {
+		resp.Workflows = append(resp.Workflows, &dto.WorkflowName{ID: id, Name: name})
 	}
 	return ctx.ApiSuccess(resp)
 }

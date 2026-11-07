@@ -240,7 +240,7 @@ func (r importRoute) Get(ctx context.Context, item *db.SLImport) error {
 // @Failure 500 {string} string "Internal server error"
 // @ID startImport
 // @Router /projects/{projectUID}/imports/{importUID}/start [post]
-func (r importRoute) Start(ctx context.Context, hub *collab.Hub, project *db.Project, item *db.SLImport, f form.StartImport) error {
+func (r importRoute) Start(ctx context.Context, hub *collab.Hub, user *db.User, project *db.Project, item *db.SLImport, f form.StartImport) error {
 	c := ctx.Request().Context()
 	if item.Status == db.SLImportSucceeded || (item.Status == db.SLImportRunning && !item.UpdatedAt.Before(dbutil.Now().Add(-importStaleAfter))) {
 		return ctx.ApiError(http.StatusConflict, "import::already_started")
@@ -291,6 +291,7 @@ func (r importRoute) Start(ctx context.Context, hub *collab.Hub, project *db.Pro
 			Rows:     rows,
 			Columns:  columns,
 			Location: time.Local,
+			Origin:   collab.Origin{UserID: user.ID},
 		},
 	}
 	if f.Timezone != "" {

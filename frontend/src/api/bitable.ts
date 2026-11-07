@@ -7,6 +7,7 @@ import type {
   SLField as ApiField,
   SLRecord as ApiRecord,
   SLView as ApiView,
+  ResolvedMembers,
   StartImport,
 } from './api'
 import { client } from './client'
@@ -84,6 +85,8 @@ export const membersApi = {
   },
 }
 
+export type { ResolvedMembers }
+
 export const tablesApi = {
   list: async (projectUID: string) => (await client.projects.listTables(projectUID, { pageSize: 1000 })).data,
   create: async (projectUID: string, name: string) => (await client.projects.createTable(projectUID, { name })).data as SLTable,
@@ -129,6 +132,13 @@ export function createSyncApi(shareToken?: string) {
     views: async (projectUID: string, tableUID: string) => asViews((await (shareToken
       ? client.shares.listSharedViews(shareToken, tableUID)
       : client.projects.listViews(projectUID, tableUID))).data),
+    /** Resolves the users who are or were members and the workflows referenced by the member and system fields, at most 1000 of each. */
+    resolveMembers: async (projectUID: string, tableUID: string, userIDs: number[], workflowIDs: number[]): Promise<ResolvedMembers> => {
+      const data = { userIDs, workflowIDs }
+      return (await (shareToken
+        ? client.shares.resolveSharedMembers(shareToken, tableUID, data)
+        : client.projects.resolveProjectMembers(projectUID, data))).data
+    },
     fetchRecords: async (projectUID: string, tableUID: string, uids: string[]) => {
       const out: SLRecord[] = []
       for (let i = 0; i < uids.length; i += 1000) {

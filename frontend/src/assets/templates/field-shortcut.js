@@ -50,6 +50,7 @@ export const manifest = {
 
 /**
  * params contains the configured form values keyed by field key; field references resolve to cell values.
+ * Member fields resolve to the member names, created_by / updated_by to the writer names and created_at / updated_at to RFC 3339 times.
  * context.fetch(url, options, credentialKey) requests an allowed host.
  * context.ai.complete({ prompt, system }) calls the global AI model when permissions.ai is true.
  * context.log(...values) writes execution logs without exposing stored secrets.

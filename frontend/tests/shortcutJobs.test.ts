@@ -45,6 +45,8 @@ test('shortcut job refreshes never overwrite newer requests, pushes or table ses
     loading = ref(false)
     pendingCount = ref(0)
     views = ref([{ uid: 'view' }])
+    fields = ref([])
+    records = ref([])
     idle = true
     constructor(_socket: unknown, _projectUID: string, readonly tableUID: string) {}
     async start() { await tableLoads.get(this.tableUID) }
@@ -70,6 +72,13 @@ test('shortcut job refreshes never overwrite newer requests, pushes or table ses
     '@/stores/projectWorkflows': { useProjectWorkflowsStore: () => ({ load: async (uid: string) => { navigationLoads.push(uid) } }) },
     '@/i18n': { i18n: { global: { locale } }, t: (key: string) => key },
     '@/utils/role': { roleAtLeast: () => true },
+    '@/utils/directory': {
+      directory: ref({ currentUserId: 0 }),
+      resetDirectory() {},
+      setMembers() {},
+      addResolved() {},
+      unresolvedIds: () => ({ userIds: [], workflowIds: [] }),
+    },
   }
   const module = { exports: {} as { useBaseStore: typeof useBaseStore } }
   new Function('require', 'module', 'exports', compiled)((id: string) => dependencies[id] ?? (id.startsWith('@/') ? {} : require(id)), module, module.exports)

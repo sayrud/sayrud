@@ -125,7 +125,7 @@ func TestRecordDeletedTrigger(t *testing.T) {
 		Steps:   []Step{{ID: "find", Type: StepQuery, Config: &QueryConfig{TableUID: f.table.UID, Limit: 1}}},
 	})
 	uid := f.create(t, map[string]interface{}{f.name.UID: "Ann"})
-	require.NoError(t, f.hub.MutateRecords(context.Background(), f.project, f.table, func(tx *gorm.DB) ([]collab.RecordEvent, error) {
+	require.NoError(t, f.hub.MutateRecords(context.Background(), f.project, f.table, collab.Origin{}, func(tx *gorm.DB) ([]collab.RecordEvent, error) {
 		record, err := db.NewSLRecordsStore(tx).GetByUID(context.Background(), uid)
 		if err != nil {
 			return nil, err
@@ -174,6 +174,27 @@ func TestCheckTriggerScopes(t *testing.T) {
 	issues, err = Check(context.Background(), f.db, f.project, spec)
 	require.NoError(t, err)
 	assert.Contains(t, issues, Issue{Code: "trigger.no_conditions", Target: "trigger"})
+}
+
+func TestCheckWatchedSystemFields(t *testing.T) {
+	f := newLeadFixture(t)
+	ctx := context.Background()
+	require.NoError(t, f.db.AutoMigrate(&db.User{}, &db.ProjectMember{}))
+	for _, typ := range []db.SLFieldType{db.CreatedAtFieldType, db.UpdatedAtFieldType, db.CreatedByFieldType, db.UpdatedByFieldType, db.MemberFieldType} {
+		t.Run(string(typ), func(t *testing.T) {
+			field, err := db.NewSLFieldsStore(f.db).Create(ctx, db.CreateSLFieldOptions{SLTableID: f.table.ID, Label: string(typ), Type: typ, Metadata: map[string]interface{}{}})
+			require.NoError(t, err)
+			spec := &Spec{Trigger: Trigger{Type: TriggerRecordUpdated, Record: &RecordTrigger{TableUID: f.table.UID, Fields: []string{field.UID}}}}
+			issues, err := Check(ctx, f.db, f.project, spec)
+			require.NoError(t, err)
+			issue := Issue{Code: "trigger.field_missing", Target: "trigger"}
+			if typ.IsSystem() {
+				assert.Contains(t, issues, issue)
+			} else {
+				assert.NotContains(t, issues, issue, "stored member fields can be watched")
+			}
+		})
+	}
 }
 
 func TestNextFire(t *testing.T) {

@@ -52,6 +52,10 @@ type applier struct {
 	change Change
 	// events are the records created, updated or deleted by the operations, which may trigger workflows.
 	events []RecordEvent
+	// origin is the source of the operations, its writer is recorded on the written records.
+	origin Origin
+	// directory resolves the members when converting the values, it is loaded when first used.
+	directory *routeutil.Directory
 
 	// boolText returns the text of the checkbox values when converting them to text.
 	boolText func(bool) string
@@ -59,8 +63,8 @@ type applier struct {
 	shortcuts ShortcutHooks
 }
 
-func newApplier(ctx context.Context, tx *gorm.DB, table *db.SLTable, boolText func(bool) string, shortcuts ShortcutHooks) (*applier, error) {
-	a := &applier{ctx: ctx, tx: tx, table: table, boolText: boolText, shortcuts: shortcuts}
+func newApplier(ctx context.Context, tx *gorm.DB, table *db.SLTable, origin Origin, boolText func(bool) string, shortcuts ShortcutHooks) (*applier, error) {
+	a := &applier{ctx: ctx, tx: tx, table: table, origin: origin, boolText: boolText, shortcuts: shortcuts}
 	if err := a.reloadFields(); err != nil {
 		return nil, err
 	}
@@ -82,6 +86,32 @@ func (a *applier) reloadViews() error {
 		return errors.Wrap(err, "list views")
 	}
 	a.views = views
+	return nil
+}
+
+// members returns the directory of the project members.
+func (a *applier) members() (*routeutil.Directory, error) {
+	if a.directory == nil {
+		directory, err := routeutil.LoadDirectory(a.ctx, a.tx, a.table.ProjectID)
+		if err != nil {
+			return nil, err
+		}
+		a.directory = directory
+	}
+	return a.directory, nil
+}
+
+// checkWrite rejects the values of the system fields and the member values with users out of the project, previous is the stored data of the record.
+func (a *applier) checkWrite(validator *routeutil.RecordValidator, values, data, previous map[string]interface{}) error {
+	if field := validator.ReadOnlyField(values); field != nil {
+		return rejectf("collab::field_read_only", field.Label)
+	}
+	if err := validator.ValidateMembers(a.ctx, a.tx, a.table.ProjectID, data, previous); err != nil {
+		if errors.Is(err, routeutil.ErrInvalidMember) {
+			return rejectf("collab::invalid_member")
+		}
+		return err
+	}
 	return nil
 }
 
@@ -191,6 +221,9 @@ func (a *applier) addRecords(actions []Action) ([]Action, error) {
 		}
 
 		data, dropped := validator.Normalize(action.Values)
+		if err := a.checkWrite(validator, action.Values, data, nil); err != nil {
+			return nil, err
+		}
 		referenceChanged, err := validator.NormalizeReferencedOptions(a.ctx, a.tx, data)
 		if err != nil {
 			return nil, err
@@ -209,6 +242,7 @@ func (a *applier) addRecords(actions []Action) ([]Action, error) {
 			a.dirty.addRecords(action.RecordUID)
 		}
 		a.change.AddRecord(action.RecordUID, lo.Keys(data))
+		a.change.AddWritten(action.RecordUID, true, a.origin.Writer())
 		jsonBytes, err := json.Marshal(data)
 		if err != nil {
 			return nil, errors.Wrap(err, "encode data")
@@ -218,8 +252,9 @@ func (a *applier) addRecords(actions []Action) ([]Action, error) {
 	}
 
 	records, err := db.NewSLRecordsStore(a.tx).Import(a.ctx, a.table.ID, db.ImportSLRecordsOptions{
-		Data: dataList,
-		UIDs: uids,
+		Data:   dataList,
+		UIDs:   uids,
+		Writer: a.origin.Writer(),
 	})
 	if err != nil {
 		if errors.Is(err, db.ErrSLRecordExists) {
@@ -241,16 +276,23 @@ func (a *applier) setRecords(actions []Action) ([]Action, error) {
 	}
 
 	dataSets := make(map[string]map[string]interface{}, len(records))
+	previous := make(map[string]map[string]interface{}, len(records))
 	for _, record := range records {
-		data := map[string]interface{}{}
+		data, before := map[string]interface{}{}, map[string]interface{}{}
 		if err := json.Unmarshal(record.Data, &data); err != nil {
 			return nil, errors.Wrapf(err, "decode record %q", record.UID)
 		}
+		_ = json.Unmarshal(record.Data, &before)
 		dataSets[record.UID] = data
+		previous[record.UID] = before
 	}
 
+	validator := routeutil.NewRecordValidator(a.fields)
 	kept := make([]Action, 0, len(actions))
 	for _, action := range actions {
+		if field := validator.ReadOnlyField(action.Values); field != nil {
+			return nil, rejectf("collab::field_read_only", field.Label)
+		}
 		data, ok := dataSets[action.RecordUID]
 		if !ok {
 			// The record has been deleted concurrently, the deletion wins.
@@ -264,12 +306,16 @@ func (a *applier) setRecords(actions []Action) ([]Action, error) {
 			}
 		}
 		a.change.AddRecord(action.RecordUID, lo.Keys(action.Values))
+		a.change.AddWritten(action.RecordUID, false, a.origin.Writer())
 		kept = append(kept, action)
 	}
 
-	validator := routeutil.NewRecordValidator(a.fields)
+	writer := a.origin.Writer()
 	for _, record := range records {
 		data, dropped := validator.Normalize(dataSets[record.UID])
+		if err := a.checkWrite(validator, nil, data, previous[record.UID]); err != nil {
+			return nil, err
+		}
 		referenceChanged, err := validator.NormalizeReferencedOptions(a.ctx, a.tx, data)
 		if err != nil {
 			return nil, err
@@ -299,11 +345,12 @@ func (a *applier) setRecords(actions []Action) ([]Action, error) {
 		if err != nil {
 			return nil, errors.Wrap(err, "encode data")
 		}
-		if err := recordsStore.Update(a.ctx, record.ID, jsonBytes); err != nil {
+		if err := recordsStore.Update(a.ctx, record.ID, jsonBytes, writer); err != nil {
 			return nil, errors.Wrap(err, "update record")
 		}
 		updated := *record
 		updated.Data, updated.UpdatedAt = datatypes.JSON(jsonBytes), time.Now()
+		updated.SetUpdatedBy(writer)
 		a.events = append(a.events, RecordEvent{Kind: RecordUpdated, Record: &updated, Previous: record.Data, Fields: changedKeys(record.Data, jsonBytes)})
 	}
 	return kept, nil
@@ -417,6 +464,14 @@ func (a *applier) setField(action Action) (*Action, error) {
 		return nil, err
 	}
 
+	// The values of a single member field keep only the first member.
+	if action.Field.Metadata != nil && field.Type == db.MemberFieldType {
+		if err := a.normalizeFieldValues(a.field(field.UID)); err != nil {
+			return nil, err
+		}
+		a.change.Fields = append(a.change.Fields, field.UID)
+	}
+
 	// The values of the removed options are no longer valid.
 	if action.Field.Metadata != nil && (field.Type == db.SingleSelectFieldType || field.Type == db.MultiSelectFieldType) {
 		if err := a.normalizeFieldValues(a.field(field.UID)); err != nil {
@@ -482,6 +537,11 @@ func (a *applier) normalizeFieldValues(field *db.SLField) error {
 		if routeutil.CheckValue(field, value) {
 			return value, false
 		}
+		if values, ok := value.([]interface{}); ok && field.Type == db.MemberFieldType && len(values) > 1 {
+			if first := values[:1]; routeutil.CheckValue(field, first) {
+				return first, true
+			}
+		}
 		if values, ok := value.([]interface{}); ok && field.Type == db.MultiSelectFieldType {
 			options := routeutil.OptionUIDs(field)
 			kept := lo.Filter(values, func(v interface{}, _ int) bool {
@@ -527,7 +587,8 @@ func (a *applier) updateFieldValues(fieldUID string, update func(record *db.SLRe
 		if err != nil {
 			return errors.Wrap(err, "encode data")
 		}
-		if err := recordsStore.Update(a.ctx, record.ID, jsonBytes); err != nil {
+		// The values changed by the server keep the modifiers of the records.
+		if err := recordsStore.Update(a.ctx, record.ID, jsonBytes, db.SLRecordWriter{}); err != nil {
 			return errors.Wrap(err, "update record")
 		}
 		a.dirty.addRecords(record.UID)
@@ -558,7 +619,13 @@ func (a *applier) setFieldType(action Action) (*Action, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "list records")
 	}
-	conversion, err := convertField(field, newType, metadata, records, a.boolText)
+	var directory *routeutil.Directory
+	if field.Type == db.MemberFieldType || field.Type.IsWriter() || newType == db.MemberFieldType {
+		if directory, err = a.members(); err != nil {
+			return nil, err
+		}
+	}
+	conversion, err := convertField(field, newType, metadata, records, a.boolText, directory)
 	if err != nil {
 		return nil, errors.Wrap(err, "convert field")
 	}

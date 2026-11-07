@@ -95,7 +95,7 @@ func PrepareSelectMetadata(ctx context.Context, tx *gorm.DB, tableID int64, uid 
 
 	for _, c := range ref.Conditions {
 		f := byUID[c.FieldUID]
-		if f == nil || f.Type == FormulaFieldType || f.Type == AttachmentFieldType {
+		if f == nil || f.Type == FormulaFieldType || f.Type == AttachmentFieldType || f.Type == MemberFieldType || f.Type.IsSystem() {
 			return ErrOptionReference
 		}
 
@@ -106,7 +106,7 @@ func PrepareSelectMetadata(ctx context.Context, tx *gorm.DB, tableID int64, uid 
 
 		if c.ValueFieldUID != "" {
 			t := targetByUID[c.ValueFieldUID]
-			if t == nil || t.UID == uid || t.Type == FormulaFieldType || t.Type == AttachmentFieldType {
+			if t == nil || t.UID == uid || t.Type == FormulaFieldType || t.Type == AttachmentFieldType || t.Type == MemberFieldType || t.Type.IsSystem() {
 				return ErrOptionReference
 			}
 
@@ -132,7 +132,7 @@ func PrepareSelectMetadata(ctx context.Context, tx *gorm.DB, tableID int64, uid 
 			}
 		}
 
-		if _, _, err := buildSLRecordFilter(f, QuerySLRecordsFilter{FieldUID: f.UID, Operation: c.Operation, Value: value}); err != nil {
+		if _, _, err := buildSLRecordFilter(f, QuerySLRecordsFilter{FieldUID: f.UID, Operation: c.Operation, Value: value}, 0); err != nil {
 			return ErrOptionReference
 		}
 	}
@@ -349,7 +349,7 @@ func FilterReferencedOptions(ctx context.Context, tx *gorm.DB, field *SLField, f
 				valid = ok
 			}
 
-			sql, args, err := buildSLRecordFilter(f, QuerySLRecordsFilter{FieldUID: f.UID, Operation: op, Value: value})
+			sql, args, err := buildSLRecordFilter(f, QuerySLRecordsFilter{FieldUID: f.UID, Operation: op, Value: value}, 0)
 			if err != nil {
 				return nil, ErrOptionReference
 			}

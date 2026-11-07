@@ -1,10 +1,29 @@
 import dayjs from 'dayjs'
 
-import type { CellValue, SelectOption, SLField } from '@/types/bitable'
+import type { CellValue, RecordWriter, SelectOption, SLField, SLRecord } from '@/types/bitable'
 import { t } from '../i18n/translate.ts'
+import { isWriter, memberNames, parseMembers, writerName } from './directory.ts'
 
 export function isEmptyValue(v: unknown): boolean {
   return v === null || v === undefined || v === '' || (Array.isArray(v) && v.length === 0)
+}
+
+const writerValue = (writer?: RecordWriter): CellValue => (isWriter(writer) ? writer : null)
+
+/** Value of the cell: the system fields are read from the record, the others from its data. */
+export function cellValue(record: SLRecord, field: SLField): CellValue {
+  switch (field.type) {
+    case 'created_at':
+      return record.createdAt
+    case 'updated_at':
+      return record.updatedAt
+    case 'created_by':
+      return writerValue(record.createdBy)
+    case 'updated_by':
+      return writerValue(record.updatedBy)
+    default:
+      return record.data[field.uid]
+  }
 }
 
 export function formatNumber(value: number | null | undefined, format: string): string {
@@ -81,12 +100,19 @@ export function valueToText(field: SLField, value: CellValue): string {
         .map((file) => file && typeof file === 'object' ? file.name : '')
         .filter(Boolean)
         .join(', ')
-    case 'datetime': {
+    case 'datetime':
+    case 'created_at':
+    case 'updated_at': {
       const md = field.metadata as { format: string; with_time: boolean }
-      return formatDate(String(value), md.format, md.with_time)
+      return formatDate(String(value), md.format || 'YYYY/MM/DD', !!md.with_time)
     }
     case 'checkbox':
       return value ? t('common.yes') : t('common.no')
+    case 'member':
+      return memberNames(value)
+    case 'created_by':
+    case 'updated_by':
+      return writerName(value)
     default:
       return String(value)
   }
@@ -129,6 +155,10 @@ export function textToValue(field: SLField, text: string): ParsedValue {
         else missing.push(name)
       }
       return { value: uids, newOptions: [...new Set(missing)] }
+    }
+    case 'member': {
+      const ids = parseMembers(t, !!(field.metadata as { multiple?: boolean }).multiple)
+      return { value: ids.length ? ids : null, newOptions: [] }
     }
     default:
       return { value: null, newOptions: [] }

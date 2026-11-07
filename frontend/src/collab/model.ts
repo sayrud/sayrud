@@ -1,5 +1,6 @@
 import type {
   CellValue,
+  RecordWriter,
   FieldMetadata,
   FieldShortcut,
   FieldType,
@@ -35,12 +36,13 @@ function moveTo<T>(list: T[], index: number, item: T): T[] {
 
 /**
  * Applies the operations to the table data in order and returns the new data, the unchanged parts keep their references.
+ * The records written by the operations take actor as the modifier, they keep the modifier if it is absent.
  *
  * All the actions are idempotent: adding an existing object is skipped, and changing or deleting a missing object is ignored.
  * So after receiving remote changes, applying the remote operations and then replaying the unacknowledged local ones converges with the server.
  */
-export function applyOperations(data: TableData, operations: Operation[], tableUID: string): TableData {
-  const draft = new Draft(data, tableUID)
+export function applyOperations(data: TableData, operations: Operation[], tableUID: string, actor?: RecordWriter): TableData {
+  const draft = new Draft(data, tableUID, actor)
   for (const operation of operations) {
     for (const action of operation.actions) draft.apply(action)
   }
@@ -56,6 +58,7 @@ class Draft {
   constructor(
     private readonly base: TableData,
     private readonly tableUID: string,
+    private readonly actor?: RecordWriter,
   ) {}
 
   private get fieldList() {
@@ -157,14 +160,21 @@ class Draft {
   private addRecord(uid: string, values: Record<string, unknown>) {
     const records = this.mutableRecords()
     if (records.has(uid)) return
-    records.set(uid, { uid, tableUID: this.tableUID, data: this.cleanValues(values), createdAt: this.now, updatedAt: this.now })
+    records.set(uid, {
+      uid,
+      tableUID: this.tableUID,
+      data: this.cleanValues(values),
+      createdAt: this.now,
+      updatedAt: this.now,
+      ...(this.actor && { createdBy: this.actor, updatedBy: this.actor }),
+    })
   }
 
   private setRecord(uid: string, values: Record<string, unknown>) {
     const records = this.mutableRecords()
     const record = records.get(uid)
     if (!record) return
-    records.set(uid, { ...record, data: this.cleanValues(values, record.data), updatedAt: this.now })
+    records.set(uid, { ...record, data: this.cleanValues(values, record.data), updatedAt: this.now, ...(this.actor && { updatedBy: this.actor }) })
   }
 
   private addField(a: Action) {

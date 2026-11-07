@@ -25,7 +25,7 @@ type ResolveFieldOptions struct {
 
 type CreateField struct {
 	Label string `json:"label" valid:"required"`
-	Type  string `json:"type" valid:"required" enums:"text,single_select,multi_select,datetime,number,checkbox,attachment,formula"`
+	Type  string `json:"type" valid:"required" enums:"text,single_select,multi_select,datetime,number,checkbox,member,attachment,formula,created_by,created_at,updated_by,updated_at"`
 	// Metadata is the type-specific configuration, e.g. select options or the formula expression.
 	Metadata map[string]interface{} `json:"metadata,omitempty"`
 } // @name CreateField
@@ -33,7 +33,7 @@ type CreateField struct {
 // UpdateField only updates the non-null properties.
 type UpdateField struct {
 	Label *string `json:"label,omitempty"`
-	Type  *string `json:"type,omitempty" enums:"text,single_select,multi_select,datetime,number,checkbox,attachment,formula"`
+	Type  *string `json:"type,omitempty" enums:"text,single_select,multi_select,datetime,number,checkbox,member,attachment,formula,created_by,created_at,updated_by,updated_at"`
 	// Metadata replaces the whole field configuration, it is required when the type changes.
 	Metadata map[string]interface{} `json:"metadata,omitempty"`
 } // @name UpdateField
@@ -77,6 +77,7 @@ type QueryRecordsFilter struct {
 	FieldUID  string `json:"fieldUID"`
 	Operation string `json:"operation" enums:"eq,neq,gt,lt,gte,lte,in,nin,like"`
 	// Value is a JSON array (e.g. `["a","b"]`) for in / nin, and a single value for other operations.
+	// The member, created_by and updated_by fields take user IDs, and `@me` stands for the requester.
 	Value string `json:"value"`
 } // @name QueryRecordsFilter
 

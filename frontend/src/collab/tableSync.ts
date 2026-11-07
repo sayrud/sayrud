@@ -2,7 +2,7 @@ import { ref, shallowRef } from 'vue'
 
 import { syncApi, type SyncReadApi } from '@/api/bitable'
 import { t } from '@/i18n'
-import type { SLField, SLRecord, SLView } from '@/types/bitable'
+import type { RecordWriter, SLField, SLRecord, SLView } from '@/types/bitable'
 import { applyOperations, type TableData } from './model'
 import type { ProjectSocket } from './socket'
 import type { Changeset, DirtyScope, Operation, SocketMessage } from './types'
@@ -12,8 +12,8 @@ interface Inflight {
   operations: Operation[]
 }
 
-/** Entry of the buffer: a remote changeset, or the revision taken by an accepted local changeset. */
-type BufferEntry = { kind: 'remote'; changeset: Changeset } | { kind: 'own'; signature: string }
+/** Entry of the buffer: a remote changeset, fetched over HTTP if history is set, or the revision taken by an accepted local changeset. */
+type BufferEntry = { kind: 'remote'; changeset: Changeset; history?: boolean } | { kind: 'own'; signature: string }
 
 const GAP_WAIT = 800
 
@@ -40,6 +40,8 @@ export interface TableSyncHooks {
   onRemoteChange?: () => void
   /** Prevents public viewers from submitting optimistic changes. */
   readOnly?: boolean
+  /** Modifier of the records changed by the local operations, i.e. the signed-in user. */
+  actor?: RecordWriter
   onReadError?: (error: unknown) => void
 }
 
@@ -141,7 +143,7 @@ export class TableSync {
     if (this.hooks.readOnly || this.disposed) return
     const ops = operations.filter((op) => op.actions.length)
     if (!ops.length) return
-    this.setData(applyOperations(this.data, ops, this.tableUID))
+    this.setData(applyOperations(this.data, ops, this.tableUID, this.hooks.actor))
     for (const op of ops) {
       // Only keep the last unsent config change of the same view, e.g. dragging a column width.
       const key = configKey(op)
@@ -176,7 +178,7 @@ export class TableSync {
       if (this.disposed) return
       this.rev = s.rev
       for (const rev of this.buffer.keys()) if (rev <= s.rev) this.buffer.delete(rev)
-      this.setData(applyOperations({ fields: s.fields, records: s.records, views: s.views }, this.pendingOperations(), this.tableUID))
+      this.setData(applyOperations({ fields: s.fields, records: s.records, views: s.views }, this.pendingOperations(), this.tableUID, this.hooks.actor))
       this.loaded = true
     } finally {
       this.blocked--
@@ -238,7 +240,8 @@ export class TableSync {
         if (this.inflight && (entry.kind === 'remote' || entry.signature === this.inflight.signature)) this.inflight = null
         continue
       }
-      this.applyRemote((entry as { changeset: Changeset }).changeset)
+      const remote = entry as { changeset: Changeset; history?: boolean }
+      this.applyRemote(remote.changeset, remote.history)
     }
 
     clearTimeout(this.gapTimer)
@@ -247,9 +250,15 @@ export class TableSync {
     this.flush()
   }
 
-  private applyRemote(changeset: Changeset) {
+  private applyRemote(changeset: Changeset, history = false) {
     const dirty = changeset.operations.flatMap((op) => op.actions.filter((a) => a.action === 'table.dirty' && a.dirty).map((a) => a.dirty!))
-    this.setData(applyOperations(applyOperations(this.data, changeset.operations, this.tableUID), this.pendingOperations(), this.tableUID))
+    // The changesets fetched over HTTP have no actor, the written records are reloaded for their writers.
+    if (history && !changeset.actor) {
+      const records = [...new Set(changeset.operations.flatMap((op) => op.actions.filter((a) => (a.action === 'record.add' || a.action === 'record.set') && a.recordUID).map((a) => a.recordUID!)))]
+      if (records.length) dirty.push({ records })
+    }
+    const remote = applyOperations(this.data, changeset.operations, this.tableUID, changeset.actor)
+    this.setData(applyOperations(remote, this.pendingOperations(), this.tableUID, this.hooks.actor))
     this.hooks.onRemoteChange?.()
     for (const scope of dirty) void this.reload(scope)
   }
@@ -261,7 +270,7 @@ export class TableSync {
       const changesets = await this.api.changesets(this.projectUID, this.tableUID, this.rev)
       if (this.disposed) return
       for (const cs of changesets) {
-        if (cs.rev > this.rev && !this.buffer.has(cs.rev)) this.buffer.set(cs.rev, { kind: 'remote', changeset: cs })
+        if (cs.rev > this.rev && !this.buffer.has(cs.rev)) this.buffer.set(cs.rev, { kind: 'remote', changeset: cs, history: true })
       }
     } catch (error) {
       if (!this.disposed) this.hooks.onReadError?.(error)
@@ -317,6 +326,6 @@ export class TableSync {
       nextRecords.push(...records.filter((r) => !known.has(r.uid)))
     }
     const base: TableData = { fields: fields ?? this.fields.value, views: views ?? this.views.value, records: nextRecords }
-    this.setData(applyOperations(base, this.pendingOperations(), this.tableUID))
+    this.setData(applyOperations(base, this.pendingOperations(), this.tableUID, this.hooks.actor))
   }
 }

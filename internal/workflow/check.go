@@ -73,6 +73,11 @@ var filterOps = map[db.SLFieldType][]string{
 	db.DateTimeFieldType:     {"eq", "neq", "gt", "gte", "lt", "lte", "empty", "not_empty"},
 	db.CheckboxFieldType:     {"eq", "neq"},
 	db.AttachmentFieldType:   {"empty", "not_empty"},
+	db.MemberFieldType:       {"eq", "neq", "in", "nin", "empty", "not_empty"},
+	db.CreatedByFieldType:    {"eq", "neq", "in", "nin", "empty", "not_empty"},
+	db.UpdatedByFieldType:    {"eq", "neq", "in", "nin", "empty", "not_empty"},
+	db.CreatedAtFieldType:    {"eq", "neq", "gt", "gte", "lt", "lte", "empty", "not_empty"},
+	db.UpdatedAtFieldType:    {"eq", "neq", "gt", "gte", "lt", "lte", "empty", "not_empty"},
 }
 
 var conditionOps = []string{"eq", "neq", "gt", "gte", "lt", "lte", "contains", "not_contains", "empty", "not_empty"}
@@ -157,6 +162,9 @@ func (c *checker) table(uid string) (*tableInfo, error) {
 		return nil, err
 	}
 	info := newTableInfo(table, fields)
+	if err := info.loadDirectory(c.ctx, c.db); err != nil {
+		return nil, err
+	}
 	c.tables[uid] = info
 	return info, nil
 }
@@ -276,7 +284,7 @@ func (c *checker) checkRecordTrigger() error {
 	}
 	if t.Type == TriggerRecordUpdated {
 		for _, uid := range r.Fields {
-			if _, ok := info.byUID[uid]; !ok {
+			if field, ok := info.byUID[uid]; !ok || field.Type.IsSystem() {
 				c.add("trigger.field_missing", "trigger")
 			}
 		}
@@ -306,7 +314,8 @@ func (c *checker) checkRecordTrigger() error {
 			c.add("trigger.field_missing", "trigger")
 			continue
 		}
-		if !contains(filterOps[field.Type], f.Op) {
+		// The trigger conditions match the record data, which has no system values.
+		if !contains(filterOps[field.Type], f.Op) || field.Type.IsSystem() {
 			c.add("step.invalid_operator", "trigger", "field", field.Label)
 			continue
 		}

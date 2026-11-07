@@ -22,6 +22,8 @@ type Batch struct {
 	ctx    context.Context
 	tx     *gorm.DB
 	tables map[int64]*batchTable
+	// writer is the writer of the records, from BatchOptions.Origin.
+	writer db.SLRecordWriter
 }
 
 type batchTable struct {
@@ -52,7 +54,7 @@ func (h *Hub) Batch(ctx context.Context, project *db.Project, tables []*db.SLTab
 	var touched []*batchTable
 	queued := false
 	err := h.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		b := &Batch{ctx: ctx, tx: tx, tables: make(map[int64]*batchTable, len(tables))}
+		b := &Batch{ctx: ctx, tx: tx, tables: make(map[int64]*batchTable, len(tables)), writer: opts.Origin.Writer()}
 		for _, table := range tables {
 			if err := dbutil.LockTable(ctx, tx, table.ID); err != nil {
 				return errors.Wrapf(err, "lock table %d", table.ID)
@@ -143,17 +145,18 @@ func (b *Batch) CreateRecord(table *db.SLTable, data map[string]interface{}) (*d
 	if err != nil {
 		return nil, err
 	}
-	raw, err := routeutil.Validate(b.ctx, b.tx, table.ID, data)
+	raw, err := routeutil.Validate(b.ctx, b.tx, table.ID, data, nil)
 	if err != nil {
 		return nil, err
 	}
-	record, err := db.NewSLRecordsStore(b.tx).Create(b.ctx, table.ID, raw)
+	record, err := db.NewSLRecordsStore(b.tx).Create(b.ctx, table.ID, raw, b.writer)
 	if err != nil {
 		return nil, errors.Wrap(err, "create record")
 	}
 
 	bt.dirty.addRecords(record.UID)
 	bt.change.AddRecord(record.UID, keysOf(raw))
+	bt.change.AddWritten(record.UID, true, b.writer)
 	bt.events = append(bt.events, RecordEvent{Kind: RecordCreated, Record: record})
 	return record, nil
 }
@@ -175,19 +178,21 @@ func (b *Batch) UpdateRecord(table *db.SLTable, recordUID string, update func(cu
 
 	current := map[string]interface{}{}
 	_ = json.Unmarshal(record.Data, &current)
-	raw, err := routeutil.Validate(b.ctx, b.tx, table.ID, update(current))
+	raw, err := routeutil.Validate(b.ctx, b.tx, table.ID, update(current), json.RawMessage(record.Data))
 	if err != nil {
 		return nil, err
 	}
 	changed := changedKeys(record.Data, raw)
-	if err := store.Update(b.ctx, record.ID, raw); err != nil {
+	if err := store.Update(b.ctx, record.ID, raw, b.writer); err != nil {
 		return nil, errors.Wrap(err, "update record")
 	}
 	previous := record.Data
 	record.Data, record.UpdatedAt = datatypes.JSON(raw), time.Now()
+	record.SetUpdatedBy(b.writer)
 
 	bt.dirty.addRecords(record.UID)
 	bt.change.AddRecord(record.UID, changed)
+	bt.change.AddWritten(record.UID, false, b.writer)
 	bt.events = append(bt.events, RecordEvent{Kind: RecordUpdated, Record: record, Previous: previous, Fields: changed})
 	return record, nil
 }

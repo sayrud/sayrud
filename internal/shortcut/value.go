@@ -1,6 +1,7 @@
 package shortcut
 
 import (
+	"context"
 	"encoding/json"
 	"math"
 	"regexp"
@@ -8,7 +9,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cockroachdb/errors"
+	"github.com/samber/lo"
+	"gorm.io/gorm"
+
 	"github.com/wuhan005/sayrud/internal/db"
+	"github.com/wuhan005/sayrud/internal/routeutil"
 )
 
 // selectOption is an option of a select field, stored in metadata as `{"options": [{"uid": "...", "name": "..."}]}`.
@@ -44,10 +50,11 @@ func optionNames(field *db.SLField) []string {
 }
 
 // InputValue converts the cell value to the shortcut input: strings for text and dates, numbers, booleans,
-// the option name for single select and the option names for multiple select. It returns nil for empty cells.
+// the option name for single select and the option names for multiple select. The member and system values are the names and texts of inputData.
+// It returns nil for empty cells.
 func InputValue(field *db.SLField, value interface{}) interface{} {
 	switch field.Type {
-	case db.TextFieldType, db.DateTimeFieldType:
+	case db.TextFieldType, db.DateTimeFieldType, db.CreatedAtFieldType, db.UpdatedAtFieldType, db.CreatedByFieldType, db.UpdatedByFieldType:
 		if s, ok := value.(string); ok && s != "" {
 			return s
 		}
@@ -79,8 +86,60 @@ func InputValue(field *db.SLField, value interface{}) interface{} {
 		if len(names) > 0 {
 			return names
 		}
+	case db.MemberFieldType:
+		items, _ := value.([]interface{})
+		names := make([]string, 0, len(items))
+		for _, item := range items {
+			if name, ok := item.(string); ok && name != "" {
+				names = append(names, name)
+			}
+		}
+		if len(names) > 0 {
+			return names
+		}
 	}
 	return nil
+}
+
+// inputData returns the record data read by the shortcuts: the member values become the names of the users,
+// and the system fields are added as the times in RFC 3339 and the names of the writers.
+func inputData(ctx context.Context, tx *gorm.DB, projectID int64, fields []*db.SLField, record *db.SLRecord) (map[string]interface{}, error) {
+	data := map[string]interface{}{}
+	if err := json.Unmarshal(record.Data, &data); err != nil {
+		return nil, errors.Wrap(err, "decode record")
+	}
+	var directory *routeutil.Directory
+	if lo.ContainsBy(fields, func(f *db.SLField) bool { return f.Type == db.MemberFieldType || f.Type.IsWriter() }) {
+		var err error
+		directory, err = routeutil.LoadDirectory(ctx, tx, projectID)
+		if err != nil {
+			return nil, err
+		}
+	}
+	for _, field := range fields {
+		switch field.Type {
+		case db.MemberFieldType:
+			if v, ok := data[field.UID]; ok {
+				ids := routeutil.MemberIDs(v)
+				names := make([]interface{}, 0, len(ids))
+				for _, id := range ids {
+					if name := directory.UserName(id); name != "" {
+						names = append(names, name)
+					}
+				}
+				data[field.UID] = names
+			}
+		case db.CreatedAtFieldType:
+			data[field.UID] = record.CreatedAt.UTC().Format(time.RFC3339)
+		case db.UpdatedAtFieldType:
+			data[field.UID] = record.UpdatedAt.UTC().Format(time.RFC3339)
+		case db.CreatedByFieldType:
+			data[field.UID] = directory.WriterName(record.CreatedBy())
+		case db.UpdatedByFieldType:
+			data[field.UID] = directory.WriterName(record.UpdatedBy())
+		}
+	}
+	return data, nil
 }
 
 // isEmptyInput reports whether the input has no content, an unchecked checkbox is empty.

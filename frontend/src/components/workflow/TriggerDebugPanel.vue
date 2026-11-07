@@ -11,6 +11,7 @@ import { useDebugSplit } from '@/composables/useDebugSplit'
 import { useWorkflowEditorStore } from '@/stores/workflowEditor'
 import type { SelectOption, SLRecord } from '@/types/bitable'
 import type { DebugResult, RunStatus, WorkflowSpec, WorkflowTraceStep } from '@/types/workflow'
+import { memberNames } from '@/utils/directory'
 import { needsTable, triggerMetaOf } from '@/utils/workflow'
 
 const emit = defineEmits<{ close: []; openRuns: [] }>()
@@ -54,6 +55,7 @@ watch(tableUID, () => void loadRecords(), { immediate: true })
 function recordLabel(r: SLRecord) {
   const field = table.value?.fields[0]
   const v = field ? r.data[field.uid] : undefined
+  if (field && field.type === 'member') return memberNames(v) || r.uid
   if (field && (field.type === 'single_select' || field.type === 'multi_select')) {
     const options = (field.metadata as { options?: SelectOption[] }).options ?? []
     const names = (Array.isArray(v) ? v : [v]).map((uid) => options.find((o) => o.uid === uid)?.name).filter(Boolean)

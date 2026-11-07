@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"testing"
+	"time"
 
 	"github.com/cockroachdb/errors"
 	"github.com/stretchr/testify/require"
@@ -14,8 +15,27 @@ import (
 
 	"github.com/wuhan005/sayrud/internal/conf"
 	"github.com/wuhan005/sayrud/internal/db"
+	"github.com/wuhan005/sayrud/internal/dbutil"
 	"github.com/wuhan005/sayrud/internal/i18n"
 )
+
+func TestInputDataWithoutDirectory(t *testing.T) {
+	created := time.Date(2026, 11, 7, 8, 30, 0, 0, time.FixedZone("UTC+8", 8*60*60))
+	record := &db.SLRecord{Model: dbutil.Model{CreatedAt: created, UpdatedAt: created.Add(time.Hour)}, Data: datatypes.JSON(`{"text":"hello"}`)}
+	for _, fields := range [][]*db.SLField{
+		{field("text", db.TextFieldType, nil)},
+		{field("text", db.TextFieldType, nil), field("created", db.CreatedAtFieldType, nil), field("updated", db.UpdatedAtFieldType, nil)},
+	} {
+		// A nil connection fails if timestamp inputs try to query the directory.
+		data, err := inputData(context.Background(), nil, 1, fields, record)
+		require.NoError(t, err)
+		require.Equal(t, "hello", data["text"])
+		if len(fields) > 1 {
+			require.Equal(t, "2026-11-07T00:30:00Z", data["created"])
+			require.Equal(t, "2026-11-07T01:30:00Z", data["updated"])
+		}
+	}
+}
 
 type testNetworkSettingsStore struct {
 	db.SettingsStore

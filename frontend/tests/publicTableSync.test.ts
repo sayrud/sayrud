@@ -30,7 +30,7 @@ function snapshot(rev = 1): TableSnapshot {
     rev,
     fields: [{ uid: 'field', tableUID: 'table', label: 'Title', type: 'text', metadata: {}, position: 0 }],
     views: [{ uid: 'view', tableUID: 'table', name: 'Grid', type: 'grid', config: {}, position: 0 }],
-    records: [{ uid: 'record', tableUID: 'table', data: { field: rev } }],
+    records: [{ uid: 'record', tableUID: 'table', data: { field: rev }, updatedBy: { userId: rev } }],
   } as TableSnapshot
 }
 function changeset(rev: number, ...actions: Action[]): Changeset {
@@ -66,14 +66,23 @@ function socketFixture() {
 function sourceFixture() {
   const calls: string[] = []
   let missing: Changeset[] = []
+  // The records read back reflect the latest missing change, as the server does.
+  let served = 9
   const api: SyncReadApi = {
     snapshot: async () => { calls.push('snapshot'); return snapshot() },
     changesets: async (_project, _table, since) => { calls.push(`changesets:${since}`); return missing },
     fields: async () => { calls.push('fields'); return snapshot().fields },
     views: async () => { calls.push('views'); return snapshot().views },
-    fetchRecords: async (_project, _table, uids) => { calls.push(`records:${uids.join(',')}`); return snapshot(9).records },
+    fetchRecords: async (_project, _table, uids) => { calls.push(`records:${uids.join(',')}`); return snapshot(served).records },
   }
-  return { api, calls, missing: (value: Changeset[]) => { missing = value } }
+  return {
+    api,
+    calls,
+    missing: (value: Changeset[]) => {
+      missing = value
+      served = [...value].reverse().find((cs) => cs.operations.length)?.rev ?? served
+    },
+  }
 }
 const settle = () => new Promise((resolve) => setImmediate(resolve))
 
@@ -109,7 +118,7 @@ test('reconnection catches up through changesets including filtered empty revisi
   await settle()
   socket.emit('NEW_CHANGES', setValue(4))
   assert.equal(sync.records.value[0]!.data.field, 4)
-  assert.deepEqual(source.calls, ['snapshot', 'changesets:1'])
+  assert.deepEqual(source.calls, ['snapshot', 'changesets:1', 'records:record'], 'the records written by the missed changesets are reloaded for their writers')
   sync.dispose()
 })
 
@@ -178,8 +187,9 @@ test('a change between the initial read and subscription is caught up incrementa
   source.missing([setValue(2)])
   const sync = new Sync(socket.socket, 'project', 'table', { readOnly: true }, source.api)
   await sync.start()
+  await settle()
   assert.equal(sync.records.value[0]!.data.field, 2)
-  assert.deepEqual(source.calls, ['snapshot', 'changesets:1'])
+  assert.deepEqual(source.calls, ['snapshot', 'changesets:1', 'records:record'])
   sync.dispose()
 })
 
@@ -276,9 +286,28 @@ test('heartbeat detects a missing final notification without a later change or r
   socket.emit('PONG', { revisions: { table: 2 } })
   await settle()
   assert.equal(sync.records.value[0]!.data.field, 2)
-  assert.deepEqual(source.calls, ['snapshot', 'changesets:1'])
+  assert.deepEqual(source.calls, ['snapshot', 'changesets:1', 'records:record'])
   socket.emit('PONG', { revisions: { table: 2 } })
   await settle()
-  assert.deepEqual(source.calls, ['snapshot', 'changesets:1'])
+  assert.deepEqual(source.calls, ['snapshot', 'changesets:1', 'records:record'])
+  sync.dispose()
+})
+
+test('live changesets carry the writer, and the missed ones restore it from the server', async () => {
+  const socket = socketFixture()
+  const source = sourceFixture()
+  const sync = new Sync(socket.socket, 'project', 'table', { readOnly: true }, source.api)
+  await sync.start()
+  socket.emit('NEW_CHANGES', { ...setValue(2), actor: { userId: 42 } })
+  assert.deepEqual(sync.records.value[0]!.updatedBy, { userId: 42 })
+  assert.deepEqual(source.calls, ['snapshot'], 'the live writer needs no reload')
+
+  socket.emit('close')
+  source.missing([setValue(3)])
+  socket.revision(3)
+  socket.emit('open')
+  await settle()
+  await settle()
+  assert.deepEqual(sync.records.value[0]!.updatedBy, { userId: 3 }, 'the writer of the missed change comes from the reloaded record')
   sync.dispose()
 })

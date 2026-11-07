@@ -3,6 +3,7 @@ import dayjs from 'dayjs'
 import { computed, nextTick, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 
+import MemberPanel from '@/components/cell/MemberPanel.vue'
 import SelectPanel from '@/components/cell/SelectPanel.vue'
 import AttachmentPanel from '@/components/cell/AttachmentPanel.vue'
 import FloatingPanel, { type Anchor } from '@/components/common/FloatingPanel.vue'
@@ -167,6 +168,16 @@ function onDate(_v: unknown, date?: Date) {
       @change="(v) => emit('change', v)"
       @close="emit('cancel')"
     />
+  </FloatingPanel>
+
+  <FloatingPanel
+    v-else-if="field.type === 'member'"
+    :anchor="anchor"
+    placement="point"
+    :width="Math.max(anchor.width ?? 0, 280)"
+    @close="emit('cancel')"
+  >
+    <MemberPanel :field="field" :value="value" :initial-query="initial" @change="(v) => emit('change', v)" @close="emit('cancel')" />
   </FloatingPanel>
 
   <FloatingPanel v-else-if="field.type === 'datetime'" :anchor="anchor" placement="bottom" @close="emit('cancel')">

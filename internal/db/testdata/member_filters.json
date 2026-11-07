@@ -1,0 +1,36 @@
+{
+  "currentUserId": 2,
+  "fields": [
+    { "uid": "fldOwner001", "type": "member", "metadata": { "multiple": false } },
+    { "uid": "fldTeam0001", "type": "member", "metadata": { "multiple": true } },
+    { "uid": "fldCreator1", "type": "created_by", "metadata": {} },
+    { "uid": "fldEditor01", "type": "updated_by", "metadata": {} }
+  ],
+  "records": [
+    { "uid": "recAAAAAAAAAAA", "data": { "fldOwner001": [1], "fldTeam0001": [1, 2] }, "createdBy": { "userId": 1 }, "updatedBy": { "userId": 2 } },
+    { "uid": "recBBBBBBBBBBB", "data": { "fldOwner001": [2], "fldTeam0001": [3] }, "createdBy": { "userId": 2 }, "updatedBy": { "workflowId": 7 } },
+    { "uid": "recCCCCCCCCCCC", "data": {} },
+    { "uid": "recDDDDDDDDDDD", "data": { "fldTeam0001": [2, 3] }, "createdBy": { "workflowId": 7 }, "updatedBy": { "userId": 3 } }
+  ],
+  "cases": [
+    { "name": "single member is the current user", "filter": [{ "fieldUID": "fldOwner001", "operation": "in", "value": "[\"@me\"]" }], "expect": ["recBBBBBBBBBBB"] },
+    { "name": "single member is not the current user", "filter": [{ "fieldUID": "fldOwner001", "operation": "nin", "value": "[\"@me\"]" }], "expect": ["recAAAAAAAAAAA", "recCCCCCCCCCCC", "recDDDDDDDDDDD"] },
+    { "name": "the current user matches nobody without a requester", "currentUserId": 0, "filter": [{ "fieldUID": "fldOwner001", "operation": "in", "value": "[\"@me\"]" }], "expect": [] },
+    { "name": "members contain any of the users", "filter": [{ "fieldUID": "fldTeam0001", "operation": "in", "value": "[\"1\",\"3\"]" }], "expect": ["recAAAAAAAAAAA", "recBBBBBBBBBBB", "recDDDDDDDDDDD"] },
+    { "name": "members contain none of the users", "filter": [{ "fieldUID": "fldTeam0001", "operation": "nin", "value": "[\"3\"]" }], "expect": ["recAAAAAAAAAAA", "recCCCCCCCCCCC"] },
+    { "name": "members contain the user", "filter": [{ "fieldUID": "fldTeam0001", "operation": "eq", "value": "2" }], "expect": ["recAAAAAAAAAAA", "recDDDDDDDDDDD"] },
+    { "name": "members do not contain the user", "filter": [{ "fieldUID": "fldTeam0001", "operation": "neq", "value": "2" }], "expect": ["recBBBBBBBBBBB", "recCCCCCCCCCCC"] },
+    { "name": "members are empty", "filter": [{ "fieldUID": "fldTeam0001", "operation": "empty", "value": "" }], "expect": ["recCCCCCCCCCCC"] },
+    { "name": "members are not empty", "filter": [{ "fieldUID": "fldTeam0001", "operation": "not_empty", "value": "" }], "expect": ["recAAAAAAAAAAA", "recBBBBBBBBBBB", "recDDDDDDDDDDD"] },
+    { "name": "created by the current user", "filter": [{ "fieldUID": "fldCreator1", "operation": "in", "value": "[\"@me\"]" }], "expect": ["recBBBBBBBBBBB"] },
+    { "name": "creator is unknown", "filter": [{ "fieldUID": "fldCreator1", "operation": "empty", "value": "" }], "expect": ["recCCCCCCCCCCC"] },
+    { "name": "creator is known, including workflows", "filter": [{ "fieldUID": "fldCreator1", "operation": "not_empty", "value": "" }], "expect": ["recAAAAAAAAAAA", "recBBBBBBBBBBB", "recDDDDDDDDDDD"] },
+    { "name": "workflow IDs are not user IDs", "filter": [{ "fieldUID": "fldCreator1", "operation": "in", "value": "[\"7\"]" }], "expect": [] },
+    { "name": "modified by none of the users", "filter": [{ "fieldUID": "fldEditor01", "operation": "nin", "value": "[\"2\"]" }], "expect": ["recBBBBBBBBBBB", "recCCCCCCCCCCC", "recDDDDDDDDDDD"] },
+    { "name": "modified by any of the users", "filter": [{ "fieldUID": "fldEditor01", "operation": "in", "value": "[\"2\",\"3\"]" }], "expect": ["recAAAAAAAAAAA", "recDDDDDDDDDDD"] },
+    { "name": "any condition matches", "matchAny": true, "filter": [{ "fieldUID": "fldOwner001", "operation": "eq", "value": "@me" }, { "fieldUID": "fldEditor01", "operation": "eq", "value": "3" }], "expect": ["recBBBBBBBBBBB", "recDDDDDDDDDDD"] },
+    { "name": "members sort by the first user", "sort": [{ "fieldUID": "fldTeam0001", "order": "asc" }], "expect": ["recAAAAAAAAAAA", "recDDDDDDDDDDD", "recBBBBBBBBBBB", "recCCCCCCCCCCC"] },
+    { "name": "empty members come last in descending order", "sort": [{ "fieldUID": "fldTeam0001", "order": "desc" }], "expect": ["recBBBBBBBBBBB", "recDDDDDDDDDDD", "recAAAAAAAAAAA", "recCCCCCCCCCCC"] },
+    { "name": "creators sort by the user", "filter": [{ "fieldUID": "fldCreator1", "operation": "not_empty", "value": "" }], "sort": [{ "fieldUID": "fldCreator1", "order": "desc" }], "expect": ["recBBBBBBBBBBB", "recAAAAAAAAAAA", "recDDDDDDDDDDD"] }
+  ]
+}

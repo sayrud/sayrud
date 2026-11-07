@@ -27,10 +27,20 @@ type RecordEvent struct {
 	Fields []string
 }
 
-// Origin is the source of a write: it is the zero value for user writes, and workflow writes carry the workflow ID and execution depth to avoid cyclic triggers.
+// Origin is the source of a write: user writes carry the user ID, workflow writes carry the workflow ID and execution depth to avoid cyclic triggers,
+// and it is the zero value for the writes of the server itself.
 type Origin struct {
+	UserID     int64
 	WorkflowID int64
 	Depth      int
+}
+
+// Writer returns the writer recorded on the records, the writes of a workflow are attributed to the workflow only.
+func (o Origin) Writer() db.SLRecordWriter {
+	if o.WorkflowID != 0 {
+		return db.SLRecordWriter{WorkflowID: o.WorkflowID}
+	}
+	return db.SLRecordWriter{UserID: o.UserID}
 }
 
 // WorkflowHooks lets workflows enqueue the runs triggered by record changes within the transaction that writes the records.
@@ -72,14 +82,15 @@ func (h *Hub) runsQueued(queued bool) {
 }
 
 // MutateRecords is the same as Mutate, and the record changes returned by mutate are handed to the workflows to enqueue triggers in the same transaction.
-func (h *Hub) MutateRecords(ctx context.Context, project *db.Project, table *db.SLTable, mutate func(tx *gorm.DB) ([]RecordEvent, error), scope func() DirtyScope) error {
+// mutate writes the records with origin.Writer().
+func (h *Hub) MutateRecords(ctx context.Context, project *db.Project, table *db.SLTable, origin Origin, mutate func(tx *gorm.DB) ([]RecordEvent, error), scope func() DirtyScope) error {
 	queued := false
 	err := h.Mutate(ctx, project, table, func(tx *gorm.DB) error {
 		events, err := mutate(tx)
 		if err != nil {
 			return err
 		}
-		queued, err = h.recordsChanged(ctx, tx, project, table, Origin{}, events)
+		queued, err = h.recordsChanged(ctx, tx, project, table, origin, events)
 		return err
 	}, scope)
 	if err != nil {

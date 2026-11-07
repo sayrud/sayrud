@@ -347,7 +347,7 @@ func TestRESTMutationRollsBackDataAndRevisionTogether(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		if err := db.NewSLRecordsStore(tx).Update(ctx, record.ID, []byte("{\"fldAAAAAAA\":\"discarded\"}")); err != nil {
+		if err := db.NewSLRecordsStore(tx).Update(ctx, record.ID, []byte("{\"fldAAAAAAA\":\"discarded\"}"), db.SLRecordWriter{}); err != nil {
 			return err
 		}
 		return rejected

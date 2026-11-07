@@ -114,6 +114,12 @@ func paramForField(field *db.SLField, key, source string) (Param, bool) {
 		for _, o := range fieldOptions(field) {
 			p.Options = append(p.Options, o.Name)
 		}
+	case db.MemberFieldType:
+		// The members are written by their emails or IDs.
+		p.Type = TypeString
+		if db.MemberMultiple(field) {
+			p.Type, p.ItemType = TypeArray, TypeString
+		}
 	default:
 		return Param{}, false
 	}

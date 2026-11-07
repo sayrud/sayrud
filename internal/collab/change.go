@@ -18,6 +18,9 @@ type Change struct {
 	Shortcuts []string
 	// RemovedShortcuts are the fields whose shortcut is removed, including the deleted fields.
 	RemovedShortcuts []string
+	// Written are the records written by users or workflows keyed by record UID, true for the created ones, so their system fields changed as well.
+	// The writes of the server are excluded, otherwise a shortcut reading the update time would regenerate itself endlessly.
+	Written map[string]bool
 }
 
 // IsEmpty reports whether nothing is changed.
@@ -38,6 +41,17 @@ func (c *Change) AddRecord(recordUID string, fieldUIDs []string) {
 	default:
 		c.Records[recordUID] = lo.Uniq(append(existing, fieldUIDs...))
 	}
+}
+
+// AddWritten records the record written by the writer, the writes of the server are ignored.
+func (c *Change) AddWritten(recordUID string, created bool, writer db.SLRecordWriter) {
+	if writer.IsZero() {
+		return
+	}
+	if c.Written == nil {
+		c.Written = map[string]bool{}
+	}
+	c.Written[recordUID] = c.Written[recordUID] || created
 }
 
 // ShortcutHooks connects the field shortcuts to the collaboration.

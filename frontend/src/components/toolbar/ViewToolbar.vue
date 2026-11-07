@@ -21,6 +21,7 @@ import { useI18n } from 'vue-i18n'
 import { useBaseStore } from '@/stores/base'
 import type { RowHeight, SLView } from '@/types/bitable'
 import { isFilterComplete } from '@/utils/engine'
+import { isKanbanGroupField } from '@/utils/fieldTypes'
 import { defaultFilterFor } from '@/utils/filters'
 import { ROW_HEIGHTS } from '@/utils/view'
 import FieldsPanel from './FieldsPanel.vue'
@@ -62,7 +63,7 @@ watch(
   },
 )
 
-const singleSelectFields = computed(() => store.fields.filter((f) => f.type === 'single_select'))
+const singleSelectFields = computed(() => store.fields.filter(isKanbanGroupField))
 const kanbanField = computed(() => store.fields.find((f) => f.uid === cfg.value.kanbanFieldUID))
 
 // ---- Search ----
