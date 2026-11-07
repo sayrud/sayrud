@@ -16,6 +16,7 @@ const type = computed(() => store.spec!.trigger.type)
 const record = computed(() => store.spec!.trigger.record as RecordTrigger)
 const table = computed(() => (record.value.tableUID ? store.fields.get(record.value.tableUID) : undefined))
 const fields = computed(() => table.value?.fields ?? [])
+const watchable = computed(() => fields.value.filter((f) => !TRIGGER_EXCLUDED_TYPES.includes(f.type)))
 const filterable = computed(() => fields.value.filter((f) => f.type !== 'formula' && !TRIGGER_EXCLUDED_TYPES.includes(f.type) && FILTER_OPS[f.type]))
 const dateFields = computed(() => fields.value.filter((f) => f.type === 'datetime'))
 
@@ -105,7 +106,7 @@ const conditionHelp = computed(() => (type.value === 'record_matched' ? t('workf
         <a-radio value="some">{{ t('workflow.record.watchSome') }}</a-radio>
       </a-radio-group>
       <div v-if="watchMode === 'some'" class="panel-body"><a-select v-model="record.fields" multiple :placeholder="t('workflow.record.selectFields')" allow-search class="watch-fields">
-        <a-option v-for="field in fields" :key="field.uid" :value="field.uid">
+        <a-option v-for="field in watchable" :key="field.uid" :value="field.uid">
           <span class="field-option"><FieldTypeIcon :type="field.type" />{{ field.label }}</span>
         </a-option>
       </a-select></div>

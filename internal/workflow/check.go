@@ -284,7 +284,7 @@ func (c *checker) checkRecordTrigger() error {
 	}
 	if t.Type == TriggerRecordUpdated {
 		for _, uid := range r.Fields {
-			if _, ok := info.byUID[uid]; !ok {
+			if field, ok := info.byUID[uid]; !ok || field.Type.IsSystem() {
 				c.add("trigger.field_missing", "trigger")
 			}
 		}

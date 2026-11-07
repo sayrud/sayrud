@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import dayjs from 'dayjs'
-import { computed, onMounted } from 'vue'
+import { computed, onBeforeUnmount, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import { membersApi } from '@/api/bitable'
@@ -15,6 +15,8 @@ const props = defineProps<{ field: SLField; op: string; disabled?: boolean }>()
 const model = defineModel<WorkflowValue | undefined>()
 const { t } = useI18n()
 const editor = useWorkflowEditorStore()
+let mounted = true
+onBeforeUnmount(() => { mounted = false })
 
 /** in and nin compare against multiple values, and so do the writes of the multiple member fields. */
 const multiple = computed(() => props.op === 'in' || props.op === 'nin' || (!props.op && props.field.type === 'member' && !!(props.field.metadata as { multiple?: boolean }).multiple))
@@ -22,8 +24,10 @@ const multiple = computed(() => props.op === 'in' || props.op === 'nin' || (!pro
 // The members are written and compared by their emails, which the server resolves.
 onMounted(async () => {
   if (!isUserField(props.field) || directory.value.members.length || !editor.projectUID) return
+  const projectUID = editor.projectUID
   try {
-    setMembers((await membersApi.list(editor.projectUID)).map((m) => m.user))
+    const list = await membersApi.list(projectUID)
+    if (mounted && editor.projectUID === projectUID) setMembers(list.map((m) => m.user))
   } catch {
     // The emails can still be entered as texts.
   }

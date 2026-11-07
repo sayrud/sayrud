@@ -9276,7 +9276,7 @@ const docTemplate = `{
         },
         "/shares/{shareToken}/tables/{tableUID}/members/resolve": {
             "post": {
-                "description": "The same as resolving them in the project, without the emails.",
+                "description": "Resolve only users and workflows referenced by live records in this shared table, without emails.",
                 "consumes": [
                     "application/json"
                 ],

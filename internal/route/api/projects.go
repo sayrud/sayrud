@@ -441,15 +441,23 @@ const maxResolvedMembers = 1000
 // @ID resolveProjectMembers
 // @Router /projects/{projectUID}/members/resolve [post]
 func (projectRoute) ResolveMembers(ctx context.Context, project *db.Project, f form.ResolveMembers) error {
-	return respondResolvedMembers(ctx, project, f, false)
+	return respondResolvedMembers(ctx, project, f, nil)
 }
 
-// respondResolvedMembers responds the users and workflows of the IDs, the public responses omit the emails.
-func respondResolvedMembers(ctx context.Context, project *db.Project, f form.ResolveMembers, public bool) error {
+// respondResolvedMembers responds the users and workflows of the IDs; public responses are scoped to the table and omit emails.
+func respondResolvedMembers(ctx context.Context, project *db.Project, f form.ResolveMembers, publicTable *db.SLTable) error {
 	if len(f.UserIDs) > maxResolvedMembers || len(f.WorkflowIDs) > maxResolvedMembers {
 		return ctx.ApiError(http.StatusBadRequest, "record::too_many_ids")
 	}
 	c := ctx.Request().Context()
+	if publicTable != nil {
+		var err error
+		f.UserIDs, f.WorkflowIDs, err = db.SLRecords.ReferencedMemberIDs(c, publicTable.ID, lo.Uniq(f.UserIDs), lo.Uniq(f.WorkflowIDs))
+		if err != nil {
+			logrus.WithContext(c).WithError(err).Error("Failed to list shared record members")
+			return ctx.ApiServerError()
+		}
+	}
 	current, err := db.ProjectMembers.UserIDs(c, project.ID)
 	if err != nil {
 		logrus.WithContext(c).WithError(err).Error("Failed to list project members")
@@ -486,7 +494,7 @@ func respondResolvedMembers(ctx context.Context, project *db.Project, f form.Res
 	resp := dto.ResolvedMembers{Users: make([]*dto.ResolvedUser, 0, len(users)), Workflows: make([]*dto.WorkflowName, 0, len(names))}
 	for _, u := range users {
 		brief := briefs[u.ID]
-		if public {
+		if publicTable != nil {
 			brief.Email, brief.EmailMd5, brief.OwnerName = "", "", ""
 		}
 		resp.Users = append(resp.Users, &dto.ResolvedUser{User: brief, Left: lo.Contains(former, u.ID)})

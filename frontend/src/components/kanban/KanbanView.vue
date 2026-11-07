@@ -70,11 +70,22 @@ function columnValue(col: Column) {
   return byMember.value ? [Number(col.key)] : col.key
 }
 
+function canAssign(col: Column) {
+  return store.canEdit && (!col.userId || directory.value.members.some((u) => u.id === col.userId))
+}
+
 const allUIDs = computed(() => columns.value.flatMap((c) => c.records.map((r) => r.uid)))
 
 // ---- Dragging cards ----
 const dragRecord = ref<string | null>(null)
 const overColumn = ref<string | null>(null)
+
+function onColumnDragOver(e: DragEvent, col: Column) {
+  if (dragRecord.value ? !canAssign(col) : !col.key || byMember.value || !store.canEdit) return
+  e.preventDefault()
+  if (dragRecord.value) overColumn.value = col.key
+  else overColumnHead.value = col.key
+}
 
 function onCardDragStart(e: DragEvent, r: SLRecord) {
   dragRecord.value = r.uid
@@ -86,7 +97,7 @@ function onColumnDrop(col: Column) {
   const uid = dragRecord.value
   dragRecord.value = null
   overColumn.value = null
-  if (!uid || !groupField.value) return
+  if (!uid || !groupField.value || !canAssign(col)) return
   const rec = store.recordMap.get(uid)
   const raw = rec?.data[groupField.value.uid]
   const current = byMember.value ? String(memberIds(raw)[0] ?? '') : raw ?? ''
@@ -112,6 +123,7 @@ function onColumnHeadDrop(col: Column) {
 }
 
 async function addCard(col: Column) {
+  if (!canAssign(col)) return
   const data = groupField.value && col.key ? { [groupField.value.uid]: columnValue(col) } : {}
   const r = await store.createRecord(data)
   if (r) {
@@ -220,7 +232,7 @@ const singleSelects = computed(() => store.fields.filter(isKanbanGroupField))
       :key="col.key"
       class="column"
       :class="{ over: overColumn === col.key && !!dragRecord, 'head-over': overColumnHead === col.key && !!dragColumn }"
-      @dragover.prevent="dragRecord ? (overColumn = col.key) : col.key && (overColumnHead = col.key)"
+      @dragover="onColumnDragOver($event, col)"
       @dragleave.self="overColumn = null"
       @drop.prevent="dragRecord ? onColumnDrop(col) : onColumnHeadDrop(col)"
     >
@@ -248,7 +260,7 @@ const singleSelects = computed(() => store.fields.filter(isKanbanGroupField))
         </template>
         <span class="spacer" />
         <template v-if="store.canEdit">
-          <button class="icon-btn sm" :title="t('kanban.newRecord')" @click="addCard(col)"><Plus :size="14" /></button>
+          <button v-if="canAssign(col)" class="icon-btn sm" :title="t('kanban.newRecord')" @click="addCard(col)"><Plus :size="14" /></button>
           <button v-if="col.option" class="icon-btn sm" @click="openColumnMenu($event, col)"><Ellipsis :size="14" /></button>
         </template>
       </div>
@@ -264,7 +276,7 @@ const singleSelects = computed(() => store.fields.filter(isKanbanGroupField))
           @dragend="(dragRecord = null), (overColumn = null)"
           @open="store.expandRecord(r.uid, allUIDs)"
         />
-        <button v-if="store.canEdit" class="add-card" @click="addCard(col)"><Plus :size="14" /> {{ t('kanban.newRecord') }}</button>
+        <button v-if="canAssign(col)" class="add-card" @click="addCard(col)"><Plus :size="14" /> {{ t('kanban.newRecord') }}</button>
       </div>
     </div>
 

@@ -4,13 +4,64 @@ import (
 	"context"
 	"encoding/json"
 	"os"
+	"strconv"
 	"testing"
 	"time"
 
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gorm.io/datatypes"
 )
+
+func TestReferencedMemberIDs(t *testing.T) {
+	ctx := context.Background()
+	tx := newTestDB(t, &User{}, &Workflow{}, &SLField{}, &SLRecord{})
+	for id := int64(1); id <= 7; id++ {
+		u := &User{Email: "member" + strconv.FormatInt(id, 10) + "@example.com"}
+		u.ID = id
+		require.NoError(t, tx.Create(u).Error)
+	}
+	for _, id := range []int64{10, 11, 12, 13} {
+		w := &Workflow{Name: "Workflow", Draft: datatypes.JSON(`{}`)}
+		w.ID = id
+		require.NoError(t, tx.Create(w).Error)
+	}
+	// Deleted workflows still identify the live records they wrote.
+	require.NoError(t, tx.Delete(&Workflow{}, 10).Error)
+	fields := NewSLFieldsStore(tx)
+	member, err := fields.Create(ctx, CreateSLFieldOptions{SLTableID: 1, Type: MemberFieldType})
+	require.NoError(t, err)
+	removed, err := fields.Create(ctx, CreateSLFieldOptions{SLTableID: 1, Type: MemberFieldType})
+	require.NoError(t, err)
+	require.NoError(t, tx.Delete(removed).Error)
+	number, err := fields.Create(ctx, CreateSLFieldOptions{SLTableID: 1, Type: NumberFieldType})
+	require.NoError(t, err)
+	data, err := json.Marshal(map[string]interface{}{member.UID: []int64{1, 2}, removed.UID: []int64{6}, number.UID: []int64{7}})
+	require.NoError(t, err)
+	records := NewSLRecordsStore(tx)
+	record, err := records.Create(ctx, 1, data, SLRecordWriter{UserID: 3})
+	require.NoError(t, err)
+	require.NoError(t, records.Update(ctx, record.ID, data, SLRecordWriter{WorkflowID: 10}))
+	_, err = records.Create(ctx, 1, json.RawMessage(`{}`), SLRecordWriter{WorkflowID: 13})
+	require.NoError(t, err)
+	_, err = records.Create(ctx, 2, json.RawMessage(`{}`), SLRecordWriter{UserID: 4})
+	require.NoError(t, err)
+	_, err = records.Create(ctx, 2, json.RawMessage(`{}`), SLRecordWriter{WorkflowID: 11})
+	require.NoError(t, err)
+	deleted := &SLRecord{SLTableID: 1, Data: datatypes.JSON(`{}`), CreatedByID: 5, UpdatedByWorkflowID: 12}
+	require.NoError(t, tx.Create(deleted).Error)
+	require.NoError(t, tx.Delete(deleted).Error)
+
+	users, workflows, err := records.ReferencedMemberIDs(ctx, 1, []int64{1, 2, 3, 4, 5, 6, 7, 99}, []int64{10, 11, 12, 13, 99})
+	require.NoError(t, err)
+	assert.ElementsMatch(t, []int64{1, 2, 3}, users)
+	assert.ElementsMatch(t, []int64{10, 13}, workflows)
+	users, workflows, err = records.ReferencedMemberIDs(ctx, 1, []int64{2}, nil)
+	require.NoError(t, err)
+	assert.Equal(t, []int64{2}, users, "only requested references are returned")
+	assert.Empty(t, workflows)
+}
 
 // memberFilterFixture is shared with the frontend engine tests, so both implementations of the filters are checked against the same cases.
 type memberFilterFixture struct {

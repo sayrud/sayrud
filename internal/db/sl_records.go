@@ -66,6 +66,8 @@ type SLRecordsStore interface {
 	RemoveFieldData(ctx context.Context, slTableID int64, fieldUID string) error
 	// WriterUserIDs returns the users among userIDs who created or last wrote any record of the project, e.g. the admins editing it without being members.
 	WriterUserIDs(ctx context.Context, projectID int64, userIDs []int64) ([]int64, error)
+	// ReferencedMemberIDs returns only the requested users and workflows referenced by live member cells or writers of the table.
+	ReferencedMemberIDs(ctx context.Context, slTableID int64, userIDs, workflowIDs []int64) ([]int64, []int64, error)
 }
 
 func NewSLRecordsStore(db *gorm.DB) SLRecordsStore {
@@ -822,6 +824,33 @@ func (db *slRecords) WriterUserIDs(ctx context.Context, projectID int64, userIDs
 		return nil, errors.Wrap(err, "pluck modifiers")
 	}
 	return lo.Union(created, updated), nil
+}
+
+func (db *slRecords) ReferencedMemberIDs(ctx context.Context, slTableID int64, userIDs, workflowIDs []int64) ([]int64, []int64, error) {
+	var users, workflows []int64
+	if len(userIDs) > 0 {
+		err := db.WithContext(ctx).Model(&User{}).Where("id IN ?", userIDs).Where(`EXISTS (
+			SELECT 1 FROM sl_records r WHERE r.sl_table_id = ? AND r.deleted_at IS NULL
+			AND (r.created_by_id = users.id OR r.updated_by_id = users.id OR EXISTS (
+				SELECT 1 FROM sl_fields f WHERE f.sl_table_id = r.sl_table_id
+				AND f.deleted_at IS NULL AND f.type = 'member'
+				AND r.data @> jsonb_build_object(f.uid, jsonb_build_array(users.id))
+			))
+		)`, slTableID).Pluck("id", &users).Error
+		if err != nil {
+			return nil, nil, errors.Wrap(err, "list referenced users")
+		}
+	}
+	if len(workflowIDs) > 0 {
+		err := db.WithContext(ctx).Unscoped().Model(&Workflow{}).Where("id IN ?", workflowIDs).Where(`EXISTS (
+			SELECT 1 FROM sl_records r WHERE r.sl_table_id = ? AND r.deleted_at IS NULL
+			AND (r.created_by_workflow_id = workflows.id OR r.updated_by_workflow_id = workflows.id)
+		)`, slTableID).Pluck("id", &workflows).Error
+		if err != nil {
+			return nil, nil, errors.Wrap(err, "list referenced workflows")
+		}
+	}
+	return users, workflows, nil
 }
 
 func (db *slRecords) Update(ctx context.Context, slRecordID int64, jsonBytes json.RawMessage, writer SLRecordWriter) error {

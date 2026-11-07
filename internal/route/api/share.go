@@ -520,7 +520,7 @@ func (shareRoute) FetchRecords(ctx context.Context, table *db.SLTable, f form.Fe
 // ResolveMembers
 // @Summary Resolve the users and workflows of the member and system fields for a public share
 // @Tags Sharing
-// @Description The same as resolving them in the project, without the emails.
+// @Description Resolve only users and workflows referenced by live records in this shared table, without emails.
 // @Accept json
 // @Produce json
 // @Param shareToken path string true "Share token"
@@ -529,8 +529,8 @@ func (shareRoute) FetchRecords(ctx context.Context, table *db.SLTable, f form.Fe
 // @Success 200 {object} dto.ResolvedMembers
 // @ID resolveSharedMembers
 // @Router /shares/{shareToken}/tables/{tableUID}/members/resolve [post]
-func (shareRoute) ResolveMembers(ctx context.Context, project *db.Project, f form.ResolveMembers) error {
-	return respondResolvedMembers(ctx, project, f, true)
+func (shareRoute) ResolveMembers(ctx context.Context, project *db.Project, table *db.SLTable, f form.ResolveMembers) error {
+	return respondResolvedMembers(ctx, project, f, table)
 }
 
 // Attachment

@@ -108,12 +108,13 @@ func inputData(ctx context.Context, tx *gorm.DB, projectID int64, fields []*db.S
 	if err := json.Unmarshal(record.Data, &data); err != nil {
 		return nil, errors.Wrap(err, "decode record")
 	}
-	if !lo.ContainsBy(fields, func(f *db.SLField) bool { return f.Type == db.MemberFieldType || f.Type.IsSystem() }) {
-		return data, nil
-	}
-	directory, err := routeutil.LoadDirectory(ctx, tx, projectID)
-	if err != nil {
-		return nil, err
+	var directory *routeutil.Directory
+	if lo.ContainsBy(fields, func(f *db.SLField) bool { return f.Type == db.MemberFieldType || f.Type.IsWriter() }) {
+		var err error
+		directory, err = routeutil.LoadDirectory(ctx, tx, projectID)
+		if err != nil {
+			return nil, err
+		}
 	}
 	for _, field := range fields {
 		switch field.Type {
