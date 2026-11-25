@@ -34,7 +34,13 @@ func commentTestDB(t *testing.T) *gorm.DB {
 	if os.Getenv("PGHOST") == "" {
 		t.Skip("PGHOST is not set")
 	}
-	admin, err := gorm.Open(postgres.New(postgres.Config{DSN: "", PreferSimpleProtocol: true}), &gorm.Config{Logger: logger.Discard})
+	open := func(dsn string) (*gorm.DB, error) {
+		return gorm.Open(postgres.New(postgres.Config{
+			DSN:                  dsn,
+			PreferSimpleProtocol: true,
+		}), &gorm.Config{Logger: logger.Discard})
+	}
+	admin, err := open("")
 	require.NoError(t, err)
 	schema := "test_" + strings.ToLower(randstr.String(10))
 	require.NoError(t, admin.Exec("CREATE SCHEMA "+schema).Error)
@@ -44,7 +50,7 @@ func commentTestDB(t *testing.T) *gorm.DB {
 			_ = sqlDB.Close()
 		}
 	})
-	gormDB, err := gorm.Open(postgres.New(postgres.Config{DSN: "search_path=" + schema, PreferSimpleProtocol: true}), &gorm.Config{Logger: logger.Discard})
+	gormDB, err := open("search_path=" + schema)
 	require.NoError(t, err)
 	t.Cleanup(func() {
 		if sqlDB, err := gormDB.DB(); err == nil {
@@ -77,24 +83,44 @@ type commentFixture struct {
 func newCommentFixture(t *testing.T) *commentFixture {
 	ctx := stdcontext.Background()
 	gormDB := commentTestDB(t)
-	f := &commentFixture{t: t, db: gormDB, users: map[string]*db.User{}}
-	roles := map[string]db.ProjectRole{"owner": db.ProjectRoleOwner, "manager": db.ProjectRoleManager, "editor": db.ProjectRoleEditor, "viewer": db.ProjectRoleViewer, "bot": db.ProjectRoleEditor}
+	f := &commentFixture{
+		t:     t,
+		db:    gormDB,
+		users: map[string]*db.User{},
+	}
+	roles := map[string]db.ProjectRole{
+		"owner":   db.ProjectRoleOwner,
+		"manager": db.ProjectRoleManager,
+		"editor":  db.ProjectRoleEditor,
+		"viewer":  db.ProjectRoleViewer,
+		"bot":     db.ProjectRoleEditor,
+	}
 	for _, name := range []string{"owner", "manager", "editor", "viewer", "outsider"} {
-		user, err := db.Users.Create(ctx, db.CreateUserOptions{Email: name + "@example.com", UserName: name})
+		user, err := db.Users.Create(ctx, db.CreateUserOptions{
+			Email:    name + "@example.com",
+			UserName: name,
+		})
 		require.NoError(t, err)
 		f.users[name] = user
 	}
 	bot, err := db.Users.CreateBot(ctx, "bot", f.users["owner"].ID)
 	require.NoError(t, err)
 	f.users["bot"] = bot
-	project, err := db.Projects.Create(ctx, db.CreateProjectOptions{OwnerUserID: f.users["owner"].ID, Name: "Tasks"})
+	project, err := db.Projects.Create(ctx, db.CreateProjectOptions{
+		OwnerUserID: f.users["owner"].ID,
+		Name:        "Tasks",
+	})
 	require.NoError(t, err)
 	for _, name := range []string{"manager", "editor", "viewer", "bot"} {
 		require.NoError(t, db.ProjectMembers.Set(ctx, project.ID, f.users[name].ID, roles[name]))
 	}
 	f.table, err = db.SLTables.Create(ctx, project.ID, db.CreateSLTableOptions{Name: "Tasks"})
 	require.NoError(t, err)
-	f.field, err = db.SLFields.Create(ctx, db.CreateSLFieldOptions{SLTableID: f.table.ID, Label: "Title", Type: db.TextFieldType})
+	f.field, err = db.SLFields.Create(ctx, db.CreateSLFieldOptions{
+		SLTableID: f.table.ID,
+		Label:     "Title",
+		Type:      db.TextFieldType,
+	})
 	require.NoError(t, err)
 	f.record, err = db.SLRecords.Create(ctx, f.table.ID, json.RawMessage(`{}`), db.SLRecordWriter{UserID: f.users["editor"].ID})
 	require.NoError(t, err)
@@ -201,7 +227,12 @@ func TestRESTWritesRecordHistory(t *testing.T) {
 }
 
 func TestSharedRecordsHideCommentCount(t *testing.T) {
-	records := []*dto.Record{{UID: "rec", TableUID: "tbl", Data: map[string]interface{}{}, CommentCount: 3}}
+	records := []*dto.Record{{
+		UID:          "rec",
+		TableUID:     "tbl",
+		Data:         map[string]interface{}{},
+		CommentCount: 3,
+	}}
 	prepareSharedRecords(records, "")
 	assert.Equal(t, int64(3), records[0].CommentCount)
 	prepareSharedRecords(records, "token")
@@ -215,7 +246,7 @@ func TestRecordCommentPermissions(t *testing.T) {
 	var root collab.Comment
 	require.Equal(t, 200, f.do("viewer", "POST", "/comments", map[string]interface{}{"body": "viewers comment " + mention("bot")}, &root))
 	assert.Equal(t, db.SLRecordWriter{UserID: f.users["viewer"].ID}, root.Author)
-	assert.Equal(t, []db.CommentMention{{UserID: f.users["bot"].ID, IsBot: true}}, root.Mentions)
+	assert.Equal(t, []db.CommentMention{db.NewCommentMention(f.users["bot"])}, root.Mentions)
 	var botReply collab.Comment
 	require.Equal(t, 200, f.do("bot", "POST", "/comments", map[string]interface{}{"body": "on it", "replyToId": root.ID}, &botReply), "bots comment as members")
 	assert.Equal(t, root.ID, botReply.RootID)
@@ -312,20 +343,19 @@ func TestRecordHistoryMerge(t *testing.T) {
 		}
 		cursor = page.NextCursor
 	}
-	type summary struct{ kind, old, new string }
-	got := lo.Map(entries, func(e *dto.RecordChange, _ int) summary {
+	got := lo.Map(entries, func(e *dto.RecordChange, _ int) string {
 		if len(e.Fields) == 0 {
-			return summary{kind: string(e.Kind)}
+			return string(e.Kind)
 		}
 		assert.Equal(t, "Title", e.Fields[0].FieldLabel)
-		return summary{kind: string(e.Kind), old: string(e.Fields[0].OldValue), new: string(e.Fields[0].NewValue)}
+		return fmt.Sprintf("%s %s → %s", e.Kind, string(e.Fields[0].OldValue), string(e.Fields[0].NewValue))
 	})
-	assert.Equal(t, []summary{
-		{"updated", `"c"`, `"z"`},
+	assert.Equal(t, []string{
+		`updated "c" → "z"`,
 		// The manager changed the value back, so the entry is dropped.
-		{"updated", `"b"`, `"c"`},
-		{"updated", "", `"b"`},
-		{"created", "", ""},
+		`updated "b" → "c"`,
+		`updated  → "b"`,
+		"created",
 	}, got)
 	assert.Equal(t, db.SLRecordWriter{UserID: f.users["editor"].ID}, *entries[0].Actor)
 

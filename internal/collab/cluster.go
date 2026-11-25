@@ -51,8 +51,7 @@ type clusterEvent struct {
 	Members     []Member
 	Version     uint64
 	Changeset   *Changeset
-	// Message is the encoded message of the comment and mention events.
-	Message json.RawMessage
+	Message     json.RawMessage
 }
 
 type remotePresence struct {

@@ -50,8 +50,14 @@ func (e *Engine) CommentCreated(ctx context.Context, tx *gorm.DB, project *db.Pr
 		}
 		trigger := commentTriggerData(info, ev.Record, ev.Comment, formulaLocation(spec.FormulaTimezone()))
 		if _, err := e.enqueue(ctx, tx, enqueueOptions{
-			ProjectID: project.ID, Workflow: wf, RevisionID: wf.PublishedRevisionID, Version: wf.PublishedVersion,
-			TriggerType: spec.Trigger.Type, Timezone: spec.FormulaTimezone(), Depth: origin.Depth + 1, Triggers: []map[string]interface{}{trigger},
+			ProjectID:   project.ID,
+			Workflow:    wf,
+			RevisionID:  wf.PublishedRevisionID,
+			Version:     wf.PublishedVersion,
+			TriggerType: spec.Trigger.Type,
+			Timezone:    spec.FormulaTimezone(),
+			Depth:       origin.Depth + 1,
+			Triggers:    []map[string]interface{}{trigger},
 		}); err != nil {
 			return 0, err
 		}
@@ -84,7 +90,11 @@ func matchComment(t *CommentTrigger, authorKind string, comment *db.SLRecordComm
 
 // commentTriggerData returns the trigger variables of comment_created: record, table and comment.
 func commentTriggerData(info *tableInfo, record *db.SLRecord, comment *db.SLRecordComment, loc *time.Location) map[string]interface{} {
-	data := map[string]interface{}{"record": recordOutput(info, record, loc), "table": tableData(info.table), "comment": commentOutput(info.directory, comment)}
+	data := map[string]interface{}{
+		"record":  recordOutput(info, record, loc),
+		"table":   tableData(info.table),
+		"comment": commentOutput(info.directory, comment),
+	}
 	return normalize(data).(map[string]interface{})
 }
 
@@ -93,7 +103,11 @@ func commentOutput(directory *routeutil.Directory, comment *db.SLRecordComment) 
 	mentions := make([]interface{}, 0, len(comment.Mentions))
 	for _, m := range comment.Mentions {
 		u := userOutput(directory, m.UserID)
-		mentions = append(mentions, map[string]interface{}{"id": u["id"], "name": u["name"], "isBot": m.IsBot})
+		mentions = append(mentions, map[string]interface{}{
+			"id":    u["id"],
+			"name":  u["name"],
+			"isBot": m.IsBot,
+		})
 	}
 	return map[string]interface{}{
 		"id":        float64(comment.ID),
@@ -160,9 +174,13 @@ func (x *execution) comment(step *Step) (interface{}, error) {
 		if err != nil {
 			return nil, err
 		}
-		return map[string]interface{}{"comment": map[string]interface{}{
-			"id": float64(comment.ID), "body": comment.Body, "createdAt": comment.CreatedAt.UTC().Format(time.RFC3339),
-		}}, nil
+		return map[string]interface{}{
+			"comment": map[string]interface{}{
+				"id":        float64(comment.ID),
+				"body":      comment.Body,
+				"createdAt": comment.CreatedAt.UTC().Format(time.RFC3339),
+			},
+		}, nil
 	}
 	if x.batch != nil {
 		return apply(x.batch)

@@ -220,7 +220,12 @@ func TestWriterUserIDs(t *testing.T) {
 	// The history and the comments keep their writers after the record is written by others.
 	require.NoError(t, records.Update(ctx, record.ID, json.RawMessage(`{"fldAAAAAAA":1}`), SLRecordWriter{UserID: 11}))
 	require.NoError(t, records.Update(ctx, record.ID, json.RawMessage(`{"fldAAAAAAA":2}`), SLRecordWriter{UserID: 8}))
-	_, err = NewSLRecordCommentsStore(gormDB).Create(ctx, CreateSLRecordCommentOptions{SLTableID: own.ID, SLRecordID: record.ID, Author: SLRecordWriter{UserID: 12}, Body: "hi"})
+	_, err = NewSLRecordCommentsStore(gormDB).Create(ctx, CreateSLRecordCommentOptions{
+		SLTableID:  own.ID,
+		SLRecordID: record.ID,
+		Author:     NewSLRecordWriter(12, 0),
+		Body:       "hi",
+	})
 	require.NoError(t, err)
 
 	ids, err := records.WriterUserIDs(ctx, project.ID, []int64{7, 8, 9, 10, 11, 12})

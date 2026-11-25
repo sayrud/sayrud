@@ -19,17 +19,37 @@ import (
 
 // Batch is a transaction that writes records across multiple tables, created by Hub.Batch.
 type Batch struct {
-	ctx     context.Context
-	tx      *gorm.DB
-	hub     *Hub
+	// ctx is the context of the writes.
+	ctx context.Context
+	// tx is the transaction of the batch.
+	tx *gorm.DB
+	// hub notifies the changes after committing.
+	hub *Hub
+	// project is the project of the tables.
 	project *db.Project
-	tables  map[int64]*batchTable
-	// origin is BatchOptions.Origin, writer is the writer of the records and the author of the comments from it.
+	// tables are the locked tables keyed by ID.
+	tables map[int64]*batchTable
+	// origin is BatchOptions.Origin.
 	origin Origin
+	// writer is the writer of the records and the author of the comments, from origin.
 	writer db.SLRecordWriter
-	// comments are the comments created, notified after committing; queued reports whether they enqueued workflow runs.
+	// comments are the comments created, notified after committing.
 	comments []*commentNotice
-	queued   bool
+	// queued reports whether the comments enqueued workflow runs.
+	queued bool
+}
+
+// newBatch returns the batch of the transaction writing by origin, the tables are added after they are locked.
+func newBatch(ctx context.Context, tx *gorm.DB, hub *Hub, project *db.Project, origin Origin) *Batch {
+	return &Batch{
+		ctx:     ctx,
+		tx:      tx,
+		hub:     hub,
+		project: project,
+		tables:  map[int64]*batchTable{},
+		origin:  origin,
+		writer:  origin.Writer(),
+	}
 }
 
 type batchTable struct {
@@ -61,7 +81,7 @@ func (h *Hub) Batch(ctx context.Context, project *db.Project, tables []*db.SLTab
 	var comments []*commentNotice
 	queued := false
 	err := h.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		b := &Batch{ctx: ctx, tx: tx, hub: h, project: project, tables: make(map[int64]*batchTable, len(tables)), origin: opts.Origin, writer: opts.Origin.Writer()}
+		b := newBatch(ctx, tx, h, project, opts.Origin)
 		for _, table := range tables {
 			if err := dbutil.LockTable(ctx, tx, table.ID); err != nil {
 				return errors.Wrapf(err, "lock table %d", table.ID)

@@ -50,21 +50,28 @@ const (
 
 // Comment is a record comment returned by the API and the WebSocket.
 type Comment struct {
-	ID        int64  `json:"id"`
+	// ID is the comment ID, used to reply to, edit and delete it.
+	ID int64 `json:"id"`
+	// RecordUID is the record commented on.
 	RecordUID string `json:"recordUID"`
 	// Author is the user or the workflow writing the comment.
 	Author db.SLRecordWriter `json:"author"`
 	// Body is the Markdown text with mentions as `<@userID>`, empty if deleted.
 	Body string `json:"body"`
-	// RootID is the root comment of a reply, 0 for the roots; ReplyToID is the comment replied to.
-	RootID    int64               `json:"rootId,omitempty"`
-	ReplyToID int64               `json:"replyToId,omitempty"`
-	Kind      string              `json:"kind" enums:"comment,report,attention"`
-	Mentions  []db.CommentMention `json:"mentions"`
+	// RootID is the root comment of a reply, 0 for the roots.
+	RootID int64 `json:"rootId,omitempty"`
+	// ReplyToID is the comment replied to, 0 for the roots.
+	ReplyToID int64 `json:"replyToId,omitempty"`
+	// Kind is comment, the other kinds are reserved.
+	Kind string `json:"kind" enums:"comment,report,attention"`
+	// Mentions are the users mentioned by the body.
+	Mentions []db.CommentMention `json:"mentions"`
 	// Deleted marks the placeholder of a deleted root comment which still has replies.
-	Deleted   bool       `json:"deleted,omitempty"`
-	EditedAt  *time.Time `json:"editedAt,omitempty"`
-	CreatedAt time.Time  `json:"createdAt"`
+	Deleted bool `json:"deleted,omitempty"`
+	// EditedAt is the time of the last edit, absent if never edited.
+	EditedAt *time.Time `json:"editedAt,omitempty"`
+	// CreatedAt is the time the comment is posted.
+	CreatedAt time.Time `json:"createdAt"`
 	// Replies are the live replies of a root comment in creation order, only set in the comment list.
 	Replies []*Comment `json:"replies,omitempty"`
 } // @name RecordComment
@@ -115,14 +122,54 @@ type CommentEvent struct {
 
 // commentNotice is the notification of a committed comment change.
 type commentNotice struct {
+	// project is the project of the comment.
 	project *db.Project
-	table   *db.SLTable
-	record  *db.SLRecord
-	action  string
+	// table is the table of the record.
+	table *db.SLTable
+	// record is the record read after the change, with its comment count.
+	record *db.SLRecord
+	// action is CommentCreated, CommentUpdated or CommentDeleted.
+	action string
+	// comment is the comment after the change.
 	comment *db.SLRecordComment
-	count   int64
 	// mentioned are the users newly mentioned, who are told if online.
 	mentioned []int64
+}
+
+// newCommentNotice returns the notification of the comment change, mentioned are the users to tell.
+func newCommentNotice(project *db.Project, table *db.SLTable, record *db.SLRecord, action string, comment *db.SLRecordComment, mentioned []int64) *commentNotice {
+	return &commentNotice{
+		project:   project,
+		table:     table,
+		record:    record,
+		action:    action,
+		comment:   comment,
+		mentioned: mentioned,
+	}
+}
+
+// changedMessage returns the MessageCommentChanged message of the change.
+func (n *commentNotice) changedMessage() []byte {
+	return newMessage(MessageCommentChanged, 0, commentChangedData{
+		TableUID:     n.table.UID,
+		RecordUID:    n.record.UID,
+		Action:       n.action,
+		Comment:      NewComment(n.record.UID, n.comment),
+		CommentCount: n.record.CommentCount,
+	})
+}
+
+// mentionedMessage returns the MessageMentioned message told to the mentioned users.
+func (n *commentNotice) mentionedMessage() []byte {
+	excerpt := []rune(n.comment.Body)
+	return newMessage(MessageMentioned, 0, mentionedData{
+		ProjectUID: n.project.UID,
+		TableUID:   n.table.UID,
+		RecordUID:  n.record.UID,
+		CommentID:  n.comment.ID,
+		Author:     n.comment.Author(),
+		Excerpt:    string(excerpt[:min(len(excerpt), mentionExcerptLength)]),
+	})
 }
 
 // checkCommentBody rejects the empty and too long bodies.
@@ -161,7 +208,7 @@ func parseMentions(ctx context.Context, tx *gorm.DB, projectID int64, body strin
 		if user == nil || !directory.IsMember(id) {
 			return nil, errors.Wrapf(ErrInvalidMention, "user %d", id)
 		}
-		mentions = append(mentions, db.CommentMention{UserID: id, IsBot: user.IsBot()})
+		mentions = append(mentions, db.NewCommentMention(user))
 	}
 	return mentions, nil
 }
@@ -179,6 +226,7 @@ func newlyMentioned(mentions, previous []db.CommentMention, author db.SLRecordWr
 
 // CommentOptions are the options of creating a comment.
 type CommentOptions struct {
+	// Body is the Markdown text, mentions are written as `<@userID>`.
 	Body string
 	// ReplyToID is the live comment of the same record replied to, 0 for a root comment.
 	ReplyToID int64
@@ -230,16 +278,16 @@ func (h *Hub) createComment(ctx context.Context, tx *gorm.DB, project *db.Projec
 
 	queued := false
 	if h.workflows != nil && project != nil {
-		n, err := h.workflows.CommentCreated(ctx, tx, project, table, origin, CommentEvent{Record: latest, Comment: comment})
+		n, err := h.workflows.CommentCreated(ctx, tx, project, table, origin, CommentEvent{
+			Record:  latest,
+			Comment: comment,
+		})
 		if err != nil {
 			return nil, false, err
 		}
 		queued = n > 0
 	}
-	return &commentNotice{
-		project: project, table: table, record: latest, action: CommentCreated, comment: comment, count: latest.CommentCount,
-		mentioned: newlyMentioned(mentions, nil, author),
-	}, queued, nil
+	return newCommentNotice(project, table, latest, CommentCreated, comment, newlyMentioned(mentions, nil, author)), queued, nil
 }
 
 // CreateComment creates a comment on the record by the writer of origin, enqueues the workflows it triggers in the same transaction,
@@ -287,15 +335,12 @@ func (h *Hub) UpdateComment(ctx context.Context, project *db.Project, table *db.
 		if err != nil {
 			return err
 		}
-		notice = &commentNotice{
-			project: project, table: table, record: record, action: CommentUpdated, comment: comment, count: record.CommentCount,
-			mentioned: newlyMentioned(mentions, previous.Mentions, comment.Author()),
-		}
 		latest, err := db.NewSLRecordsStore(tx).GetByID(ctx, record.ID)
-		if err == nil {
-			notice.count = latest.CommentCount
+		if err != nil {
+			return err
 		}
-		return err
+		notice = newCommentNotice(project, table, latest, CommentUpdated, comment, newlyMentioned(mentions, previous.Mentions, comment.Author()))
+		return nil
 	}); err != nil {
 		return nil, err
 	}
@@ -322,7 +367,7 @@ func (h *Hub) DeleteComment(ctx context.Context, project *db.Project, table *db.
 		if err != nil {
 			return err
 		}
-		notice = &commentNotice{project: project, table: table, record: latest, action: CommentDeleted, comment: comment, count: latest.CommentCount}
+		notice = newCommentNotice(project, table, latest, CommentDeleted, comment, nil)
 		return nil
 	}); err != nil {
 		return err
@@ -355,23 +400,23 @@ func (h *Hub) notifyComment(n *commentNotice) {
 	if n == nil || n.project == nil {
 		return
 	}
-	comment := NewComment(n.record.UID, n.comment)
 	h.broadcastEvent(clusterEvent{
-		Kind: clusterEventComment, ProjectUID: n.project.UID, TableUID: n.table.UID,
-		Message: newMessage(MessageCommentChanged, 0, commentChangedData{
-			TableUID: n.table.UID, RecordUID: n.record.UID, Action: n.action, Comment: comment, CommentCount: n.count,
-		}),
+		Kind:       clusterEventComment,
+		ProjectUID: n.project.UID,
+		TableUID:   n.table.UID,
+		Message:    n.changedMessage(),
 	})
 	if len(n.mentioned) == 0 {
 		return
 	}
-	excerpt := []rune(n.comment.Body)
-	message := newMessage(MessageMentioned, 0, mentionedData{
-		ProjectUID: n.project.UID, TableUID: n.table.UID, RecordUID: n.record.UID, CommentID: n.comment.ID,
-		Author: n.comment.Author(), Excerpt: string(excerpt[:min(len(excerpt), mentionExcerptLength)]),
-	})
+	message := n.mentionedMessage()
 	for _, userID := range n.mentioned {
-		h.broadcastEvent(clusterEvent{Kind: clusterEventMention, ProjectUID: n.project.UID, UserID: userID, Message: message})
+		h.broadcastEvent(clusterEvent{
+			Kind:       clusterEventMention,
+			ProjectUID: n.project.UID,
+			UserID:     userID,
+			Message:    message,
+		})
 	}
 }
 

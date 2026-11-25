@@ -18,9 +18,20 @@ func TestComments(t *testing.T) {
 	gormDB := clusterTestDB(t)
 	hub := NewHub(gormDB)
 	project, table, owner := testProject(t, gormDB, hub)
-	member := &db.User{Email: "member@example.test", UserName: "Member"}
-	bot := &db.User{Email: "bot@bots.invalid", UserName: "Bot", Kind: db.UserKindBot, OwnerID: owner.ID}
-	outsider := &db.User{Email: "outsider@example.test", UserName: "Outsider"}
+	member := &db.User{
+		Email:    "member@example.test",
+		UserName: "Member",
+	}
+	bot := &db.User{
+		Email:    "bot@bots.invalid",
+		UserName: "Bot",
+		Kind:     db.UserKindBot,
+		OwnerID:  owner.ID,
+	}
+	outsider := &db.User{
+		Email:    "outsider@example.test",
+		UserName: "Outsider",
+	}
 	require.NoError(t, gormDB.Create([]*db.User{member, bot, outsider}).Error)
 	members := db.NewProjectMembersStore(gormDB)
 	require.NoError(t, members.Set(ctx, project.ID, member.ID, db.ProjectRoleViewer))
@@ -30,15 +41,28 @@ func TestComments(t *testing.T) {
 
 	conn := connectCluster(t, hub, project, table, member)
 	// A public visitor subscribing the same table never receives the comments.
-	visitor := &Client{hub: hub, projectUID: project.UID, share: &ShareSession{TableID: table.ID}, out: make(chan []byte, 8), tables: map[string]*db.SLTable{table.UID: table}}
+	visitor := &Client{
+		hub:        hub,
+		projectUID: project.UID,
+		share:      &ShareSession{TableID: table.ID},
+		out:        make(chan []byte, 8),
+		tables:     map[string]*db.SLTable{table.UID: table},
+	}
 	hub.mu.Lock()
 	hub.projects[project.UID][visitor] = struct{}{}
 	hub.mu.Unlock()
 
 	mention := func(u *db.User) string { return fmt.Sprintf("<@%d>", u.ID) }
-	root, err := hub.CreateComment(ctx, project, table, record, Origin{UserID: owner.ID}, CommentOptions{Body: "hi " + mention(member) + " " + mention(bot) + " " + mention(member)})
+	comment := func(author *db.User, body string, replyTo int64) (*Comment, error) {
+		return hub.CreateComment(ctx, project, table, record, Origin{UserID: author.ID}, CommentOptions{
+			Body:      body,
+			ReplyToID: replyTo,
+		})
+	}
+	root, err := comment(owner, "hi "+mention(member)+" "+mention(bot)+" "+mention(member), 0)
 	require.NoError(t, err)
-	assert.Equal(t, []db.CommentMention{{UserID: member.ID}, {UserID: bot.ID, IsBot: true}}, root.Mentions)
+	assert.Equal(t, []db.CommentMention{db.NewCommentMention(member), db.NewCommentMention(bot)}, root.Mentions)
+	assert.True(t, root.Mentions[1].IsBot)
 
 	var changed commentChangedData
 	require.NoError(t, json.Unmarshal(readClusterMessage(t, conn, MessageCommentChanged).Data, &changed))
@@ -50,23 +74,23 @@ func TestComments(t *testing.T) {
 	assert.Equal(t, root.ID, mentioned.CommentID)
 	assert.Len(t, visitor.out, 0)
 
-	_, err = hub.CreateComment(ctx, project, table, record, Origin{UserID: member.ID}, CommentOptions{Body: mention(outsider)})
+	_, err = comment(member, mention(outsider), 0)
 	assert.ErrorIs(t, err, ErrInvalidMention)
-	_, err = hub.CreateComment(ctx, project, table, record, Origin{UserID: member.ID}, CommentOptions{Body: "  \n"})
+	_, err = comment(member, "  \n", 0)
 	assert.ErrorIs(t, err, ErrCommentEmpty)
-	_, err = hub.CreateComment(ctx, project, table, record, Origin{UserID: member.ID}, CommentOptions{Body: strings.Repeat("评", MaxCommentLength+1)})
+	_, err = comment(member, strings.Repeat("评", MaxCommentLength+1), 0)
 	assert.ErrorIs(t, err, ErrCommentTooLong)
-	_, err = hub.CreateComment(ctx, project, table, record, Origin{UserID: member.ID}, CommentOptions{Body: strings.Repeat("评", MaxCommentLength)})
+	_, err = comment(member, strings.Repeat("评", MaxCommentLength), 0)
 	require.NoError(t, err, "the limit counts characters rather than bytes")
 
 	// The replies of a reply belong to the same root.
-	reply, err := hub.CreateComment(ctx, project, table, record, Origin{UserID: bot.ID}, CommentOptions{Body: "reply", ReplyToID: root.ID})
+	reply, err := comment(bot, "reply", root.ID)
 	require.NoError(t, err)
-	nested, err := hub.CreateComment(ctx, project, table, record, Origin{UserID: member.ID}, CommentOptions{Body: "nested", ReplyToID: reply.ID})
+	nested, err := comment(member, "nested", reply.ID)
 	require.NoError(t, err)
 	assert.Equal(t, root.ID, nested.RootID)
 	assert.Equal(t, reply.ID, nested.ReplyToID)
-	_, err = hub.CreateComment(ctx, project, table, record, Origin{UserID: member.ID}, CommentOptions{Body: "x", ReplyToID: 999999})
+	_, err = comment(member, "x", 999999)
 	assert.ErrorIs(t, err, db.ErrSLRecordCommentNotFound)
 
 	// Editing keeps a mentioned member who left and rejects a new outsider.
@@ -74,7 +98,7 @@ func TestComments(t *testing.T) {
 	edited, err := hub.UpdateComment(ctx, project, table, record, root.ID, "still "+mention(member))
 	require.NoError(t, err)
 	assert.NotNil(t, edited.EditedAt)
-	assert.Equal(t, []db.CommentMention{{UserID: member.ID}}, edited.Mentions)
+	assert.Equal(t, []db.CommentMention{db.NewCommentMention(member)}, edited.Mentions)
 	_, err = hub.UpdateComment(ctx, project, table, record, root.ID, mention(outsider))
 	assert.ErrorIs(t, err, ErrInvalidMention)
 
@@ -82,7 +106,7 @@ func TestComments(t *testing.T) {
 	latest, err := db.NewSLRecordsStore(gormDB).GetByID(ctx, record.ID)
 	require.NoError(t, err)
 	assert.Equal(t, int64(3), latest.CommentCount)
-	_, err = hub.CreateComment(ctx, project, table, record, Origin{UserID: owner.ID}, CommentOptions{Body: "x", ReplyToID: root.ID})
+	_, err = comment(owner, "x", root.ID)
 	assert.ErrorIs(t, err, ErrCommentDeleted)
 	_, err = hub.UpdateComment(ctx, project, table, record, root.ID, "again")
 	assert.ErrorIs(t, err, ErrCommentDeleted)
@@ -90,7 +114,11 @@ func TestComments(t *testing.T) {
 
 func TestSharedMessagesDropComments(t *testing.T) {
 	hub, _, project, session := shareFixture(t)
-	c := &Client{hub: hub, project: project, share: session}
+	c := &Client{
+		hub:     hub,
+		project: project,
+		share:   session,
+	}
 	for _, kind := range []string{MessageCommentChanged, MessageMentioned} {
 		message, allowed := c.sharedMessage(context.Background(), newMessage(kind, 0, map[string]string{"tableUID": "tbl"}))
 		assert.True(t, allowed)

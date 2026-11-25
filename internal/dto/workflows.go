@@ -11,40 +11,62 @@ import (
 // WorkflowListItem is a workflow in the list.
 type WorkflowListItem struct {
 	// ID identifies the workflow writing the records and the comments, e.g. RecordWriter.workflowId.
-	ID          int64  `json:"id"`
-	UID         string `json:"uid"`
-	Name        string `json:"name"`
+	ID int64 `json:"id"`
+	// UID is the workflow UID in the routes.
+	UID string `json:"uid"`
+	// Name is the display name.
+	Name string `json:"name"`
+	// Description is the optional description.
 	Description string `json:"description"`
-	Position    int    `json:"position"`
-	// TriggerType is the trigger type of the draft, PublishedTriggerType is the trigger type of the published revision, empty if unpublished.
-	TriggerType          string `json:"triggerType" enums:",api,record_created,record_updated,record_matched,record_deleted,date_reached,schedule,comment_created"`
+	// Position is the order in the sidebar.
+	Position int `json:"position"`
+	// TriggerType is the trigger type of the draft, empty if not chosen yet.
+	TriggerType string `json:"triggerType" enums:",api,record_created,record_updated,record_matched,record_deleted,date_reached,schedule,comment_created"`
+	// PublishedTriggerType is the trigger type of the published revision, empty if unpublished.
 	PublishedTriggerType string `json:"publishedTriggerType"`
-	// Method and Path are the entry of the API trigger in the draft, empty for other triggers.
+	// Method is the method of the API trigger in the draft, empty for other triggers.
 	Method string `json:"method"`
-	Path   string `json:"path"`
-	// PublishedMethod and PublishedPath are the API entry being served, empty if unpublished or for other triggers.
-	PublishedMethod  string     `json:"publishedMethod"`
-	PublishedPath    string     `json:"publishedPath"`
-	Enabled          bool       `json:"enabled"`
-	PublishedVersion int        `json:"publishedVersion"`
-	PublishedAt      *time.Time `json:"publishedAt"`
+	// Path is the path of the API trigger in the draft, empty for other triggers.
+	Path string `json:"path"`
+	// PublishedMethod is the method of the API being served, empty if unpublished or for other triggers.
+	PublishedMethod string `json:"publishedMethod"`
+	// PublishedPath is the path of the API being served, empty if unpublished or for other triggers.
+	PublishedPath string `json:"publishedPath"`
+	// Enabled reports whether the published revision runs.
+	Enabled bool `json:"enabled"`
+	// PublishedVersion is the version of the published revision, 0 if unpublished.
+	PublishedVersion int `json:"publishedVersion"`
+	// PublishedAt is the time of the last publishing, null if unpublished.
+	PublishedAt *time.Time `json:"publishedAt"`
 	// HasUnpublishedChanges indicates the draft has been modified since the latest publishing.
-	HasUnpublishedChanges bool      `json:"hasUnpublishedChanges"`
-	StepCount             int       `json:"stepCount"`
-	AsyncCount            int       `json:"asyncCount"`
-	CreatedAt             time.Time `json:"createdAt"`
-	UpdatedAt             time.Time `json:"updatedAt"`
+	HasUnpublishedChanges bool `json:"hasUnpublishedChanges"`
+	// StepCount is the number of the steps in the draft, including the async flows.
+	StepCount int `json:"stepCount"`
+	// AsyncCount is the number of the async flows in the draft.
+	AsyncCount int `json:"asyncCount"`
+	// CreatedAt is the creation time.
+	CreatedAt time.Time `json:"createdAt"`
+	// UpdatedAt is the time of the last change.
+	UpdatedAt time.Time `json:"updatedAt"`
 } // @name WorkflowListItem
 
 // ToWorkflowListItem converts the list item, the trigger type is empty if the draft cannot be parsed.
 func ToWorkflowListItem(w *db.Workflow) *WorkflowListItem {
 	item := &WorkflowListItem{
-		ID: w.ID, UID: w.UID, Name: w.Name, Description: w.Description, PublishedTriggerType: w.TriggerType,
-		Position:        w.Position,
-		PublishedMethod: w.Method, PublishedPath: w.Path, Enabled: w.Enabled,
-		PublishedVersion: w.PublishedVersion, PublishedAt: w.PublishedAt,
+		ID:                    w.ID,
+		UID:                   w.UID,
+		Name:                  w.Name,
+		Description:           w.Description,
+		PublishedTriggerType:  w.TriggerType,
+		Position:              w.Position,
+		PublishedMethod:       w.Method,
+		PublishedPath:         w.Path,
+		Enabled:               w.Enabled,
+		PublishedVersion:      w.PublishedVersion,
+		PublishedAt:           w.PublishedAt,
 		HasUnpublishedChanges: w.PublishedRevisionID == 0 || w.PublishedDraftVersion != w.DraftVersion,
-		CreatedAt:             w.CreatedAt, UpdatedAt: w.UpdatedAt,
+		CreatedAt:             w.CreatedAt,
+		UpdatedAt:             w.UpdatedAt,
 	}
 	if spec, err := workflow.ParseSpec(w.Draft); err == nil {
 		item.TriggerType = spec.Trigger.Type

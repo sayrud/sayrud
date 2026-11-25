@@ -33,10 +33,17 @@ func TestHistoryOfWritePaths(t *testing.T) {
 
 	t.Run("websocket", func(t *testing.T) {
 		conn := connectCluster(t, hub, project, table, user)
-		require.NoError(t, conn.WriteJSON(Message{Type: MessageUserChanges, ReqID: 2, Data: json.RawMessage(`{"tableUID":"` + table.UID + `","signature":"ws-1","operations":[{"command":"SetRecord","actions":[` +
-			`{"action":"record.add","recordUID":"recWSWSWSWSWSW","values":{"fldAAAAAAA":"new"}},` +
-			`{"action":"record.set","recordUID":"recAAAAAAAAAAA","values":{"fldAAAAAAA":"a","fldBBBBBBB":"b"}}]}]}`)}))
-		readClusterMessage(t, conn, MessageAcceptCommit)
+		// commit submits the actions over the WebSocket and waits for the acceptance.
+		commit := func(reqID int64, signature, actions string) {
+			require.NoError(t, conn.WriteJSON(Message{
+				Type:  MessageUserChanges,
+				ReqID: reqID,
+				Data:  json.RawMessage(`{"tableUID":"` + table.UID + `","signature":"` + signature + `","operations":[{"command":"Edit","actions":[` + actions + `]}]}`),
+			}))
+			readClusterMessage(t, conn, MessageAcceptCommit)
+		}
+		commit(2, "ws-1", `{"action":"record.add","recordUID":"recWSWSWSWSWSW","values":{"fldAAAAAAA":"new"}},`+
+			`{"action":"record.set","recordUID":"recAAAAAAAAAAA","values":{"fldAAAAAAA":"a","fldBBBBBBB":"b"}}`)
 
 		changes := recordChanges(t, gormDB, table, "recAAAAAAAAAAA")
 		require.Len(t, changes, 2)
@@ -53,9 +60,7 @@ func TestHistoryOfWritePaths(t *testing.T) {
 		assert.Equal(t, db.SLRecordWriter{UserID: user.ID}, changesets[len(changesets)-1].Actor(), "the changeset keeps its writer for the catch-up")
 		assert.True(t, changesets[0].Actor().IsZero())
 
-		require.NoError(t, conn.WriteJSON(Message{Type: MessageUserChanges, ReqID: 3, Data: json.RawMessage(`{"tableUID":"` + table.UID + `","signature":"ws-2","operations":[{"command":"DeleteRecords","actions":[` +
-			`{"action":"record.delete","recordUIDs":["recWSWSWSWSWSW"]}]}]}`)}))
-		readClusterMessage(t, conn, MessageAcceptCommit)
+		commit(3, "ws-2", `{"action":"record.delete","recordUIDs":["recWSWSWSWSWSW"]}`)
 		deleted := recordChanges(t, gormDB, table, "recWSWSWSWSWSW")
 		require.Len(t, deleted, 2)
 		assert.Equal(t, db.SLRecordChangeDeleted, deleted[0].Kind)
@@ -64,22 +69,33 @@ func TestHistoryOfWritePaths(t *testing.T) {
 	t.Run("server writes", func(t *testing.T) {
 		before := len(recordChanges(t, gormDB, table, "recAAAAAAAAAAA"))
 		ok, err := hub.CommitServer(ctx, project, table, []Operation{{Actions: []Action{
-			{Action: ActionSetRecord, RecordUID: "recAAAAAAAAAAA", Values: map[string]interface{}{"fldBBBBBBB": "generated"}},
+			{
+				Action:    ActionSetRecord,
+				RecordUID: "recAAAAAAAAAAA",
+				Values:    map[string]interface{}{"fldBBBBBBB": "generated"},
+			},
 		}}}, nil)
 		require.NoError(t, err)
 		require.True(t, ok)
 		number := "number"
 		require.NoError(t, hub.Commit(ctx, project, table, nil, "convert", []Operation{{Actions: []Action{
-			{Action: ActionSetFieldType, FieldUID: "fldBBBBBBB", Field: &FieldAttrs{Type: &number}},
+			{
+				Action:   ActionSetFieldType,
+				FieldUID: "fldBBBBBBB",
+				Field:    &FieldAttrs{Type: &number},
+			},
 		}}}, func(CommitResult) {}))
 		assert.Len(t, recordChanges(t, gormDB, table, "recAAAAAAAAAAA"), before, "field shortcuts and type conversions are not recorded")
 	})
 
 	t.Run("import", func(t *testing.T) {
 		n, err := hub.Import(ctx, project, table, ImportOptions{
-			Rows:    [][]*importer.Cell{textCells("x"), textCells("y")},
-			Columns: []ImportColumn{{Index: 0, FieldUID: "fldAAAAAAA"}},
-			Origin:  Origin{UserID: user.ID},
+			Rows: [][]*importer.Cell{textCells("x"), textCells("y")},
+			Columns: []ImportColumn{{
+				Index:    0,
+				FieldUID: "fldAAAAAAA",
+			}},
+			Origin: Origin{UserID: user.ID},
 		})
 		require.NoError(t, err)
 		require.Equal(t, 2, n)
@@ -89,7 +105,10 @@ func TestHistoryOfWritePaths(t *testing.T) {
 	})
 
 	t.Run("batch", func(t *testing.T) {
-		origin := Origin{WorkflowID: 42, Depth: 1}
+		origin := Origin{
+			WorkflowID: 42,
+			Depth:      1,
+		}
 		var created *db.SLRecord
 		require.NoError(t, hub.Batch(ctx, project, []*db.SLTable{table}, BatchOptions{Origin: origin}, func(b *Batch) error {
 			var err error
@@ -116,7 +135,11 @@ func TestHistoryOfWritePaths(t *testing.T) {
 			return n
 		}
 		before := total()
-		require.NoError(t, hub.Batch(ctx, project, []*db.SLTable{table}, BatchOptions{Origin: origin, DryRun: true}, func(b *Batch) error {
+		dryRun := BatchOptions{
+			Origin: origin,
+			DryRun: true,
+		}
+		require.NoError(t, hub.Batch(ctx, project, []*db.SLTable{table}, dryRun, func(b *Batch) error {
 			_, err := b.CreateRecord(table, map[string]interface{}{"fldAAAAAAA": "dry"})
 			return err
 		}))

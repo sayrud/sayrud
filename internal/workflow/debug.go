@@ -94,7 +94,12 @@ func (e *Engine) SampleTrigger(ctx context.Context, project *db.Project, spec *S
 		}
 	case TriggerCommentCreated:
 		if comment == nil {
-			comment = &db.SLRecordComment{SLTableID: table.ID, SLRecordID: record.ID, Kind: db.SLRecordCommentKindComment, CreatedAt: dbutil.Now()}
+			comment = &db.SLRecordComment{
+				SLTableID:  table.ID,
+				SLRecordID: record.ID,
+				Kind:       db.SLRecordCommentKindComment,
+				CreatedAt:  dbutil.Now(),
+			}
 		}
 		directory, err := routeutil.LoadDirectory(ctx, e.db, project.ID)
 		if err != nil {

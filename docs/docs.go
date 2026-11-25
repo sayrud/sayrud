@@ -11181,12 +11181,14 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "operations": {
+                    "description": "Operations are the operations actually applied.",
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/Operation"
                     }
                 },
                 "rev": {
+                    "description": "Rev is the table revision after applying the changeset.",
                     "type": "integer"
                 },
                 "signature": {
@@ -11194,6 +11196,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "tableUID": {
+                    "description": "TableUID is the table the changeset is applied to.",
                     "type": "string"
                 }
             }
@@ -11504,9 +11507,11 @@ const docTemplate = `{
             ],
             "properties": {
                 "description": {
+                    "description": "Description is the optional description.",
                     "type": "string"
                 },
                 "name": {
+                    "description": "Name is the display name of the workflow.",
                     "type": "string"
                 },
                 "tableUID": {
@@ -12897,6 +12902,7 @@ const docTemplate = `{
             ],
             "properties": {
                 "changes": {
+                    "description": "Changes are the merged history entries.",
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/RecordChange"
@@ -12916,6 +12922,7 @@ const docTemplate = `{
             ],
             "properties": {
                 "comments": {
+                    "description": "Comments are the root comments with their replies.",
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/RecordComment"
@@ -13432,6 +13439,7 @@ const docTemplate = `{
                     ]
                 },
                 "createdAt": {
+                    "description": "CreatedAt is the time of the latest change merged into the entry.",
                     "type": "string"
                 },
                 "fields": {
@@ -13446,6 +13454,7 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "kind": {
+                    "description": "Kind is created, updated or deleted.",
                     "enum": [
                         "created",
                         "updated",
@@ -13484,6 +13493,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "createdAt": {
+                    "description": "CreatedAt is the time the comment is posted.",
                     "type": "string"
                 },
                 "deleted": {
@@ -13491,12 +13501,15 @@ const docTemplate = `{
                     "type": "boolean"
                 },
                 "editedAt": {
+                    "description": "EditedAt is the time of the last edit, absent if never edited.",
                     "type": "string"
                 },
                 "id": {
+                    "description": "ID is the comment ID, used to reply to, edit and delete it.",
                     "type": "integer"
                 },
                 "kind": {
+                    "description": "Kind is comment, the other kinds are reserved.",
                     "type": "string",
                     "enum": [
                         "comment",
@@ -13505,12 +13518,14 @@ const docTemplate = `{
                     ]
                 },
                 "mentions": {
+                    "description": "Mentions are the users mentioned by the body.",
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/CommentMention"
                     }
                 },
                 "recordUID": {
+                    "description": "RecordUID is the record commented on.",
                     "type": "string"
                 },
                 "replies": {
@@ -13521,10 +13536,11 @@ const docTemplate = `{
                     }
                 },
                 "replyToId": {
+                    "description": "ReplyToID is the comment replied to, 0 for the roots.",
                     "type": "integer"
                 },
                 "rootId": {
-                    "description": "RootID is the root comment of a reply, 0 for the roots; ReplyToID is the comment replied to.",
+                    "description": "RootID is the root comment of a reply, 0 for the roots.",
                     "type": "integer"
                 }
             }
@@ -13538,19 +13554,27 @@ const docTemplate = `{
             ],
             "properties": {
                 "fieldLabel": {
+                    "description": "FieldLabel is the label of the field when written.",
                     "type": "string"
                 },
                 "fieldType": {
-                    "$ref": "#/definitions/SLFieldType"
+                    "description": "FieldType is the type of the field when written.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/SLFieldType"
+                        }
+                    ]
                 },
                 "fieldUID": {
+                    "description": "FieldUID is the field changed.",
                     "type": "string"
                 },
                 "newValue": {
+                    "description": "NewValue is the cell value after the change, absent if empty.",
                     "type": "object"
                 },
                 "oldValue": {
-                    "description": "OldValue and NewValue are the cell values, absent if empty.",
+                    "description": "OldValue is the cell value before the change, absent if empty.",
                     "type": "object"
                 }
             }
@@ -13645,15 +13669,31 @@ const docTemplate = `{
             ],
             "properties": {
                 "actor": {
-                    "$ref": "#/definitions/RecordWriter"
+                    "description": "Actor is the author of the comment or the writer of the change, absent if unknown.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/RecordWriter"
+                        }
+                    ]
                 },
                 "change": {
-                    "$ref": "#/definitions/RecordTimelineChange"
+                    "description": "Change is the structure of a change item.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/RecordTimelineChange"
+                        }
+                    ]
                 },
                 "comment": {
-                    "$ref": "#/definitions/RecordTimelineComment"
+                    "description": "Comment is the structure of a comment item.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/RecordTimelineComment"
+                        }
+                    ]
                 },
                 "createdAt": {
+                    "description": "CreatedAt is the time the comment is posted or the change is written.",
                     "type": "string"
                 },
                 "id": {
@@ -13673,6 +13713,7 @@ const docTemplate = `{
                     "type": "boolean"
                 },
                 "type": {
+                    "description": "Type is comment or change.",
                     "type": "string",
                     "enum": [
                         "comment",
@@ -13689,6 +13730,7 @@ const docTemplate = `{
             ],
             "properties": {
                 "items": {
+                    "description": "Items are the comments and the changes in the requested order.",
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/RecordTimelineItem"
@@ -13991,6 +14033,7 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "createdAt": {
+                    "description": "CreatedAt is the creation time, the values of the created_at fields.",
                     "type": "string"
                 },
                 "createdBy": {
@@ -14007,12 +14050,15 @@ const docTemplate = `{
                     "additionalProperties": true
                 },
                 "tableUID": {
+                    "description": "TableUID is the table of the record.",
                     "type": "string"
                 },
                 "uid": {
+                    "description": "UID is the record UID, unique in the table.",
                     "type": "string"
                 },
                 "updatedAt": {
+                    "description": "UpdatedAt is the time of the last write, the values of the updated_at fields.",
                     "type": "string"
                 },
                 "updatedBy": {
@@ -15820,12 +15866,15 @@ const docTemplate = `{
             ],
             "properties": {
                 "asyncCount": {
+                    "description": "AsyncCount is the number of the async flows in the draft.",
                     "type": "integer"
                 },
                 "createdAt": {
+                    "description": "CreatedAt is the creation time.",
                     "type": "string"
                 },
                 "description": {
+                    "description": "Description is the optional description.",
                     "type": "string"
                 },
                 "draft": {
@@ -15835,6 +15884,7 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "enabled": {
+                    "description": "Enabled reports whether the published revision runs.",
                     "type": "boolean"
                 },
                 "hasUnpublishedChanges": {
@@ -15853,39 +15903,47 @@ const docTemplate = `{
                     }
                 },
                 "method": {
-                    "description": "Method and Path are the entry of the API trigger in the draft, empty for other triggers.",
+                    "description": "Method is the method of the API trigger in the draft, empty for other triggers.",
                     "type": "string"
                 },
                 "name": {
+                    "description": "Name is the display name.",
                     "type": "string"
                 },
                 "path": {
+                    "description": "Path is the path of the API trigger in the draft, empty for other triggers.",
                     "type": "string"
                 },
                 "position": {
+                    "description": "Position is the order in the sidebar.",
                     "type": "integer"
                 },
                 "publishedAt": {
+                    "description": "PublishedAt is the time of the last publishing, null if unpublished.",
                     "type": "string"
                 },
                 "publishedMethod": {
-                    "description": "PublishedMethod and PublishedPath are the API entry being served, empty if unpublished or for other triggers.",
+                    "description": "PublishedMethod is the method of the API being served, empty if unpublished or for other triggers.",
                     "type": "string"
                 },
                 "publishedPath": {
+                    "description": "PublishedPath is the path of the API being served, empty if unpublished or for other triggers.",
                     "type": "string"
                 },
                 "publishedTriggerType": {
+                    "description": "PublishedTriggerType is the trigger type of the published revision, empty if unpublished.",
                     "type": "string"
                 },
                 "publishedVersion": {
+                    "description": "PublishedVersion is the version of the published revision, 0 if unpublished.",
                     "type": "integer"
                 },
                 "stepCount": {
+                    "description": "StepCount is the number of the steps in the draft, including the async flows.",
                     "type": "integer"
                 },
                 "triggerType": {
-                    "description": "TriggerType is the trigger type of the draft, PublishedTriggerType is the trigger type of the published revision, empty if unpublished.",
+                    "description": "TriggerType is the trigger type of the draft, empty if not chosen yet.",
                     "type": "string",
                     "enum": [
                         "",
@@ -15900,9 +15958,11 @@ const docTemplate = `{
                     ]
                 },
                 "uid": {
+                    "description": "UID is the workflow UID in the routes.",
                     "type": "string"
                 },
                 "updatedAt": {
+                    "description": "UpdatedAt is the time of the last change.",
                     "type": "string"
                 }
             }
@@ -16338,15 +16398,19 @@ const docTemplate = `{
             ],
             "properties": {
                 "asyncCount": {
+                    "description": "AsyncCount is the number of the async flows in the draft.",
                     "type": "integer"
                 },
                 "createdAt": {
+                    "description": "CreatedAt is the creation time.",
                     "type": "string"
                 },
                 "description": {
+                    "description": "Description is the optional description.",
                     "type": "string"
                 },
                 "enabled": {
+                    "description": "Enabled reports whether the published revision runs.",
                     "type": "boolean"
                 },
                 "hasUnpublishedChanges": {
@@ -16358,39 +16422,47 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "method": {
-                    "description": "Method and Path are the entry of the API trigger in the draft, empty for other triggers.",
+                    "description": "Method is the method of the API trigger in the draft, empty for other triggers.",
                     "type": "string"
                 },
                 "name": {
+                    "description": "Name is the display name.",
                     "type": "string"
                 },
                 "path": {
+                    "description": "Path is the path of the API trigger in the draft, empty for other triggers.",
                     "type": "string"
                 },
                 "position": {
+                    "description": "Position is the order in the sidebar.",
                     "type": "integer"
                 },
                 "publishedAt": {
+                    "description": "PublishedAt is the time of the last publishing, null if unpublished.",
                     "type": "string"
                 },
                 "publishedMethod": {
-                    "description": "PublishedMethod and PublishedPath are the API entry being served, empty if unpublished or for other triggers.",
+                    "description": "PublishedMethod is the method of the API being served, empty if unpublished or for other triggers.",
                     "type": "string"
                 },
                 "publishedPath": {
+                    "description": "PublishedPath is the path of the API being served, empty if unpublished or for other triggers.",
                     "type": "string"
                 },
                 "publishedTriggerType": {
+                    "description": "PublishedTriggerType is the trigger type of the published revision, empty if unpublished.",
                     "type": "string"
                 },
                 "publishedVersion": {
+                    "description": "PublishedVersion is the version of the published revision, 0 if unpublished.",
                     "type": "integer"
                 },
                 "stepCount": {
+                    "description": "StepCount is the number of the steps in the draft, including the async flows.",
                     "type": "integer"
                 },
                 "triggerType": {
-                    "description": "TriggerType is the trigger type of the draft, PublishedTriggerType is the trigger type of the published revision, empty if unpublished.",
+                    "description": "TriggerType is the trigger type of the draft, empty if not chosen yet.",
                     "type": "string",
                     "enum": [
                         "",
@@ -16405,9 +16477,11 @@ const docTemplate = `{
                     ]
                 },
                 "uid": {
+                    "description": "UID is the workflow UID in the routes.",
                     "type": "string"
                 },
                 "updatedAt": {
+                    "description": "UpdatedAt is the time of the last change.",
                     "type": "string"
                 }
             }
@@ -17200,19 +17274,22 @@ const docTemplate = `{
                     "type": "object"
                 },
                 "else": {
+                    "description": "Else is the branch of a branching module taken otherwise.",
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/WorkflowStep"
                     }
                 },
                 "id": {
+                    "description": "ID identifies the step in the flow, its output is referenced as steps.\u003cid\u003e.",
                     "type": "string"
                 },
                 "name": {
+                    "description": "Name is the display name of the node; when empty, the module's name is shown.",
                     "type": "string"
                 },
                 "then": {
-                    "description": "Then and Else are the branches of a branching module.",
+                    "description": "Then is the branch of a branching module taken when it matches.",
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/WorkflowStep"
@@ -17351,6 +17428,7 @@ const docTemplate = `{
                     ]
                 },
                 "type": {
+                    "description": "Type is the trigger type, the other configuration matches it.",
                     "type": "string",
                     "enum": [
                         "",

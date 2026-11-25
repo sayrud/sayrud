@@ -35,28 +35,25 @@ const (
 
 // changeGroup is the history entry merged from the consecutive changes, read from the newest.
 type changeGroup struct {
-	entry  *dto.RecordChange
+	// entry is the merged history entry.
+	entry *dto.RecordChange
+	// fields are the changed fields of the entry keyed by field UID.
 	fields map[string]*dto.RecordFieldChange
-	// newest and oldest are the times of the changes merged, oldestID is the smallest ID.
-	newest, oldest time.Time
-	oldestID       int64
+	// newest is the time of the newest change merged.
+	newest time.Time
+	// oldestID is the smallest ID of the changes merged.
+	oldestID int64
 }
 
+// newChangeGroup returns the group starting from the newest change.
 func newChangeGroup(c *db.SLRecordChange) *changeGroup {
 	g := &changeGroup{
-		entry:  &dto.RecordChange{ID: c.ID, Kind: c.Kind, Actor: writerPtr(c.Writer()), CreatedAt: c.CreatedAt, Fields: []*dto.RecordFieldChange{}},
+		entry:  dto.NewRecordChange(c),
 		fields: map[string]*dto.RecordFieldChange{},
 		newest: c.CreatedAt,
 	}
 	g.add(c)
 	return g
-}
-
-func writerPtr(w db.SLRecordWriter) *db.SLRecordWriter {
-	if w.IsZero() {
-		return nil
-	}
-	return &w
 }
 
 // accepts reports whether the older change continues the updates of the same writer within the merge window.
@@ -67,7 +64,7 @@ func (g *changeGroup) accepts(c *db.SLRecordChange) bool {
 
 // add merges the older change: a field keeps the newest value and label, and the oldest previous value.
 func (g *changeGroup) add(c *db.SLRecordChange) {
-	g.oldest, g.oldestID = c.CreatedAt, c.ID
+	g.oldestID = c.ID
 	if c.Kind != db.SLRecordChangeUpdated {
 		return
 	}
@@ -75,7 +72,7 @@ func (g *changeGroup) add(c *db.SLRecordChange) {
 		f.OldValue = json.RawMessage(c.OldValue)
 		return
 	}
-	f := &dto.RecordFieldChange{FieldUID: c.FieldUID, FieldLabel: c.FieldLabel, FieldType: c.FieldType, OldValue: json.RawMessage(c.OldValue), NewValue: json.RawMessage(c.NewValue)}
+	f := dto.NewRecordFieldChange(c)
 	g.fields[c.FieldUID] = f
 	g.entry.Fields = append(g.entry.Fields, f)
 }
@@ -245,7 +242,8 @@ func decodeTimelineCursor(s string) (*db.TimelineCursor, error) {
 	if err := errors.CombineErrors(err1, errors.CombineErrors(err2, err3)); err != nil {
 		return nil, err
 	}
-	return &db.TimelineCursor{Time: time.UnixMicro(micro), Rank: rank, ID: id}, nil
+	cursor := db.NewTimelineCursor(time.UnixMicro(micro), rank, id)
+	return &cursor, nil
 }
 
 // timelineEntry is an item of the timeline with its position.
@@ -311,10 +309,16 @@ func (schemalessRoute) Timeline(ctx context.Context, project *db.Project, table 
 	}
 	entries := make([]timelineEntry, 0, len(comments)+len(changes))
 	for _, cm := range comments {
-		entries = append(entries, timelineEntry{cursor: db.TimelineCursor{Time: cm.CreatedAt, Rank: db.TimelineRankComment, ID: cm.ID}, comment: cm})
+		entries = append(entries, timelineEntry{
+			cursor:  cm.TimelineCursor(),
+			comment: cm,
+		})
 	}
 	for _, ch := range changes {
-		entries = append(entries, timelineEntry{cursor: db.TimelineCursor{Time: ch.CreatedAt, Rank: db.TimelineRankChange, ID: ch.ID}, change: ch})
+		entries = append(entries, timelineEntry{
+			cursor: ch.TimelineCursor(),
+			change: ch,
+		})
 	}
 	sort.Slice(entries, func(i, j int) bool { return entries[i].before(entries[j], asc) })
 
@@ -352,45 +356,35 @@ func (schemalessRoute) Timeline(ctx context.Context, project *db.Project, table 
 
 	base := fmt.Sprintf("/projects/%s/tables/%s/records/%s", project.UID, table.UID, record.UID)
 	for _, e := range entries {
-		if e.comment != nil {
-			cm := e.comment
+		if cm := e.comment; cm != nil {
 			summary, truncated := truncateText(cm.Body, timelineSummaryLength)
-			resp.Items = append(resp.Items, &dto.TimelineItem{
-				ID: dto.TimelineComment + ":" + strconv.FormatInt(cm.ID, 10), Type: dto.TimelineComment, CreatedAt: cm.CreatedAt,
-				Actor: writerPtr(cm.Author()), Summary: summary, Truncated: truncated, Ref: base + "/comments/" + strconv.FormatInt(cm.ID, 10),
-				Comment: &dto.TimelineCommentInfo{
-					ID: cm.ID, RootID: cm.RootID, ReplyToID: cm.ReplyToID, Kind: string(cm.Kind), Mentions: collab.NewComment(record.UID, cm).Mentions, EditedAt: cm.EditedAt,
-				},
-			})
+			ref := base + "/comments/" + strconv.FormatInt(cm.ID, 10)
+			resp.Items = append(resp.Items, dto.NewCommentTimelineItem(ref, cm, summary, truncated))
 			continue
 		}
 		ch := e.change
-		detail := &dto.TimelineChangeDetail{ID: ch.ID, Kind: ch.Kind, FieldUID: ch.FieldUID, FieldLabel: ch.FieldLabel, FieldType: ch.FieldType}
 		var summary string
-		truncated := false
+		withValues := true
 		switch ch.Kind {
 		case db.SLRecordChangeCreated:
 			summary = ctx.Tr("record::timeline_created")
 		case db.SLRecordChangeDeleted:
 			summary = ctx.Tr("record::timeline_deleted")
 		default:
-			field := &db.SLField{UID: ch.FieldUID, Label: ch.FieldLabel, Type: ch.FieldType}
+			field := &db.SLField{
+				UID:   ch.FieldUID,
+				Label: ch.FieldLabel,
+				Type:  ch.FieldType,
+			}
 			if current, ok := byUID[ch.FieldUID]; ok && current.Type == ch.FieldType {
 				field = current
 			}
 			summary = fmt.Sprintf("%s: %s → %s", ch.FieldLabel, changeValueText(field, ch.OldValue, boolText, directory), changeValueText(field, ch.NewValue, boolText, directory))
-			if len(ch.OldValue) > timelineValueLimit || len(ch.NewValue) > timelineValueLimit {
-				truncated = true
-			} else {
-				detail.OldValue, detail.NewValue = json.RawMessage(ch.OldValue), json.RawMessage(ch.NewValue)
-			}
+			withValues = len(ch.OldValue) <= timelineValueLimit && len(ch.NewValue) <= timelineValueLimit
 		}
 		summary, cut := truncateText(summary, timelineSummaryLength)
-		resp.Items = append(resp.Items, &dto.TimelineItem{
-			ID: dto.TimelineChange + ":" + strconv.FormatInt(ch.ID, 10), Type: dto.TimelineChange, CreatedAt: ch.CreatedAt,
-			Actor: writerPtr(ch.Writer()), Summary: summary, Truncated: truncated || cut, Ref: base + "/changes/" + strconv.FormatInt(ch.ID, 10),
-			Change: detail,
-		})
+		ref := base + "/changes/" + strconv.FormatInt(ch.ID, 10)
+		resp.Items = append(resp.Items, dto.NewChangeTimelineItem(ref, ch, summary, cut || !withValues, withValues))
 	}
 	return ctx.ApiSuccess(resp)
 }

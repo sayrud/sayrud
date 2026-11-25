@@ -40,28 +40,40 @@ const (
 
 // SLRecordChange is the creation, the deletion, or the change of a field value of a record by a user or a workflow.
 type SLRecordChange struct {
+	// ID is the primary key, it increases with the changes of a record.
 	ID int64 `gorm:"primarykey;index:idx_sl_record_changes_record,priority:2"`
 	// SLTableID is the table of the record.
 	SLTableID int64 `gorm:"not null"`
 	// SLRecordID is the record changed, the changes are kept after the record is deleted.
-	SLRecordID int64              `gorm:"not null;index:idx_sl_record_changes_record,priority:1"`
-	Kind       SLRecordChangeKind `gorm:"type:varchar(16);not null"`
-	// FieldUID, FieldLabel and FieldType are the field changed and its label and type when written, only for updated.
-	FieldUID   string      `gorm:"not null;default:''"`
-	FieldLabel string      `gorm:"not null;default:''"`
-	FieldType  SLFieldType `gorm:"type:varchar(32);not null;default:''"`
-	// OldValue and NewValue are the cell values before and after the change, NULL if empty; only for updated.
+	SLRecordID int64 `gorm:"not null;index:idx_sl_record_changes_record,priority:1"`
+	// Kind is created, updated or deleted.
+	Kind SLRecordChangeKind `gorm:"type:varchar(16);not null"`
+	// FieldUID is the field changed, only for updated.
+	FieldUID string `gorm:"not null;default:''"`
+	// FieldLabel is the label of the field when written, only for updated.
+	FieldLabel string `gorm:"not null;default:''"`
+	// FieldType is the type of the field when written, only for updated.
+	FieldType SLFieldType `gorm:"type:varchar(32);not null;default:''"`
+	// OldValue is the cell value before the change, NULL if empty; only for updated.
 	OldValue datatypes.JSON `gorm:"type:jsonb"`
+	// NewValue is the cell value after the change, NULL if empty; only for updated.
 	NewValue datatypes.JSON `gorm:"type:jsonb"`
-	// UserID and WorkflowID are the writer, the same as SLRecordWriter.
-	UserID     int64 `gorm:"not null;default:0"`
+	// UserID is the user making the change, 0 if it is made by a workflow.
+	UserID int64 `gorm:"not null;default:0"`
+	// WorkflowID is the workflow making the change, 0 if it is made by a user.
 	WorkflowID int64 `gorm:"not null;default:0"`
-	CreatedAt  time.Time
+	// CreatedAt is the time of the write.
+	CreatedAt time.Time
 }
 
 // Writer returns the user or the workflow making the change.
 func (c *SLRecordChange) Writer() SLRecordWriter {
-	return SLRecordWriter{UserID: c.UserID, WorkflowID: c.WorkflowID}
+	return NewSLRecordWriter(c.UserID, c.WorkflowID)
+}
+
+// TimelineCursor returns the position of the change in the timeline.
+func (c *SLRecordChange) TimelineCursor() TimelineCursor {
+	return NewTimelineCursor(c.CreatedAt, TimelineRankChange, c.ID)
 }
 
 var ErrSLRecordChangeNotFound = errors.New("sl_record_change does not exist")
@@ -118,6 +130,15 @@ type TimelineCursor struct {
 	Time time.Time
 	Rank int
 	ID   int64
+}
+
+// NewTimelineCursor returns the position of the item of the rank written at the time.
+func NewTimelineCursor(t time.Time, rank int, id int64) TimelineCursor {
+	return TimelineCursor{
+		Time: t,
+		Rank: rank,
+		ID:   id,
+	}
 }
 
 // condition returns the SQL condition of the items of the rank after the cursor.

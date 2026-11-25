@@ -63,32 +63,54 @@ type CommentMention struct {
 	IsBot  bool  `json:"isBot,omitempty"`
 } // @name CommentMention
 
+// NewCommentMention returns the mention of the user.
+func NewCommentMention(user *User) CommentMention {
+	return CommentMention{
+		UserID: user.ID,
+		IsBot:  user.IsBot(),
+	}
+}
+
 // SLRecordComment is a comment on a record written by a user or a workflow, with one level of replies.
 type SLRecordComment struct {
-	ID         int64 `gorm:"primarykey"`
-	SLTableID  int64 `gorm:"not null;index"`
+	// ID is the primary key.
+	ID int64 `gorm:"primarykey"`
+	// SLTableID is the table of the record.
+	SLTableID int64 `gorm:"not null;index"`
+	// SLRecordID is the record commented on, the comments are deleted with it.
 	SLRecordID int64 `gorm:"not null;index"`
-	// AuthorID is the user writing the comment, AuthorWorkflowID is the workflow, at most one of them is set.
-	AuthorID         int64 `gorm:"not null;default:0"`
+	// AuthorID is the user writing the comment, 0 if it is written by a workflow.
+	AuthorID int64 `gorm:"not null;default:0"`
+	// AuthorWorkflowID is the workflow writing the comment, 0 if it is written by a user.
 	AuthorWorkflowID int64 `gorm:"not null;default:0"`
 	// Body is the Markdown text, cleared when deleted.
 	Body string `gorm:"type:text;not null;default:''"`
-	// RootID is the root comment of a reply, 0 for the roots; ReplyToID is the comment replied to, the root or another reply.
-	RootID    int64               `gorm:"not null;default:0;index"`
-	ReplyToID int64               `gorm:"not null;default:0"`
-	Kind      SLRecordCommentKind `gorm:"type:varchar(16);not null;default:'comment'"`
+	// RootID is the root comment of a reply, 0 for the roots.
+	RootID int64 `gorm:"not null;default:0;index"`
+	// ReplyToID is the comment replied to, the root or another reply; 0 for the roots.
+	ReplyToID int64 `gorm:"not null;default:0"`
+	// Kind is comment, or the reserved report and attention.
+	Kind SLRecordCommentKind `gorm:"type:varchar(16);not null;default:'comment'"`
 	// Payload is the structured content of the reserved kinds, NULL for the plain comments.
-	Payload  datatypes.JSON                      `gorm:"type:jsonb"`
+	Payload datatypes.JSON `gorm:"type:jsonb"`
+	// Mentions are the users mentioned by the body, cleared when deleted.
 	Mentions datatypes.JSONSlice[CommentMention] `gorm:"type:jsonb;not null;default:'[]'"`
+	// EditedAt is the time of the last edit, nil if never edited.
 	EditedAt *time.Time
 	// DeletedAt keeps the deleted root as a placeholder of its replies, it is not a gorm soft deletion.
 	DeletedAt *time.Time
+	// CreatedAt is the time the comment is posted.
 	CreatedAt time.Time
 }
 
 // Author returns the user or the workflow writing the comment.
 func (c *SLRecordComment) Author() SLRecordWriter {
-	return SLRecordWriter{UserID: c.AuthorID, WorkflowID: c.AuthorWorkflowID}
+	return NewSLRecordWriter(c.AuthorID, c.AuthorWorkflowID)
+}
+
+// TimelineCursor returns the position of the comment in the timeline.
+func (c *SLRecordComment) TimelineCursor() TimelineCursor {
+	return NewTimelineCursor(c.CreatedAt, TimelineRankComment, c.ID)
 }
 
 // CreateSLRecordCommentOptions are the options of creating a comment.

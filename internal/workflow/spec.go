@@ -47,6 +47,7 @@ func IsRecordTrigger(t string) bool {
 
 // Trigger is the workflow trigger and keeps only the configuration matching Type; an empty Type means a new workflow has not chosen a trigger yet.
 type Trigger struct {
+	// Type is the trigger type, the other configuration matches it.
 	Type string `json:"type" enums:",api,record_created,record_updated,record_matched,record_deleted,date_reached,schedule,comment_created"`
 	// Name is the display name of the trigger node; when empty, the trigger type's name is shown.
 	Name string `json:"name,omitempty"`
@@ -230,14 +231,17 @@ const (
 
 // Step is a node in a flow, its output is referenced as steps.<id>.
 type Step struct {
+	// ID identifies the step in the flow, its output is referenced as steps.<id>.
 	ID string `json:"id"`
 	// Type is a built-in module (query, create, update, condition, response, email, http, comment) or an installed plugin (plugin:<id>).
 	Type string `json:"type"`
+	// Name is the display name of the node; when empty, the module's name is shown.
 	Name string `json:"name,omitempty"`
 	// Config is the module configuration defined by the DSL of the type (see ModuleDef), decoded as the matching *XxxConfig.
 	Config interface{} `json:"config" swaggertype:"object"`
-	// Then and Else are the branches of a branching module.
+	// Then is the branch of a branching module taken when it matches.
 	Then []Step `json:"then,omitempty"`
+	// Else is the branch of a branching module taken otherwise.
 	Else []Step `json:"else,omitempty"`
 } // @name WorkflowStep
 

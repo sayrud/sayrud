@@ -136,7 +136,8 @@ func (schemalessRoute) CreateComment(ctx context.Context, hub *collab.Hub, user 
 		return ctx.ApiError(http.StatusBadRequest, "comment::unsupported_kind")
 	}
 	comment, err := hub.CreateComment(ctx.Request().Context(), project, table, record, collab.Origin{UserID: user.ID}, collab.CommentOptions{
-		Body: f.Body, ReplyToID: f.ReplyToID,
+		Body:      f.Body,
+		ReplyToID: f.ReplyToID,
 	})
 	if err != nil {
 		if resp, ok := commentErrorResponse(ctx, err); ok {

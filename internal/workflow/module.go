@@ -362,7 +362,9 @@ type HTTPConfig struct {
 
 // CommentConfig is the config of a comment step, the comment is written by the workflow.
 type CommentConfig struct {
-	TableUID  string `json:"tableUID"`
+	// TableUID is the table of the record.
+	TableUID string `json:"tableUID"`
+	// RecordUID is the record to comment on.
 	RecordUID *Value `json:"recordUID,omitempty"`
 	// Body is the Markdown text, mentions are written as <@userID>.
 	Body *Value `json:"body,omitempty"`

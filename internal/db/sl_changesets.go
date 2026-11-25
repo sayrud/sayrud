@@ -44,8 +44,9 @@ type SLChangeset struct {
 	ClientID string
 	// Operations are the operations actually applied, encoded as collab.Operation list.
 	Operations datatypes.JSON `gorm:"type:jsonb"`
-	// ActorUserID and ActorWorkflowID are the writer of the records changed by the changeset, both 0 for the server or the changesets before they were recorded.
-	ActorUserID     int64 `gorm:"not null;default:0"`
+	// ActorUserID is the user writing the records changed by the changeset, 0 for the workflows, the server or the changesets before the writers were recorded.
+	ActorUserID int64 `gorm:"not null;default:0"`
+	// ActorWorkflowID is the workflow writing the records changed by the changeset, 0 if it is not written by a workflow.
 	ActorWorkflowID int64 `gorm:"not null;default:0"`
 	// CreatedAt is the time the changeset is accepted.
 	CreatedAt time.Time
@@ -53,7 +54,7 @@ type SLChangeset struct {
 
 // Actor returns the writer of the records changed by the changeset.
 func (c *SLChangeset) Actor() SLRecordWriter {
-	return SLRecordWriter{UserID: c.ActorUserID, WorkflowID: c.ActorWorkflowID}
+	return NewSLRecordWriter(c.ActorUserID, c.ActorWorkflowID)
 }
 
 type slChangesets struct {

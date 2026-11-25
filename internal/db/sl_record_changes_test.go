@@ -9,16 +9,25 @@ import (
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/wuhan005/sayrud/internal/dbutil"
 )
 
 func TestRecordChanges(t *testing.T) {
 	ctx := context.Background()
 	tx := newTestDB(t, &SLField{}, &SLRecord{}, &SLRecordChange{}, &SLRecordComment{})
 	fields := NewSLFieldsStore(tx)
-	title, err := fields.Create(ctx, CreateSLFieldOptions{SLTableID: 1, Label: "Title", Type: TextFieldType})
-	require.NoError(t, err)
-	score, err := fields.Create(ctx, CreateSLFieldOptions{SLTableID: 1, Label: "Score", Type: NumberFieldType})
-	require.NoError(t, err)
+	createField := func(label string, fieldType SLFieldType) *SLField {
+		field, err := fields.Create(ctx, CreateSLFieldOptions{
+			SLTableID: 1,
+			Label:     label,
+			Type:      fieldType,
+		})
+		require.NoError(t, err)
+		return field
+	}
+	title := createField("Title", TextFieldType)
+	score := createField("Score", NumberFieldType)
 
 	records := NewSLRecordsStore(tx)
 	changes := NewSLRecordChangesStore(tx)
@@ -70,7 +79,10 @@ func TestRecordChanges(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, int64(3), latest.UpdatedByID, "a zero writer keeps the modifier")
 
-	imported, err := records.Import(ctx, 1, ImportSLRecordsOptions{Data: []json.RawMessage{json.RawMessage(`{}`), json.RawMessage(`{}`)}, Writer: user})
+	imported, err := records.Import(ctx, 1, ImportSLRecordsOptions{
+		Data:   []json.RawMessage{json.RawMessage(`{}`), json.RawMessage(`{}`)},
+		Writer: user,
+	})
 	require.NoError(t, err)
 	for _, r := range imported {
 		list, err := changes.ListByRecord(ctx, r.ID, 0, 10)
@@ -80,8 +92,16 @@ func TestRecordChanges(t *testing.T) {
 	}
 
 	comments := NewSLRecordCommentsStore(tx)
-	_, err = comments.Create(ctx, CreateSLRecordCommentOptions{SLTableID: 1, SLRecordID: imported[0].ID, Author: user, Body: "hi"})
-	require.NoError(t, err)
+	comment := func(body string) error {
+		_, err := comments.Create(ctx, CreateSLRecordCommentOptions{
+			SLTableID:  1,
+			SLRecordID: imported[0].ID,
+			Author:     user,
+			Body:       body,
+		})
+		return err
+	}
+	require.NoError(t, comment("hi"))
 	require.NoError(t, records.DeleteByUIDs(ctx, 1, []string{imported[0].UID, imported[1].UID}, user))
 	list, err = changes.ListByRecord(ctx, imported[0].ID, 0, 10)
 	require.NoError(t, err)
@@ -90,8 +110,7 @@ func TestRecordChanges(t *testing.T) {
 	var left int64
 	require.NoError(t, tx.Model(&SLRecordComment{}).Where("sl_record_id = ?", imported[0].ID).Count(&left).Error)
 	assert.Zero(t, left, "the comments are deleted with the record")
-	_, err = comments.Create(ctx, CreateSLRecordCommentOptions{SLTableID: 1, SLRecordID: imported[0].ID, Author: user, Body: "late"})
-	assert.ErrorIs(t, err, ErrSLRecordNotFound)
+	assert.ErrorIs(t, comment("late"), ErrSLRecordNotFound)
 
 	got, err := changes.GetByID(ctx, record.ID, n[0].ID)
 	require.NoError(t, err)
@@ -108,7 +127,14 @@ func TestRecordComments(t *testing.T) {
 	require.NoError(t, err)
 	comments := NewSLRecordCommentsStore(tx)
 	create := func(body string, root, replyTo int64) *SLRecordComment {
-		c, err := comments.Create(ctx, CreateSLRecordCommentOptions{SLTableID: 1, SLRecordID: record.ID, Author: SLRecordWriter{UserID: 1}, Body: body, RootID: root, ReplyToID: replyTo})
+		c, err := comments.Create(ctx, CreateSLRecordCommentOptions{
+			SLTableID:  1,
+			SLRecordID: record.ID,
+			Author:     NewSLRecordWriter(1, 0),
+			Body:       body,
+			RootID:     root,
+			ReplyToID:  replyTo,
+		})
 		require.NoError(t, err)
 		return c
 	}
@@ -151,12 +177,18 @@ func TestRecordComments(t *testing.T) {
 	assert.Len(t, roots, 1)
 	assert.Equal(t, int64(1), count())
 
-	require.NoError(t, comments.Update(ctx, second.ID, "edited <@2>", []CommentMention{{UserID: 2, IsBot: true}}))
+	bot := &User{
+		Model: dbutil.Model{ID: 2},
+		Kind:  UserKindBot,
+	}
+	mentions := []CommentMention{NewCommentMention(bot)}
+	require.NoError(t, comments.Update(ctx, second.ID, "edited <@2>", mentions))
 	got, err := comments.GetByID(ctx, second.ID)
 	require.NoError(t, err)
 	assert.Equal(t, "edited <@2>", got.Body)
 	assert.NotNil(t, got.EditedAt)
-	assert.Equal(t, []CommentMention{{UserID: 2, IsBot: true}}, []CommentMention(got.Mentions))
+	assert.Equal(t, mentions, []CommentMention(got.Mentions))
+	assert.True(t, got.Mentions[0].IsBot)
 
 	latest, err := comments.LatestByTable(ctx, 1)
 	require.NoError(t, err)
@@ -166,11 +198,12 @@ func TestRecordComments(t *testing.T) {
 	all, err := comments.ListTimeline(ctx, record.ID, nil, true, 10)
 	require.NoError(t, err)
 	require.Len(t, all, 1)
-	cursor := &TimelineCursor{Time: all[0].CreatedAt, Rank: TimelineRankComment, ID: all[0].ID}
-	after, err := comments.ListTimeline(ctx, record.ID, cursor, true, 10)
+	cursor := all[0].TimelineCursor()
+	after, err := comments.ListTimeline(ctx, record.ID, &cursor, true, 10)
 	require.NoError(t, err)
 	assert.Empty(t, after)
-	before, err := NewSLRecordChangesStore(tx).ListTimeline(ctx, record.ID, &TimelineCursor{Time: all[0].CreatedAt.Add(time.Second), Rank: TimelineRankComment}, false, 10)
+	later := NewTimelineCursor(all[0].CreatedAt.Add(time.Second), TimelineRankComment, 0)
+	before, err := NewSLRecordChangesStore(tx).ListTimeline(ctx, record.ID, &later, false, 10)
 	require.NoError(t, err)
 	assert.Len(t, before, 1, "the created change is before the cursor")
 }

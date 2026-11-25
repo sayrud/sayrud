@@ -119,6 +119,14 @@ type SLRecordWriter struct {
 	WorkflowID int64 `json:"workflowId,omitempty"`
 } // @name RecordWriter
 
+// NewSLRecordWriter returns the writer of the user or the workflow, at most one of them is non-zero.
+func NewSLRecordWriter(userID, workflowID int64) SLRecordWriter {
+	return SLRecordWriter{
+		UserID:     userID,
+		WorkflowID: workflowID,
+	}
+}
+
 // IsZero reports whether the writer is unknown.
 func (w SLRecordWriter) IsZero() bool {
 	return w.UserID == 0 && w.WorkflowID == 0
@@ -938,8 +946,12 @@ WHERE (prev.data -> k.key) IS DISTINCT FROM (next.data -> k.key)`
 func (db *slRecords) Update(ctx context.Context, slRecordID int64, jsonBytes json.RawMessage, writer SLRecordWriter) error {
 	if !writer.IsZero() {
 		if err := db.WithContext(ctx).Exec(updateWithChangesSQL, map[string]interface{}{
-			"id": slRecordID, "data": string(jsonBytes), "now": dbutil.Now(), "user": writer.UserID, "workflow": writer.WorkflowID,
-			"kind": SLRecordChangeUpdated,
+			"id":       slRecordID,
+			"data":     string(jsonBytes),
+			"now":      dbutil.Now(),
+			"user":     writer.UserID,
+			"workflow": writer.WorkflowID,
+			"kind":     SLRecordChangeUpdated,
 		}).Error; err != nil {
 			return errors.Wrap(err, "update")
 		}

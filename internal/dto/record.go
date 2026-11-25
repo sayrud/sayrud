@@ -9,12 +9,16 @@ import (
 
 // Record is the schemaless table record returned by the management API.
 type Record struct {
-	UID      string `json:"uid"`
+	// UID is the record UID, unique in the table.
+	UID string `json:"uid"`
+	// TableUID is the table of the record.
 	TableUID string `json:"tableUID"`
 	// Data is the cell values keyed by field UID, the system fields are not in it.
-	Data      map[string]interface{} `json:"data"`
-	CreatedAt time.Time              `json:"createdAt"`
-	UpdatedAt time.Time              `json:"updatedAt"`
+	Data map[string]interface{} `json:"data"`
+	// CreatedAt is the creation time, the values of the created_at fields.
+	CreatedAt time.Time `json:"createdAt"`
+	// UpdatedAt is the time of the last write, the values of the updated_at fields.
+	UpdatedAt time.Time `json:"updatedAt"`
 	// CreatedBy is the user or workflow creating the record, the values of the created_by fields; absent if unknown.
 	CreatedBy *db.SLRecordWriter `json:"createdBy,omitempty"`
 	// UpdatedBy is the user or workflow last writing the record, the values of the updated_by fields; absent if unknown.

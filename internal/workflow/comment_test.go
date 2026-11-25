@@ -14,54 +14,89 @@ import (
 	"github.com/wuhan005/sayrud/internal/db"
 )
 
+// commentSpec returns a comment_created workflow of the leads table with the filters.
+func (f *leadFixture) commentSpec(filters *CommentTrigger, steps ...Step) *Spec {
+	return &Spec{
+		Trigger: Trigger{
+			Type:    TriggerCommentCreated,
+			Record:  &RecordTrigger{TableUID: f.table.UID},
+			Comment: filters,
+		},
+		Steps: steps,
+	}
+}
+
+// queryStep returns a step reading a lead, which has no side effects.
+func (f *leadFixture) queryStep(filters ...Filter) Step {
+	return Step{
+		ID:   "find",
+		Type: StepQuery,
+		Config: &QueryConfig{
+			TableUID: f.table.UID,
+			Limit:    1,
+			Filters:  filters,
+		},
+	}
+}
+
+// addUser creates a user of the kind and adds it to the project as an editor.
+func (f *leadFixture) addUser(t *testing.T, name string, kind db.UserKind, ownerID int64) *db.User {
+	t.Helper()
+	user := &db.User{
+		Email:    name + "@example.com",
+		UserName: name,
+		Kind:     kind,
+		OwnerID:  ownerID,
+	}
+	require.NoError(t, f.db.Create(user).Error)
+	require.NoError(t, db.NewProjectMembersStore(f.db).Set(context.Background(), f.project.ID, user.ID, db.ProjectRoleEditor))
+	return user
+}
+
 func TestCommentTriggerAndStep(t *testing.T) {
 	f := newLeadFixture(t)
 	ctx := context.Background()
-	human := &db.User{Email: "human@example.com", UserName: "Human"}
-	require.NoError(t, f.db.Create(human).Error)
-	bot := &db.User{Email: "bot@bots.invalid", UserName: "Helper", Kind: db.UserKindBot, OwnerID: human.ID}
-	require.NoError(t, f.db.Create(bot).Error)
-	members := db.NewProjectMembersStore(f.db)
-	require.NoError(t, members.Set(ctx, f.project.ID, human.ID, db.ProjectRoleEditor))
-	require.NoError(t, members.Set(ctx, f.project.ID, bot.ID, db.ProjectRoleEditor))
+	human := f.addUser(t, "Human", db.UserKindHuman, 0)
+	bot := f.addUser(t, "Helper", db.UserKindBot, human.ID)
 	uid := f.create(t, map[string]interface{}{f.name.UID: "Ann"})
 	record, err := db.NewSLRecordsStore(f.db).GetByUID(ctx, uid)
 	require.NoError(t, err)
 
-	ackSpec := &Spec{
-		Trigger: Trigger{Type: TriggerCommentCreated, Record: &RecordTrigger{TableUID: f.table.UID}, Comment: &CommentTrigger{AuthorKind: CommentAuthorHuman}},
-		Steps: []Step{{ID: "ack", Type: StepComment, Config: &CommentConfig{
-			TableUID: f.table.UID, RecordUID: vp("trigger.record.uid"),
-			Body: &Value{Kind: ValueTemplate, Template: "Got it: {{trigger.comment.body}} from {{trigger.comment.author.name}}"},
-		}}},
-	}
+	ackSpec := f.commentSpec(&CommentTrigger{AuthorKind: CommentAuthorHuman}, Step{
+		ID:   "ack",
+		Type: StepComment,
+		Config: &CommentConfig{
+			TableUID:  f.table.UID,
+			RecordUID: vp("trigger.record.uid"),
+			Body: &Value{
+				Kind:     ValueTemplate,
+				Template: "Got it: {{trigger.comment.body}} from {{trigger.comment.author.name}}",
+			},
+		},
+	})
 	issues, err := Check(ctx, f.db, f.project, ackSpec)
 	require.NoError(t, err)
 	require.Empty(t, issues)
 	ack := f.publish(t, "Acknowledge", ackSpec)
-	addressed := f.publish(t, "Addressed", &Spec{
-		Trigger: Trigger{Type: TriggerCommentCreated, Record: &RecordTrigger{TableUID: f.table.UID}, Comment: &CommentTrigger{MentionedBotID: bot.ID}},
-		Steps:   []Step{{ID: "find", Type: StepQuery, Config: &QueryConfig{TableUID: f.table.UID, Limit: 1}}},
-	})
-	anyAuthor := f.publish(t, "Any", &Spec{
-		Trigger: Trigger{Type: TriggerCommentCreated, Record: &RecordTrigger{TableUID: f.table.UID}},
-		Steps:   []Step{{ID: "find", Type: StepQuery, Config: &QueryConfig{TableUID: f.table.UID, Limit: 1}}},
-	})
+	addressed := f.publish(t, "Addressed", f.commentSpec(&CommentTrigger{MentionedBotID: bot.ID}, f.queryStep()))
+	anyAuthor := f.publish(t, "Any", f.commentSpec(nil, f.queryStep()))
 
-	_, err = f.hub.CreateComment(ctx, f.project, f.table, record, collab.Origin{UserID: human.ID}, collab.CommentOptions{Body: "hello"})
-	require.NoError(t, err)
+	comment := func(author *db.User, body string) {
+		_, err := f.hub.CreateComment(ctx, f.project, f.table, record, collab.Origin{UserID: author.ID}, collab.CommentOptions{Body: body})
+		require.NoError(t, err)
+	}
+	comment(human, "hello")
 	require.Len(t, f.runs(t, ack), 1)
 	assert.Empty(t, f.runs(t, addressed), "the comment does not mention the bot")
 	require.Len(t, f.runs(t, anyAuthor), 1)
 	event := map[string]interface{}{}
 	require.NoError(t, json.Unmarshal(f.runs(t, ack)[0].Event, &event))
-	comment := event["comment"].(map[string]interface{})
-	assert.Equal(t, "hello", comment["body"])
-	assert.Equal(t, "Human", comment["author"].(map[string]interface{})["name"])
+	trigger := event["comment"].(map[string]interface{})
+	assert.Equal(t, "hello", trigger["body"])
+	assert.Equal(t, "Human", trigger["author"].(map[string]interface{})["name"])
 	assert.Equal(t, uid, event["record"].(map[string]interface{})["uid"])
 
-	_, err = f.hub.CreateComment(ctx, f.project, f.table, record, collab.Origin{UserID: bot.ID}, collab.CommentOptions{Body: fmt.Sprintf("<@%d> ping", bot.ID)})
-	require.NoError(t, err)
+	comment(bot, fmt.Sprintf("<@%d> ping", bot.ID))
 	assert.Len(t, f.runs(t, ack), 1, "the comments of bots are not written by humans")
 	require.Len(t, f.runs(t, addressed), 1)
 	assert.Len(t, f.runs(t, anyAuthor), 2)
@@ -87,7 +122,13 @@ func TestCommentTriggerAndStep(t *testing.T) {
 	sample, err := f.engine.SampleTrigger(ctx, f.project, ackSpec, "")
 	require.NoError(t, err)
 	assert.Equal(t, written.Body, sample["comment"].(map[string]interface{})["body"], "the sample is the latest comment of the table")
-	result, err := f.engine.Debug(ctx, DebugInput{Project: f.project, Workflow: ack, Spec: ackSpec, Trigger: sample, DryRun: true})
+	result, err := f.engine.Debug(ctx, DebugInput{
+		Project:  f.project,
+		Workflow: ack,
+		Spec:     ackSpec,
+		Trigger:  sample,
+		DryRun:   true,
+	})
 	require.NoError(t, err)
 	require.Equal(t, db.WorkflowRunSucceeded, result.Status, result.Response)
 	assert.Equal(t, int64(3), f.count(t, &db.SLRecordComment{}, "sl_record_id = ?", record.ID))
@@ -96,13 +137,16 @@ func TestCommentTriggerAndStep(t *testing.T) {
 func TestCheckCommentTrigger(t *testing.T) {
 	f := newLeadFixture(t)
 	ctx := context.Background()
-	human := &db.User{Email: "human@example.com", UserName: "Human"}
-	require.NoError(t, f.db.Create(human).Error)
-	require.NoError(t, db.NewProjectMembersStore(f.db).Set(ctx, f.project.ID, human.ID, db.ProjectRoleEditor))
-	spec := &Spec{
-		Trigger: Trigger{Type: TriggerCommentCreated, Record: &RecordTrigger{TableUID: f.table.UID}, Comment: &CommentTrigger{AuthorKind: "robot", MentionedBotID: human.ID}},
-		Steps:   []Step{{ID: "find", Type: StepQuery, Config: &QueryConfig{TableUID: f.table.UID, Limit: 1, Filters: []Filter{{FieldUID: f.name.UID, Op: "eq", Value: vp("trigger.comment.body")}}}}},
+	human := f.addUser(t, "Human", db.UserKindHuman, 0)
+	filters := &CommentTrigger{
+		AuthorKind:     "robot",
+		MentionedBotID: human.ID,
 	}
+	spec := f.commentSpec(filters, f.queryStep(Filter{
+		FieldUID: f.name.UID,
+		Op:       "eq",
+		Value:    vp("trigger.comment.body"),
+	}))
 	issues, err := Check(ctx, f.db, f.project, spec)
 	require.NoError(t, err)
 	codes := map[string]bool{}
