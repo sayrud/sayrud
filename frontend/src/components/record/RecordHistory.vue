@@ -103,7 +103,7 @@ function time(at: string) {
 <template>
   <div class="history">
     <div v-if="loading && !entries.length" class="state"><a-spin /></div>
-    <a-empty v-else-if="!entries.length" class="state" :description="t('history.empty')" />
+    <div v-else-if="!entries.length" class="state"><a-empty :description="t('history.empty')" /></div>
     <a-timeline v-else class="timeline">
       <a-timeline-item v-for="e in entries" :key="e.id" line-type="dashed">
         <template #dot>

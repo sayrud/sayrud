@@ -218,7 +218,7 @@ function replyToName(root: RecordComment, reply: RecordComment) {
         <div v-if="nextCursor" class="earlier">
           <a-button type="text" size="mini" :loading="loadingMore" @click="loadEarlier">{{ t('comments.loadEarlier') }}</a-button>
         </div>
-        <a-empty v-if="!roots.length" class="state" :description="t('comments.empty')" />
+        <div v-if="!roots.length" class="state"><a-empty :description="t('comments.empty')" /></div>
         <div v-for="root in roots" :key="root.id" class="thread">
           <CommentItem
             :comment="root"
