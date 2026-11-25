@@ -41,8 +41,12 @@ const draft = reactive<CommentDraft>({ text: '', mentions: [] })
 const editing = ref<RecordComment>()
 let stashed: CommentDraft | undefined
 let loadSeq = 0
-/** The comment changes of the record received while the list is read, replayed in order on the list as it may be older. */
-let replay: Pick<CommentChange, 'action' | 'comment'>[] | undefined
+type CommentReplay = Pick<CommentChange, 'action' | 'comment'>[]
+/** The comment changes of the record received while each page is read, replayed in order on the page as it may be older. */
+const replays = new Set<CommentReplay>()
+
+const replayChanges = (list: RecordComment[], replay: CommentReplay) =>
+  replay.reduce((next, change) => applyCommentChange(next, change.action, change.comment), list)
 
 const ids = () => [store.project!.uid, store.activeTableUID] as const
 
@@ -63,39 +67,42 @@ function resolveNames(list: RecordComment[]) {
 async function load(recordUID: string) {
   const seq = ++loadSeq
   loading.value = true
-  replay = []
+  const replay: CommentReplay = []
+  replays.add(replay)
   try {
     const page = await commentsApi.list(...ids(), recordUID)
     if (seq !== loadSeq) return
-    roots.value = replay.reduce((list, change) => applyCommentChange(list, change.action, change.comment), [...page.comments].reverse())
+    roots.value = replayChanges([...page.comments].reverse(), replay)
     nextCursor.value = page.nextCursor
     resolveNames(roots.value)
   } catch (e) {
     if (seq === loadSeq) Message.error(e instanceof Error ? e.message : String(e))
   } finally {
-    if (seq === loadSeq) {
-      loading.value = false
-      replay = undefined
-    }
+    replays.delete(replay)
+    if (seq === loadSeq) loading.value = false
   }
 }
 
-/** Applies a change of the comments of the record, kept for replaying if the list is being read. */
+/** Applies a change of the comments of the record, kept for replaying on the pages being read. */
 function applyChange(action: CommentChange['action'], comment: RecordComment) {
   roots.value = applyCommentChange(roots.value, action, comment)
-  replay?.push({ action, comment })
+  for (const replay of replays) replay.push({ action, comment })
 }
 
 async function loadEarlier() {
   const recordUID = props.recordUid
+  const seq = loadSeq
   loadingMore.value = true
+  const replay: CommentReplay = []
+  replays.add(replay)
   try {
     const page = await commentsApi.list(...ids(), recordUID, nextCursor.value)
-    if (recordUID !== props.recordUid) return
+    // The list read again meanwhile has its own cursor.
+    if (recordUID !== props.recordUid || seq !== loadSeq) return
     const el = listEl.value
     const bottom = el ? el.scrollHeight - el.scrollTop : 0
     const known = new Set(roots.value.map((r) => r.id))
-    roots.value = [...[...page.comments].reverse().filter((c) => !known.has(c.id)), ...roots.value]
+    roots.value = replayChanges([...[...page.comments].reverse().filter((c) => !known.has(c.id)), ...roots.value], replay)
     nextCursor.value = page.nextCursor
     resolveNames(page.comments)
     // Keep the comments in view where they were.
@@ -104,6 +111,7 @@ async function loadEarlier() {
   } catch (e) {
     Message.error(e instanceof Error ? e.message : String(e))
   } finally {
+    replays.delete(replay)
     loadingMore.value = false
   }
 }
@@ -156,7 +164,7 @@ function startReply(c: RecordComment) {
   const id = c.author.userId ?? 0
   const name = !c.author.workflowId && id !== auth.user?.id ? userName(id) : ''
   if (name && !draft.mentions.some((m) => m.id === id)) {
-    const edited = trackMentions(draft.text, `@${name} ${draft.text}`, draft.mentions, { id, name, inserted: name })
+    const edited = trackMentions(draft.text, `@${name} ${draft.text}`, draft.mentions, { id, name, inserted: name }, draft.text.length)
     draft.text = edited.text
     draft.mentions = edited.mentions
   }

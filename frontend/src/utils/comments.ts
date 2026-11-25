@@ -51,14 +51,22 @@ export function toEditorText(body: string, nameOf: (id: number) => string): { te
 
 /**
  * Applies an edit of the editor text from prev to next and moves the mentions along, a mention touched by the edit is dropped as its text is no longer the name.
- * chosen is the member whose mention is inserted by the edit.
+ * chosen is the member whose mention is inserted by the edit. after is the number of the characters at the end untouched by the edit, i.e. the ones after the cursor,
+ * which tells where the edit is when the texts around are the same, e.g. deleting either `@Sam ` of `@Sam @Sam`; without it the edit is taken as late as possible.
  */
-export function trackMentions(prev: string, next: string, mentions: EditorMention[], chosen?: ChosenMember): { text: string; mentions: EditorMention[] } {
+export function trackMentions(
+  prev: string,
+  next: string,
+  mentions: EditorMention[],
+  chosen?: ChosenMember,
+  after?: number,
+): { text: string; mentions: EditorMention[] } {
   const max = Math.min(prev.length, next.length)
+  const hinted = after !== undefined && after >= 0 && after <= max && prev.endsWith(next.slice(next.length - after))
+  let tail = hinted ? after : 0
   let head = 0
-  while (head < max && prev[head] === next[head]) head++
-  let tail = 0
-  while (tail < max - head && prev[prev.length - 1 - tail] === next[next.length - 1 - tail]) tail++
+  while (head < max - tail && prev[head] === next[head]) head++
+  if (!hinted) while (tail < max - head && prev[prev.length - 1 - tail] === next[next.length - 1 - tail]) tail++
   const prevEnd = prev.length - tail
   const delta = next.length - prev.length
   let kept = mentions.flatMap((m) => {

@@ -42,7 +42,10 @@ function onSelect(value: unknown) {
 }
 
 function onInput(next: string) {
-  const edited = trackMentions(text.value, next, mentions.value, chosen)
+  // The textarea still holds the previous text when a candidate is chosen, and the edited one when typing; the text after the cursor is untouched in both.
+  const textarea = mentionRef.value?.$el?.querySelector('textarea')
+  const after = textarea ? textarea.value.length - textarea.selectionEnd : undefined
+  const edited = trackMentions(text.value, next, mentions.value, chosen, after)
   chosen = undefined
   mentions.value = edited.mentions
   text.value = edited.text

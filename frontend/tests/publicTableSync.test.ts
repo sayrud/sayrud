@@ -313,6 +313,13 @@ test('the comment counts are read again after resubscribing without overwriting 
   assert.equal(sync.records.value[0]!.commentCount, 5, 'a count told during the read is newer')
   await sync.reloadCommentCounts(async () => ({}))
   assert.equal(sync.records.value[0]!.commentCount, undefined, 'the records absent from the counts have no comments')
+
+  let resolveOlder: (counts: Record<string, number>) => void = () => {}
+  const older = sync.reloadCommentCounts(() => new Promise((resolve) => { resolveOlder = resolve }))
+  await sync.reloadCommentCounts(async () => ({ record: 3 }))
+  resolveOlder({ record: 1 })
+  await older
+  assert.equal(sync.records.value[0]!.commentCount, 3, 'a read superseded by a later reconnection is ignored')
   sync.dispose()
 })
 

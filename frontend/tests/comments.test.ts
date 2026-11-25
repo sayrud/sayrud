@@ -41,6 +41,19 @@ test('mentions follow the edits of the editor text', () => {
   assert.deepEqual(removed.mentions, [{ id: 20, name: 'Sam', start: 6 }])
 })
 
+test('the text after the cursor tells which of the same mentions is edited', () => {
+  const both = toEditorText('<@10> <@20>', nameOf)
+  // Deleting the selected `@Sam ` at the start leaves the cursor before the remaining `@Sam`.
+  const first = trackMentions(both.text, '@Sam', both.mentions, undefined, 4)
+  assert.equal(toBody(first.text, first.mentions), '<@20>')
+  const second = trackMentions(both.text, '@Sam', both.mentions, undefined, 0)
+  assert.equal(toBody(second.text, second.mentions), '<@10>')
+  const backspace = trackMentions(both.text, '@Sam@Sam', both.mentions, undefined, 4)
+  assert.equal(toBody(backspace.text, backspace.mentions), '<@10><@20>', 'deleting the space keeps both')
+  const stale = trackMentions(both.text, '@Sam', both.mentions, undefined, 9)
+  assert.equal(toBody(stale.text, stale.mentions), '<@10>', 'a cursor not matching the texts is ignored')
+})
+
 test('mentioned users and plain texts', () => {
   assert.deepEqual(mentionedIds('<@3> <@1> <@3> <@x>'), [3, 1])
   assert.equal(plainText('ping <@3> <@9>', nameOf), 'ping @Bot <@9>')

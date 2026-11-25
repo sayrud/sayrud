@@ -73,6 +73,8 @@ export class TableSync {
   /** Increases with each comment count told by the server, so an older read of the counts does not overwrite it. */
   private commentStamp = 0
   private readonly commentStamps = new Map<string, number>()
+  /** Increases with each read of the comment counts, only the latest one is applied. */
+  private commentCountsSeq = 0
   private disposed = false
   private inflight: Inflight | null = null
   private queue: Operation[] = []
@@ -295,11 +297,12 @@ export class TableSync {
     this.records.value = next
   }
 
-  /** Reads again all the comment counts keyed by record UID, keeping the counts told by the server during the read. */
+  /** Reads again all the comment counts keyed by record UID, keeping the counts told by the server during the read and ignoring the superseded reads. */
   async reloadCommentCounts(read: () => Promise<Record<string, number>>) {
+    const seq = ++this.commentCountsSeq
     const stamp = this.commentStamp
     const counts = await read()
-    if (this.disposed) return
+    if (this.disposed || seq !== this.commentCountsSeq) return
     let changed = false
     const next = this.records.value.map((r) => {
       const count = counts[r.uid] ?? 0
