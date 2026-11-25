@@ -165,6 +165,12 @@ func publicError(err error) string {
 		return "a referenced field does not exist"
 	case errors.Is(err, errTableNotFound):
 		return "the table does not exist"
+	case errors.Is(err, collab.ErrCommentEmpty):
+		return "the comment is empty"
+	case errors.Is(err, collab.ErrCommentTooLong):
+		return fmt.Sprintf("the comment exceeds %d characters", collab.MaxCommentLength)
+	case errors.Is(err, collab.ErrInvalidMention):
+		return "a mentioned user is not a member of the project"
 	}
 	var formulaErr *FormulaError
 	if errors.As(err, &formulaErr) {
@@ -339,7 +345,8 @@ func classify(step *Step, err error) error {
 	}
 	var fieldErr *FieldValueError
 	switch {
-	case errors.As(err, &fieldErr), errors.Is(err, routeutil.ErrFieldTypeMismatch), errors.Is(err, routeutil.ErrInvalidAttachment):
+	case errors.As(err, &fieldErr), errors.Is(err, routeutil.ErrFieldTypeMismatch), errors.Is(err, routeutil.ErrInvalidAttachment),
+		errors.Is(err, collab.ErrCommentEmpty), errors.Is(err, collab.ErrCommentTooLong), errors.Is(err, collab.ErrInvalidMention):
 		return &StepError{StepID: step.ID, Code: ErrCodeInvalidFieldValue, Status: http.StatusUnprocessableEntity, Err: err}
 	case errors.Is(err, db.ErrSLRecordNotFound):
 		return &StepError{StepID: step.ID, Code: ErrCodeRecordNotFound, Status: http.StatusNotFound, Err: err}

@@ -15,6 +15,7 @@ import {
   ListFilter,
   LoaderCircle,
   Maximize2,
+  MessageSquare,
   Pencil,
   Plus,
   RefreshCw,
@@ -1204,7 +1205,15 @@ defineExpose({ addRecord })
                 <Check v-if="store.selectedRecords.includes(item.record.uid)" :size="11" :stroke-width="3" />
               </span>
               <span class="row-num">{{ item.num }}</span>
-              <button class="icon-btn sm row-expand" :title="t('grid.expandRecord')" @click.stop="expand(item.record)">
+              <button
+                v-if="item.record.commentCount"
+                class="row-comments"
+                :title="t('comments.count', { n: item.record.commentCount })"
+                @click.stop="expand(item.record)"
+              >
+                <MessageSquare :size="11" />{{ item.record.commentCount > 99 ? '99+' : item.record.commentCount }}
+              </button>
+              <button v-else class="icon-btn sm row-expand" :title="t('grid.expandRecord')" @click.stop="expand(item.record)">
                 <Maximize2 :size="13" />
               </button>
             </div>
@@ -1668,6 +1677,25 @@ defineExpose({ addRecord })
 }
 .grid-row:hover .row-expand {
   display: inline-flex;
+}
+/* The comment count also expands the record, it replaces the expand button. */
+.row-comments {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: auto;
+  padding: 0 4px;
+  height: 18px;
+  border: none;
+  border-radius: 9px;
+  font-size: 11px;
+  line-height: 18px;
+  color: var(--color-primary);
+  background: var(--color-primary-light-1);
+  cursor: pointer;
+}
+.row-comments:hover {
+  background: var(--color-primary-light-2);
 }
 
 .grid-group {

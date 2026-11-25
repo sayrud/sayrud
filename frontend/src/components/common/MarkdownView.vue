@@ -1,17 +1,23 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 
-import { renderMarkdown } from '@/utils/markdown'
+import { renderComment, renderMarkdown } from '@/utils/markdown'
 
 /** Shows a Markdown document written by a third party, such as the readme of a Sayrud Hub package. */
-const props = defineProps<{ source: string }>()
+const props = defineProps<{
+  source: string
+  /** Renders a comment: `<@userID>` becomes a mention tag named by it, and raw HTML is shown as text. */
+  mentionName?: (id: number) => string
+  /** Compact spacing for short texts such as comments. */
+  compact?: boolean
+}>()
 
-const html = computed(() => renderMarkdown(props.source))
+const html = computed(() => (props.mentionName ? renderComment(props.source, props.mentionName) : renderMarkdown(props.source)))
 </script>
 
 <template>
-  <!-- renderMarkdown sanitizes the HTML. -->
-  <div class="markdown" v-html="html" />
+  <!-- renderMarkdown and renderComment sanitize the HTML. -->
+  <div class="markdown" :class="{ compact }" v-html="html" />
 </template>
 
 <style scoped>
@@ -116,5 +122,25 @@ const html = computed(() => renderMarkdown(props.source))
   margin: 20px 0;
   border: none;
   border-top: 1px solid var(--line-border);
+}
+.markdown.compact {
+  line-height: 1.6;
+}
+.markdown.compact :deep(p),
+.markdown.compact :deep(ul),
+.markdown.compact :deep(ol),
+.markdown.compact :deep(blockquote),
+.markdown.compact :deep(pre),
+.markdown.compact :deep(table) {
+  margin-bottom: 6px;
+}
+/* The mentions look like the member tags. */
+.markdown :deep(.comment-mention) {
+  padding: 0 4px;
+  border-radius: 4px;
+  color: rgb(var(--arcoblue-6));
+  background: rgb(var(--arcoblue-1));
+  font-weight: 500;
+  white-space: nowrap;
 }
 </style>

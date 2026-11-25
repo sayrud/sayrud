@@ -250,6 +250,8 @@ func (c *checker) checkTrigger() error {
 		c.checkParams()
 	case IsRecordTrigger(t.Type), t.Type == TriggerDateReached:
 		return c.checkRecordTrigger()
+	case t.Type == TriggerCommentCreated:
+		return c.checkCommentTrigger()
 	case t.Type == TriggerSchedule:
 		if code := checkSchedule(t.Schedule); code != "" {
 			c.add(code, "trigger")
@@ -822,12 +824,13 @@ func hasOutput(stepType, key string) bool {
 
 // TriggerOutputs lists the properties each trigger type provides through the trigger variable.
 var TriggerOutputs = map[string][]string{
-	TriggerRecordCreated: {"record", "table"},
-	TriggerRecordUpdated: {"record", "previous", "changedFields", "table"},
-	TriggerRecordMatched: {"record", "previous", "table"},
-	TriggerRecordDeleted: {"record", "table"},
-	TriggerDateReached:   {"record", "table", "time"},
-	TriggerSchedule:      {"time"},
+	TriggerRecordCreated:  {"record", "table"},
+	TriggerRecordUpdated:  {"record", "previous", "changedFields", "table"},
+	TriggerRecordMatched:  {"record", "previous", "table"},
+	TriggerRecordDeleted:  {"record", "table"},
+	TriggerDateReached:    {"record", "table", "time"},
+	TriggerSchedule:       {"time"},
+	TriggerCommentCreated: {"record", "table", "comment"},
 }
 
 // checkFieldRef checks that a fields.<uid> reference in parts points to a field that still exists in the table.

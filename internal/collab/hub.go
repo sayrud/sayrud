@@ -258,18 +258,15 @@ func (h *Hub) commit(ctx context.Context, project *db.Project, table *db.SLTable
 			return err
 		}
 
-		changeset, err := appendChangeset(ctx, tx, table, signature, clientID, applied)
+		changeset, err := appendChangeset(ctx, tx, table, signature, clientID, origin.Writer(), applied)
 		if err != nil {
 			return err
-		}
-		if writer := origin.Writer(); !writer.IsZero() {
-			changeset.Actor = &writer
 		}
 		changesets = append(changesets, changeset)
 
 		if !a.dirty.IsEmpty() {
 			dirty := a.dirty
-			changeset, err := appendChangeset(ctx, tx, table, "", "", []Operation{{
+			changeset, err := appendChangeset(ctx, tx, table, "", "", db.SLRecordWriter{}, []Operation{{
 				Command: "Refresh",
 				Actions: []Action{{Action: ActionDirty, Dirty: &dirty}},
 			}})
@@ -334,7 +331,8 @@ func (h *Hub) NotifyTable(projectUID, tableUID, messageType string, build func(t
 	h.publish(clusterEvent{Kind: clusterEventTable, ProjectUID: projectUID, TableUID: tableUID, MessageType: messageType})
 }
 
-func appendChangeset(ctx context.Context, tx *gorm.DB, table *db.SLTable, signature, clientID string, operations []Operation) (*Changeset, error) {
+// appendChangeset saves the changeset with the next revision of the table, actor is the writer of the changed records, zero for the server.
+func appendChangeset(ctx context.Context, tx *gorm.DB, table *db.SLTable, signature, clientID string, actor db.SLRecordWriter, operations []Operation) (*Changeset, error) {
 	rev, err := db.NewSLTablesStore(tx).IncreaseRev(ctx, table.ID)
 	if err != nil {
 		return nil, errors.Wrap(err, "increase rev")
@@ -349,16 +347,21 @@ func appendChangeset(ctx context.Context, tx *gorm.DB, table *db.SLTable, signat
 		Signature:  signature,
 		ClientID:   clientID,
 		Operations: raw,
+		Actor:      actor,
 	}); err != nil {
 		return nil, errors.Wrap(err, "create changeset")
 	}
-	return &Changeset{
+	changeset := &Changeset{
 		TableUID:   table.UID,
 		Rev:        rev,
 		Signature:  signature,
 		ClientID:   clientID,
 		Operations: operations,
-	}, nil
+	}
+	if !actor.IsZero() {
+		changeset.Actor = &actor
+	}
+	return changeset, nil
 }
 
 func (h *Hub) broadcastChangeset(project *db.Project, changeset *Changeset, except *Client) {
@@ -410,6 +413,11 @@ func (h *Hub) DisconnectUser(userID int64) {
 // Mutate commits a REST mutation and its invalidation in the same transaction.
 // It shares the PostgreSQL row lock with WebSocket and worker writes.
 func (h *Hub) Mutate(ctx context.Context, project *db.Project, table *db.SLTable, mutate func(*gorm.DB) error, scope func() DirtyScope) error {
+	return h.mutate(ctx, project, table, db.SLRecordWriter{}, mutate, scope)
+}
+
+// mutate is Mutate with the writer of the records recorded on the changeset.
+func (h *Hub) mutate(ctx context.Context, project *db.Project, table *db.SLTable, actor db.SLRecordWriter, mutate func(*gorm.DB) error, scope func() DirtyScope) error {
 	var changeset *Changeset
 	if err := h.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := dbutil.LockTable(ctx, tx, table.ID); err != nil {
@@ -421,7 +429,7 @@ func (h *Hub) Mutate(ctx context.Context, project *db.Project, table *db.SLTable
 
 		dirty := scope()
 		var err error
-		changeset, err = appendChangeset(ctx, tx, table, "", "", []Operation{{
+		changeset, err = appendChangeset(ctx, tx, table, "", "", actor, []Operation{{
 			Command: "Refresh", Actions: []Action{{Action: ActionDirty, Dirty: &dirty}},
 		}})
 		return err

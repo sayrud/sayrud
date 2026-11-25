@@ -133,7 +133,7 @@ func (c *Client) sharedMessage(ctx context.Context, raw []byte) ([]byte, bool) {
 		}
 		return newMessage(MessageMembers, 0, membersData{Members: members}), true
 
-	case MessageShortcutJobs:
+	case MessageShortcutJobs, MessageCommentChanged, MessageMentioned:
 		return nil, true
 	}
 

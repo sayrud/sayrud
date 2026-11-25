@@ -44,8 +44,16 @@ type SLChangeset struct {
 	ClientID string
 	// Operations are the operations actually applied, encoded as collab.Operation list.
 	Operations datatypes.JSON `gorm:"type:jsonb"`
+	// ActorUserID and ActorWorkflowID are the writer of the records changed by the changeset, both 0 for the server or the changesets before they were recorded.
+	ActorUserID     int64 `gorm:"not null;default:0"`
+	ActorWorkflowID int64 `gorm:"not null;default:0"`
 	// CreatedAt is the time the changeset is accepted.
 	CreatedAt time.Time
+}
+
+// Actor returns the writer of the records changed by the changeset.
+func (c *SLChangeset) Actor() SLRecordWriter {
+	return SLRecordWriter{UserID: c.ActorUserID, WorkflowID: c.ActorWorkflowID}
 }
 
 type slChangesets struct {
@@ -65,15 +73,19 @@ type CreateSLChangesetOptions struct {
 	ClientID string
 	// Operations are the encoded operations actually applied.
 	Operations json.RawMessage
+	// Actor is the writer of the changed records, zero for the server.
+	Actor SLRecordWriter
 }
 
 func (db *slChangesets) Create(ctx context.Context, options CreateSLChangesetOptions) (*SLChangeset, error) {
 	changeset := &SLChangeset{
-		SLTableID:  options.SLTableID,
-		Rev:        options.Rev,
-		Signature:  options.Signature,
-		ClientID:   options.ClientID,
-		Operations: datatypes.JSON(options.Operations),
+		SLTableID:       options.SLTableID,
+		Rev:             options.Rev,
+		Signature:       options.Signature,
+		ClientID:        options.ClientID,
+		Operations:      datatypes.JSON(options.Operations),
+		ActorUserID:     options.Actor.UserID,
+		ActorWorkflowID: options.Actor.WorkflowID,
 	}
 	if err := db.WithContext(ctx).Create(changeset).Error; err != nil {
 		return nil, errors.Wrap(err, "create")

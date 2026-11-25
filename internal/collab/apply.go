@@ -185,7 +185,7 @@ func (a *applier) applyAction(action Action) (*Action, error) {
 		for _, record := range records {
 			a.events = append(a.events, RecordEvent{Kind: RecordDeleted, Record: record})
 		}
-		return &action, db.NewSLRecordsStore(a.tx).DeleteByUIDs(a.ctx, a.table.ID, action.RecordUIDs)
+		return &action, db.NewSLRecordsStore(a.tx).DeleteByUIDs(a.ctx, a.table.ID, action.RecordUIDs, a.origin.Writer())
 	case ActionAddField:
 		return a.addField(action)
 	case ActionSetField:

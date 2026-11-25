@@ -89,3 +89,17 @@ type QueryRecordsSort struct {
 type QueryRecordsGroup struct {
 	FieldUID string `json:"fieldUID"`
 } // @name QueryRecordsGroup
+
+type CreateRecordComment struct {
+	// Body is the Markdown text of at most 10000 characters, a member of the project is mentioned as <@userID>.
+	Body string `json:"body" valid:"required"`
+	// ReplyToID is the comment of the record replied to, omitted for a root comment.
+	ReplyToID int64 `json:"replyToId,omitempty"`
+	// Kind must be comment if set, the other kinds are reserved.
+	Kind string `json:"kind,omitempty" enums:"comment,report,attention"`
+} // @name CreateRecordComment
+
+type UpdateRecordComment struct {
+	// Body replaces the Markdown text, the mentions are parsed again.
+	Body string `json:"body" valid:"required"`
+} // @name UpdateRecordComment

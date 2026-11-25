@@ -33,10 +33,12 @@ const (
 	TriggerRecordDeleted = "record_deleted"
 	TriggerDateReached   = "date_reached"
 	TriggerSchedule      = "schedule"
+	// TriggerCommentCreated fires when a comment is posted on a record of the table.
+	TriggerCommentCreated = "comment_created"
 )
 
 // TriggerTypes lists the supported trigger types.
-var TriggerTypes = []string{TriggerAPI, TriggerRecordCreated, TriggerRecordUpdated, TriggerRecordMatched, TriggerRecordDeleted, TriggerDateReached, TriggerSchedule}
+var TriggerTypes = []string{TriggerAPI, TriggerRecordCreated, TriggerRecordUpdated, TriggerRecordMatched, TriggerRecordDeleted, TriggerDateReached, TriggerSchedule, TriggerCommentCreated}
 
 // IsRecordTrigger reports whether the trigger type fires on record creation, update or deletion.
 func IsRecordTrigger(t string) bool {
@@ -45,13 +47,15 @@ func IsRecordTrigger(t string) bool {
 
 // Trigger is the workflow trigger and keeps only the configuration matching Type; an empty Type means a new workflow has not chosen a trigger yet.
 type Trigger struct {
-	Type string `json:"type" enums:",api,record_created,record_updated,record_matched,record_deleted,date_reached,schedule"`
+	Type string `json:"type" enums:",api,record_created,record_updated,record_matched,record_deleted,date_reached,schedule,comment_created"`
 	// Name is the display name of the trigger node; when empty, the trigger type's name is shown.
 	Name string `json:"name,omitempty"`
 	// API is the request endpoint, authentication and parameters of an api trigger.
 	API *APITrigger `json:"api,omitempty"`
-	// Record is the table watched by record triggers and date_reached.
+	// Record is the table watched by record triggers, date_reached and comment_created.
 	Record *RecordTrigger `json:"record,omitempty"`
+	// Comment filters the comments of a comment_created trigger.
+	Comment *CommentTrigger `json:"comment,omitempty"`
 	// Schedule is the execution time of a schedule trigger.
 	Schedule *ScheduleTrigger `json:"schedule,omitempty"`
 } // @name WorkflowTrigger
@@ -81,6 +85,20 @@ type RecordTrigger struct {
 	DateFieldUID string `json:"dateFieldUID,omitempty"`
 	Offset       int    `json:"offset,omitempty"`
 } // @name WorkflowRecordTrigger
+
+// Comment author kinds of comment_created triggers.
+const (
+	CommentAuthorHuman = "human"
+	CommentAuthorBot   = "bot"
+)
+
+// CommentTrigger filters the comments of a comment_created trigger; the comments written by workflows only match without an author kind.
+type CommentTrigger struct {
+	// AuthorKind is human or bot, empty for any author.
+	AuthorKind string `json:"authorKind,omitempty" enums:",human,bot"`
+	// MentionedBotID only matches the comments mentioning the bot, 0 for any comment.
+	MentionedBotID int64 `json:"mentionedBotId,omitempty"`
+} // @name WorkflowCommentTrigger
 
 // Repeat modes of schedule triggers.
 const (
@@ -207,12 +225,13 @@ const (
 	StepResponse  = "response"
 	StepEmail     = "email"
 	StepHTTP      = "http"
+	StepComment   = "comment"
 )
 
 // Step is a node in a flow, its output is referenced as steps.<id>.
 type Step struct {
 	ID string `json:"id"`
-	// Type is a built-in module (query, create, update, condition, response, email, http) or an installed plugin (plugin:<id>).
+	// Type is a built-in module (query, create, update, condition, response, email, http, comment) or an installed plugin (plugin:<id>).
 	Type string `json:"type"`
 	Name string `json:"name,omitempty"`
 	// Config is the module configuration defined by the DSL of the type (see ModuleDef), decoded as the matching *XxxConfig.
@@ -361,6 +380,11 @@ func (s *Spec) Normalize() {
 		}
 		t.API, t.Schedule = nil, nil
 		s.Async = []AsyncFlow{}
+	}
+	if t.Type != TriggerCommentCreated {
+		t.Comment = nil
+	} else if t.Comment == nil {
+		t.Comment = &CommentTrigger{}
 	}
 	s.AllSteps(func(step *Step) {
 		def := moduleDef(step.Type)

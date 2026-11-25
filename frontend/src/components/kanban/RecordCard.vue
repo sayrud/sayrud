@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { MessageSquare } from '@lucide/vue'
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 
@@ -40,6 +41,9 @@ const bodyFields = computed(() =>
           @toggle="store.updateCell(record.uid, f.uid, !record.data[f.uid])"
         />
       </div>
+    </div>
+    <div v-if="record.commentCount" class="card-footer">
+      <span class="comment-count" :title="t('comments.count', { n: record.commentCount })"><MessageSquare :size="12" />{{ record.commentCount }}</span>
     </div>
   </div>
 </template>
@@ -83,5 +87,17 @@ const bodyFields = computed(() =>
 }
 .card-value :deep(.cell-display.numeric) {
   justify-content: flex-start;
+}
+.card-footer {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 8px;
+}
+.comment-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--text-placeholder);
 }
 </style>

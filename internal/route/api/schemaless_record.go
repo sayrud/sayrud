@@ -333,7 +333,8 @@ func (schemalessRoute) UpdateRecord(ctx context.Context, hub *collab.Hub, user *
 // @ID deleteRecord
 // @Router /projects/{projectUID}/tables/{tableUID}/records/{recordUID} [delete]
 func (schemalessRoute) DeleteRecord(ctx context.Context, hub *collab.Hub, user *db.User, project *db.Project, table *db.SLTable, record *db.SLRecord) error {
-	if err := hub.MutateRecords(ctx.Request().Context(), project, table, collab.Origin{UserID: user.ID}, func(tx *gorm.DB) ([]collab.RecordEvent, error) {
+	origin := collab.Origin{UserID: user.ID}
+	if err := hub.MutateRecords(ctx.Request().Context(), project, table, origin, func(tx *gorm.DB) ([]collab.RecordEvent, error) {
 		if err := db.NewSLShortcutJobsStore(tx).DeleteByRecords(ctx.Request().Context(), table.ID, []string{record.UID}); err != nil {
 			return nil, errors.Wrap(err, "delete shortcut jobs")
 		}
@@ -341,7 +342,7 @@ func (schemalessRoute) DeleteRecord(ctx context.Context, hub *collab.Hub, user *
 		if err != nil {
 			return nil, err
 		}
-		if err := db.NewSLRecordsStore(tx).DeleteByID(ctx.Request().Context(), record.ID); err != nil {
+		if err := db.NewSLRecordsStore(tx).DeleteByID(ctx.Request().Context(), record.ID, origin.Writer()); err != nil {
 			return nil, err
 		}
 		return []collab.RecordEvent{{Kind: collab.RecordDeleted, Record: latest}}, nil

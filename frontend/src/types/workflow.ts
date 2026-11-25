@@ -4,11 +4,11 @@ export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
 export type ParamSource = 'query' | 'header' | 'body'
 export type ParamType = 'string' | 'number' | 'integer' | 'boolean' | 'date' | 'datetime' | 'enum' | 'array'
 export type ParamErrorCode = 'required' | 'null' | 'empty' | 'invalid_type' | 'too_short' | 'too_long' | 'too_small' | 'too_large' | 'too_many_items' | 'pattern' | 'format' | 'not_option'
-/** Step module type defined by the module DSL from the backend; the built-in ones are query, create, update, condition, response, email and http. */
+/** Step module type defined by the module DSL from the backend; the built-in ones are query, create, update, comment, condition, response, email and http. */
 export type StepType = string
 export type ValueKind = 'const' | 'var' | 'template' | 'formula'
 export type AsyncEvent = 'request_received' | 'succeeded'
-export type TriggerType = 'api' | 'record_created' | 'record_updated' | 'record_matched' | 'record_deleted' | 'date_reached' | 'schedule'
+export type TriggerType = 'api' | 'record_created' | 'record_updated' | 'record_matched' | 'record_deleted' | 'date_reached' | 'schedule' | 'comment_created'
 export type ScheduleRepeat = 'none' | 'minutes' | 'hours' | 'daily' | 'workdays' | 'weekly' | 'monthly'
 
 /** A constant, a variable reference, a text template with {{variable}}, or a formula referencing variables as {variable}. */
@@ -257,6 +257,13 @@ export interface RecordTrigger {
   offset?: number
 }
 
+/** Filters the comments of comment_created; the comments of workflows only match without an author kind. */
+export interface CommentTrigger {
+  authorKind?: '' | 'human' | 'bot'
+  /** Only the comments mentioning the bot match, 0 or absent for any comment. */
+  mentionedBotId?: number
+}
+
 /** Runs from start, repeating per repeat; start is a local time in the timezone, e.g. 2026-10-11T09:00. */
 export interface ScheduleTrigger {
   start: string
@@ -274,6 +281,7 @@ export interface WorkflowTrigger {
   name?: string
   api?: ApiTrigger
   record?: RecordTrigger
+  comment?: CommentTrigger
   schedule?: ScheduleTrigger
 }
 
@@ -294,6 +302,8 @@ export interface WorkflowIssue {
 }
 
 export interface WorkflowListItem {
+  /** The same as RecordWriter.workflowId of the records and comments it writes. */
+  id: number
   uid: string
   name: string
   position: number

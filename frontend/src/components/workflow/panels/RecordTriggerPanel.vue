@@ -6,8 +6,10 @@ import { useI18n } from 'vue-i18n'
 import FieldTypeIcon from '@/components/field/FieldTypeIcon.vue'
 import FieldValueInput from '@/components/workflow/FieldValueInput.vue'
 import PanelSection from '@/components/workflow/PanelSection.vue'
+import UserAvatar from '@/components/common/UserAvatar.vue'
 import { useWorkflowEditorStore } from '@/stores/workflowEditor'
-import type { RecordTrigger } from '@/types/workflow'
+import type { CommentTrigger, RecordTrigger } from '@/types/workflow'
+import { directory } from '@/utils/directory'
 import { constValue, FILTER_OPS, filterOpLabel, offsetParts, TRIGGER_EXCLUDED_TYPES } from '@/utils/workflow'
 
 const { t } = useI18n()
@@ -19,6 +21,8 @@ const fields = computed(() => table.value?.fields ?? [])
 const watchable = computed(() => fields.value.filter((f) => !TRIGGER_EXCLUDED_TYPES.includes(f.type)))
 const filterable = computed(() => fields.value.filter((f) => f.type !== 'formula' && !TRIGGER_EXCLUDED_TYPES.includes(f.type) && FILTER_OPS[f.type]))
 const dateFields = computed(() => fields.value.filter((f) => f.type === 'datetime'))
+const comment = computed(() => (store.spec!.trigger.comment ??= {}) as CommentTrigger)
+const bots = computed(() => directory.value.members.filter((u) => u.isBot))
 
 watch(() => record.value.tableUID, (uid) => void store.ensureFields(uid), { immediate: true })
 // Date triggers default to the first date field in the table.
@@ -140,7 +144,30 @@ const conditionHelp = computed(() => (type.value === 'record_matched' ? t('workf
       </a-form-item>
     </PanelSection>
 
-    <PanelSection v-if="type !== 'record_deleted'" :title="conditionTitle" :description="conditionHelp">
+    <template v-if="type === 'comment_created'">
+      <PanelSection :title="t('workflow.comment.author')" :description="t('workflow.comment.authorHelp')">
+        <a-radio-group :model-value="comment.authorKind ?? ''" type="button" size="small" :disabled="store.readonly" @change="(v) => (comment.authorKind = v as CommentTrigger['authorKind'])">
+          <a-radio value="">{{ t('workflow.comment.authorAny') }}</a-radio>
+          <a-radio value="human">{{ t('workflow.comment.authorHuman') }}</a-radio>
+          <a-radio value="bot">{{ t('workflow.comment.authorBot') }}</a-radio>
+        </a-radio-group>
+      </PanelSection>
+      <PanelSection :title="t('workflow.comment.mentionedBot')" :description="t('workflow.comment.mentionedBotHelp')">
+        <a-select
+          :model-value="comment.mentionedBotId || 0"
+          :disabled="store.readonly"
+          allow-search
+          @change="(v) => (comment.mentionedBotId = (v as number) || undefined)"
+        >
+          <a-option :value="0">{{ t('workflow.comment.mentionedBotAny') }}</a-option>
+          <a-option v-for="bot in bots" :key="bot.id" :value="bot.id" :label="bot.userName">
+            <span class="field-option"><UserAvatar :name="bot.userName" :color="bot.color" :avatar-url="bot.avatarUrl" bot :size="18" />{{ bot.userName }}</span>
+          </a-option>
+        </a-select>
+      </PanelSection>
+    </template>
+
+    <PanelSection v-if="type !== 'record_deleted' && type !== 'comment_created'" :title="conditionTitle" :description="conditionHelp">
       <template v-if="(record.filters?.length ?? 0) > 1" #extra>
         <span class="match-select"><a-select v-model="record.match" size="mini" class="match">
           <a-option value="all">{{ t('workflow.condition.all') }}</a-option>
@@ -168,7 +195,7 @@ const conditionHelp = computed(() => (type.value === 'record_matched' ? t('workf
     </PanelSection>
   </template>
 
-  <a-alert class="note">{{ type === 'date_reached' ? t('workflow.date.note') : t('workflow.record.note') }}</a-alert>
+  <a-alert class="note">{{ type === 'date_reached' ? t('workflow.date.note') : type === 'comment_created' ? t('workflow.comment.note') : t('workflow.record.note') }}</a-alert>
 </template>
 
 <style scoped>

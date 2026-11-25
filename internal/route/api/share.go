@@ -459,6 +459,7 @@ func prepareSharedRecords(records []*dto.Record, token string) {
 
 	for _, record := range records {
 		collab.PrepareSharedValues(record.Data, token, record.TableUID)
+		record.CommentCount = 0
 	}
 }
 

@@ -16,7 +16,7 @@ import (
 
 func TestReferencedMemberIDs(t *testing.T) {
 	ctx := context.Background()
-	tx := newTestDB(t, &User{}, &Workflow{}, &SLField{}, &SLRecord{})
+	tx := newTestDB(t, &User{}, &Workflow{}, &SLField{}, &SLRecord{}, &SLRecordChange{}, &SLRecordComment{})
 	for id := int64(1); id <= 7; id++ {
 		u := &User{Email: "member" + strconv.FormatInt(id, 10) + "@example.com"}
 		u.ID = id
@@ -93,7 +93,7 @@ type memberFilterFixture struct {
 
 func TestQueryMemberAndWriterFields(t *testing.T) {
 	ctx := context.Background()
-	gormDB := newTestDB(t, &SLField{}, &SLRecord{})
+	gormDB := newTestDB(t, &SLField{}, &SLRecord{}, &SLRecordChange{}, &SLRecordComment{})
 	raw, err := os.ReadFile("testdata/member_filters.json")
 	require.NoError(t, err)
 	var fixture memberFilterFixture
@@ -153,7 +153,7 @@ func TestQueryMemberAndWriterFields(t *testing.T) {
 
 func TestRecordWriters(t *testing.T) {
 	ctx := context.Background()
-	gormDB := newTestDB(t, &SLField{}, &SLRecord{})
+	gormDB := newTestDB(t, &SLField{}, &SLRecord{}, &SLRecordChange{}, &SLRecordComment{})
 	records := NewSLRecordsStore(gormDB)
 
 	record, err := records.Create(ctx, 1, json.RawMessage(`{}`), SLRecordWriter{UserID: 3})
@@ -176,7 +176,7 @@ func TestRecordWriters(t *testing.T) {
 
 func TestQuerySystemTimes(t *testing.T) {
 	ctx := context.Background()
-	gormDB := newTestDB(t, &SLField{}, &SLRecord{})
+	gormDB := newTestDB(t, &SLField{}, &SLRecord{}, &SLRecordChange{}, &SLRecordComment{})
 	_, err := NewSLFieldsStore(gormDB).Create(ctx, CreateSLFieldOptions{SLTableID: 1, UID: "fldCreated1", Label: "Created", Type: CreatedAtFieldType, Metadata: map[string]interface{}{}})
 	require.NoError(t, err)
 	records := NewSLRecordsStore(gormDB)
@@ -201,7 +201,7 @@ func TestQuerySystemTimes(t *testing.T) {
 
 func TestWriterUserIDs(t *testing.T) {
 	ctx := context.Background()
-	gormDB := newTestDB(t, &Project{}, &SLTable{}, &SLRecord{}, &Workflow{})
+	gormDB := newTestDB(t, &Project{}, &SLTable{}, &SLField{}, &SLRecord{}, &SLRecordChange{}, &SLRecordComment{}, &Workflow{})
 	projects := NewProjectsStore(gormDB)
 	project, err := projects.Create(ctx, CreateProjectOptions{OwnerUserID: 1, Name: "Tasks"})
 	require.NoError(t, err)
@@ -217,8 +217,13 @@ func TestWriterUserIDs(t *testing.T) {
 	require.NoError(t, records.Update(ctx, record.ID, json.RawMessage(`{}`), SLRecordWriter{UserID: 8}))
 	_, err = records.Create(ctx, other.ID, json.RawMessage(`{}`), SLRecordWriter{UserID: 9})
 	require.NoError(t, err)
-
-	ids, err := records.WriterUserIDs(ctx, project.ID, []int64{7, 8, 9, 10})
+	// The history and the comments keep their writers after the record is written by others.
+	require.NoError(t, records.Update(ctx, record.ID, json.RawMessage(`{"fldAAAAAAA":1}`), SLRecordWriter{UserID: 11}))
+	require.NoError(t, records.Update(ctx, record.ID, json.RawMessage(`{"fldAAAAAAA":2}`), SLRecordWriter{UserID: 8}))
+	_, err = NewSLRecordCommentsStore(gormDB).Create(ctx, CreateSLRecordCommentOptions{SLTableID: own.ID, SLRecordID: record.ID, Author: SLRecordWriter{UserID: 12}, Body: "hi"})
 	require.NoError(t, err)
-	assert.ElementsMatch(t, []int64{7, 8}, ids, "only the writers of the records of the project are returned")
+
+	ids, err := records.WriterUserIDs(ctx, project.ID, []int64{7, 8, 9, 10, 11, 12})
+	require.NoError(t, err)
+	assert.ElementsMatch(t, []int64{7, 8, 11, 12}, ids, "only the writers of the records of the project are returned")
 }

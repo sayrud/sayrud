@@ -19,6 +19,8 @@ type Record struct {
 	CreatedBy *db.SLRecordWriter `json:"createdBy,omitempty"`
 	// UpdatedBy is the user or workflow last writing the record, the values of the updated_by fields; absent if unknown.
 	UpdatedBy *db.SLRecordWriter `json:"updatedBy,omitempty"`
+	// CommentCount is the number of the comments, absent if none; it is always absent for the public shares.
+	CommentCount int64 `json:"commentCount,omitempty"`
 } // @name SLRecord
 
 func ToRecord(table *db.SLTable, record *db.SLRecord) *Record {
@@ -26,13 +28,14 @@ func ToRecord(table *db.SLTable, record *db.SLRecord) *Record {
 	_ = json.Unmarshal(record.Data, &data)
 
 	return &Record{
-		UID:       record.UID,
-		TableUID:  table.UID,
-		Data:      data,
-		CreatedAt: record.CreatedAt,
-		UpdatedAt: record.UpdatedAt,
-		CreatedBy: writerOf(record.CreatedBy()),
-		UpdatedBy: writerOf(record.UpdatedBy()),
+		UID:          record.UID,
+		TableUID:     table.UID,
+		Data:         data,
+		CreatedAt:    record.CreatedAt,
+		UpdatedAt:    record.UpdatedAt,
+		CreatedBy:    writerOf(record.CreatedBy()),
+		UpdatedBy:    writerOf(record.UpdatedBy()),
+		CommentCount: record.CommentCount,
 	}
 }
 

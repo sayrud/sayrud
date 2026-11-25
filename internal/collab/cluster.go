@@ -31,6 +31,8 @@ const (
 	clusterEventAvatar          = "avatar"
 	clusterEventShare           = "share"
 	clusterEventTable           = "table"
+	clusterEventComment         = "comment"
+	clusterEventMention         = "mention"
 )
 
 // Events are hints. Changesets and permissions remain authoritative in PostgreSQL.
@@ -49,6 +51,8 @@ type clusterEvent struct {
 	Members     []Member
 	Version     uint64
 	Changeset   *Changeset
+	// Message is the encoded message of the comment and mention events.
+	Message json.RawMessage
 }
 
 type remotePresence struct {
@@ -331,6 +335,12 @@ func (h *Hub) receiveEvent(event clusterEvent) {
 				c.close()
 			}
 		}
+
+	case clusterEventComment:
+		h.deliverComment(event.ProjectUID, event.TableUID, event.Message)
+
+	case clusterEventMention:
+		h.deliverMention(event.ProjectUID, event.UserID, event.Message)
 
 	case clusterEventTable:
 		for _, c := range h.clients(event.ProjectUID) {

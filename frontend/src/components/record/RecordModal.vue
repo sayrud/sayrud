@@ -1,16 +1,21 @@
 <script setup lang="ts">
 import { ChevronDown, ChevronRight, ChevronUp, Copy, Ellipsis, Plus, Trash, X } from '@lucide/vue'
 import dayjs from 'dayjs'
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import FieldValueEditor from '@/components/cell/FieldValueEditor.vue'
 import MemberTag from '@/components/cell/MemberTag.vue'
 import FieldTypeIcon from '@/components/field/FieldTypeIcon.vue'
+import CommentPanel from '@/components/record/CommentPanel.vue'
+import RecordHistory from '@/components/record/RecordHistory.vue'
 import { openMenu } from '@/composables/useContextMenu'
 import { visibleFieldsOf } from '@/composables/useViewData'
 import { useBaseStore } from '@/stores/base'
 import { isWriter } from '@/utils/directory'
+
+/** Below this viewport width the comments move from the side into a tab. */
+const NARROW_WIDTH = 1120
 
 const { t } = useI18n()
 
@@ -31,6 +36,31 @@ const updatedBy = computed(() => (isWriter(record.value?.updatedBy) ? record.val
 const title = computed(() => {
   const p = store.fields[0]
   return record.value && p ? store.ctx.text(record.value, p) : ''
+})
+
+// The public visitors see neither the comments nor the history.
+const collaborative = computed(() => !store.isPublic)
+const commentCount = computed(() => record.value?.commentCount ?? 0)
+
+const narrow = ref(window.innerWidth < NARROW_WIDTH)
+function onResize() {
+  narrow.value = window.innerWidth < NARROW_WIDTH
+}
+const tab = ref<'detail' | 'history' | 'comments'>('detail')
+watch(narrow, (value) => {
+  if (!value && tab.value === 'comments') tab.value = 'detail'
+})
+
+const detailEl = ref<HTMLElement>()
+const historyEl = ref<HTMLElement>()
+// Switching records starts from the top of the new one.
+watch(() => record.value?.uid, () => {
+  void nextTick(() => {
+    for (const el of [detailEl.value, historyEl.value]) if (el) el.scrollTop = 0
+  })
+})
+watch(() => !!state.value, (open) => {
+  if (!open) tab.value = 'detail'
 })
 
 function go(delta: number) {
@@ -72,14 +102,20 @@ function onKey(e: KeyboardEvent) {
   if (e.key === 'ArrowUp' || e.key === 'k') go(-1)
   if (e.key === 'ArrowDown' || e.key === 'j') go(1)
 }
-onMounted(() => document.addEventListener('keydown', onKey))
-onBeforeUnmount(() => document.removeEventListener('keydown', onKey))
+onMounted(() => {
+  document.addEventListener('keydown', onKey)
+  window.addEventListener('resize', onResize)
+})
+onBeforeUnmount(() => {
+  document.removeEventListener('keydown', onKey)
+  window.removeEventListener('resize', onResize)
+})
 </script>
 
 <template>
   <a-modal
     :visible="!!record"
-    :width="760"
+    :width="collaborative && !narrow ? 1080 : 760"
     :footer="false"
     :closable="false"
     :body-style="{ padding: 0 }"
@@ -102,63 +138,88 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKey))
       </div>
     </template>
 
-    <div v-if="record" class="body">
-      <h2 class="title" :class="{ empty: !title }">{{ title || t('record.untitled') }}</h2>
-      <div v-for="f in visible" :key="f.uid" class="field-row">
-        <div class="field-label">
-          <FieldTypeIcon :type="f.type" />
-          <span class="ellipsis">{{ f.label }}</span>
-        </div>
-        <div class="field-value">
-          <FieldValueEditor
-            :field="f"
-            :value="record.data[f.uid]"
-            :record="record"
-            :placeholder="t('group.empty')"
-            :readonly="!store.canEdit"
-            @change="(v) => store.updateCell(record!.uid, f.uid, v)"
-          />
-        </div>
-      </div>
+    <div v-if="record" class="layout" :class="{ split: collaborative && !narrow, solo: !collaborative }">
+      <div class="main">
+        <h2 class="title" :class="{ empty: !title }">{{ title || t('record.untitled') }}</h2>
+        <a-tabs v-model:active-key="tab" class="tabs" lazy-load>
+          <a-tab-pane key="detail" :title="t('record.tabDetail')">
+            <div ref="detailEl" class="pane">
+              <div v-for="f in visible" :key="f.uid" class="field-row">
+                <div class="field-label">
+                  <FieldTypeIcon :type="f.type" />
+                  <span class="ellipsis">{{ f.label }}</span>
+                </div>
+                <div class="field-value">
+                  <FieldValueEditor
+                    :field="f"
+                    :value="record.data[f.uid]"
+                    :record="record"
+                    :placeholder="t('group.empty')"
+                    :readonly="!store.canEdit"
+                    @change="(v) => store.updateCell(record!.uid, f.uid, v)"
+                  />
+                </div>
+              </div>
 
-      <template v-if="hidden.length">
-        <button class="toggle-hidden" @click="showHidden = !showHidden">
-          <component :is="showHidden ? ChevronDown : ChevronRight" :size="14" />
-          {{ t('toolbar.hiddenFields', { n: hidden.length }, hidden.length) }}
-        </button>
-        <template v-if="showHidden">
-          <div v-for="f in hidden" :key="f.uid" class="field-row">
-            <div class="field-label">
-              <FieldTypeIcon :type="f.type" />
-              <span class="ellipsis">{{ f.label }}</span>
+              <template v-if="hidden.length">
+                <button class="toggle-hidden" @click="showHidden = !showHidden">
+                  <component :is="showHidden ? ChevronDown : ChevronRight" :size="14" />
+                  {{ t('toolbar.hiddenFields', { n: hidden.length }, hidden.length) }}
+                </button>
+                <template v-if="showHidden">
+                  <div v-for="f in hidden" :key="f.uid" class="field-row">
+                    <div class="field-label">
+                      <FieldTypeIcon :type="f.type" />
+                      <span class="ellipsis">{{ f.label }}</span>
+                    </div>
+                    <div class="field-value">
+                      <FieldValueEditor
+                        :field="f"
+                        :value="record.data[f.uid]"
+                        :record="record"
+                        :placeholder="t('group.empty')"
+                        :readonly="!store.canEdit"
+                        @change="(v) => store.updateCell(record!.uid, f.uid, v)"
+                      />
+                    </div>
+                  </div>
+                </template>
+              </template>
+
+              <button v-if="store.canEdit" class="add-field" @click="addField"><Plus :size="14" /> {{ t('grid.addField') }}</button>
+
+              <div class="meta">
+                <span class="meta-item">
+                  <MemberTag v-if="createdBy" :user-id="createdBy.userId" :workflow-id="createdBy.workflowId" small />
+                  {{ t('record.createdAt', { time: dayjs(record.createdAt).format('YYYY/MM/DD HH:mm') }) }}
+                </span>
+                <span class="meta-item">
+                  <MemberTag v-if="updatedBy" :user-id="updatedBy.userId" :workflow-id="updatedBy.workflowId" small />
+                  {{ t('record.updatedAt', { time: dayjs(record.updatedAt).format('YYYY/MM/DD HH:mm') }) }}
+                </span>
+                <span class="meta-item">{{ record.uid }}</span>
+              </div>
             </div>
-            <div class="field-value">
-              <FieldValueEditor
-                :field="f"
-                :value="record.data[f.uid]"
-                :record="record"
-                :placeholder="t('group.empty')"
-                :readonly="!store.canEdit"
-                @change="(v) => store.updateCell(record!.uid, f.uid, v)"
-              />
-            </div>
-          </div>
-        </template>
-      </template>
-
-      <button v-if="store.canEdit" class="add-field" @click="addField"><Plus :size="14" /> {{ t('grid.addField') }}</button>
-
-      <div class="meta">
-        <span class="meta-item">
-          <MemberTag v-if="createdBy" :user-id="createdBy.userId" :workflow-id="createdBy.workflowId" small />
-          {{ t('record.createdAt', { time: dayjs(record.createdAt).format('YYYY/MM/DD HH:mm') }) }}
-        </span>
-        <span class="meta-item">
-          <MemberTag v-if="updatedBy" :user-id="updatedBy.userId" :workflow-id="updatedBy.workflowId" small />
-          {{ t('record.updatedAt', { time: dayjs(record.updatedAt).format('YYYY/MM/DD HH:mm') }) }}
-        </span>
-        <span class="meta-item">{{ record.uid }}</span>
+          </a-tab-pane>
+          <template v-if="collaborative">
+            <a-tab-pane key="history" :title="t('record.tabHistory')">
+              <div ref="historyEl" class="pane"><RecordHistory :record="record" /></div>
+            </a-tab-pane>
+            <a-tab-pane v-if="narrow" key="comments">
+              <template #title>
+                {{ t('comments.title') }}<span v-if="commentCount" class="count">{{ commentCount }}</span>
+              </template>
+              <CommentPanel class="tab-comments" :record-uid="record.uid" />
+            </a-tab-pane>
+          </template>
+        </a-tabs>
       </div>
+      <aside v-if="collaborative && !narrow" class="side">
+        <div class="side-head">
+          {{ t('comments.title') }}<span v-if="commentCount" class="count">{{ commentCount }}</span>
+        </div>
+        <CommentPanel class="side-comments" :record-uid="record.uid" />
+      </aside>
     </div>
   </a-modal>
 </template>
@@ -184,19 +245,95 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKey))
 .spacer {
   flex: 1;
 }
-.body {
+.layout {
+  display: flex;
+  height: min(72vh, 780px);
+}
+.layout.solo {
+  height: auto;
   max-height: 72vh;
-  overflow: auto;
-  padding: 8px 32px 20px;
+}
+.main {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  padding: 4px 0 0;
 }
 .title {
-  margin: 4px 0 20px;
+  margin: 4px 32px 8px;
   font-size: 22px;
   font-weight: 600;
   word-break: break-all;
 }
 .title.empty {
   color: var(--text-placeholder);
+}
+/* The tabs fill the column, and each pane scrolls on its own. */
+.tabs {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+.tabs :deep(.arco-tabs-nav) {
+  padding: 0 24px;
+}
+.tabs :deep(.arco-tabs-content) {
+  flex: 1;
+  min-height: 0;
+  padding-top: 0;
+}
+.tabs :deep(.arco-tabs-content-list),
+.tabs :deep(.arco-tabs-pane) {
+  height: 100%;
+}
+.layout.solo .tabs :deep(.arco-tabs-nav) {
+  display: none;
+}
+.pane {
+  height: 100%;
+  overflow: auto;
+  padding: 16px 32px 20px;
+}
+.layout.solo .pane {
+  max-height: calc(72vh - 60px);
+}
+.count {
+  margin-left: 6px;
+  padding: 0 6px;
+  border-radius: 9px;
+  font-size: 12px;
+  line-height: 18px;
+  font-weight: 500;
+  color: var(--color-text-2);
+  background: var(--color-fill-2);
+}
+.side {
+  display: flex;
+  flex-direction: column;
+  width: 360px;
+  flex: none;
+  border-left: 1px solid var(--color-border-2);
+  background: var(--color-bg-2);
+}
+.side-head {
+  display: flex;
+  align-items: center;
+  height: 44px;
+  padding: 0 16px;
+  flex: none;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text-1);
+  border-bottom: 1px solid var(--color-border-1);
+}
+.side-comments {
+  flex: 1;
+  min-height: 0;
+}
+.tab-comments {
+  height: 100%;
 }
 .field-row {
   display: flex;

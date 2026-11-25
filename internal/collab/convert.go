@@ -290,6 +290,11 @@ func valueToText(field *db.SLField, value interface{}, boolText func(bool) strin
 	}
 }
 
+// ValueText returns the display text of the cell value of the field, e.g. the names of the options and the members.
+func ValueText(field *db.SLField, value interface{}, boolText func(bool) string, directory *routeutil.Directory) string {
+	return valueToText(field, value, boolText, directory)
+}
+
 var multiSelectSeparator = regexp.MustCompile(`[,，、;；\n]`)
 
 // textToValue parses the text as the value of the field, the same as textToValue of the frontend.

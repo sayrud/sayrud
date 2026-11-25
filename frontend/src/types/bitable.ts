@@ -199,6 +199,8 @@ export interface SLRecord {
   updatedAt: string
   createdBy?: RecordWriter
   updatedBy?: RecordWriter
+  /** Number of the comments, absent if none and for the public shares. */
+  commentCount?: number
 }
 
 // ---- Query ----

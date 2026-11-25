@@ -118,7 +118,7 @@ test('reconnection catches up through changesets including filtered empty revisi
   await settle()
   socket.emit('NEW_CHANGES', setValue(4))
   assert.equal(sync.records.value[0]!.data.field, 4)
-  assert.deepEqual(source.calls, ['snapshot', 'changesets:1', 'records:record'], 'the records written by the missed changesets are reloaded for their writers')
+  assert.deepEqual(source.calls, ['snapshot', 'changesets:1'], 'the missed changesets carry their writers, so no record is reloaded')
   sync.dispose()
 })
 
@@ -189,7 +189,7 @@ test('a change between the initial read and subscription is caught up incrementa
   await sync.start()
   await settle()
   assert.equal(sync.records.value[0]!.data.field, 2)
-  assert.deepEqual(source.calls, ['snapshot', 'changesets:1', 'records:record'])
+  assert.deepEqual(source.calls, ['snapshot', 'changesets:1'])
   sync.dispose()
 })
 
@@ -286,14 +286,14 @@ test('heartbeat detects a missing final notification without a later change or r
   socket.emit('PONG', { revisions: { table: 2 } })
   await settle()
   assert.equal(sync.records.value[0]!.data.field, 2)
-  assert.deepEqual(source.calls, ['snapshot', 'changesets:1', 'records:record'])
+  assert.deepEqual(source.calls, ['snapshot', 'changesets:1'])
   socket.emit('PONG', { revisions: { table: 2 } })
   await settle()
-  assert.deepEqual(source.calls, ['snapshot', 'changesets:1', 'records:record'])
+  assert.deepEqual(source.calls, ['snapshot', 'changesets:1'])
   sync.dispose()
 })
 
-test('live changesets carry the writer, and the missed ones restore it from the server', async () => {
+test('both the live and the missed changesets carry the writer', async () => {
   const socket = socketFixture()
   const source = sourceFixture()
   const sync = new Sync(socket.socket, 'project', 'table', { readOnly: true }, source.api)
@@ -303,11 +303,13 @@ test('live changesets carry the writer, and the missed ones restore it from the 
   assert.deepEqual(source.calls, ['snapshot'], 'the live writer needs no reload')
 
   socket.emit('close')
-  source.missing([setValue(3)])
-  socket.revision(3)
+  source.missing([{ ...setValue(3), actor: { userId: 3 } }, setValue(4)])
+  socket.revision(4)
   socket.emit('open')
   await settle()
   await settle()
-  assert.deepEqual(sync.records.value[0]!.updatedBy, { userId: 3 }, 'the writer of the missed change comes from the reloaded record')
+  assert.equal(sync.records.value[0]!.data.field, 4)
+  assert.deepEqual(sync.records.value[0]!.updatedBy, { userId: 3 }, 'a changeset saved before the writers were recorded keeps the modifier')
+  assert.deepEqual(source.calls, ['snapshot', 'changesets:2'])
   sync.dispose()
 })

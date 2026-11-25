@@ -10,12 +10,14 @@ import (
 
 // WorkflowListItem is a workflow in the list.
 type WorkflowListItem struct {
+	// ID identifies the workflow writing the records and the comments, e.g. RecordWriter.workflowId.
+	ID          int64  `json:"id"`
 	UID         string `json:"uid"`
 	Name        string `json:"name"`
 	Description string `json:"description"`
 	Position    int    `json:"position"`
 	// TriggerType is the trigger type of the draft, PublishedTriggerType is the trigger type of the published revision, empty if unpublished.
-	TriggerType          string `json:"triggerType" enums:",api,record_created,record_updated,record_matched,record_deleted,date_reached,schedule"`
+	TriggerType          string `json:"triggerType" enums:",api,record_created,record_updated,record_matched,record_deleted,date_reached,schedule,comment_created"`
 	PublishedTriggerType string `json:"publishedTriggerType"`
 	// Method and Path are the entry of the API trigger in the draft, empty for other triggers.
 	Method string `json:"method"`
@@ -37,7 +39,7 @@ type WorkflowListItem struct {
 // ToWorkflowListItem converts the list item, the trigger type is empty if the draft cannot be parsed.
 func ToWorkflowListItem(w *db.Workflow) *WorkflowListItem {
 	item := &WorkflowListItem{
-		UID: w.UID, Name: w.Name, Description: w.Description, PublishedTriggerType: w.TriggerType,
+		ID: w.ID, UID: w.UID, Name: w.Name, Description: w.Description, PublishedTriggerType: w.TriggerType,
 		Position:        w.Position,
 		PublishedMethod: w.Method, PublishedPath: w.Path, Enabled: w.Enabled,
 		PublishedVersion: w.PublishedVersion, PublishedAt: w.PublishedAt,

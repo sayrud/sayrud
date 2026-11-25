@@ -356,6 +356,11 @@ func TestRequiredScope(t *testing.T) {
 		{http.MethodPut, "/_/projects/prj/tables/tbl/records/query", db.AccessTokenScopeWrite},
 		{http.MethodPost, "/_/projects/prj/tables/tbl/records/batch", db.AccessTokenScopeWrite},
 		{http.MethodDelete, "/_/projects/prj", db.AccessTokenScopeWrite},
+		{http.MethodGet, "/_/projects/prj/tables/tbl/records/rec/comments", db.AccessTokenScopeRead},
+		{http.MethodGet, "/_/projects/prj/tables/tbl/records/rec/timeline", db.AccessTokenScopeRead},
+		{http.MethodPost, "/_/projects/prj/tables/tbl/records/rec/comments", db.AccessTokenScopeWrite},
+		{http.MethodPut, "/_/projects/prj/tables/tbl/records/rec/comments/1", db.AccessTokenScopeWrite},
+		{http.MethodDelete, "/_/projects/prj/tables/tbl/records/rec/comments/1", db.AccessTokenScopeWrite},
 	} {
 		assert.Equal(t, tc.want, requiredScope(httptest.NewRequest(tc.method, tc.path, nil)), tc.method+" "+tc.path)
 	}
