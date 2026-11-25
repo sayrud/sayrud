@@ -4,11 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gorm.io/datatypes"
+	"gorm.io/gorm"
 
 	"github.com/wuhan005/sayrud/internal/collab"
 	"github.com/wuhan005/sayrud/internal/db"
@@ -157,4 +160,53 @@ func TestCheckCommentTrigger(t *testing.T) {
 	assert.True(t, codes["trigger.invalid_condition"], issues)
 	assert.True(t, codes["trigger.bot_missing"], "the mentioned user must be a bot of the project")
 	assert.False(t, codes["value.unknown_var"], "the comment is a trigger variable")
+}
+
+func TestCommentTriggerRejectsRecordFilters(t *testing.T) {
+	f := newLeadFixture(t)
+	ctx := t.Context()
+	spec := f.commentSpec(nil, f.queryStep())
+	spec.Trigger.Record.Filters = []Filter{{FieldUID: f.name.UID, Op: "not_empty"}}
+	issues, err := Check(ctx, f.db, f.project, spec)
+	require.NoError(t, err)
+	require.Len(t, issues, 1)
+	assert.Equal(t, "trigger.invalid_condition", issues[0].Code)
+
+	// The store fixture bypasses the API check, as with a revision published before this validation.
+	wf := f.publish(t, "Filtered", spec)
+	human := f.addUser(t, "Human", db.UserKindHuman, 0)
+	record, err := db.NewSLRecordsStore(f.db).GetByUID(ctx, f.create(t, map[string]interface{}{}))
+	require.NoError(t, err)
+	_, err = f.hub.CreateComment(ctx, f.project, f.table, record, collab.Origin{UserID: human.ID}, collab.CommentOptions{Body: "hello"})
+	require.NoError(t, err)
+	assert.Empty(t, f.runs(t, wf))
+}
+
+func TestCommentTriggerRevisionLoadErrors(t *testing.T) {
+	f := newLeadFixture(t)
+	ctx := t.Context()
+	wf := f.publish(t, "Comment", f.commentSpec(nil, f.queryStep()))
+	human := f.addUser(t, "Human", db.UserKindHuman, 0)
+	record, err := db.NewSLRecordsStore(f.db).GetByUID(ctx, f.create(t, map[string]interface{}{}))
+	require.NoError(t, err)
+	post := func() error {
+		_, err := f.hub.CreateComment(ctx, f.project, f.table, record, collab.Origin{UserID: human.ID}, collab.CommentOptions{Body: "hello"})
+		return err
+	}
+
+	readFails := true
+	require.NoError(t, f.db.Callback().Query().Before("gorm:query").Register("test:revision_read", func(tx *gorm.DB) {
+		if readFails && tx.Statement.Table == "workflow_revisions" {
+			_ = tx.AddError(io.ErrUnexpectedEOF)
+		}
+	}))
+	require.ErrorIs(t, post(), io.ErrUnexpectedEOF)
+	assert.Zero(t, f.count(t, &db.SLRecordComment{}, "sl_record_id = ?", record.ID))
+	assert.Empty(t, f.runs(t, wf))
+
+	readFails = false
+	require.NoError(t, f.db.Model(&db.WorkflowRevision{}).Where("id = ?", wf.PublishedRevisionID).UpdateColumn("spec", datatypes.JSON(`[]`)).Error)
+	require.NoError(t, post(), "an invalid immutable revision should not block comments")
+	assert.Equal(t, int64(1), f.count(t, &db.SLRecordComment{}, "sl_record_id = ?", record.ID))
+	assert.Empty(t, f.runs(t, wf))
 }

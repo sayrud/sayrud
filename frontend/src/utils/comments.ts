@@ -1,3 +1,5 @@
+import { shallowReactive } from 'vue'
+
 import type { RecordComment } from '@/api/comments'
 
 /** Matches a mention `<@userID>` of a comment body, the same as collab.MentionPattern of the backend. */
@@ -26,8 +28,8 @@ export interface CommentDraft {
   replyTo?: RecordComment
 }
 
-/** The unsent comments keyed by record UID, kept while the page is open. */
-export const commentDrafts = new Map<string, CommentDraft>()
+/** The unsent comments keyed by user ID and record UID, kept while the page is open. */
+export const commentDrafts = shallowReactive(new Map<string, CommentDraft>())
 
 /** Converts the mentions of a body to `@name` for editing, the unknown users keep the token. */
 export function toEditorText(body: string, nameOf: (id: number) => string): { text: string; mentions: EditorMention[] } {

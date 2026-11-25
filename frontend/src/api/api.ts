@@ -482,7 +482,7 @@ export interface CreateRecordComment {
   /** Body is the Markdown text of at most 10000 characters, a member of the project is mentioned as <@userID>. */
   body: string;
   /** Kind must be comment if set, the other kinds are reserved. */
-  kind?: "comment" | "report" | "attention";
+  kind?: "comment";
   /** ReplyToID is the comment of the record replied to, omitted for a root comment. */
   replyToId?: number;
 }
@@ -1192,9 +1192,9 @@ export interface RecordFieldChange {
   /** FieldUID is the field changed. */
   fieldUID: string;
   /** NewValue is the cell value after the change, absent if empty. */
-  newValue?: object;
+  newValue?: any;
   /** OldValue is the cell value before the change, absent if empty. */
-  oldValue?: object;
+  oldValue?: any;
 }
 
 export interface RecordTimelineChange {
@@ -1203,12 +1203,12 @@ export interface RecordTimelineChange {
   fieldUID?: string;
   id: number;
   kind: "created" | "updated" | "deleted";
-  newValue?: object;
-  oldValue?: object;
+  newValue?: any;
+  oldValue?: any;
 }
 
 export interface RecordTimelineComment {
-  editedAt: string;
+  editedAt?: string | null;
   id: number;
   kind: "comment" | "report" | "attention";
   mentions: CommentMention[];
@@ -6024,7 +6024,7 @@ export class Api<
       }),
 
     /**
-     * @description Return the creation, the deletion and the field changes of the record the newest first, with the field labels when written. The consecutive updates of the same writer within 5 minutes are merged into one entry, keeping the earliest previous value and the latest value of each field; the fields changed back are dropped. The writes of the server, e.g. field shortcuts and type conversions, are not recorded, and the system fields never appear.
+     * @description Return the creation and field changes of an existing record, newest first, with the field labels when written. Deleted records return 404. The consecutive updates of the same writer within 5 minutes are merged into one entry, keeping the earliest previous value and the latest value of each field; the fields changed back are dropped. The writes of the server, e.g. field shortcuts and type conversions, are not recorded, and the system fields never appear.
      *
      * @tags Record history
      * @name ListRecordChanges
@@ -6054,7 +6054,7 @@ export class Api<
       }),
 
     /**
-     * @description Return a single change without merging, e.g. a change truncated in the timeline.
+     * @description Return a single change without merging, e.g. a change truncated in the timeline. Deleted records return 404.
      *
      * @tags Record history
      * @name GetRecordChange
@@ -6208,7 +6208,7 @@ export class Api<
       }),
 
     /**
-     * @description Return the live comments and the unmerged field changes of the record in one timeline ordered by time, for agents to read the context of the record. Every item has a stable ID, the writer and a text summary; long summaries and values are truncated, and ref is the API path reading the full comment or change.
+     * @description Return the live comments and the unmerged field changes of the record in one timeline ordered by time, for agents to read the context of the record. Deleted records return 404. Every item has a stable ID, the writer and a text summary; long summaries and values are truncated, and ref is the API path reading the full comment or change.
      *
      * @tags Record history
      * @name GetRecordTimeline

@@ -44,16 +44,18 @@ async function load(recordUID: string) {
 }
 
 async function loadMore() {
+  if (loading.value || loadingMore.value || !nextCursor.value) return
   const recordUID = props.record.uid
+  const seq = loadSeq
   loadingMore.value = true
   try {
     const page = await historyApi.list(store.project!.uid, store.activeTableUID, recordUID, nextCursor.value)
-    if (recordUID !== props.record.uid) return
+    if (recordUID !== props.record.uid || seq !== loadSeq) return
     entries.value = [...entries.value, ...page.changes]
     nextCursor.value = page.nextCursor
     resolveNames(page.changes)
   } catch (e) {
-    Message.error(e instanceof Error ? e.message : String(e))
+    if (seq === loadSeq) Message.error(e instanceof Error ? e.message : String(e))
   } finally {
     loadingMore.value = false
   }
@@ -79,7 +81,10 @@ watch(() => props.record.updatedAt, () => {
   clearTimeout(refreshTimer)
   refreshTimer = setTimeout(() => void load(props.record.uid), 800)
 })
-onBeforeUnmount(() => clearTimeout(refreshTimer))
+onBeforeUnmount(() => {
+  clearTimeout(refreshTimer)
+  loadSeq++
+})
 
 function actorName(e: RecordChange) {
   if (e.actor?.workflowId) return workflowName(e.actor.workflowId) || t('member.deletedWorkflow')

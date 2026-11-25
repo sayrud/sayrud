@@ -115,7 +115,7 @@ func sameJSON(a, b json.RawMessage) bool {
 // ListChanges
 // @Summary List the history of a record
 // @Tags Record history
-// @Description Return the creation, the deletion and the field changes of the record the newest first, with the field labels when written.
+// @Description Return the creation and field changes of an existing record, newest first, with the field labels when written. Deleted records return 404.
 // @Description The consecutive updates of the same writer within 5 minutes are merged into one entry, keeping the earliest previous value and the latest value of each field;
 // @Description the fields changed back are dropped. The writes of the server, e.g. field shortcuts and type conversions, are not recorded, and the system fields never appear.
 // @Produce json
@@ -193,6 +193,7 @@ scan:
 // @Summary Get a change of a record
 // @Tags Record history
 // @Description Return a single change without merging, e.g. a change truncated in the timeline.
+// @Description Deleted records return 404.
 // @Produce json
 // @Param projectUID path string true "Project UID"
 // @Param tableUID path string true "Table UID"
@@ -273,6 +274,7 @@ func truncateText(s string, n int) (string, bool) {
 // @Summary Read the timeline of a record
 // @Tags Record history
 // @Description Return the live comments and the unmerged field changes of the record in one timeline ordered by time, for agents to read the context of the record.
+// @Description Deleted records return 404.
 // @Description Every item has a stable ID, the writer and a text summary; long summaries and values are truncated, and ref is the API path reading the full comment or change.
 // @Produce json
 // @Param projectUID path string true "Project UID"

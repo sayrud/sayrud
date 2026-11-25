@@ -32,9 +32,9 @@ type RecordFieldChange struct {
 	// FieldType is the type of the field when written.
 	FieldType db.SLFieldType `json:"fieldType"`
 	// OldValue is the cell value before the change, absent if empty.
-	OldValue json.RawMessage `json:"oldValue,omitempty" swaggertype:"object"`
+	OldValue historyValue `json:"oldValue,omitempty"`
 	// NewValue is the cell value after the change, absent if empty.
-	NewValue json.RawMessage `json:"newValue,omitempty" swaggertype:"object"`
+	NewValue historyValue `json:"newValue,omitempty"`
 } // @name RecordFieldChange
 
 // NewRecordFieldChange returns the field change of an updated change.
@@ -153,7 +153,7 @@ type TimelineCommentInfo struct {
 	ReplyToID int64               `json:"replyToId"`
 	Kind      string              `json:"kind" enums:"comment,report,attention"`
 	Mentions  []db.CommentMention `json:"mentions"`
-	EditedAt  *time.Time          `json:"editedAt"`
+	EditedAt  *time.Time          `json:"editedAt" extensions:"x-nullable"`
 } // @name RecordTimelineComment
 
 // NewTimelineCommentInfo returns the structure of the comment.
@@ -172,6 +172,9 @@ func NewTimelineCommentInfo(c *db.SLRecordComment) *TimelineCommentInfo {
 	}
 }
 
+// historyValue holds raw cell JSON. Its Swagger type is overridden in .swaggo.
+type historyValue = json.RawMessage
+
 // TimelineChangeDetail is the structure of a change item, the values are absent when they are empty or truncated.
 type TimelineChangeDetail struct {
 	ID         int64                 `json:"id"`
@@ -179,8 +182,8 @@ type TimelineChangeDetail struct {
 	FieldUID   string                `json:"fieldUID,omitempty"`
 	FieldLabel string                `json:"fieldLabel,omitempty"`
 	FieldType  db.SLFieldType        `json:"fieldType,omitempty"`
-	OldValue   json.RawMessage       `json:"oldValue,omitempty" swaggertype:"object"`
-	NewValue   json.RawMessage       `json:"newValue,omitempty" swaggertype:"object"`
+	OldValue   historyValue          `json:"oldValue,omitempty"`
+	NewValue   historyValue          `json:"newValue,omitempty"`
 } // @name RecordTimelineChange
 
 // NewTimelineChangeDetail returns the structure of the change, withValues inlines its values.

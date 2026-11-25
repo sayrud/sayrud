@@ -7413,7 +7413,7 @@ const docTemplate = `{
         },
         "/projects/{projectUID}/tables/{tableUID}/records/{recordUID}/changes": {
             "get": {
-                "description": "Return the creation, the deletion and the field changes of the record the newest first, with the field labels when written.\nThe consecutive updates of the same writer within 5 minutes are merged into one entry, keeping the earliest previous value and the latest value of each field;\nthe fields changed back are dropped. The writes of the server, e.g. field shortcuts and type conversions, are not recorded, and the system fields never appear.",
+                "description": "Return the creation and field changes of an existing record, newest first, with the field labels when written. Deleted records return 404.\nThe consecutive updates of the same writer within 5 minutes are merged into one entry, keeping the earliest previous value and the latest value of each field;\nthe fields changed back are dropped. The writes of the server, e.g. field shortcuts and type conversions, are not recorded, and the system fields never appear.",
                 "produces": [
                     "application/json"
                 ],
@@ -7487,7 +7487,7 @@ const docTemplate = `{
         },
         "/projects/{projectUID}/tables/{tableUID}/records/{recordUID}/changes/{changeID}": {
             "get": {
-                "description": "Return a single change without merging, e.g. a change truncated in the timeline.",
+                "description": "Return a single change without merging, e.g. a change truncated in the timeline.\nDeleted records return 404.",
                 "produces": [
                     "application/json"
                 ],
@@ -7926,7 +7926,7 @@ const docTemplate = `{
         },
         "/projects/{projectUID}/tables/{tableUID}/records/{recordUID}/timeline": {
             "get": {
-                "description": "Return the live comments and the unmerged field changes of the record in one timeline ordered by time, for agents to read the context of the record.\nEvery item has a stable ID, the writer and a text summary; long summaries and values are truncated, and ref is the API path reading the full comment or change.",
+                "description": "Return the live comments and the unmerged field changes of the record in one timeline ordered by time, for agents to read the context of the record.\nDeleted records return 404.\nEvery item has a stable ID, the writer and a text summary; long summaries and values are truncated, and ref is the API path reading the full comment or change.",
                 "produces": [
                     "application/json"
                 ],
@@ -11530,9 +11530,7 @@ const docTemplate = `{
                     "description": "Kind must be comment if set, the other kinds are reserved.",
                     "type": "string",
                     "enum": [
-                        "comment",
-                        "report",
-                        "attention"
+                        "comment"
                     ]
                 },
                 "replyToId": {
@@ -13641,12 +13639,10 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "newValue": {
-                    "description": "NewValue is the cell value after the change, absent if empty.",
-                    "type": "object"
+                    "description": "NewValue is the cell value after the change, absent if empty."
                 },
                 "oldValue": {
-                    "description": "OldValue is the cell value before the change, absent if empty.",
-                    "type": "object"
+                    "description": "OldValue is the cell value before the change, absent if empty."
                 }
             }
         },
@@ -13681,12 +13677,8 @@ const docTemplate = `{
                         }
                     ]
                 },
-                "newValue": {
-                    "type": "object"
-                },
-                "oldValue": {
-                    "type": "object"
-                }
+                "newValue": {},
+                "oldValue": {}
             }
         },
         "RecordTimelineComment": {
@@ -13701,7 +13693,8 @@ const docTemplate = `{
             ],
             "properties": {
                 "editedAt": {
-                    "type": "string"
+                    "type": "string",
+                    "x-nullable": true
                 },
                 "id": {
                     "type": "integer"

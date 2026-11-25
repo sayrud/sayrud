@@ -983,8 +983,6 @@ definitions:
         description: Kind must be comment if set, the other kinds are reserved.
         enum:
         - comment
-        - report
-        - attention
         type: string
       replyToId:
         description: ReplyToID is the comment of the record replied to, omitted for
@@ -2556,10 +2554,8 @@ definitions:
         type: string
       newValue:
         description: NewValue is the cell value after the change, absent if empty.
-        type: object
       oldValue:
         description: OldValue is the cell value before the change, absent if empty.
-        type: object
     required:
     - fieldLabel
     - fieldType
@@ -2582,10 +2578,8 @@ definitions:
         - created
         - updated
         - deleted
-      newValue:
-        type: object
-      oldValue:
-        type: object
+      newValue: {}
+      oldValue: {}
     required:
     - id
     - kind
@@ -2594,6 +2588,7 @@ definitions:
     properties:
       editedAt:
         type: string
+        x-nullable: true
       id:
         type: integer
       kind:
@@ -10389,7 +10384,7 @@ paths:
   /projects/{projectUID}/tables/{tableUID}/records/{recordUID}/changes:
     get:
       description: |-
-        Return the creation, the deletion and the field changes of the record the newest first, with the field labels when written.
+        Return the creation and field changes of an existing record, newest first, with the field labels when written. Deleted records return 404.
         The consecutive updates of the same writer within 5 minutes are merged into one entry, keeping the earliest previous value and the latest value of each field;
         the fields changed back are dropped. The writes of the server, e.g. field shortcuts and type conversions, are not recorded, and the system fields never appear.
       operationId: listRecordChanges
@@ -10441,8 +10436,9 @@ paths:
       - Record history
   /projects/{projectUID}/tables/{tableUID}/records/{recordUID}/changes/{changeID}:
     get:
-      description: Return a single change without merging, e.g. a change truncated
-        in the timeline.
+      description: |-
+        Return a single change without merging, e.g. a change truncated in the timeline.
+        Deleted records return 404.
       operationId: getRecordChange
       parameters:
       - description: Project UID
@@ -10752,6 +10748,7 @@ paths:
     get:
       description: |-
         Return the live comments and the unmerged field changes of the record in one timeline ordered by time, for agents to read the context of the record.
+        Deleted records return 404.
         Every item has a stable ID, the writer and a text summary; long summaries and values are truncated, and ref is the API path reading the full comment or change.
       operationId: getRecordTimeline
       parameters:

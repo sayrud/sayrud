@@ -72,7 +72,7 @@ export class TableSync {
   private subscribedRev = 0
   /** Increases with each comment count told by the server, so an older read of the counts does not overwrite it. */
   private commentStamp = 0
-  private readonly commentStamps = new Map<string, number>()
+  private readonly commentUpdates = new Map<string, { stamp: number; count: number }>()
   /** Increases with each read of the comment counts, only the latest one is applied. */
   private commentCountsSeq = 0
   private disposed = false
@@ -184,12 +184,14 @@ export class TableSync {
 
   private async loadSnapshot() {
     this.blocked++
+    const stamp = this.commentStamp
     try {
       const s = await this.api.snapshot(this.projectUID, this.tableUID)
       if (this.disposed) return
       this.rev = s.rev
       for (const rev of this.buffer.keys()) if (rev <= s.rev) this.buffer.delete(rev)
-      this.setData(applyOperations({ fields: s.fields, records: s.records, views: s.views }, this.pendingOperations(), this.tableUID, this.hooks.actor))
+      const records = this.retainCommentCounts(s.records, stamp)
+      this.setData(applyOperations({ fields: s.fields, records, views: s.views }, this.pendingOperations(), this.tableUID, this.hooks.actor))
       this.loaded = true
     } finally {
       this.blocked--
@@ -288,13 +290,22 @@ export class TableSync {
 
   /** Sets the comment count of the record told by the server, the comments are not part of the changesets. */
   setCommentCount(recordUID: string, count: number) {
-    this.commentStamps.set(recordUID, ++this.commentStamp)
+    this.commentUpdates.set(recordUID, { stamp: ++this.commentStamp, count })
     const records = this.records.value
     const i = records.findIndex((r) => r.uid === recordUID)
     if (i < 0 || (records[i]!.commentCount ?? 0) === count) return
     const next = [...records]
     next[i] = { ...records[i]!, commentCount: count || undefined }
     this.records.value = next
+  }
+
+  private retainCommentCounts(records: SLRecord[], stamp: number) {
+    if (stamp === this.commentStamp) return records
+    return records.map((record) => {
+      const update = this.commentUpdates.get(record.uid)
+      if (!update || update.stamp <= stamp || update.count === (record.commentCount ?? 0)) return record
+      return { ...record, commentCount: update.count || undefined }
+    })
   }
 
   /** Reads again all the comment counts keyed by record UID, keeping the counts told by the server during the read and ignoring the superseded reads. */
@@ -306,7 +317,7 @@ export class TableSync {
     let changed = false
     const next = this.records.value.map((r) => {
       const count = counts[r.uid] ?? 0
-      if ((this.commentStamps.get(r.uid) ?? 0) > stamp || (r.commentCount ?? 0) === count) return r
+      if ((this.commentUpdates.get(r.uid)?.stamp ?? 0) > stamp || (r.commentCount ?? 0) === count) return r
       changed = true
       return { ...r, commentCount: count || undefined }
     })
@@ -336,7 +347,8 @@ export class TableSync {
   }
 
   private async fetchDirty(scope: DirtyScope) {
-    const [fields, views, records] = await Promise.all([
+    const stamp = this.commentStamp
+    const [fields, views, fetchedRecords] = await Promise.all([
       scope.fields ? this.api.fields(this.projectUID, this.tableUID) : null,
       scope.views ? this.api.views(this.projectUID, this.tableUID) : null,
       scope.allRecords
@@ -347,6 +359,7 @@ export class TableSync {
     ])
     if (this.disposed) return
 
+    const records = fetchedRecords && this.retainCommentCounts(fetchedRecords, stamp)
     let nextRecords = this.records.value
     if (records && scope.allRecords) {
       nextRecords = records

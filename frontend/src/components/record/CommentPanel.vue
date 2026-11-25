@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Message } from '@arco-design/web-vue'
-import { nextTick, onBeforeUnmount, reactive, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, ref, shallowRef, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import { commentsApi, type RecordComment } from '@/api/comments'
@@ -36,10 +36,21 @@ const sending = ref(false)
 const listEl = ref<HTMLElement>()
 const composer = ref<InstanceType<typeof CommentComposer>>()
 
-const draft = reactive<CommentDraft>({ text: '', mentions: [] })
-/** The comment being edited, the unsent draft is kept aside meanwhile. */
-const editing = ref<RecordComment>()
-let stashed: CommentDraft | undefined
+const emptyDraft: CommentDraft = { text: '', mentions: [] }
+const draftKey = computed(() => auth.user ? `${auth.user.id}:${props.recordUid}` : undefined)
+const editing = shallowRef<{ id: number; draft: CommentDraft }>()
+// Replace drafts on edit so a response can clear just the version it submitted.
+const draft = computed<CommentDraft>({
+  get: () => editing.value?.draft ?? (draftKey.value ? commentDrafts.get(draftKey.value) : undefined) ?? emptyDraft,
+  set: (next) => {
+    if (editing.value) editing.value = { ...editing.value, draft: next }
+    else if (draftKey.value) {
+      if (next.text || next.replyTo) commentDrafts.set(draftKey.value, next)
+      else commentDrafts.delete(draftKey.value)
+    }
+  },
+})
+let disposed = false
 let loadSeq = 0
 type CommentReplay = Pick<CommentChange, 'action' | 'comment'>[]
 /** The comment changes of the record received while each page is read, replayed in order on the page as it may be older. */
@@ -116,36 +127,28 @@ async function loadEarlier() {
   }
 }
 
-function setDraft(next: CommentDraft) {
-  draft.text = next.text
-  draft.mentions = [...next.mentions]
-  draft.replyTo = next.replyTo
-}
-
-function saveDraft(recordUID: string) {
-  const current = editing.value ? stashed : { ...draft, mentions: [...draft.mentions] }
-  if (current && (current.text.trim() || current.replyTo)) commentDrafts.set(recordUID, current)
-  else commentDrafts.delete(recordUID)
-}
-
 watch(
-  () => props.recordUid,
-  (uid, previous) => {
-    if (previous) saveDraft(previous)
+  draftKey,
+  (key) => {
     editing.value = undefined
-    stashed = undefined
-    setDraft(commentDrafts.get(uid) ?? { text: '', mentions: [] })
     roots.value = []
     nextCursor.value = 0
     if (listEl.value) listEl.value.scrollTop = 0
-    void load(uid)
+    if (key) void load(props.recordUid)
+    else {
+      loadSeq++
+      loading.value = false
+    }
   },
   { immediate: true },
 )
-onBeforeUnmount(() => saveDraft(props.recordUid))
+onBeforeUnmount(() => {
+  disposed = true
+  loadSeq++
+})
 
 // The changes missed while offline are not replayed.
-watch(() => store.commentsVersion, () => void load(props.recordUid))
+watch(() => store.commentsVersion, () => { if (draftKey.value) void load(props.recordUid) })
 
 const stopListening = store.onCommentChange((change) => {
   if (change.recordUID !== props.recordUid) return
@@ -159,58 +162,56 @@ const canDelete = (c: RecordComment) => isOwn(c) || store.canManage
 
 function startReply(c: RecordComment) {
   if (editing.value) cancel()
-  draft.replyTo = c
+  let next = { ...draft.value, replyTo: c }
   // The reply mentions the author replied to by default.
   const id = c.author.userId ?? 0
   const name = !c.author.workflowId && id !== auth.user?.id ? userName(id) : ''
-  if (name && !draft.mentions.some((m) => m.id === id)) {
-    const edited = trackMentions(draft.text, `@${name} ${draft.text}`, draft.mentions, { id, name, inserted: name }, draft.text.length)
-    draft.text = edited.text
-    draft.mentions = edited.mentions
+  if (name && !next.mentions.some((m) => m.id === id)) {
+    const edited = trackMentions(next.text, `@${name} ${next.text}`, next.mentions, { id, name, inserted: name }, next.text.length)
+    next = { ...edited, replyTo: c }
   }
+  draft.value = next
   composer.value?.focus()
 }
 
 function startEdit(c: RecordComment) {
-  if (!editing.value) stashed = { ...draft, mentions: [...draft.mentions] }
-  editing.value = c
-  setDraft(toEditorText(c.body, userName))
+  editing.value = { id: c.id, draft: toEditorText(c.body, userName) }
   composer.value?.focus()
 }
 
 function cancel() {
-  if (editing.value) {
-    editing.value = undefined
-    setDraft(stashed ?? { text: '', mentions: [] })
-    stashed = undefined
-    return
-  }
-  draft.replyTo = undefined
+  if (editing.value) editing.value = undefined
+  else draft.value = { ...draft.value, replyTo: undefined }
 }
 
 async function submit() {
+  const key = draftKey.value
+  if (!key || sending.value) return
+  const userID = auth.user?.id
   const recordUID = props.recordUid
-  const body = toBody(draft.text, draft.mentions)
+  const submitted = draft.value
+  const edit = editing.value
+  const body = toBody(submitted.text, submitted.mentions)
+  const isCurrent = () => !disposed && key === draftKey.value
   sending.value = true
   try {
-    if (editing.value) {
-      const updated = await commentsApi.update(...ids(), recordUID, editing.value.id, body)
-      if (recordUID !== props.recordUid) return
+    if (edit) {
+      const updated = await commentsApi.update(...ids(), recordUID, edit.id, body)
+      if (!isCurrent()) return
       applyChange('updated', updated)
-      cancel()
+      if (editing.value === edit) cancel()
       return
     }
-    const created = await commentsApi.create(...ids(), recordUID, body, draft.replyTo?.id)
-    if (recordUID !== props.recordUid) return
+    const created = await commentsApi.create(...ids(), recordUID, body, submitted.replyTo?.id)
+    if (commentDrafts.get(key) === submitted) commentDrafts.delete(key)
+    if (!isCurrent()) return
     applyChange('created', created)
-    setDraft({ text: '', mentions: [] })
-    commentDrafts.delete(recordUID)
     if (!created.rootId) {
       await nextTick()
-      listEl.value?.scrollTo({ top: listEl.value.scrollHeight, behavior: 'smooth' })
+      if (isCurrent()) listEl.value?.scrollTo({ top: listEl.value.scrollHeight, behavior: 'smooth' })
     }
   } catch (e) {
-    Message.error(e instanceof Error ? e.message : String(e))
+    if (auth.user?.id === userID) Message.error(e instanceof Error ? e.message : String(e))
   } finally {
     sending.value = false
   }
@@ -218,12 +219,13 @@ async function submit() {
 
 async function remove(c: RecordComment) {
   const recordUID = props.recordUid
+  const key = draftKey.value
   try {
     await commentsApi.remove(...ids(), recordUID, c.id)
-    if (recordUID !== props.recordUid) return
+    if (disposed || key !== draftKey.value) return
     applyChange('deleted', { ...c, body: '', mentions: [], deleted: true })
     if (editing.value?.id === c.id) cancel()
-    if (draft.replyTo?.id === c.id) draft.replyTo = undefined
+    if (draft.value.replyTo?.id === c.id) draft.value = { ...draft.value, replyTo: undefined }
   } catch (e) {
     Message.error(e instanceof Error ? e.message : String(e))
   }
@@ -276,12 +278,14 @@ function replyToName(root: RecordComment, reply: RecordComment) {
     </div>
     <CommentComposer
       ref="composer"
-      v-model:text="draft.text"
-      v-model:mentions="draft.mentions"
+      :text="draft.text"
+      :mentions="draft.mentions"
       :reply-to-name="draft.replyTo ? authorName(draft.replyTo) : ''"
       :editing="!!editing"
       :sending="sending"
       :max-length="MAX_COMMENT_LENGTH"
+      @update:text="draft = { ...draft, text: $event }"
+      @update:mentions="draft = { ...draft, mentions: $event }"
       @submit="submit"
       @cancel="cancel"
     />

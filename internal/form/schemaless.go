@@ -96,7 +96,7 @@ type CreateRecordComment struct {
 	// ReplyToID is the comment of the record replied to, omitted for a root comment.
 	ReplyToID int64 `json:"replyToId,omitempty"`
 	// Kind must be comment if set, the other kinds are reserved.
-	Kind string `json:"kind,omitempty" enums:"comment,report,attention"`
+	Kind string `json:"kind,omitempty" enums:"comment"`
 } // @name CreateRecordComment
 
 type UpdateRecordComment struct {

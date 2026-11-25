@@ -355,15 +355,18 @@ export const useBaseStore = defineStore('base', () => {
 
   /** Expands the record, switching to its table first if needed. */
   function openRecord(tableUID: string, recordUID: string) {
-    if (tableUID === activeTableUID.value) expandRecord(recordUID, [recordUID])
-    else recordRequest.value = { tableUID, recordUID }
+    if (tableUID === activeTableUID.value) {
+      recordRequest.value = null
+      expandRecord(recordUID, [recordUID])
+    } else recordRequest.value = { tableUID, recordUID }
   }
 
   /** Tells the user it is mentioned, before the inbox of the notifications exists. */
   async function onMentioned(data: MentionedMessage) {
-    if (!project.value || data.projectUID !== project.value.uid) return
+    if (data.projectUID !== project.value?.uid) return
     const author = data.author
     await resolveWriters([author.userId ?? 0, ...mentionedIds(data.excerpt)], [author.workflowId ?? 0])
+    if (data.projectUID !== project.value?.uid) return
     const name = author.workflowId ? workflowName(author.workflowId) || t('member.deletedWorkflow') : userName(author.userId ?? 0) || t('member.unknown')
     const id = `mention-${data.commentId}`
     Notification.info({
@@ -377,7 +380,7 @@ export const useBaseStore = defineStore('base', () => {
         size: 'mini',
         onClick: () => {
           Notification.remove(id)
-          openRecord(data.tableUID, data.recordUID)
+          if (data.projectUID === project.value?.uid) openRecord(data.tableUID, data.recordUID)
         },
       }, () => t('comments.view')),
     })

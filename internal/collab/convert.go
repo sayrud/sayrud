@@ -290,8 +290,24 @@ func valueToText(field *db.SLField, value interface{}, boolText func(bool) strin
 	}
 }
 
-// ValueText returns the display text of the cell value of the field, e.g. the names of the options and the members.
+// ValueText formats a cell value for history, where removed options are still meaningful.
 func ValueText(field *db.SLField, value interface{}, boolText func(bool) string, directory *routeutil.Directory) string {
+	if values, ok := value.([]interface{}); ok && field.Type == db.MultiSelectFieldType {
+		names := optionNames(field)
+		labels := make([]string, 0, len(values))
+		for _, value := range values {
+			uid, ok := value.(string)
+			if !ok {
+				return ""
+			}
+			label := names[uid]
+			if label == "" {
+				label = uid
+			}
+			labels = append(labels, label)
+		}
+		return strings.Join(labels, ", ")
+	}
 	return valueToText(field, value, boolText, directory)
 }
 

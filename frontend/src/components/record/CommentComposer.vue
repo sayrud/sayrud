@@ -29,7 +29,7 @@ const candidates = computed(() => {
   return directory.value.members.filter((u) => !k || u.userName.toLowerCase().includes(k) || u.email.toLowerCase().includes(k)).slice(0, 20)
 })
 /** The option values are the user IDs to tell apart the members of the same name, onInput replaces the inserted ID with the name. */
-const options = computed(() => candidates.value.map((u) => ({ value: String(u.id), label: u.userName })))
+const options = computed(() => candidates.value.map((u) => ({ value: String(u.id), label: `${u.userName} ${u.email}` })))
 const length = computed(() => [...text.value].length)
 const canSend = computed(() => !!text.value.trim() && length.value <= props.maxLength && !props.sending)
 

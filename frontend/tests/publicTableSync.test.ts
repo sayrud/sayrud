@@ -343,3 +343,32 @@ test('both the live and the missed changesets carry the writer', async () => {
   assert.deepEqual(source.calls, ['snapshot', 'changesets:2'])
   sync.dispose()
 })
+
+test('record refreshes keep comment events received during the read', async () => {
+  const socket = socketFixture()
+  const source = sourceFixture()
+  const sync = new Sync(socket.socket, 'project', 'table', {}, source.api)
+  await sync.start()
+
+  let resolveRecords!: (records: TableSnapshot['records']) => void
+  source.api.fetchRecords = () => new Promise((resolve) => { resolveRecords = resolve })
+  socket.emit('NEW_CHANGES', changeset(2, { action: 'table.dirty', dirty: { records: ['record'] } }))
+  sync.setCommentCount('record', 5)
+  resolveRecords([{ ...snapshot(2).records[0]!, commentCount: 1 }])
+  await settle()
+  assert.equal(sync.records.value[0]!.data.field, 2)
+  assert.equal(sync.records.value[0]!.commentCount, 5)
+
+  let resolveSnapshot!: (value: TableSnapshot) => void
+  source.api.snapshot = () => new Promise((resolve) => { resolveSnapshot = resolve })
+  socket.emit('NEW_CHANGES', changeset(3, { action: 'table.dirty', dirty: { allRecords: true } }))
+  sync.setCommentCount('record', 0)
+  sync.setCommentCount('new-record', 2)
+  const refreshed = snapshot(3)
+  const old = { ...refreshed.records[0]!, commentCount: 5 }
+  resolveSnapshot({ ...refreshed, records: [old, { ...old, uid: 'new-record', commentCount: 0 }] })
+  await settle()
+  assert.equal(sync.records.value[0]!.commentCount, undefined)
+  assert.equal(sync.records.value[1]!.commentCount, 2)
+  sync.dispose()
+})

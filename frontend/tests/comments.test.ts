@@ -1,14 +1,97 @@
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 import test from 'node:test'
+import ts from 'typescript'
+import * as vue from 'vue'
+import { compileScript, parse } from 'vue/compiler-sfc'
 
 import type { RecordComment } from '../src/api/comments.ts'
-import { applyCommentChange, mentionedIds, plainText, toBody, toEditorText, trackMentions } from '../src/utils/comments.ts'
+import * as comments from '../src/utils/comments.ts'
+
+const { applyCommentChange, mentionedIds, plainText, toBody, toEditorText, trackMentions } = comments
 
 const names: Record<number, string> = { 1: 'Ann', 2: 'Ann Lee', 3: 'Bot', 10: 'Sam', 20: 'Sam' }
 const nameOf = (id: number) => names[id] ?? ''
 
 const comment = (id: number, extra: Partial<RecordComment> = {}): RecordComment => ({
   id, recordUID: 'rec', author: { userId: 1 }, body: `c${id}`, kind: 'comment', mentions: [], createdAt: '', ...extra,
+})
+
+test('comment saves respect the current editor, draft version and account', async (t) => {
+  const props = vue.reactive({ recordUid: 'rec' })
+  const auth = vue.reactive({ user: { id: 1 } })
+  const source = readFileSync(new URL('../src/components/record/CommentPanel.vue', import.meta.url), 'utf8')
+  const script = compileScript(parse(source).descriptor, { id: 'comment-panel-test' })
+  const code = ts.transpileModule(script.content, { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText
+  let finish!: (comment: RecordComment) => void
+  let fail!: (err: Error) => void
+  const pending = () => new Promise<RecordComment>((resolve, reject) => { finish = resolve; fail = reject })
+  const messages: string[] = []
+  const modules: Record<string, unknown> = {
+    vue: { ...vue, onBeforeUnmount: () => {} },
+    'vue-i18n': { useI18n: () => ({ t: (key: string) => key }) },
+    '@arco-design/web-vue': { Message: { error: (message: string) => messages.push(message) } },
+    '@/api/comments': { commentsApi: { create: pending, update: pending, list: async () => ({ comments: [], nextCursor: 0 }) } },
+    '@/stores/auth': { useAuthStore: () => auth },
+    '@/stores/base': { useBaseStore: () => ({ project: { uid: 'project' }, activeTableUID: 'table', resolveWriters: () => {}, onCommentChange: () => () => {} }) },
+    '@/utils/directory': { userName: nameOf },
+    '@/utils/comments': comments,
+  }
+  type Panel = {
+    draft: vue.WritableComputedRef<comments.CommentDraft>
+    editing: vue.Ref<{ id: number } | undefined>
+    startEdit: (c: RecordComment) => void
+    cancel: () => void
+    submit: () => Promise<void>
+  }
+  const module = { exports: {} as { default: { setup: (props: object, context: object) => Panel } } }
+  new Function('require', 'module', 'exports', code)((id: string) => modules[id] ?? {}, module, module.exports)
+  const scope = vue.effectScope()
+  t.after(() => { scope.stop(); comments.commentDrafts.clear() })
+  const panel = scope.run(() => module.exports.default.setup(props, { expose: () => {} }))!
+  const type = (text: string) => { panel.draft.value = { text, mentions: [] } }
+
+  type('sent draft')
+  const sent = panel.submit()
+  props.recordUid = 'other'
+  await vue.nextTick()
+  type('other record draft')
+  finish(comment(1))
+  await sent
+  assert.equal(panel.draft.value.text, 'other record draft')
+  props.recordUid = 'rec'
+  await vue.nextTick()
+  assert.equal(panel.draft.value.text, '')
+
+  type('first account draft')
+  const failed = panel.submit()
+  fail(new Error('Failed to send'))
+  await failed
+  assert.deepEqual(messages, ['Failed to send'])
+  assert.equal(panel.draft.value.text, 'first account draft')
+  auth.user.id = 2
+  await vue.nextTick()
+  assert.equal(panel.draft.value.text, '')
+  type('second account draft')
+  auth.user.id = 1
+  await vue.nextTick()
+  assert.equal(panel.draft.value.text, 'first account draft')
+
+  panel.startEdit(comment(1))
+  const savedEdit = panel.submit()
+  panel.startEdit(comment(2))
+  type('new edit')
+  finish(comment(1))
+  await savedEdit
+  assert.equal(panel.editing.value?.id, 2)
+  assert.equal(panel.draft.value.text, 'new edit')
+  panel.cancel()
+
+  const sentEarlier = panel.submit()
+  type('newer unsent draft')
+  finish(comment(3))
+  await sentEarlier
+  assert.equal(panel.draft.value.text, 'newer unsent draft')
 })
 
 test('mentions round-trip between the body and the editor text', () => {

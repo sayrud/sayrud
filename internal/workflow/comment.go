@@ -40,9 +40,16 @@ func (e *Engine) CommentCreated(ctx context.Context, tx *gorm.DB, project *db.Pr
 	total := 0
 	for _, wf := range list {
 		log := logrus.WithContext(ctx).WithField("workflow", wf.UID)
-		spec, err := e.PublishedSpec(ctx, wf.PublishedRevisionID)
+		spec, err := e.publishedSpec(ctx, tx, wf.PublishedRevisionID)
 		if err != nil {
+			if !errors.Is(err, errInvalidPublishedSpec) && !errors.Is(err, db.ErrWorkflowRevisionNotFound) {
+				return 0, errors.Wrapf(err, "load revision for workflow %s", wf.UID)
+			}
 			log.WithError(err).Error("Failed to load workflow revision")
+			continue
+		}
+		if r := spec.Trigger.Record; r != nil && len(r.Filters) > 0 {
+			log.Warn("Comment triggers do not support record filters")
 			continue
 		}
 		if !matchComment(spec.Trigger.Comment, authorKind, ev.Comment) {
@@ -129,6 +136,9 @@ func (c *checker) checkCommentTrigger() error {
 	if info == nil {
 		c.add("trigger.table_missing", "trigger")
 		return nil
+	}
+	if len(c.spec.Trigger.Record.Filters) > 0 {
+		c.add("trigger.invalid_condition", "trigger")
 	}
 	t := c.spec.Trigger.Comment
 	if t == nil {
