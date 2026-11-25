@@ -74,16 +74,22 @@ func (e *Engine) SetActions(actions Actions) {
 
 // PublishedSpec returns the Spec of a published revision; revisions are immutable and cached by ID.
 func (e *Engine) PublishedSpec(ctx context.Context, revisionID int64) (*Spec, error) {
+	return e.publishedSpec(ctx, e.db, revisionID)
+}
+
+var errInvalidPublishedSpec = errors.New("invalid published workflow spec")
+
+func (e *Engine) publishedSpec(ctx context.Context, conn *gorm.DB, revisionID int64) (*Spec, error) {
 	if v, ok := e.specs.Load(revisionID); ok {
 		return v.(*Spec), nil
 	}
-	revision, err := db.NewWorkflowRevisionsStore(e.db).GetByID(ctx, revisionID)
+	revision, err := db.NewWorkflowRevisionsStore(conn).GetByID(ctx, revisionID)
 	if err != nil {
 		return nil, err
 	}
 	spec, err := ParseSpec(revision.Spec)
 	if err != nil {
-		return nil, errors.Wrap(err, "parse spec")
+		return nil, errors.Mark(errors.Wrap(err, "parse spec"), errInvalidPublishedSpec)
 	}
 	e.specMu.Lock()
 	if e.specCount > 1000 {

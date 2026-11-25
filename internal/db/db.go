@@ -45,7 +45,7 @@ func Init() (*gorm.DB, error) {
 		&User{}, &UserSession{}, &AccessToken{}, &Setting{}, &AuthProvider{}, &UserIdentity{},
 		&Project{}, &ProjectMember{},
 
-		&SLTable{}, &SLField{}, &SLRecord{}, &SLView{}, &SLChangeset{},
+		&SLTable{}, &SLField{}, &SLRecord{}, &SLView{}, &SLChangeset{}, &SLRecordChange{}, &SLRecordComment{},
 		&CustomFieldShortcut{}, &SLShortcutJob{}, &SLImport{},
 
 		&File{},
@@ -115,6 +115,8 @@ func SetDatabaseStore(db *gorm.DB) {
 	SLRecords = NewSLRecordsStore(db)
 	SLViews = NewSLViewsStore(db)
 	SLChangesets = NewSLChangesetsStore(db)
+	SLRecordChanges = NewSLRecordChangesStore(db)
+	SLRecordComments = NewSLRecordCommentsStore(db)
 	FieldShortcuts = NewFieldShortcutsStore(db)
 	SLShortcutJobs = NewSLShortcutJobsStore(db)
 	SLImports = NewSLImportsStore(db)

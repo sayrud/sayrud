@@ -11,6 +11,7 @@ import (
 	"github.com/wuhan005/sayrud/internal/collab"
 	"github.com/wuhan005/sayrud/internal/db"
 	"github.com/wuhan005/sayrud/internal/dbutil"
+	"github.com/wuhan005/sayrud/internal/routeutil"
 )
 
 // ErrNoSampleRecord means the table has no record to use when debugging a record-triggered workflow.
@@ -44,12 +45,26 @@ func (e *Engine) SampleTrigger(ctx context.Context, project *db.Project, spec *S
 
 	records := db.NewSLRecordsStore(e.db)
 	var record *db.SLRecord
-	if recordUID != "" {
+	// Comment triggers use the latest comment of the table and its record when no record is given.
+	var comment *db.SLRecordComment
+	if spec.Trigger.Type == TriggerCommentCreated && recordUID == "" {
+		if latest, err := db.NewSLRecordCommentsStore(e.db).LatestByTable(ctx, table.ID); err == nil {
+			comment = latest
+			if record, err = records.GetByID(ctx, latest.SLRecordID); err != nil {
+				return nil, err
+			}
+		} else if !errors.Is(err, db.ErrSLRecordCommentNotFound) {
+			return nil, err
+		}
+	}
+	switch {
+	case record != nil:
+	case recordUID != "":
 		record, err = records.GetByUID(ctx, recordUID)
 		if err == nil && record.SLTableID != table.ID {
 			err = db.ErrSLRecordNotFound
 		}
-	} else {
+	default:
 		var list []*db.SLRecord
 		if list, _, err = records.Query(ctx, table.ID, db.QuerySLRecordsOptions{Limit: 1}); err == nil {
 			if len(list) == 0 {
@@ -77,6 +92,20 @@ func (e *Engine) SampleTrigger(ctx context.Context, project *db.Project, spec *S
 		if t, ok := recordTime(record, r.DateFieldUID); ok {
 			data["time"] = t.Add(time.Duration(r.Offset) * time.Minute).UTC().Format(time.RFC3339)
 		}
+	case TriggerCommentCreated:
+		if comment == nil {
+			comment = &db.SLRecordComment{
+				SLTableID:  table.ID,
+				SLRecordID: record.ID,
+				Kind:       db.SLRecordCommentKindComment,
+				CreatedAt:  dbutil.Now(),
+			}
+		}
+		directory, err := routeutil.LoadDirectory(ctx, e.db, project.ID)
+		if err != nil {
+			return nil, err
+		}
+		data["comment"] = commentOutput(directory, comment)
 	}
 	return normalize(data).(map[string]interface{}), nil
 }

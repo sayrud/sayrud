@@ -42,6 +42,18 @@ func TestParseNumber(t *testing.T) {
 	assert.False(t, ok)
 }
 
+func TestHistoryValueTextKeepsRemovedOptions(t *testing.T) {
+	field := &db.SLField{
+		Type: db.MultiSelectFieldType,
+		Metadata: datatypes.NewJSONType[db.SLFieldMetadata](map[string]interface{}{
+			"options": []interface{}{map[string]interface{}{"uid": "optKeep", "name": "Keep"}},
+		}),
+	}
+	values := []interface{}{"optKeep", "optRemoved"}
+	assert.Equal(t, "Keep, optRemoved", ValueText(field, values, nil, nil))
+	assert.Equal(t, "Keep", valueToText(field, values, nil, nil))
+}
+
 func TestParseDate(t *testing.T) {
 	for _, text := range []string{"2026/01/30", "2026-01-30", "2026年1月30日", "2026.1.30"} {
 		got, ok := parseDate(text)

@@ -47,27 +47,31 @@ type SLRecordsStore interface {
 	// MatchData checks whether the record values in data match the filters with the same semantics as Query and returns the matching keys; all filters must match if matchAny is false.
 	// data may be keyed by any identifier, e.g. the record UID. The system fields are not in data, they return ErrSLFieldNotQueryable.
 	MatchData(ctx context.Context, slTableID int64, filters []QuerySLRecordsFilter, matchAny bool, data map[string]json.RawMessage) ([]string, error)
-	// Import creates the records in batch and returns them in the same order as the options.
+	// The writes below record the history of the records in sl_record_changes with the same connection, except the writes with a zero writer, i.e. the server's own writes.
+
+	// Import creates the records in batch and returns them in the same order as the options, each record has a single created change.
 	// It returns ErrSLRecordExists if any UID has been used in the table.
 	Import(ctx context.Context, slTableID int64, options ImportSLRecordsOptions) ([]*SLRecord, error)
 	// Create creates a record in the table with the data keyed by field UID, the writer is both its creator and modifier.
 	Create(ctx context.Context, slTableID int64, jsonBytes json.RawMessage, writer SLRecordWriter) (*SLRecord, error)
-	// Update replaces the data of the record with the given ID, a zero writer keeps the previous modifier.
+	// Update replaces the data of the record with the given ID and records a change for each changed field, a zero writer keeps the previous modifier.
 	Update(ctx context.Context, slRecordID int64, jsonBytes json.RawMessage, writer SLRecordWriter) error
 	// CountByTableID returns the number of records in the table.
 	CountByTableID(ctx context.Context, slTableID int64) (int64, error)
 	// Count returns the number of records in the projects that are not deleted.
 	Count(ctx context.Context) (int64, error)
-	// DeleteByID deletes the record with the given ID.
-	DeleteByID(ctx context.Context, slRecordID int64) error
-	// DeleteByUIDs deletes the records of the table with the given UIDs, the missing ones are skipped.
-	DeleteByUIDs(ctx context.Context, slTableID int64, uids []string) error
+	// DeleteByID deletes the record with the given ID and its comments.
+	DeleteByID(ctx context.Context, slRecordID int64, writer SLRecordWriter) error
+	// DeleteByUIDs deletes the records of the table with the given UIDs and their comments, the missing ones are skipped.
+	DeleteByUIDs(ctx context.Context, slTableID int64, uids []string, writer SLRecordWriter) error
 	// RemoveFieldData removes the value of the field from all the records of the table.
 	RemoveFieldData(ctx context.Context, slTableID int64, fieldUID string) error
-	// WriterUserIDs returns the users among userIDs who created or last wrote any record of the project, e.g. the admins editing it without being members.
+	// WriterUserIDs returns the users among userIDs who created, last wrote, changed or commented on any record of the project, e.g. the admins editing it without being members.
 	WriterUserIDs(ctx context.Context, projectID int64, userIDs []int64) ([]int64, error)
 	// ReferencedMemberIDs returns only the requested users and workflows referenced by live member cells or writers of the table.
 	ReferencedMemberIDs(ctx context.Context, slTableID int64, userIDs, workflowIDs []int64) ([]int64, []int64, error)
+	// CommentCounts returns the comment counts of the live records of the table keyed by UID, the records without comments are omitted.
+	CommentCounts(ctx context.Context, slTableID int64) (map[string]int64, error)
 }
 
 func NewSLRecordsStore(db *gorm.DB) SLRecordsStore {
@@ -106,6 +110,8 @@ type SLRecord struct {
 	UpdatedByID int64 `gorm:"not null;default:0"`
 	// UpdatedByWorkflowID is the workflow which last wrote the record, 0 if it was not written by a workflow.
 	UpdatedByWorkflowID int64 `gorm:"not null;default:0"`
+	// CommentCount is the number of the live comments, maintained with the comments.
+	CommentCount int64 `gorm:"not null;default:0"`
 }
 
 // SLRecordWriter is the user or the workflow writing a record, at most one of them is set; the zero value means unknown,
@@ -114,6 +120,14 @@ type SLRecordWriter struct {
 	UserID     int64 `json:"userId,omitempty"`
 	WorkflowID int64 `json:"workflowId,omitempty"`
 } // @name RecordWriter
+
+// NewSLRecordWriter returns the writer of the user or the workflow, at most one of them is non-zero.
+func NewSLRecordWriter(userID, workflowID int64) SLRecordWriter {
+	return SLRecordWriter{
+		UserID:     userID,
+		WorkflowID: workflowID,
+	}
+}
 
 // IsZero reports whether the writer is unknown.
 func (w SLRecordWriter) IsZero() bool {
@@ -743,6 +757,9 @@ func (db *slRecords) Import(ctx context.Context, slTableID int64, options Import
 		}
 		return nil, errors.Wrap(err, "create")
 	}
+	if err := db.recordCreated(ctx, records, options.Writer); err != nil {
+		return nil, err
+	}
 	return records, nil
 }
 
@@ -751,7 +768,32 @@ func (db *slRecords) Create(ctx context.Context, slTableID int64, jsonBytes json
 	if err := db.WithContext(ctx).Create(slRecord).Error; err != nil {
 		return nil, errors.Wrap(err, "create")
 	}
+	if err := db.recordCreated(ctx, []*SLRecord{slRecord}, writer); err != nil {
+		return nil, err
+	}
 	return slRecord, nil
+}
+
+// recordCreated writes a created change for each record, without the field values.
+func (db *slRecords) recordCreated(ctx context.Context, records []*SLRecord, writer SLRecordWriter) error {
+	if writer.IsZero() || len(records) == 0 {
+		return nil
+	}
+	changes := make([]*SLRecordChange, 0, len(records))
+	for _, record := range records {
+		changes = append(changes, &SLRecordChange{
+			SLTableID:  record.SLTableID,
+			SLRecordID: record.ID,
+			Kind:       SLRecordChangeCreated,
+			UserID:     writer.UserID,
+			WorkflowID: writer.WorkflowID,
+			CreatedAt:  record.CreatedAt,
+		})
+	}
+	if err := db.WithContext(ctx).CreateInBatches(changes, 1000).Error; err != nil {
+		return errors.Wrap(err, "record created changes")
+	}
+	return nil
 }
 
 var (
@@ -791,12 +833,35 @@ func (db *slRecords) ListUIDs(ctx context.Context, slTableID int64, emptyFieldUI
 	return uids, nil
 }
 
-func (db *slRecords) DeleteByUIDs(ctx context.Context, slTableID int64, uids []string) error {
+func (db *slRecords) DeleteByUIDs(ctx context.Context, slTableID int64, uids []string, writer SLRecordWriter) error {
 	if len(uids) == 0 {
 		return nil
 	}
-	if err := db.WithContext(ctx).Where("sl_table_id = ? AND uid IN ?", slTableID, uids).Delete(&SLRecord{}).Error; err != nil {
+	var ids []int64
+	if err := db.WithContext(ctx).Model(&SLRecord{}).Where("sl_table_id = ? AND uid IN ?", slTableID, uids).Pluck("id", &ids).Error; err != nil {
+		return errors.Wrap(err, "pluck")
+	}
+	return db.deleteByIDs(ctx, ids, writer)
+}
+
+// deleteByIDs deletes the records with a deleted change each, then their comments; marking the records deleted first locks their rows,
+// so a comment created concurrently either commits before and is deleted here, or finds the record deleted.
+func (db *slRecords) deleteByIDs(ctx context.Context, ids []int64, writer SLRecordWriter) error {
+	if len(ids) == 0 {
+		return nil
+	}
+	if !writer.IsZero() {
+		if err := db.WithContext(ctx).Exec(`INSERT INTO sl_record_changes (sl_table_id, sl_record_id, kind, user_id, workflow_id, created_at)
+			SELECT sl_table_id, id, ?, ?, ?, ? FROM sl_records WHERE id IN ? AND deleted_at IS NULL`,
+			SLRecordChangeDeleted, writer.UserID, writer.WorkflowID, dbutil.Now(), ids).Error; err != nil {
+			return errors.Wrap(err, "record deleted changes")
+		}
+	}
+	if err := db.WithContext(ctx).Where("id IN ?", ids).Delete(&SLRecord{}).Error; err != nil {
 		return errors.Wrap(err, "delete")
+	}
+	if err := db.WithContext(ctx).Where("sl_record_id IN ?", ids).Delete(&SLRecordComment{}).Error; err != nil {
+		return errors.Wrap(err, "delete comments")
 	}
 	return nil
 }
@@ -823,7 +888,16 @@ func (db *slRecords) WriterUserIDs(ctx context.Context, projectID int64, userIDs
 		Distinct().Pluck("updated_by_id", &updated).Error; err != nil {
 		return nil, errors.Wrap(err, "pluck modifiers")
 	}
-	return lo.Union(created, updated), nil
+	var changed, commented []int64
+	if err := db.WithContext(ctx).Model(&SLRecordChange{}).Where("sl_table_id IN (?) AND user_id IN ?", tables, userIDs).
+		Distinct().Pluck("user_id", &changed).Error; err != nil {
+		return nil, errors.Wrap(err, "pluck change writers")
+	}
+	if err := db.WithContext(ctx).Model(&SLRecordComment{}).Where("sl_table_id IN (?) AND author_id IN ?", tables, userIDs).
+		Distinct().Pluck("author_id", &commented).Error; err != nil {
+		return nil, errors.Wrap(err, "pluck comment authors")
+	}
+	return lo.Union(created, updated, changed, commented), nil
 }
 
 func (db *slRecords) ReferencedMemberIDs(ctx context.Context, slTableID int64, userIDs, workflowIDs []int64) ([]int64, []int64, error) {
@@ -853,12 +927,55 @@ func (db *slRecords) ReferencedMemberIDs(ctx context.Context, slTableID int64, u
 	return users, workflows, nil
 }
 
-func (db *slRecords) Update(ctx context.Context, slRecordID int64, jsonBytes json.RawMessage, writer SLRecordWriter) error {
-	updates := map[string]interface{}{"data": jsonBytes}
-	if !writer.IsZero() {
-		updates["updated_by_id"], updates["updated_by_workflow_id"] = writer.UserID, writer.WorkflowID
+func (db *slRecords) CommentCounts(ctx context.Context, slTableID int64) (map[string]int64, error) {
+	var rows []struct {
+		UID          string
+		CommentCount int64
 	}
-	if err := db.WithContext(ctx).Model(&SLRecord{}).Where("id = ?", slRecordID).Updates(updates).Error; err != nil {
+	if err := db.WithContext(ctx).Model(&SLRecord{}).Select("uid", "comment_count").
+		Where("sl_table_id = ? AND comment_count > 0", slTableID).Scan(&rows).Error; err != nil {
+		return nil, errors.Wrap(err, "scan")
+	}
+	counts := make(map[string]int64, len(rows))
+	for _, row := range rows {
+		counts[row.UID] = row.CommentCount
+	}
+	return counts, nil
+}
+
+// updateWithChangesSQL updates the live record and inserts a change for each field whose value differs by JSON semantics,
+// with the label and type of the field at the time.
+const updateWithChangesSQL = `WITH prev AS (
+	SELECT id, sl_table_id, CASE WHEN jsonb_typeof(data) = 'object' THEN data ELSE '{}'::jsonb END AS data
+	FROM sl_records WHERE id = @id AND deleted_at IS NULL FOR UPDATE
+), next AS (
+	SELECT CASE WHEN jsonb_typeof(CAST(@data AS jsonb)) = 'object' THEN CAST(@data AS jsonb) ELSE '{}'::jsonb END AS data
+), updated AS (
+	UPDATE sl_records r SET data = CAST(@data AS jsonb), updated_at = @now, updated_by_id = @user, updated_by_workflow_id = @workflow
+	FROM prev WHERE r.id = prev.id
+)
+INSERT INTO sl_record_changes (sl_table_id, sl_record_id, kind, field_uid, field_label, field_type, old_value, new_value, user_id, workflow_id, created_at)
+SELECT prev.sl_table_id, prev.id, @kind, k.key, COALESCE(f.label, ''), COALESCE(f.type, ''), prev.data -> k.key, next.data -> k.key, @user, @workflow, @now
+FROM prev CROSS JOIN next
+CROSS JOIN LATERAL (SELECT jsonb_object_keys(prev.data) UNION SELECT jsonb_object_keys(next.data)) AS k(key)
+LEFT JOIN sl_fields f ON f.sl_table_id = prev.sl_table_id AND f.uid = k.key AND f.deleted_at IS NULL
+WHERE (prev.data -> k.key) IS DISTINCT FROM (next.data -> k.key)`
+
+func (db *slRecords) Update(ctx context.Context, slRecordID int64, jsonBytes json.RawMessage, writer SLRecordWriter) error {
+	if !writer.IsZero() {
+		if err := db.WithContext(ctx).Exec(updateWithChangesSQL, map[string]interface{}{
+			"id":       slRecordID,
+			"data":     string(jsonBytes),
+			"now":      dbutil.Now(),
+			"user":     writer.UserID,
+			"workflow": writer.WorkflowID,
+			"kind":     SLRecordChangeUpdated,
+		}).Error; err != nil {
+			return errors.Wrap(err, "update")
+		}
+		return nil
+	}
+	if err := db.WithContext(ctx).Model(&SLRecord{}).Where("id = ?", slRecordID).Update("data", jsonBytes).Error; err != nil {
 		return errors.Wrap(err, "update")
 	}
 	return nil
@@ -882,9 +999,6 @@ func (db *slRecords) Count(ctx context.Context) (int64, error) {
 	return count, nil
 }
 
-func (db *slRecords) DeleteByID(ctx context.Context, slRecordID int64) error {
-	if err := db.WithContext(ctx).Model(&SLRecord{}).Delete(&SLRecord{}, slRecordID).Error; err != nil {
-		return errors.Wrap(err, "delete")
-	}
-	return nil
+func (db *slRecords) DeleteByID(ctx context.Context, slRecordID int64, writer SLRecordWriter) error {
+	return db.deleteByIDs(ctx, []int64{slRecordID}, writer)
 }

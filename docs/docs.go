@@ -6218,6 +6218,61 @@ const docTemplate = `{
                 }
             }
         },
+        "/projects/{projectUID}/tables/{tableUID}/comment-counts": {
+            "get": {
+                "description": "Return the comment counts of the records with comments in the table, e.g. to catch up after the WebSocket reconnects.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Record comments"
+                ],
+                "summary": "List the comment counts of the records",
+                "operationId": "listRecordCommentCounts",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Project UID",
+                        "name": "projectUID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Table UID",
+                        "name": "tableUID",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/RecordCommentCountsResp"
+                        }
+                    },
+                    "403": {
+                        "description": "Permission denied",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "404": {
+                        "description": "Project or table not found",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
         "/projects/{projectUID}/tables/{tableUID}/fields": {
             "get": {
                 "description": "List all the fields of the table, ordered by position.",
@@ -7334,6 +7389,609 @@ const docTemplate = `{
                 "responses": {
                     "204": {
                         "description": "No Content"
+                    },
+                    "403": {
+                        "description": "Permission denied",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "404": {
+                        "description": "Project, table or record not found",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/projects/{projectUID}/tables/{tableUID}/records/{recordUID}/changes": {
+            "get": {
+                "description": "Return the creation and field changes of an existing record, newest first, with the field labels when written. Deleted records return 404.\nThe consecutive updates of the same writer within 5 minutes are merged into one entry, keeping the earliest previous value and the latest value of each field;\nthe fields changed back are dropped. The writes of the server, e.g. field shortcuts and type conversions, are not recorded, and the system fields never appear.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Record history"
+                ],
+                "summary": "List the history of a record",
+                "operationId": "listRecordChanges",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Project UID",
+                        "name": "projectUID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Table UID",
+                        "name": "tableUID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Record UID",
+                        "name": "recordUID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Return the history older than the cursor",
+                        "name": "cursor",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Maximum number of entries, defaults to 20 and at most 100",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/ListRecordChangesResp"
+                        }
+                    },
+                    "403": {
+                        "description": "Permission denied",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "404": {
+                        "description": "Project, table or record not found",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/projects/{projectUID}/tables/{tableUID}/records/{recordUID}/changes/{changeID}": {
+            "get": {
+                "description": "Return a single change without merging, e.g. a change truncated in the timeline.\nDeleted records return 404.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Record history"
+                ],
+                "summary": "Get a change of a record",
+                "operationId": "getRecordChange",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Project UID",
+                        "name": "projectUID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Table UID",
+                        "name": "tableUID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Record UID",
+                        "name": "recordUID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Change ID",
+                        "name": "changeID",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/RecordChange"
+                        }
+                    },
+                    "403": {
+                        "description": "Permission denied",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "404": {
+                        "description": "Project, table, record or change not found",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/projects/{projectUID}/tables/{tableUID}/records/{recordUID}/comments": {
+            "get": {
+                "description": "Return the root comments the newest first, each with all its live replies in creation order. A deleted root is kept as a placeholder while it has replies.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Record comments"
+                ],
+                "summary": "List the comments of a record",
+                "operationId": "listRecordComments",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Project UID",
+                        "name": "projectUID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Table UID",
+                        "name": "tableUID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Record UID",
+                        "name": "recordUID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Return the root comments older than the cursor",
+                        "name": "cursor",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Maximum number of root comments, defaults to 20 and at most 100",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/ListRecordCommentsResp"
+                        }
+                    },
+                    "403": {
+                        "description": "Permission denied",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "404": {
+                        "description": "Project, table or record not found",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Post a root comment or a reply, the replies of a reply belong to the same root. Any member of the project may comment, including the viewers and the bots.\nMention a member with \u003c@userID\u003e, the online members mentioned are told over WebSocket.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Record comments"
+                ],
+                "summary": "Comment on a record",
+                "operationId": "createRecordComment",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Project UID",
+                        "name": "projectUID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Table UID",
+                        "name": "tableUID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Record UID",
+                        "name": "recordUID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Comment",
+                        "name": "data",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/CreateRecordComment"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/RecordComment"
+                        }
+                    },
+                    "400": {
+                        "description": "Empty or too long body, unsupported kind, deleted comment replied to or user mentioned out of the project",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "403": {
+                        "description": "Permission denied",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "404": {
+                        "description": "Project, table, record or comment replied to not found",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/projects/{projectUID}/tables/{tableUID}/records/{recordUID}/comments/{commentID}": {
+            "get": {
+                "description": "Return the full comment, e.g. a comment truncated in the timeline; a deleted comment has an empty body.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Record comments"
+                ],
+                "summary": "Get a comment of a record",
+                "operationId": "getRecordComment",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Project UID",
+                        "name": "projectUID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Table UID",
+                        "name": "tableUID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Record UID",
+                        "name": "recordUID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Comment ID",
+                        "name": "commentID",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/RecordComment"
+                        }
+                    },
+                    "403": {
+                        "description": "Permission denied",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "404": {
+                        "description": "Project, table, record or comment not found",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "Replace the body of the user's own comment, the mentions are parsed again and only the newly mentioned members are told.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Record comments"
+                ],
+                "summary": "Edit a comment",
+                "operationId": "updateRecordComment",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Project UID",
+                        "name": "projectUID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Table UID",
+                        "name": "tableUID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Record UID",
+                        "name": "recordUID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Comment ID",
+                        "name": "commentID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Comment",
+                        "name": "data",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/UpdateRecordComment"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/RecordComment"
+                        }
+                    },
+                    "400": {
+                        "description": "Empty or too long body, deleted comment or user mentioned out of the project",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "403": {
+                        "description": "Not the author",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "404": {
+                        "description": "Project, table, record or comment not found",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Delete a comment of the user, or any comment for the managers. A deleted root comment with replies stays as a placeholder.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Record comments"
+                ],
+                "summary": "Delete a comment",
+                "operationId": "deleteRecordComment",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Project UID",
+                        "name": "projectUID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Table UID",
+                        "name": "tableUID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Record UID",
+                        "name": "recordUID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Comment ID",
+                        "name": "commentID",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "403": {
+                        "description": "Neither the author nor a manager",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "404": {
+                        "description": "Project, table, record or comment not found",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/projects/{projectUID}/tables/{tableUID}/records/{recordUID}/timeline": {
+            "get": {
+                "description": "Return the live comments and the unmerged field changes of the record in one timeline ordered by time, for agents to read the context of the record.\nDeleted records return 404.\nEvery item has a stable ID, the writer and a text summary; long summaries and values are truncated, and ref is the API path reading the full comment or change.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Record history"
+                ],
+                "summary": "Read the timeline of a record",
+                "operationId": "getRecordTimeline",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Project UID",
+                        "name": "projectUID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Table UID",
+                        "name": "tableUID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Record UID",
+                        "name": "recordUID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Return the items after the cursor returned by the previous page",
+                        "name": "cursor",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Maximum number of items, defaults to 20 and at most 100",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "desc",
+                            "asc"
+                        ],
+                        "type": "string",
+                        "description": "desc for the newest first (default), asc for the oldest first",
+                        "name": "order",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/RecordTimelineResp"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid cursor",
+                        "schema": {
+                            "type": "string"
+                        }
                     },
                     "403": {
                         "description": "Permission denied",
@@ -10566,7 +11224,7 @@ const docTemplate = `{
             ],
             "properties": {
                 "actor": {
-                    "description": "Actor is the writer of the records changed by the changeset, it is only sent with the live broadcasts and absent for the changesets generated by the server.",
+                    "description": "Actor is the writer of the records changed by the changeset, absent for the changesets generated by the server and the ones saved before the writers were recorded.",
                     "allOf": [
                         {
                             "$ref": "#/definitions/RecordWriter"
@@ -10578,12 +11236,14 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "operations": {
+                    "description": "Operations are the operations actually applied.",
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/Operation"
                     }
                 },
                 "rev": {
+                    "description": "Rev is the table revision after applying the changeset.",
                     "type": "integer"
                 },
                 "signature": {
@@ -10591,7 +11251,22 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "tableUID": {
+                    "description": "TableUID is the table the changeset is applied to.",
                     "type": "string"
+                }
+            }
+        },
+        "CommentMention": {
+            "type": "object",
+            "required": [
+                "userId"
+            ],
+            "properties": {
+                "isBot": {
+                    "type": "boolean"
+                },
+                "userId": {
+                    "type": "integer"
                 }
             }
         },
@@ -10841,6 +11516,29 @@ const docTemplate = `{
                 }
             }
         },
+        "CreateRecordComment": {
+            "type": "object",
+            "required": [
+                "body"
+            ],
+            "properties": {
+                "body": {
+                    "description": "Body is the Markdown text of at most 10000 characters, a member of the project is mentioned as \u003c@userID\u003e.",
+                    "type": "string"
+                },
+                "kind": {
+                    "description": "Kind must be comment if set, the other kinds are reserved.",
+                    "type": "string",
+                    "enum": [
+                        "comment"
+                    ]
+                },
+                "replyToId": {
+                    "description": "ReplyToID is the comment of the record replied to, omitted for a root comment.",
+                    "type": "integer"
+                }
+            }
+        },
         "CreateTable": {
             "type": "object",
             "required": [
@@ -10862,9 +11560,11 @@ const docTemplate = `{
             ],
             "properties": {
                 "description": {
+                    "description": "Description is the optional description.",
                     "type": "string"
                 },
                 "name": {
+                    "description": "Name is the display name of the workflow.",
                     "type": "string"
                 },
                 "tableUID": {
@@ -10895,7 +11595,8 @@ const docTemplate = `{
                         "record_matched",
                         "record_deleted",
                         "date_reached",
-                        "schedule"
+                        "schedule",
+                        "comment_created"
                     ]
                 }
             }
@@ -12246,6 +12947,46 @@ const docTemplate = `{
                 }
             }
         },
+        "ListRecordChangesResp": {
+            "type": "object",
+            "required": [
+                "changes",
+                "nextCursor"
+            ],
+            "properties": {
+                "changes": {
+                    "description": "Changes are the merged history entries.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/RecordChange"
+                    }
+                },
+                "nextCursor": {
+                    "description": "NextCursor reads the older history, 0 if there is none.",
+                    "type": "integer"
+                }
+            }
+        },
+        "ListRecordCommentsResp": {
+            "type": "object",
+            "required": [
+                "comments",
+                "nextCursor"
+            ],
+            "properties": {
+                "comments": {
+                    "description": "Comments are the root comments with their replies.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/RecordComment"
+                    }
+                },
+                "nextCursor": {
+                    "description": "NextCursor reads the older root comments, 0 if there are none.",
+                    "type": "integer"
+                }
+            }
+        },
         "ListRecordsResp": {
             "type": "object",
             "required": [
@@ -12733,6 +13474,338 @@ const docTemplate = `{
                 }
             }
         },
+        "RecordChange": {
+            "type": "object",
+            "required": [
+                "createdAt",
+                "fields",
+                "id",
+                "kind"
+            ],
+            "properties": {
+                "actor": {
+                    "description": "Actor is the user or the workflow making the change, absent if unknown.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/RecordWriter"
+                        }
+                    ]
+                },
+                "createdAt": {
+                    "description": "CreatedAt is the time of the latest change merged into the entry.",
+                    "type": "string"
+                },
+                "fields": {
+                    "description": "Fields are the changed fields of an update, empty for the creation and the deletion.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/RecordFieldChange"
+                    }
+                },
+                "id": {
+                    "description": "ID is the latest change merged into the entry.",
+                    "type": "integer"
+                },
+                "kind": {
+                    "description": "Kind is created, updated or deleted.",
+                    "enum": [
+                        "created",
+                        "updated",
+                        "deleted"
+                    ],
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/db.SLRecordChangeKind"
+                        }
+                    ]
+                }
+            }
+        },
+        "RecordComment": {
+            "type": "object",
+            "required": [
+                "author",
+                "body",
+                "createdAt",
+                "id",
+                "kind",
+                "mentions",
+                "recordUID"
+            ],
+            "properties": {
+                "author": {
+                    "description": "Author is the user or the workflow writing the comment.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/RecordWriter"
+                        }
+                    ]
+                },
+                "body": {
+                    "description": "Body is the Markdown text with mentions as ` + "`" + `\u003c@userID\u003e` + "`" + `, empty if deleted.",
+                    "type": "string"
+                },
+                "createdAt": {
+                    "description": "CreatedAt is the time the comment is posted.",
+                    "type": "string"
+                },
+                "deleted": {
+                    "description": "Deleted marks the placeholder of a deleted root comment which still has replies.",
+                    "type": "boolean"
+                },
+                "editedAt": {
+                    "description": "EditedAt is the time of the last edit, absent if never edited.",
+                    "type": "string"
+                },
+                "id": {
+                    "description": "ID is the comment ID, used to reply to, edit and delete it.",
+                    "type": "integer"
+                },
+                "kind": {
+                    "description": "Kind is comment, the other kinds are reserved.",
+                    "type": "string",
+                    "enum": [
+                        "comment",
+                        "report",
+                        "attention"
+                    ]
+                },
+                "mentions": {
+                    "description": "Mentions are the users mentioned by the body.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/CommentMention"
+                    }
+                },
+                "recordUID": {
+                    "description": "RecordUID is the record commented on.",
+                    "type": "string"
+                },
+                "replies": {
+                    "description": "Replies are the live replies of a root comment in creation order, only set in the comment list.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/RecordComment"
+                    }
+                },
+                "replyToId": {
+                    "description": "ReplyToID is the comment replied to, 0 for the roots.",
+                    "type": "integer"
+                },
+                "rootId": {
+                    "description": "RootID is the root comment of a reply, 0 for the roots.",
+                    "type": "integer"
+                }
+            }
+        },
+        "RecordCommentCountsResp": {
+            "type": "object",
+            "required": [
+                "counts"
+            ],
+            "properties": {
+                "counts": {
+                    "description": "Counts are the comment counts keyed by record UID, the records without comments are omitted.",
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "integer",
+                        "format": "int64"
+                    }
+                }
+            }
+        },
+        "RecordFieldChange": {
+            "type": "object",
+            "required": [
+                "fieldLabel",
+                "fieldType",
+                "fieldUID"
+            ],
+            "properties": {
+                "fieldLabel": {
+                    "description": "FieldLabel is the label of the field when written.",
+                    "type": "string"
+                },
+                "fieldType": {
+                    "description": "FieldType is the type of the field when written.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/SLFieldType"
+                        }
+                    ]
+                },
+                "fieldUID": {
+                    "description": "FieldUID is the field changed.",
+                    "type": "string"
+                },
+                "newValue": {
+                    "description": "NewValue is the cell value after the change, absent if empty."
+                },
+                "oldValue": {
+                    "description": "OldValue is the cell value before the change, absent if empty."
+                }
+            }
+        },
+        "RecordTimelineChange": {
+            "type": "object",
+            "required": [
+                "id",
+                "kind"
+            ],
+            "properties": {
+                "fieldLabel": {
+                    "type": "string"
+                },
+                "fieldType": {
+                    "$ref": "#/definitions/SLFieldType"
+                },
+                "fieldUID": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "kind": {
+                    "enum": [
+                        "created",
+                        "updated",
+                        "deleted"
+                    ],
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/db.SLRecordChangeKind"
+                        }
+                    ]
+                },
+                "newValue": {},
+                "oldValue": {}
+            }
+        },
+        "RecordTimelineComment": {
+            "type": "object",
+            "required": [
+                "editedAt",
+                "id",
+                "kind",
+                "mentions",
+                "replyToId",
+                "rootId"
+            ],
+            "properties": {
+                "editedAt": {
+                    "type": "string",
+                    "x-nullable": true
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "kind": {
+                    "type": "string",
+                    "enum": [
+                        "comment",
+                        "report",
+                        "attention"
+                    ]
+                },
+                "mentions": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/CommentMention"
+                    }
+                },
+                "replyToId": {
+                    "type": "integer"
+                },
+                "rootId": {
+                    "type": "integer"
+                }
+            }
+        },
+        "RecordTimelineItem": {
+            "type": "object",
+            "required": [
+                "createdAt",
+                "id",
+                "ref",
+                "summary",
+                "truncated",
+                "type"
+            ],
+            "properties": {
+                "actor": {
+                    "description": "Actor is the author of the comment or the writer of the change, absent if unknown.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/RecordWriter"
+                        }
+                    ]
+                },
+                "change": {
+                    "description": "Change is the structure of a change item.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/RecordTimelineChange"
+                        }
+                    ]
+                },
+                "comment": {
+                    "description": "Comment is the structure of a comment item.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/RecordTimelineComment"
+                        }
+                    ]
+                },
+                "createdAt": {
+                    "description": "CreatedAt is the time the comment is posted or the change is written.",
+                    "type": "string"
+                },
+                "id": {
+                    "description": "ID is unique in the timeline and never changes, e.g. comment:12 or change:34.",
+                    "type": "string"
+                },
+                "ref": {
+                    "description": "Ref is the API path of the full comment or change, relative to /_.",
+                    "type": "string"
+                },
+                "summary": {
+                    "description": "Summary is the comment text or the change as text, truncated to 500 characters.",
+                    "type": "string"
+                },
+                "truncated": {
+                    "description": "Truncated reports the summary or the values are shortened, the full item is read from Ref.",
+                    "type": "boolean"
+                },
+                "type": {
+                    "description": "Type is comment or change.",
+                    "type": "string",
+                    "enum": [
+                        "comment",
+                        "change"
+                    ]
+                }
+            }
+        },
+        "RecordTimelineResp": {
+            "type": "object",
+            "required": [
+                "items",
+                "nextCursor"
+            ],
+            "properties": {
+                "items": {
+                    "description": "Items are the comments and the changes in the requested order.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/RecordTimelineItem"
+                    }
+                },
+                "nextCursor": {
+                    "description": "NextCursor reads the following items in the same order, empty if there are none.",
+                    "type": "string"
+                }
+            }
+        },
         "RecordWriter": {
             "type": "object",
             "properties": {
@@ -13019,7 +14092,12 @@ const docTemplate = `{
                 "updatedAt"
             ],
             "properties": {
+                "commentCount": {
+                    "description": "CommentCount is the number of the comments, absent if none; it is always absent for the public shares.",
+                    "type": "integer"
+                },
                 "createdAt": {
+                    "description": "CreatedAt is the creation time, the values of the created_at fields.",
                     "type": "string"
                 },
                 "createdBy": {
@@ -13036,12 +14114,15 @@ const docTemplate = `{
                     "additionalProperties": true
                 },
                 "tableUID": {
+                    "description": "TableUID is the table of the record.",
                     "type": "string"
                 },
                 "uid": {
+                    "description": "UID is the record UID, unique in the table.",
                     "type": "string"
                 },
                 "updatedAt": {
+                    "description": "UpdatedAt is the time of the last write, the values of the updated_at fields.",
                     "type": "string"
                 },
                 "updatedBy": {
@@ -14541,6 +15622,18 @@ const docTemplate = `{
                 }
             }
         },
+        "UpdateRecordComment": {
+            "type": "object",
+            "required": [
+                "body"
+            ],
+            "properties": {
+                "body": {
+                    "description": "Body replaces the Markdown text, the mentions are parsed again.",
+                    "type": "string"
+                }
+            }
+        },
         "UpdateSystemSettings": {
             "type": "object",
             "required": [
@@ -14819,6 +15912,7 @@ const docTemplate = `{
                 "draftVersion",
                 "enabled",
                 "hasUnpublishedChanges",
+                "id",
                 "issues",
                 "method",
                 "name",
@@ -14836,12 +15930,15 @@ const docTemplate = `{
             ],
             "properties": {
                 "asyncCount": {
+                    "description": "AsyncCount is the number of the async flows in the draft.",
                     "type": "integer"
                 },
                 "createdAt": {
+                    "description": "CreatedAt is the creation time.",
                     "type": "string"
                 },
                 "description": {
+                    "description": "Description is the optional description.",
                     "type": "string"
                 },
                 "draft": {
@@ -14851,11 +15948,16 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "enabled": {
+                    "description": "Enabled reports whether the published revision runs.",
                     "type": "boolean"
                 },
                 "hasUnpublishedChanges": {
                     "description": "HasUnpublishedChanges indicates the draft has been modified since the latest publishing.",
                     "type": "boolean"
+                },
+                "id": {
+                    "description": "ID identifies the workflow writing the records and the comments, e.g. RecordWriter.workflowId.",
+                    "type": "integer"
                 },
                 "issues": {
                     "description": "Issues are the issues in the draft that must be fixed before publishing.",
@@ -14865,39 +15967,47 @@ const docTemplate = `{
                     }
                 },
                 "method": {
-                    "description": "Method and Path are the entry of the API trigger in the draft, empty for other triggers.",
+                    "description": "Method is the method of the API trigger in the draft, empty for other triggers.",
                     "type": "string"
                 },
                 "name": {
+                    "description": "Name is the display name.",
                     "type": "string"
                 },
                 "path": {
+                    "description": "Path is the path of the API trigger in the draft, empty for other triggers.",
                     "type": "string"
                 },
                 "position": {
+                    "description": "Position is the order in the sidebar.",
                     "type": "integer"
                 },
                 "publishedAt": {
+                    "description": "PublishedAt is the time of the last publishing, null if unpublished.",
                     "type": "string"
                 },
                 "publishedMethod": {
-                    "description": "PublishedMethod and PublishedPath are the API entry being served, empty if unpublished or for other triggers.",
+                    "description": "PublishedMethod is the method of the API being served, empty if unpublished or for other triggers.",
                     "type": "string"
                 },
                 "publishedPath": {
+                    "description": "PublishedPath is the path of the API being served, empty if unpublished or for other triggers.",
                     "type": "string"
                 },
                 "publishedTriggerType": {
+                    "description": "PublishedTriggerType is the trigger type of the published revision, empty if unpublished.",
                     "type": "string"
                 },
                 "publishedVersion": {
+                    "description": "PublishedVersion is the version of the published revision, 0 if unpublished.",
                     "type": "integer"
                 },
                 "stepCount": {
+                    "description": "StepCount is the number of the steps in the draft, including the async flows.",
                     "type": "integer"
                 },
                 "triggerType": {
-                    "description": "TriggerType is the trigger type of the draft, PublishedTriggerType is the trigger type of the published revision, empty if unpublished.",
+                    "description": "TriggerType is the trigger type of the draft, empty if not chosen yet.",
                     "type": "string",
                     "enum": [
                         "",
@@ -14907,13 +16017,16 @@ const docTemplate = `{
                         "record_matched",
                         "record_deleted",
                         "date_reached",
-                        "schedule"
+                        "schedule",
+                        "comment_created"
                     ]
                 },
                 "uid": {
+                    "description": "UID is the workflow UID in the routes.",
                     "type": "string"
                 },
                 "updatedAt": {
+                    "description": "UpdatedAt is the time of the last change.",
                     "type": "string"
                 }
             }
@@ -15008,6 +16121,24 @@ const docTemplate = `{
                         "none",
                         "api_key"
                     ]
+                }
+            }
+        },
+        "WorkflowCommentTrigger": {
+            "type": "object",
+            "properties": {
+                "authorKind": {
+                    "description": "AuthorKind is human or bot, empty for any author.",
+                    "type": "string",
+                    "enum": [
+                        "",
+                        "human",
+                        "bot"
+                    ]
+                },
+                "mentionedBotId": {
+                    "description": "MentionedBotID only matches the comments mentioning the bot, 0 for any comment.",
+                    "type": "integer"
                 }
             }
         },
@@ -15314,6 +16445,7 @@ const docTemplate = `{
                 "description",
                 "enabled",
                 "hasUnpublishedChanges",
+                "id",
                 "method",
                 "name",
                 "path",
@@ -15330,55 +16462,71 @@ const docTemplate = `{
             ],
             "properties": {
                 "asyncCount": {
+                    "description": "AsyncCount is the number of the async flows in the draft.",
                     "type": "integer"
                 },
                 "createdAt": {
+                    "description": "CreatedAt is the creation time.",
                     "type": "string"
                 },
                 "description": {
+                    "description": "Description is the optional description.",
                     "type": "string"
                 },
                 "enabled": {
+                    "description": "Enabled reports whether the published revision runs.",
                     "type": "boolean"
                 },
                 "hasUnpublishedChanges": {
                     "description": "HasUnpublishedChanges indicates the draft has been modified since the latest publishing.",
                     "type": "boolean"
                 },
+                "id": {
+                    "description": "ID identifies the workflow writing the records and the comments, e.g. RecordWriter.workflowId.",
+                    "type": "integer"
+                },
                 "method": {
-                    "description": "Method and Path are the entry of the API trigger in the draft, empty for other triggers.",
+                    "description": "Method is the method of the API trigger in the draft, empty for other triggers.",
                     "type": "string"
                 },
                 "name": {
+                    "description": "Name is the display name.",
                     "type": "string"
                 },
                 "path": {
+                    "description": "Path is the path of the API trigger in the draft, empty for other triggers.",
                     "type": "string"
                 },
                 "position": {
+                    "description": "Position is the order in the sidebar.",
                     "type": "integer"
                 },
                 "publishedAt": {
+                    "description": "PublishedAt is the time of the last publishing, null if unpublished.",
                     "type": "string"
                 },
                 "publishedMethod": {
-                    "description": "PublishedMethod and PublishedPath are the API entry being served, empty if unpublished or for other triggers.",
+                    "description": "PublishedMethod is the method of the API being served, empty if unpublished or for other triggers.",
                     "type": "string"
                 },
                 "publishedPath": {
+                    "description": "PublishedPath is the path of the API being served, empty if unpublished or for other triggers.",
                     "type": "string"
                 },
                 "publishedTriggerType": {
+                    "description": "PublishedTriggerType is the trigger type of the published revision, empty if unpublished.",
                     "type": "string"
                 },
                 "publishedVersion": {
+                    "description": "PublishedVersion is the version of the published revision, 0 if unpublished.",
                     "type": "integer"
                 },
                 "stepCount": {
+                    "description": "StepCount is the number of the steps in the draft, including the async flows.",
                     "type": "integer"
                 },
                 "triggerType": {
-                    "description": "TriggerType is the trigger type of the draft, PublishedTriggerType is the trigger type of the published revision, empty if unpublished.",
+                    "description": "TriggerType is the trigger type of the draft, empty if not chosen yet.",
                     "type": "string",
                     "enum": [
                         "",
@@ -15388,13 +16536,16 @@ const docTemplate = `{
                         "record_matched",
                         "record_deleted",
                         "date_reached",
-                        "schedule"
+                        "schedule",
+                        "comment_created"
                     ]
                 },
                 "uid": {
+                    "description": "UID is the workflow UID in the routes.",
                     "type": "string"
                 },
                 "updatedAt": {
+                    "description": "UpdatedAt is the time of the last change.",
                     "type": "string"
                 }
             }
@@ -16187,26 +17338,29 @@ const docTemplate = `{
                     "type": "object"
                 },
                 "else": {
+                    "description": "Else is the branch of a branching module taken otherwise.",
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/WorkflowStep"
                     }
                 },
                 "id": {
+                    "description": "ID identifies the step in the flow, its output is referenced as steps.\u003cid\u003e.",
                     "type": "string"
                 },
                 "name": {
+                    "description": "Name is the display name of the node; when empty, the module's name is shown.",
                     "type": "string"
                 },
                 "then": {
-                    "description": "Then and Else are the branches of a branching module.",
+                    "description": "Then is the branch of a branching module taken when it matches.",
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/WorkflowStep"
                     }
                 },
                 "type": {
-                    "description": "Type is a built-in module (query, create, update, condition, response, email, http) or an installed plugin (plugin:\u003cid\u003e).",
+                    "description": "Type is a built-in module (query, create, update, condition, response, email, http, comment) or an installed plugin (plugin:\u003cid\u003e).",
                     "type": "string"
                 }
             }
@@ -16309,12 +17463,20 @@ const docTemplate = `{
                         }
                     ]
                 },
+                "comment": {
+                    "description": "Comment filters the comments of a comment_created trigger.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/WorkflowCommentTrigger"
+                        }
+                    ]
+                },
                 "name": {
                     "description": "Name is the display name of the trigger node; when empty, the trigger type's name is shown.",
                     "type": "string"
                 },
                 "record": {
-                    "description": "Record is the table watched by record triggers and date_reached.",
+                    "description": "Record is the table watched by record triggers, date_reached and comment_created.",
                     "allOf": [
                         {
                             "$ref": "#/definitions/WorkflowRecordTrigger"
@@ -16330,6 +17492,7 @@ const docTemplate = `{
                     ]
                 },
                 "type": {
+                    "description": "Type is the trigger type, the other configuration matches it.",
                     "type": "string",
                     "enum": [
                         "",
@@ -16339,7 +17502,8 @@ const docTemplate = `{
                         "record_matched",
                         "record_deleted",
                         "date_reached",
-                        "schedule"
+                        "schedule",
+                        "comment_created"
                     ]
                 }
             }
@@ -16372,6 +17536,19 @@ const docTemplate = `{
                     "type": "string"
                 }
             }
+        },
+        "db.SLRecordChangeKind": {
+            "type": "string",
+            "enum": [
+                "created",
+                "updated",
+                "deleted"
+            ],
+            "x-enum-varnames": [
+                "SLRecordChangeCreated",
+                "SLRecordChangeUpdated",
+                "SLRecordChangeDeleted"
+            ]
         }
     },
     "securityDefinitions": {

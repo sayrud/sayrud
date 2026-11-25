@@ -7,10 +7,12 @@ import (
 )
 
 type CreateWorkflow struct {
-	Name        string `json:"name" valid:"required;maxlen:64"`
+	// Name is the display name of the workflow.
+	Name string `json:"name" valid:"required;maxlen:64"`
+	// Description is the optional description.
 	Description string `json:"description" valid:"maxlen:500"`
 	// TriggerType is the trigger type, an empty value creates a blank workflow without a trigger type chosen yet.
-	TriggerType string `json:"triggerType" enums:",api,record_created,record_updated,record_matched,record_deleted,date_reached,schedule"`
+	TriggerType string `json:"triggerType" enums:",api,record_created,record_updated,record_matched,record_deleted,date_reached,schedule,comment_created"`
 	// Template is the template of the API trigger: blank, create or query, the latter two generate the default spec from the table of TableUID.
 	Template string `json:"template" enums:"blank,create,query"`
 	// TableUID is the table used by the API template, or the table watched by the record and date triggers.

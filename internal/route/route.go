@@ -341,6 +341,7 @@ func New(opts Options) *flamego.Flame {
 							Delete(canEdit, api.Schemaless.DeleteTable)
 						f.Get("/snapshot", api.Collab.GetSnapshot)
 						f.Get("/changesets", api.Collab.ListChangesets)
+						f.Get("/comment-counts", api.Schemaless.ListCommentCounts)
 						f.Get("/views", api.Collab.ListViews)
 						f.Get("/shortcut-jobs", api.Shortcut.ListJobs)
 						f.Post("/shortcuts/preview", canEdit, form.Bind(form.PreviewFieldShortcut{}), api.Shortcut.Preview)
@@ -374,6 +375,19 @@ func New(opts Options) *flamego.Flame {
 									Get(api.Schemaless.GetRecord).
 									Put(canEdit, form.Bind(form.UpdateRecord{}), api.Schemaless.UpdateRecord).
 									Delete(canEdit, api.Schemaless.DeleteRecord)
+								// Any member may read and post comments, including the viewers.
+								f.Group("/comments", func() {
+									f.Combo("").
+										Get(api.Schemaless.ListComments).
+										Post(form.Bind(form.CreateRecordComment{}), api.Schemaless.CreateComment)
+									f.Combo("/{commentID}", api.Schemaless.Commenter).
+										Get(api.Schemaless.GetComment).
+										Put(form.Bind(form.UpdateRecordComment{}), api.Schemaless.UpdateComment).
+										Delete(api.Schemaless.DeleteComment)
+								})
+								f.Get("/changes", api.Schemaless.ListChanges)
+								f.Get("/changes/{changeID}", api.Schemaless.GetChange)
+								f.Get("/timeline", api.Schemaless.Timeline)
 							}, api.Schemaless.Recorder)
 						})
 					}, api.Schemaless.Tabler)

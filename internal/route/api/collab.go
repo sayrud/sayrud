@@ -163,6 +163,9 @@ func (collabRoute) ListChangesets(ctx context.Context, table *db.SLTable) error 
 			ClientID:   changeset.ClientID,
 			Operations: operations,
 		}
+		if actor := changeset.Actor(); !actor.IsZero() {
+			item.Actor = &actor
+		}
 		if token := sharedToken(ctx); token != "" {
 			collab.PrepareSharedChangeset(item, token)
 		}

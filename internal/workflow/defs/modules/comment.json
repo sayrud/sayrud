@@ -1,0 +1,38 @@
+{
+  "type": "comment",
+  "order": 35,
+  "category": "data",
+  "label": "workflow.step.comment",
+  "description": "workflow.step.commentDesc",
+  "icon": "message-square",
+  "color": "#3370ff",
+  "idBase": "comment",
+  "flows": ["sync", "async", "background"],
+  "tableKey": "tableUID",
+  "defaults": { "recordUID": { "kind": "var", "var": "" }, "body": { "kind": "template", "template": "" } },
+  "outputs": [{ "key": "comment", "label": "workflow.vars.comment", "kind": "object" }],
+  "summary": {
+    "template": "workflow.node.commentSummary",
+    "args": { "table": "table:tableUID" },
+    "requires": "tableUID",
+    "fallback": "workflow.node.noTable"
+  },
+  "sections": [
+    {
+      "title": "workflow.query.table",
+      "fields": [{ "key": "tableUID", "widget": "table", "required": true, "placeholder": "workflow.query.selectTable" }]
+    },
+    {
+      "title": "workflow.write.recordUID",
+      "description": "workflow.write.recordUIDHelp",
+      "showIf": "tableUID",
+      "fields": [{ "key": "recordUID", "widget": "value", "required": true }]
+    },
+    {
+      "title": "workflow.comment.body",
+      "description": "workflow.comment.bodyHelp",
+      "showIf": "tableUID",
+      "fields": [{ "key": "body", "widget": "value", "required": true, "multiline": true }]
+    }
+  ]
+}

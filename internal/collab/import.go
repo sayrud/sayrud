@@ -96,7 +96,7 @@ func (h *Hub) Import(ctx context.Context, project *db.Project, table *db.SLTable
 				Command: "ImportFields",
 				Actions: applied,
 			}}
-			changeset, err := appendChangeset(ctx, tx, table, "", "", schema)
+			changeset, err := appendChangeset(ctx, tx, table, "", "", opts.Origin.Writer(), schema)
 			if err != nil {
 				return err
 			}
@@ -127,7 +127,7 @@ func (h *Hub) Import(ctx context.Context, project *db.Project, table *db.SLTable
 		dirty := a.dirty
 		dirty.AllRecords = true
 		dirty.Records = nil
-		changeset, err := appendChangeset(ctx, tx, table, "", "", []Operation{{
+		changeset, err := appendChangeset(ctx, tx, table, "", "", opts.Origin.Writer(), []Operation{{
 			Command: "Refresh",
 			Actions: []Action{{
 				Action: ActionDirty,

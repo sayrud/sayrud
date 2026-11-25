@@ -1,5 +1,5 @@
 import type { Component } from 'vue'
-import { Activity, AlarmClock, Braces, CalendarClock, Hash, List, ListFilter, Repeat, Reply, SquareCheck, SquarePen, SquarePlus, Table2, Trash2, Type, Webhook, Zap } from '@lucide/vue'
+import { Activity, AlarmClock, Braces, CalendarClock, Hash, List, ListFilter, MessageSquare, Repeat, Reply, SquareCheck, SquarePen, SquarePlus, Table2, Trash2, Type, Webhook, Zap } from '@lucide/vue'
 
 import { t } from '@/i18n'
 import { dslText, hasBranches, isBlank, isTerminal, moduleDef, stepMeta, stepTable, stepTypesFor, type StepMeta } from '@/utils/modules'
@@ -68,6 +68,7 @@ export const TRIGGER_META: Record<TriggerType, TriggerMeta> = {
   record_matched: triggerMeta('table', ListFilter, '#7f3bf5', () => t('workflow.trigger.recordMatched'), () => t('workflow.trigger.recordMatchedDesc')),
   record_deleted: triggerMeta('table', Trash2, '#f54a45', () => t('workflow.trigger.recordDeleted'), () => t('workflow.trigger.recordDeletedDesc')),
   date_reached: triggerMeta('table', CalendarClock, '#245bdb', () => t('workflow.trigger.dateReached'), () => t('workflow.trigger.dateReachedDesc')),
+  comment_created: triggerMeta('table', MessageSquare, '#3370ff', () => t('workflow.trigger.commentCreated'), () => t('workflow.trigger.commentCreatedDesc')),
   schedule: triggerMeta('other', AlarmClock, '#ff8800', () => t('workflow.trigger.schedule'), () => t('workflow.trigger.scheduleDesc')),
   api: triggerMeta('other', Webhook, '#3370ff', () => t('workflow.trigger.api'), () => t('workflow.trigger.apiDesc')),
 }
@@ -93,7 +94,7 @@ export function isRecordTrigger(type: TriggerType | '') {
 
 /** Trigger types that require choosing a table. */
 export function needsTable(type: TriggerType | '') {
-  return isRecordTrigger(type) || type === 'date_reached'
+  return isRecordTrigger(type) || type === 'date_reached' || type === 'comment_created'
 }
 
 /** Config of the API trigger; undefined for other trigger types. */
@@ -153,8 +154,9 @@ export function switchTrigger(spec: WorkflowSpec, to: TriggerType, tables: Map<s
     next.schedule = newSchedule()
   } else {
     const tableUID = from.record?.tableUID || defaultTableUID || ''
-    const keepFilters = to !== 'record_deleted' && from.record?.tableUID === tableUID ? from.record?.filters ?? [] : []
+    const keepFilters = to !== 'record_deleted' && to !== 'comment_created' && from.record?.tableUID === tableUID ? from.record?.filters ?? [] : []
     next.record = { tableUID, match: from.record?.match ?? 'all', filters: keepFilters }
+    if (to === 'comment_created') next.comment = {}
     if (to === 'date_reached') {
       next.record.dateFieldUID = tables.get(tableUID)?.fields.find((f) => f.type === 'datetime')?.uid
       next.record.offset = 0
@@ -233,6 +235,9 @@ export function triggerSummary(spec: WorkflowSpec, tables: Map<string, TableMeta
     parts.push(field ? `${field.label} ${offsetText(tr.record?.offset ?? 0)}` : t('workflow.date.noField'))
   } else if (tr.type === 'record_updated' && tr.record?.fields?.length) {
     parts.push(t('workflow.record.watchSummary', { n: tr.record.fields.length }))
+  } else if (tr.type === 'comment_created') {
+    if (tr.comment?.authorKind) parts.push(tr.comment.authorKind === 'bot' ? t('workflow.comment.authorBot') : t('workflow.comment.authorHuman'))
+    if (tr.comment?.mentionedBotId) parts.push(t('workflow.comment.mentionsBotSummary'))
   }
   if (tr.record?.filters?.length) parts.push(t('workflow.node.conditionSummary', { n: tr.record.filters.length }))
   return parts.join(' · ')
@@ -505,6 +510,33 @@ function recordNodes(prefix: string, table: TableMeta | undefined): VarNode[] {
   ]
 }
 
+/** Labels of the properties of the comment variable, matching the backend commentOutput. */
+const COMMENT_VARS: Record<string, () => string> = {
+  body: () => t('workflow.vars.commentBody'),
+  author: () => t('workflow.vars.commentAuthor'),
+  mentions: () => t('workflow.vars.commentMentions'),
+  id: () => t('workflow.vars.commentId'),
+  replyToId: () => t('workflow.vars.commentReplyTo'),
+  createdAt: () => t('workflow.vars.createdAt'),
+}
+
+function commentNodes(prefix: string): VarNode[] {
+  return [
+    { path: `${prefix}.body`, label: COMMENT_VARS.body!(), kind: 'string' },
+    {
+      path: `${prefix}.author`, label: COMMENT_VARS.author!(), kind: 'object', children: [
+        { path: `${prefix}.author.name`, label: t('workflow.vars.name'), kind: 'string' },
+        { path: `${prefix}.author.email`, label: t('workflow.vars.email'), kind: 'string' },
+        { path: `${prefix}.author.isBot`, label: t('workflow.vars.isBot'), kind: 'boolean' },
+      ],
+    },
+    { path: `${prefix}.mentions`, label: COMMENT_VARS.mentions!(), kind: 'array' },
+    { path: `${prefix}.id`, label: COMMENT_VARS.id!(), kind: 'number' },
+    { path: `${prefix}.replyToId`, label: COMMENT_VARS.replyToId!(), kind: 'number' },
+    { path: `${prefix}.createdAt`, label: COMMENT_VARS.createdAt!(), kind: 'string' },
+  ]
+}
+
 /** Whether the module DSL declares outputs. */
 function hasOutputs(step: WorkflowStep) {
   return !!moduleDef(step.type)?.outputs.length
@@ -555,6 +587,7 @@ function triggerNodes(spec: WorkflowSpec, tables: Map<string, TableMeta>): VarNo
   }
   if (tr.type === 'record_updated') nodes.push({ path: 'trigger.changedFields', label: t('workflow.vars.changedFields'), kind: 'array' })
   if (tr.type === 'date_reached' || tr.type === 'schedule') nodes.push({ path: 'trigger.time', label: t('workflow.vars.triggerTime'), kind: 'string' })
+  if (tr.type === 'comment_created') nodes.push({ path: 'trigger.comment', label: t('workflow.vars.triggerComment'), kind: 'object', children: commentNodes('trigger.comment') })
   if (table) nodes.push({ path: 'trigger.table.name', label: t('workflow.vars.tableName'), kind: 'string' })
   return nodes
 }
@@ -663,10 +696,12 @@ export function describeVar(spec: WorkflowSpec, path: string, tables: Map<string
         changedFields: t('workflow.vars.changedFields'),
         time: t('workflow.vars.triggerTime'),
         table: t('workflow.vars.table'),
+        comment: t('workflow.vars.triggerComment'),
       }
       const key = parts[1] ?? ''
       const out = [t('workflow.vars.trigger'), names[key] ?? key]
       if (key === 'record' || key === 'previous') out.push(...recordPart(parts.slice(2), spec.trigger.record?.tableUID))
+      else if (key === 'comment') out.push(...parts.slice(2).map((p) => COMMENT_VARS[p]?.() ?? (p === 'name' ? t('workflow.vars.name') : p)))
       else out.push(...parts.slice(2).map((p) => (p === 'name' ? t('workflow.vars.name') : p)))
       return out.join(' › ')
     }
@@ -811,6 +846,7 @@ const ISSUE_MESSAGES: Record<string, (args: Record<string, string>) => string> =
   'trigger.table_missing': () => t('workflow.issue.triggerTableMissing'),
   'trigger.field_missing': () => t('workflow.issue.fieldMissing'),
   'trigger.date_field_missing': () => t('workflow.issue.dateFieldMissing'),
+  'trigger.bot_missing': () => t('workflow.issue.botMissing'),
   'trigger.invalid_offset': () => t('workflow.issue.invalidOffset'),
   'trigger.no_conditions': () => t('workflow.issue.triggerNoConditions'),
   'trigger.invalid_condition': () => t('workflow.issue.invalidTriggerCondition'),

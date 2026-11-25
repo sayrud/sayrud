@@ -86,6 +86,9 @@ func TriggerSpec(triggerType string, table *db.SLTable, fields []*db.SLField, ti
 		}
 	}
 	spec.Trigger.Record = r
+	if triggerType == TriggerCommentCreated {
+		spec.Trigger.Comment = &CommentTrigger{}
+	}
 	return spec
 }
 

@@ -12,8 +12,8 @@ interface Inflight {
   operations: Operation[]
 }
 
-/** Entry of the buffer: a remote changeset, fetched over HTTP if history is set, or the revision taken by an accepted local changeset. */
-type BufferEntry = { kind: 'remote'; changeset: Changeset; history?: boolean } | { kind: 'own'; signature: string }
+/** Entry of the buffer: a remote changeset, or the revision taken by an accepted local changeset. */
+type BufferEntry = { kind: 'remote'; changeset: Changeset } | { kind: 'own'; signature: string }
 
 const GAP_WAIT = 800
 
@@ -43,6 +43,8 @@ export interface TableSyncHooks {
   /** Modifier of the records changed by the local operations, i.e. the signed-in user. */
   actor?: RecordWriter
   onReadError?: (error: unknown) => void
+  /** The subscription is restored after reconnecting, e.g. to read again the data out of the changesets. */
+  onResubscribed?: () => void
 }
 
 /**
@@ -66,7 +68,13 @@ export class TableSync {
   private rev = 0
   private loaded = false
   private subscribed = false
+  private everSubscribed = false
   private subscribedRev = 0
+  /** Increases with each comment count told by the server, so an older read of the counts does not overwrite it. */
+  private commentStamp = 0
+  private readonly commentUpdates = new Map<string, { stamp: number; count: number }>()
+  /** Increases with each read of the comment counts, only the latest one is applied. */
+  private commentCountsSeq = 0
   private disposed = false
   private inflight: Inflight | null = null
   private queue: Operation[] = []
@@ -163,8 +171,11 @@ export class TableSync {
       return
     }
     if (this.disposed || reply.type !== 'SUBSCRIBED') return
+    const resumed = this.everSubscribed
     this.subscribed = true
+    this.everSubscribed = true
     this.subscribedRev = reply.data!.rev
+    if (resumed) this.hooks.onResubscribed?.()
     if (this.loaded && reply.data!.rev > this.rev) await this.fetchGap()
     // Resend the in-flight changeset with the original signature after reconnecting, the server deduplicates by signature.
     if (this.inflight) this.sendInflight()
@@ -173,12 +184,14 @@ export class TableSync {
 
   private async loadSnapshot() {
     this.blocked++
+    const stamp = this.commentStamp
     try {
       const s = await this.api.snapshot(this.projectUID, this.tableUID)
       if (this.disposed) return
       this.rev = s.rev
       for (const rev of this.buffer.keys()) if (rev <= s.rev) this.buffer.delete(rev)
-      this.setData(applyOperations({ fields: s.fields, records: s.records, views: s.views }, this.pendingOperations(), this.tableUID, this.hooks.actor))
+      const records = this.retainCommentCounts(s.records, stamp)
+      this.setData(applyOperations({ fields: s.fields, records, views: s.views }, this.pendingOperations(), this.tableUID, this.hooks.actor))
       this.loaded = true
     } finally {
       this.blocked--
@@ -240,8 +253,7 @@ export class TableSync {
         if (this.inflight && (entry.kind === 'remote' || entry.signature === this.inflight.signature)) this.inflight = null
         continue
       }
-      const remote = entry as { changeset: Changeset; history?: boolean }
-      this.applyRemote(remote.changeset, remote.history)
+      this.applyRemote((entry as { changeset: Changeset }).changeset)
     }
 
     clearTimeout(this.gapTimer)
@@ -250,13 +262,8 @@ export class TableSync {
     this.flush()
   }
 
-  private applyRemote(changeset: Changeset, history = false) {
+  private applyRemote(changeset: Changeset) {
     const dirty = changeset.operations.flatMap((op) => op.actions.filter((a) => a.action === 'table.dirty' && a.dirty).map((a) => a.dirty!))
-    // The changesets fetched over HTTP have no actor, the written records are reloaded for their writers.
-    if (history && !changeset.actor) {
-      const records = [...new Set(changeset.operations.flatMap((op) => op.actions.filter((a) => (a.action === 'record.add' || a.action === 'record.set') && a.recordUID).map((a) => a.recordUID!)))]
-      if (records.length) dirty.push({ records })
-    }
     const remote = applyOperations(this.data, changeset.operations, this.tableUID, changeset.actor)
     this.setData(applyOperations(remote, this.pendingOperations(), this.tableUID, this.hooks.actor))
     this.hooks.onRemoteChange?.()
@@ -270,7 +277,7 @@ export class TableSync {
       const changesets = await this.api.changesets(this.projectUID, this.tableUID, this.rev)
       if (this.disposed) return
       for (const cs of changesets) {
-        if (cs.rev > this.rev && !this.buffer.has(cs.rev)) this.buffer.set(cs.rev, { kind: 'remote', changeset: cs, history: true })
+        if (cs.rev > this.rev && !this.buffer.has(cs.rev)) this.buffer.set(cs.rev, { kind: 'remote', changeset: cs })
       }
     } catch (error) {
       if (!this.disposed) this.hooks.onReadError?.(error)
@@ -279,6 +286,42 @@ export class TableSync {
       this.fetchingGap = false
     }
     this.forward()
+  }
+
+  /** Sets the comment count of the record told by the server, the comments are not part of the changesets. */
+  setCommentCount(recordUID: string, count: number) {
+    this.commentUpdates.set(recordUID, { stamp: ++this.commentStamp, count })
+    const records = this.records.value
+    const i = records.findIndex((r) => r.uid === recordUID)
+    if (i < 0 || (records[i]!.commentCount ?? 0) === count) return
+    const next = [...records]
+    next[i] = { ...records[i]!, commentCount: count || undefined }
+    this.records.value = next
+  }
+
+  private retainCommentCounts(records: SLRecord[], stamp: number) {
+    if (stamp === this.commentStamp) return records
+    return records.map((record) => {
+      const update = this.commentUpdates.get(record.uid)
+      if (!update || update.stamp <= stamp || update.count === (record.commentCount ?? 0)) return record
+      return { ...record, commentCount: update.count || undefined }
+    })
+  }
+
+  /** Reads again all the comment counts keyed by record UID, keeping the counts told by the server during the read and ignoring the superseded reads. */
+  async reloadCommentCounts(read: () => Promise<Record<string, number>>) {
+    const seq = ++this.commentCountsSeq
+    const stamp = this.commentStamp
+    const counts = await read()
+    if (this.disposed || seq !== this.commentCountsSeq) return
+    let changed = false
+    const next = this.records.value.map((r) => {
+      const count = counts[r.uid] ?? 0
+      if ((this.commentUpdates.get(r.uid)?.stamp ?? 0) > stamp || (r.commentCount ?? 0) === count) return r
+      changed = true
+      return { ...r, commentCount: count || undefined }
+    })
+    if (changed) this.records.value = next
   }
 
   /** The server changed the data: reloads it by the dirty scope and replays the unacknowledged local operations. */
@@ -304,7 +347,8 @@ export class TableSync {
   }
 
   private async fetchDirty(scope: DirtyScope) {
-    const [fields, views, records] = await Promise.all([
+    const stamp = this.commentStamp
+    const [fields, views, fetchedRecords] = await Promise.all([
       scope.fields ? this.api.fields(this.projectUID, this.tableUID) : null,
       scope.views ? this.api.views(this.projectUID, this.tableUID) : null,
       scope.allRecords
@@ -315,6 +359,7 @@ export class TableSync {
     ])
     if (this.disposed) return
 
+    const records = fetchedRecords && this.retainCommentCounts(fetchedRecords, stamp)
     let nextRecords = this.records.value
     if (records && scope.allRecords) {
       nextRecords = records

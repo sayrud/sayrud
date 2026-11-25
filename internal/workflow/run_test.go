@@ -46,7 +46,7 @@ func newTestDB(t *testing.T) *gorm.DB {
 		}
 	})
 	require.NoError(t, gormDB.AutoMigrate(
-		&db.Setting{}, &db.Project{}, &db.SLTable{}, &db.SLField{}, &db.SLRecord{}, &db.SLChangeset{}, &db.SLShortcutJob{},
+		&db.Setting{}, &db.User{}, &db.Project{}, &db.ProjectMember{}, &db.SLTable{}, &db.SLField{}, &db.SLRecord{}, &db.SLRecordChange{}, &db.SLRecordComment{}, &db.SLChangeset{}, &db.SLShortcutJob{},
 		&db.Workflow{}, &db.WorkflowRevision{}, &db.WorkflowRun{}, &db.WorkflowJob{}, &db.WorkflowKey{}, &db.Credential{}, &db.WorkflowPlugin{},
 	))
 	db.SetDatabaseStore(gormDB)

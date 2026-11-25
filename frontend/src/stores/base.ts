@@ -1,9 +1,10 @@
-import { Message, Modal } from '@arco-design/web-vue'
+import { Button, Message, Modal, Notification } from '@arco-design/web-vue'
 import { defineStore } from 'pinia'
-import { computed, reactive, ref, shallowRef, watch } from 'vue'
+import { computed, h, reactive, ref, shallowRef, watch } from 'vue'
 
 import { createSyncApi, importsApi, membersApi, projectsApi, syncApi, tablesApi, type ImportState } from '@/api/bitable'
 import { ApiError } from '@/api/client'
+import { commentsApi, type MentionedMessage } from '@/api/comments'
 import { sharesApi } from '@/api/share'
 import {
   shortcutsApi,
@@ -34,7 +35,8 @@ import type {
   ViewConfig,
   ViewType,
 } from '@/types/bitable'
-import { addResolved, directory, resetDirectory, setMembers, unresolvedIds } from '@/utils/directory'
+import { mentionedIds, plainText, type CommentChange } from '@/utils/comments'
+import { addResolved, directory, resetDirectory, setMembers, unresolvedIds, userName, workflowName } from '@/utils/directory'
 import { TableContext } from '@/utils/engine'
 import { defaultMetadata, isKanbanGroupField, isReadOnlyField } from '@/utils/fieldTypes'
 import { defaultValueOf, isEmptyValue } from '@/utils/format'
@@ -153,6 +155,8 @@ export const useBaseStore = defineStore('base', () => {
   const redoStack = ref<HistoryEntry[]>([])
 
   const expandedRecord = ref<{ uid: string; list: string[] } | null>(null)
+  /** A record to open in another table, the page switches to the table and the record is expanded once the table is loaded. */
+  const recordRequest = ref<{ tableUID: string; recordUID: string } | null>(null)
   const fieldEditor = ref<FieldEditorState | null>(null)
   /** Records checked by the checkboxes in the grid view. */
   const selectedRecords = ref<string[]>([])
@@ -289,12 +293,18 @@ export const useBaseStore = defineStore('base', () => {
   const resolvingWorkflows = new Set<number>()
   /** Resolves the users and workflows of the current records unknown to the directory. */
   async function resolveDirectory() {
+    const ids = unresolvedIds(fields.value, records.value)
+    await resolveWriters(ids.userIds, ids.workflowIds)
+  }
+
+  /** Resolves the users and workflows unknown to the directory, e.g. the authors of the comments and the writers of the history. */
+  async function resolveWriters(users: number[], workflows: number[]) {
     const sync = activeSync.value
     if (!project.value || !sync) return
     const projectUID = pid()
-    const ids = unresolvedIds(fields.value, records.value)
-    const userIds = ids.userIds.filter((id) => !resolvingUsers.has(id)).slice(0, 1000)
-    const workflowIds = ids.workflowIds.filter((id) => !resolvingWorkflows.has(id)).slice(0, 1000)
+    const s = directory.value
+    const userIds = [...new Set(users)].filter((id) => id > 0 && !s.users.has(id) && !s.missingUsers.has(id) && !resolvingUsers.has(id)).slice(0, 1000)
+    const workflowIds = [...new Set(workflows)].filter((id) => id > 0 && !s.workflows.has(id) && !s.missingWorkflows.has(id) && !resolvingWorkflows.has(id)).slice(0, 1000)
     if (!userIds.length && !workflowIds.length) return
     userIds.forEach((id) => resolvingUsers.add(id))
     workflowIds.forEach((id) => resolvingWorkflows.add(id))
@@ -313,6 +323,68 @@ export const useBaseStore = defineStore('base', () => {
     clearTimeout(resolveTimer)
     resolveTimer = setTimeout(() => void resolveDirectory(), 50)
   })
+
+  // ---- Comments ----
+
+  const commentListeners = new Set<(change: CommentChange) => void>()
+  /** Increases after reconnecting, the comments missed while offline are not replayed and the open ones are reloaded. */
+  const commentsVersion = ref(0)
+
+  /** Listens to the comment changes of the subscribed tables, it returns the function to stop. */
+  function onCommentChange(listener: (change: CommentChange) => void) {
+    commentListeners.add(listener)
+    return () => commentListeners.delete(listener)
+  }
+
+  function onCommentChanged(change: CommentChange) {
+    syncs.get(change.tableUID)?.setCommentCount(change.recordUID, change.commentCount)
+    for (const listener of commentListeners) listener(change)
+  }
+
+  /** Reads again the comment counts of the table after resubscribing, as the changes missed while offline are not replayed. */
+  async function reloadCommentCounts(tableUID: string) {
+    const sync = syncs.get(tableUID)
+    if (!sync || !project.value) return
+    const projectUID = pid()
+    try {
+      await sync.reloadCommentCounts(() => commentsApi.counts(projectUID, tableUID))
+    } catch {
+      // The counts are read again after the next reconnection.
+    }
+  }
+
+  /** Expands the record, switching to its table first if needed. */
+  function openRecord(tableUID: string, recordUID: string) {
+    if (tableUID === activeTableUID.value) {
+      recordRequest.value = null
+      expandRecord(recordUID, [recordUID])
+    } else recordRequest.value = { tableUID, recordUID }
+  }
+
+  /** Tells the user it is mentioned, before the inbox of the notifications exists. */
+  async function onMentioned(data: MentionedMessage) {
+    if (data.projectUID !== project.value?.uid) return
+    const author = data.author
+    await resolveWriters([author.userId ?? 0, ...mentionedIds(data.excerpt)], [author.workflowId ?? 0])
+    if (data.projectUID !== project.value?.uid) return
+    const name = author.workflowId ? workflowName(author.workflowId) || t('member.deletedWorkflow') : userName(author.userId ?? 0) || t('member.unknown')
+    const id = `mention-${data.commentId}`
+    Notification.info({
+      id,
+      title: t('comments.mentionedYou', { name }),
+      content: plainText(data.excerpt, userName),
+      closable: true,
+      duration: 8000,
+      footer: () => h(Button, {
+        type: 'primary',
+        size: 'mini',
+        onClick: () => {
+          Notification.remove(id)
+          if (data.projectUID === project.value?.uid) openRecord(data.tableUID, data.recordUID)
+        },
+      }, () => t('comments.view')),
+    })
+  }
 
   // ---- Projects / tables ----
 
@@ -357,6 +429,7 @@ export const useBaseStore = defineStore('base', () => {
     shortcutCatalog.value = []
     shortcutJobsVersion++
     shortcutJobs.value = new Map()
+    recordRequest.value = null
     imports.value = {}
     localViewConfigs.value = {}
     localConfigTipShown = false
@@ -418,6 +491,9 @@ export const useBaseStore = defineStore('base', () => {
       // Recover job notifications lost while an otherwise healthy socket stayed open.
       s.on('PONG', () => void loadShortcutJobs()),
       s.on<ShortcutJobsMessage>('SHORTCUT_JOBS', onShortcutJobs),
+      s.on<CommentChange>('COMMENT_CHANGED', onCommentChanged),
+      s.on<MentionedMessage>('MENTIONED', (data) => void onMentioned(data)),
+      s.on('open', () => commentsVersion.value++),
       s.on('TABLES_CHANGED', () => void refreshTables()),
       s.on('NAVIGATION_CHANGED', () => void refreshNavigation()),
       s.on('PROJECT_CHANGED', async () => {
@@ -522,7 +598,10 @@ export const useBaseStore = defineStore('base', () => {
         ...(token ? {
           readOnly: true,
           onReadError: onSharedReadError,
-        } : {}),
+        } : {
+          // The public shares never show comments.
+          onResubscribed: () => void reloadCommentCounts(tableUID),
+        }),
       }, token ? createSyncApi(token) : undefined)
       syncs.set(tableUID, sync)
       await sync.start()
@@ -590,6 +669,10 @@ export const useBaseStore = defineStore('base', () => {
       if (!isPublic.value) void loadShortcutJobs()
     }
     activeViewUID.value = views.value.find((v) => v.uid === viewUID)?.uid ?? views.value[0]?.uid ?? ''
+    if (recordRequest.value?.tableUID === tableUID) {
+      expandRecord(recordRequest.value.recordUID, [recordRequest.value.recordUID])
+      recordRequest.value = null
+    }
   }
 
   function addFieldAction(field: CreateFieldInput, index?: number, uid = newFieldUID(), keepValues = false): Action {
@@ -1156,6 +1239,11 @@ export const useBaseStore = defineStore('base', () => {
     undoStack,
     redoStack,
     expandedRecord,
+    recordRequest,
+    openRecord,
+    onCommentChange,
+    commentsVersion,
+    resolveWriters,
     fieldEditor,
     selectedRecords,
     search,

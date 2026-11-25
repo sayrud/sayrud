@@ -303,6 +303,11 @@ var moduleImpls = map[string]moduleImpl{
 		exec:      (*execution).fetch,
 		preview:   (*execution).previewHTTP,
 	},
+	StepComment: {
+		newConfig: func() interface{} { return &CommentConfig{} },
+		exec:      (*execution).comment,
+		ownTx:     true,
+	},
 }
 
 // QueryConfig is the config of a query step.
@@ -355,6 +360,16 @@ type HTTPConfig struct {
 	Timeout int      `json:"timeout,omitempty"`
 }
 
+// CommentConfig is the config of a comment step, the comment is written by the workflow.
+type CommentConfig struct {
+	// TableUID is the table of the record.
+	TableUID string `json:"tableUID"`
+	// RecordUID is the record to comment on.
+	RecordUID *Value `json:"recordUID,omitempty"`
+	// Body is the Markdown text, mentions are written as <@userID>.
+	Body *Value `json:"body,omitempty"`
+}
+
 // configOf returns the typed config of the step, or the zero value on a type mismatch so a broken config can not panic.
 func configOf[T any](step *Step) *T {
 	if c, ok := step.Config.(*T); ok && c != nil {
@@ -400,6 +415,8 @@ func (s *Step) Table() string {
 	case *QueryConfig:
 		return c.TableUID
 	case *WriteConfig:
+		return c.TableUID
+	case *CommentConfig:
 		return c.TableUID
 	}
 	return ""

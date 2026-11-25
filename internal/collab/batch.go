@@ -19,11 +19,37 @@ import (
 
 // Batch is a transaction that writes records across multiple tables, created by Hub.Batch.
 type Batch struct {
-	ctx    context.Context
-	tx     *gorm.DB
+	// ctx is the context of the writes.
+	ctx context.Context
+	// tx is the transaction of the batch.
+	tx *gorm.DB
+	// hub notifies the changes after committing.
+	hub *Hub
+	// project is the project of the tables.
+	project *db.Project
+	// tables are the locked tables keyed by ID.
 	tables map[int64]*batchTable
-	// writer is the writer of the records, from BatchOptions.Origin.
+	// origin is BatchOptions.Origin.
+	origin Origin
+	// writer is the writer of the records and the author of the comments, from origin.
 	writer db.SLRecordWriter
+	// comments are the comments created, notified after committing.
+	comments []*commentNotice
+	// queued reports whether the comments enqueued workflow runs.
+	queued bool
+}
+
+// newBatch returns the batch of the transaction writing by origin, the tables are added after they are locked.
+func newBatch(ctx context.Context, tx *gorm.DB, hub *Hub, project *db.Project, origin Origin) *Batch {
+	return &Batch{
+		ctx:     ctx,
+		tx:      tx,
+		hub:     hub,
+		project: project,
+		tables:  map[int64]*batchTable{},
+		origin:  origin,
+		writer:  origin.Writer(),
+	}
 }
 
 type batchTable struct {
@@ -52,9 +78,10 @@ func (h *Hub) Batch(ctx context.Context, project *db.Project, tables []*db.SLTab
 
 	var changesets []*Changeset
 	var touched []*batchTable
+	var comments []*commentNotice
 	queued := false
 	err := h.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		b := &Batch{ctx: ctx, tx: tx, tables: make(map[int64]*batchTable, len(tables)), writer: opts.Origin.Writer()}
+		b := newBatch(ctx, tx, h, project, opts.Origin)
 		for _, table := range tables {
 			if err := dbutil.LockTable(ctx, tx, table.ID); err != nil {
 				return errors.Wrapf(err, "lock table %d", table.ID)
@@ -68,6 +95,7 @@ func (h *Hub) Batch(ctx context.Context, project *db.Project, tables []*db.SLTab
 		if opts.DryRun {
 			return errDryRun
 		}
+		comments, queued = b.comments, b.queued
 
 		for _, table := range tables {
 			bt := b.tables[table.ID]
@@ -80,7 +108,7 @@ func (h *Hub) Batch(ctx context.Context, project *db.Project, tables []*db.SLTab
 				continue
 			}
 			dirty := bt.dirty
-			changeset, err := appendChangeset(ctx, tx, table, "", "", []Operation{{
+			changeset, err := appendChangeset(ctx, tx, table, "", "", b.writer, []Operation{{
 				Command: "Refresh", Actions: []Action{{Action: ActionDirty, Dirty: &dirty}},
 			}})
 			if err != nil {
@@ -103,6 +131,9 @@ func (h *Hub) Batch(ctx context.Context, project *db.Project, tables []*db.SLTab
 		h.broadcastChangeset(project, changeset, nil)
 		h.NotifyChange(ctx, project, bt.table, &bt.change)
 		h.notifyOptionReferences(ctx, project, bt.table, changeset.Operations)
+	}
+	for _, notice := range comments {
+		h.notifyComment(notice)
 	}
 	h.runsQueued(queued)
 	return nil

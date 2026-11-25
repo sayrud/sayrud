@@ -181,6 +181,10 @@ watch(
   },
   { immediate: true },
 )
+// Opening a record of another table, e.g. from a mention, switches the page to its table first.
+watch(() => store.recordRequest, (request) => {
+  if (request && request.tableUID !== store.activeTableUID) router.push(pageLocation(request.tableUID))
+})
 watch(() => store.sharedAccessChanged, () => { if (publicPage.value) void sync(true) })
 watch(() => store.sharedAccessError, (error) => {
   if (!publicPage.value || !error) return

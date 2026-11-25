@@ -130,7 +130,11 @@ func TestRecordDeletedTrigger(t *testing.T) {
 		if err != nil {
 			return nil, err
 		}
-		return []collab.RecordEvent{{Kind: collab.RecordDeleted, Record: record}}, db.NewSLRecordsStore(tx).DeleteByID(context.Background(), record.ID)
+		events := []collab.RecordEvent{{
+			Kind:   collab.RecordDeleted,
+			Record: record,
+		}}
+		return events, db.NewSLRecordsStore(tx).DeleteByID(context.Background(), record.ID, db.NewSLRecordWriter(1, 0))
 	}, func() collab.DirtyScope { return collab.DirtyScope{Records: []string{uid}} }))
 	runs := f.runs(t, deleted)
 	require.Len(t, runs, 1)

@@ -47,6 +47,8 @@ func (o Origin) Writer() db.SLRecordWriter {
 type WorkflowHooks interface {
 	// RecordsChanged enqueues runs for the record changes in the write transaction and returns the number enqueued; returning an error rolls back the write.
 	RecordsChanged(ctx context.Context, tx *gorm.DB, project *db.Project, table *db.SLTable, origin Origin, events []RecordEvent) (int, error)
+	// CommentCreated enqueues runs for the comment in its write transaction and returns the number enqueued; returning an error rolls back the comment.
+	CommentCreated(ctx context.Context, tx *gorm.DB, project *db.Project, table *db.SLTable, origin Origin, event CommentEvent) (int, error)
 	// RunsQueued is called after a transaction that enqueued runs commits.
 	RunsQueued()
 }
@@ -85,7 +87,7 @@ func (h *Hub) runsQueued(queued bool) {
 // mutate writes the records with origin.Writer().
 func (h *Hub) MutateRecords(ctx context.Context, project *db.Project, table *db.SLTable, origin Origin, mutate func(tx *gorm.DB) ([]RecordEvent, error), scope func() DirtyScope) error {
 	queued := false
-	err := h.Mutate(ctx, project, table, func(tx *gorm.DB) error {
+	err := h.mutate(ctx, project, table, origin.Writer(), func(tx *gorm.DB) error {
 		events, err := mutate(tx)
 		if err != nil {
 			return err
