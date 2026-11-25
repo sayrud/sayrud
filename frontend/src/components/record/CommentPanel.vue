@@ -8,7 +8,16 @@ import CommentComposer from '@/components/record/CommentComposer.vue'
 import CommentItem from '@/components/record/CommentItem.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useBaseStore } from '@/stores/base'
-import { applyCommentChange, commentDrafts, mentionedIds, toBody, toEditorText, type CommentDraft, type EditorMention } from '@/utils/comments'
+import {
+  applyCommentChange,
+  commentDrafts,
+  mentionedIds,
+  toBody,
+  toEditorText,
+  trackMentions,
+  type CommentChange,
+  type CommentDraft,
+} from '@/utils/comments'
 import { userName, workflowName } from '@/utils/directory'
 
 /** The same as collab.MaxCommentLength of the backend. */
@@ -32,6 +41,8 @@ const draft = reactive<CommentDraft>({ text: '', mentions: [] })
 const editing = ref<RecordComment>()
 let stashed: CommentDraft | undefined
 let loadSeq = 0
+/** The comment changes of the record received while the list is read, replayed in order on the list as it may be older. */
+let replay: Pick<CommentChange, 'action' | 'comment'>[] | undefined
 
 const ids = () => [store.project!.uid, store.activeTableUID] as const
 
@@ -52,17 +63,27 @@ function resolveNames(list: RecordComment[]) {
 async function load(recordUID: string) {
   const seq = ++loadSeq
   loading.value = true
+  replay = []
   try {
     const page = await commentsApi.list(...ids(), recordUID)
     if (seq !== loadSeq) return
-    roots.value = [...page.comments].reverse()
+    roots.value = replay.reduce((list, change) => applyCommentChange(list, change.action, change.comment), [...page.comments].reverse())
     nextCursor.value = page.nextCursor
     resolveNames(roots.value)
   } catch (e) {
     if (seq === loadSeq) Message.error(e instanceof Error ? e.message : String(e))
   } finally {
-    if (seq === loadSeq) loading.value = false
+    if (seq === loadSeq) {
+      loading.value = false
+      replay = undefined
+    }
   }
+}
+
+/** Applies a change of the comments of the record, kept for replaying if the list is being read. */
+function applyChange(action: CommentChange['action'], comment: RecordComment) {
+  roots.value = applyCommentChange(roots.value, action, comment)
+  replay?.push({ action, comment })
 }
 
 async function loadEarlier() {
@@ -120,7 +141,7 @@ watch(() => store.commentsVersion, () => void load(props.recordUid))
 
 const stopListening = store.onCommentChange((change) => {
   if (change.recordUID !== props.recordUid) return
-  roots.value = applyCommentChange(roots.value, change.action, change.comment)
+  applyChange(change.action, change.comment)
   resolveNames([change.comment])
 })
 onBeforeUnmount(stopListening)
@@ -128,18 +149,16 @@ onBeforeUnmount(stopListening)
 const isOwn = (c: RecordComment) => !c.author.workflowId && !!auth.user && c.author.userId === auth.user.id
 const canDelete = (c: RecordComment) => isOwn(c) || store.canManage
 
-function addMention(m: EditorMention) {
-  if (!draft.mentions.some((x) => x.id === m.id)) draft.mentions.push(m)
-}
-
 function startReply(c: RecordComment) {
   if (editing.value) cancel()
   draft.replyTo = c
   // The reply mentions the author replied to by default.
-  const name = !c.author.workflowId && c.author.userId !== auth.user?.id ? userName(c.author.userId ?? 0) : ''
-  if (name && !draft.text.includes(`@${name}`)) {
-    draft.text = `@${name} ${draft.text}`
-    addMention({ id: c.author.userId!, name })
+  const id = c.author.userId ?? 0
+  const name = !c.author.workflowId && id !== auth.user?.id ? userName(id) : ''
+  if (name && !draft.mentions.some((m) => m.id === id)) {
+    const edited = trackMentions(draft.text, `@${name} ${draft.text}`, draft.mentions, { id, name, inserted: name })
+    draft.text = edited.text
+    draft.mentions = edited.mentions
   }
   composer.value?.focus()
 }
@@ -169,13 +188,13 @@ async function submit() {
     if (editing.value) {
       const updated = await commentsApi.update(...ids(), recordUID, editing.value.id, body)
       if (recordUID !== props.recordUid) return
-      roots.value = applyCommentChange(roots.value, 'updated', updated)
+      applyChange('updated', updated)
       cancel()
       return
     }
     const created = await commentsApi.create(...ids(), recordUID, body, draft.replyTo?.id)
     if (recordUID !== props.recordUid) return
-    roots.value = applyCommentChange(roots.value, 'created', created)
+    applyChange('created', created)
     setDraft({ text: '', mentions: [] })
     commentDrafts.delete(recordUID)
     if (!created.rootId) {
@@ -194,7 +213,7 @@ async function remove(c: RecordComment) {
   try {
     await commentsApi.remove(...ids(), recordUID, c.id)
     if (recordUID !== props.recordUid) return
-    roots.value = applyCommentChange(roots.value, 'deleted', { ...c, body: '', mentions: [], deleted: true })
+    applyChange('deleted', { ...c, body: '', mentions: [], deleted: true })
     if (editing.value?.id === c.id) cancel()
     if (draft.replyTo?.id === c.id) draft.replyTo = undefined
   } catch (e) {
@@ -250,11 +269,11 @@ function replyToName(root: RecordComment, reply: RecordComment) {
     <CommentComposer
       ref="composer"
       v-model:text="draft.text"
+      v-model:mentions="draft.mentions"
       :reply-to-name="draft.replyTo ? authorName(draft.replyTo) : ''"
       :editing="!!editing"
       :sending="sending"
       :max-length="MAX_COMMENT_LENGTH"
-      @mention="addMention"
       @submit="submit"
       @cancel="cancel"
     />

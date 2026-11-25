@@ -6218,6 +6218,61 @@ const docTemplate = `{
                 }
             }
         },
+        "/projects/{projectUID}/tables/{tableUID}/comment-counts": {
+            "get": {
+                "description": "Return the comment counts of the records with comments in the table, e.g. to catch up after the WebSocket reconnects.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Record comments"
+                ],
+                "summary": "List the comment counts of the records",
+                "operationId": "listRecordCommentCounts",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Project UID",
+                        "name": "projectUID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Table UID",
+                        "name": "tableUID",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/RecordCommentCountsResp"
+                        }
+                    },
+                    "403": {
+                        "description": "Permission denied",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "404": {
+                        "description": "Project or table not found",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
         "/projects/{projectUID}/tables/{tableUID}/fields": {
             "get": {
                 "description": "List all the fields of the table, ordered by position.",
@@ -13542,6 +13597,22 @@ const docTemplate = `{
                 "rootId": {
                     "description": "RootID is the root comment of a reply, 0 for the roots.",
                     "type": "integer"
+                }
+            }
+        },
+        "RecordCommentCountsResp": {
+            "type": "object",
+            "required": [
+                "counts"
+            ],
+            "properties": {
+                "counts": {
+                    "description": "Counts are the comment counts keyed by record UID, the records without comments are omitted.",
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "integer",
+                        "format": "int64"
+                    }
                 }
             }
         },

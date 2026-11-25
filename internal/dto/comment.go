@@ -17,6 +17,12 @@ type ListRecordCommentsResp struct {
 	NextCursor int64 `json:"nextCursor"`
 } // @name ListRecordCommentsResp
 
+// RecordCommentCountsResp is the comment counts of the records of a table.
+type RecordCommentCountsResp struct {
+	// Counts are the comment counts keyed by record UID, the records without comments are omitted.
+	Counts map[string]int64 `json:"counts"`
+} // @name RecordCommentCountsResp
+
 // RecordFieldChange is the change of a field value.
 type RecordFieldChange struct {
 	// FieldUID is the field changed.

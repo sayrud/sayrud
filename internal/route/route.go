@@ -341,6 +341,7 @@ func New(opts Options) *flamego.Flame {
 							Delete(canEdit, api.Schemaless.DeleteTable)
 						f.Get("/snapshot", api.Collab.GetSnapshot)
 						f.Get("/changesets", api.Collab.ListChangesets)
+						f.Get("/comment-counts", api.Schemaless.ListCommentCounts)
 						f.Get("/views", api.Collab.ListViews)
 						f.Get("/shortcut-jobs", api.Shortcut.ListJobs)
 						f.Post("/shortcuts/preview", canEdit, form.Bind(form.PreviewFieldShortcut{}), api.Shortcut.Preview)

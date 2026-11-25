@@ -329,6 +329,9 @@ func (h *Hub) UpdateComment(ctx context.Context, project *db.Project, table *db.
 			return err
 		}
 		if err := comments.Update(ctx, commentID, body, mentions); err != nil {
+			if errors.Is(err, db.ErrSLRecordCommentNotFound) {
+				return ErrCommentDeleted
+			}
 			return err
 		}
 		comment, err := comments.GetByID(ctx, commentID)

@@ -1179,6 +1179,11 @@ export interface RecordComment {
   rootId?: number;
 }
 
+export interface RecordCommentCountsResp {
+  /** Counts are the comment counts keyed by record UID, the records without comments are omitted. */
+  counts: Record<string, number>;
+}
+
 export interface RecordFieldChange {
   /** FieldLabel is the label of the field when written. */
   fieldLabel: string;
@@ -2763,6 +2768,8 @@ export type UpdateTableData = any;
 export type DeleteTableData = any;
 
 export type ListChangesetsData = ListChangesetsResp;
+
+export type ListRecordCommentCountsData = RecordCommentCountsResp;
 
 export type ListFieldsData = SLField[];
 
@@ -5593,6 +5600,28 @@ export class Api<
         path: `/projects/${projectUid}/tables/${tableUid}/changesets`,
         method: "GET",
         query: query,
+        secure: true,
+        format: "json",
+        ...params,
+      }),
+
+    /**
+     * @description Return the comment counts of the records with comments in the table, e.g. to catch up after the WebSocket reconnects.
+     *
+     * @tags Record comments
+     * @name ListRecordCommentCounts
+     * @summary List the comment counts of the records
+     * @request GET:/projects/{projectUID}/tables/{tableUID}/comment-counts
+     * @secure
+     */
+    listRecordCommentCounts: (
+      projectUid: string,
+      tableUid: string,
+      params: RequestParams = {},
+    ) =>
+      this.request<ListRecordCommentCountsData, string>({
+        path: `/projects/${projectUid}/tables/${tableUid}/comment-counts`,
+        method: "GET",
         secure: true,
         format: "json",
         ...params,

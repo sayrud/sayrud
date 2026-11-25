@@ -189,6 +189,13 @@ func TestRecordComments(t *testing.T) {
 	assert.NotNil(t, got.EditedAt)
 	assert.Equal(t, mentions, []CommentMention(got.Mentions))
 	assert.True(t, got.Mentions[0].IsBot)
+	assert.ErrorIs(t, comments.Update(ctx, first.ID, "late", nil), ErrSLRecordCommentNotFound, "a deleted comment is not edited")
+
+	_, err = records.Create(ctx, 1, json.RawMessage(`{}`), SLRecordWriter{UserID: 1})
+	require.NoError(t, err)
+	counts, err := records.CommentCounts(ctx, 1)
+	require.NoError(t, err)
+	assert.Equal(t, map[string]int64{record.UID: 1}, counts, "the records without comments are omitted")
 
 	latest, err := comments.LatestByTable(ctx, 1)
 	require.NoError(t, err)

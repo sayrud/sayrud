@@ -70,6 +70,8 @@ type SLRecordsStore interface {
 	WriterUserIDs(ctx context.Context, projectID int64, userIDs []int64) ([]int64, error)
 	// ReferencedMemberIDs returns only the requested users and workflows referenced by live member cells or writers of the table.
 	ReferencedMemberIDs(ctx context.Context, slTableID int64, userIDs, workflowIDs []int64) ([]int64, []int64, error)
+	// CommentCounts returns the comment counts of the live records of the table keyed by UID, the records without comments are omitted.
+	CommentCounts(ctx context.Context, slTableID int64) (map[string]int64, error)
 }
 
 func NewSLRecordsStore(db *gorm.DB) SLRecordsStore {
@@ -923,6 +925,22 @@ func (db *slRecords) ReferencedMemberIDs(ctx context.Context, slTableID int64, u
 		}
 	}
 	return users, workflows, nil
+}
+
+func (db *slRecords) CommentCounts(ctx context.Context, slTableID int64) (map[string]int64, error) {
+	var rows []struct {
+		UID          string
+		CommentCount int64
+	}
+	if err := db.WithContext(ctx).Model(&SLRecord{}).Select("uid", "comment_count").
+		Where("sl_table_id = ? AND comment_count > 0", slTableID).Scan(&rows).Error; err != nil {
+		return nil, errors.Wrap(err, "scan")
+	}
+	counts := make(map[string]int64, len(rows))
+	for _, row := range rows {
+		counts[row.UID] = row.CommentCount
+	}
+	return counts, nil
 }
 
 // updateWithChangesSQL updates the live record and inserts a change for each field whose value differs by JSON semantics,

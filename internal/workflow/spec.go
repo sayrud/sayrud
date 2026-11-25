@@ -438,12 +438,12 @@ func (s *Spec) AllSteps(fn func(step *Step)) {
 	}
 }
 
-// WriteTables returns the UIDs of the tables the main flow writes to.
+// WriteTables returns the UIDs of the tables the main flow writes records or comments to, they are locked in ID order before the flow runs.
 func (s *Spec) WriteTables() []string {
 	var uids []string
 	seen := map[string]bool{}
 	WalkSteps(s.Steps, func(step *Step) {
-		if uid := step.Table(); (step.Type == StepCreate || step.Type == StepUpdate) && uid != "" && !seen[uid] {
+		if uid := step.Table(); (step.Type == StepCreate || step.Type == StepUpdate || step.Type == StepComment) && uid != "" && !seen[uid] {
 			seen[uid] = true
 			uids = append(uids, uid)
 		}

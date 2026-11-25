@@ -4,10 +4,11 @@ import { computed, nextTick, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import UserAvatar from '@/components/common/UserAvatar.vue'
-import type { EditorMention } from '@/utils/comments'
+import { trackMentions, type ChosenMember, type EditorMention } from '@/utils/comments'
 import { directory } from '@/utils/directory'
 
 const text = defineModel<string>('text', { required: true })
+const mentions = defineModel<EditorMention[]>('mentions', { required: true })
 const props = defineProps<{
   /** Name of the author replied to, or empty for a root comment. */
   replyToName?: string
@@ -16,7 +17,7 @@ const props = defineProps<{
   /** Characters allowed in a comment, the same as collab.MaxCommentLength of the backend. */
   maxLength: number
 }>()
-const emit = defineEmits<{ submit: []; cancel: []; mention: [mention: EditorMention] }>()
+const emit = defineEmits<{ submit: []; cancel: [] }>()
 const { t } = useI18n()
 
 const mentionRef = ref<{ focus?: () => void; $el?: HTMLElement }>()
@@ -27,13 +28,24 @@ const candidates = computed(() => {
   const k = keyword.value.trim().toLowerCase()
   return directory.value.members.filter((u) => !k || u.userName.toLowerCase().includes(k) || u.email.toLowerCase().includes(k)).slice(0, 20)
 })
-const options = computed(() => candidates.value.map((u) => ({ value: u.userName, label: u.userName })))
+/** The option values are the user IDs to tell apart the members of the same name, onInput replaces the inserted ID with the name. */
+const options = computed(() => candidates.value.map((u) => ({ value: String(u.id), label: u.userName })))
 const length = computed(() => [...text.value].length)
 const canSend = computed(() => !!text.value.trim() && length.value <= props.maxLength && !props.sending)
 
+/** The member chosen from the candidates, whose name is inserted by the next input. */
+let chosen: ChosenMember | undefined
+
 function onSelect(value: unknown) {
-  const user = candidates.value.find((u) => u.userName === value) ?? directory.value.members.find((u) => u.userName === value)
-  if (user) emit('mention', { id: user.id, name: user.userName })
+  const user = directory.value.members.find((u) => String(u.id) === value)
+  chosen = user && { id: user.id, name: user.userName, inserted: String(value) }
+}
+
+function onInput(next: string) {
+  const edited = trackMentions(text.value, next, mentions.value, chosen)
+  chosen = undefined
+  mentions.value = edited.mentions
+  text.value = edited.text
 }
 
 function onKeydown(e: KeyboardEvent) {
@@ -69,7 +81,7 @@ defineExpose({ focus })
     </div>
     <a-mention
       ref="mentionRef"
-      v-model="text"
+      :model-value="text"
       type="textarea"
       :data="options"
       :auto-size="{ minRows: 2, maxRows: 8 }"
@@ -77,11 +89,12 @@ defineExpose({ focus })
       class="input"
       @search="(text: string) => (keyword = text)"
       @select="onSelect"
+      @update:model-value="onInput"
       @keydown="onKeydown"
     >
       <template #option="{ data }">
         <span class="option">
-          <template v-for="u in candidates.filter((c) => c.userName === data.value).slice(0, 1)" :key="u.id">
+          <template v-for="u in candidates.filter((c) => String(c.id) === data.value)" :key="u.id">
             <UserAvatar :name="u.userName" :color="u.color" :avatar-url="u.avatarUrl" :bot="!!u.isBot" :size="20" />
             <span class="ellipsis">{{ u.userName }}</span>
             <span class="email ellipsis">{{ u.isBot ? t('member.bot') : u.email }}</span>

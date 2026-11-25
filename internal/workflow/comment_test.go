@@ -77,6 +77,7 @@ func TestCommentTriggerAndStep(t *testing.T) {
 	issues, err := Check(ctx, f.db, f.project, ackSpec)
 	require.NoError(t, err)
 	require.Empty(t, issues)
+	assert.Equal(t, []string{f.table.UID}, ackSpec.WriteTables(), "a synchronous flow locks the tables it comments on")
 	ack := f.publish(t, "Acknowledge", ackSpec)
 	addressed := f.publish(t, "Addressed", f.commentSpec(&CommentTrigger{MentionedBotID: bot.ID}, f.queryStep()))
 	anyAuthor := f.publish(t, "Any", f.commentSpec(nil, f.queryStep()))

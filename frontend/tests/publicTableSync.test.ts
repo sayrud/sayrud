@@ -293,6 +293,29 @@ test('heartbeat detects a missing final notification without a later change or r
   sync.dispose()
 })
 
+test('the comment counts are read again after resubscribing without overwriting the counts told meanwhile', async () => {
+  const socket = socketFixture()
+  const source = sourceFixture()
+  let resubscribed = 0
+  const sync = new Sync(socket.socket, 'project', 'table', { readOnly: true, onResubscribed: () => resubscribed++ }, source.api)
+  await sync.start()
+  assert.equal(resubscribed, 0, 'the snapshot carries the counts of the first subscription')
+  socket.emit('close')
+  socket.emit('open')
+  await settle()
+  assert.equal(resubscribed, 1)
+
+  let resolveCounts: (counts: Record<string, number>) => void = () => {}
+  const reading = sync.reloadCommentCounts(() => new Promise((resolve) => { resolveCounts = resolve }))
+  sync.setCommentCount('record', 5)
+  resolveCounts({ record: 2 })
+  await reading
+  assert.equal(sync.records.value[0]!.commentCount, 5, 'a count told during the read is newer')
+  await sync.reloadCommentCounts(async () => ({}))
+  assert.equal(sync.records.value[0]!.commentCount, undefined, 'the records absent from the counts have no comments')
+  sync.dispose()
+})
+
 test('both the live and the missed changesets carry the writer', async () => {
   const socket = socketFixture()
   const source = sourceFixture()

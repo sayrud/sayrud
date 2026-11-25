@@ -113,6 +113,28 @@ func (schemalessRoute) ListComments(ctx context.Context, record *db.SLRecord) er
 	return ctx.ApiSuccess(resp)
 }
 
+// ListCommentCounts
+// @Summary List the comment counts of the records
+// @Tags Record comments
+// @Description Return the comment counts of the records with comments in the table, e.g. to catch up after the WebSocket reconnects.
+// @Produce json
+// @Param projectUID path string true "Project UID"
+// @Param tableUID path string true "Table UID"
+// @Success 200 {object} dto.RecordCommentCountsResp
+// @Failure 403 {string} string "Permission denied"
+// @Failure 404 {string} string "Project or table not found"
+// @Failure 500 {string} string "Internal server error"
+// @ID listRecordCommentCounts
+// @Router /projects/{projectUID}/tables/{tableUID}/comment-counts [get]
+func (schemalessRoute) ListCommentCounts(ctx context.Context, table *db.SLTable) error {
+	counts, err := db.SLRecords.CommentCounts(ctx.Request().Context(), table.ID)
+	if err != nil {
+		logrus.WithContext(ctx.Request().Context()).WithError(err).Error("Failed to list comment counts")
+		return ctx.ApiServerError()
+	}
+	return ctx.ApiSuccess(dto.RecordCommentCountsResp{Counts: counts})
+}
+
 // CreateComment
 // @Summary Comment on a record
 // @Tags Record comments

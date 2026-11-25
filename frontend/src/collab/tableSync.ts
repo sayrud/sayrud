@@ -43,6 +43,8 @@ export interface TableSyncHooks {
   /** Modifier of the records changed by the local operations, i.e. the signed-in user. */
   actor?: RecordWriter
   onReadError?: (error: unknown) => void
+  /** The subscription is restored after reconnecting, e.g. to read again the data out of the changesets. */
+  onResubscribed?: () => void
 }
 
 /**
@@ -66,7 +68,11 @@ export class TableSync {
   private rev = 0
   private loaded = false
   private subscribed = false
+  private everSubscribed = false
   private subscribedRev = 0
+  /** Increases with each comment count told by the server, so an older read of the counts does not overwrite it. */
+  private commentStamp = 0
+  private readonly commentStamps = new Map<string, number>()
   private disposed = false
   private inflight: Inflight | null = null
   private queue: Operation[] = []
@@ -163,8 +169,11 @@ export class TableSync {
       return
     }
     if (this.disposed || reply.type !== 'SUBSCRIBED') return
+    const resumed = this.everSubscribed
     this.subscribed = true
+    this.everSubscribed = true
     this.subscribedRev = reply.data!.rev
+    if (resumed) this.hooks.onResubscribed?.()
     if (this.loaded && reply.data!.rev > this.rev) await this.fetchGap()
     // Resend the in-flight changeset with the original signature after reconnecting, the server deduplicates by signature.
     if (this.inflight) this.sendInflight()
@@ -277,12 +286,28 @@ export class TableSync {
 
   /** Sets the comment count of the record told by the server, the comments are not part of the changesets. */
   setCommentCount(recordUID: string, count: number) {
+    this.commentStamps.set(recordUID, ++this.commentStamp)
     const records = this.records.value
     const i = records.findIndex((r) => r.uid === recordUID)
     if (i < 0 || (records[i]!.commentCount ?? 0) === count) return
     const next = [...records]
     next[i] = { ...records[i]!, commentCount: count || undefined }
     this.records.value = next
+  }
+
+  /** Reads again all the comment counts keyed by record UID, keeping the counts told by the server during the read. */
+  async reloadCommentCounts(read: () => Promise<Record<string, number>>) {
+    const stamp = this.commentStamp
+    const counts = await read()
+    if (this.disposed) return
+    let changed = false
+    const next = this.records.value.map((r) => {
+      const count = counts[r.uid] ?? 0
+      if ((this.commentStamps.get(r.uid) ?? 0) > stamp || (r.commentCount ?? 0) === count) return r
+      changed = true
+      return { ...r, commentCount: count || undefined }
+    })
+    if (changed) this.records.value = next
   }
 
   /** The server changed the data: reloads it by the dirty scope and replays the unacknowledged local operations. */

@@ -3,10 +3,19 @@ import type { RecordComment } from '@/api/comments'
 /** Matches a mention `<@userID>` of a comment body, the same as collab.MentionPattern of the backend. */
 export const MENTION_PATTERN = /<@(\d{1,16})>/g
 
-/** A member chosen in the comment editor, written as `@name` and saved as `<@id>`. */
+/** A member chosen in the comment editor, written as `@name` and saved as `<@id>`; each one keeps its position so the members of the same name stay apart. */
 export interface EditorMention {
   id: number
   name: string
+  /** Offset of the at sign in the editor text. */
+  start: number
+}
+
+/** A member chosen from the candidates of the editor, the editor inserts `@` followed by inserted, which is replaced with its name. */
+export interface ChosenMember {
+  id: number
+  name: string
+  inserted: string
 }
 
 /** An unsent comment of a record. */
@@ -23,21 +32,65 @@ export const commentDrafts = new Map<string, CommentDraft>()
 /** Converts the mentions of a body to `@name` for editing, the unknown users keep the token. */
 export function toEditorText(body: string, nameOf: (id: number) => string): { text: string; mentions: EditorMention[] } {
   const mentions: EditorMention[] = []
-  const text = body.replace(MENTION_PATTERN, (token, raw: string) => {
-    const id = Number(raw)
+  let text = ''
+  let last = 0
+  for (const m of body.matchAll(MENTION_PATTERN)) {
+    text += body.slice(last, m.index)
+    last = m.index + m[0].length
+    const id = Number(m[1])
     const name = nameOf(id)
-    if (!name) return token
-    if (!mentions.some((m) => m.id === id)) mentions.push({ id, name })
-    return `@${name}`
-  })
-  return { text, mentions }
+    if (!name) {
+      text += m[0]
+      continue
+    }
+    mentions.push({ id, name, start: text.length })
+    text += `@${name}`
+  }
+  return { text: text + body.slice(last), mentions }
 }
 
-/** Converts the `@name` of the chosen members in the editor text to `<@id>`, the longer names first so a name is not taken as part of another. */
+/**
+ * Applies an edit of the editor text from prev to next and moves the mentions along, a mention touched by the edit is dropped as its text is no longer the name.
+ * chosen is the member whose mention is inserted by the edit.
+ */
+export function trackMentions(prev: string, next: string, mentions: EditorMention[], chosen?: ChosenMember): { text: string; mentions: EditorMention[] } {
+  const max = Math.min(prev.length, next.length)
+  let head = 0
+  while (head < max && prev[head] === next[head]) head++
+  let tail = 0
+  while (tail < max - head && prev[prev.length - 1 - tail] === next[next.length - 1 - tail]) tail++
+  const prevEnd = prev.length - tail
+  const delta = next.length - prev.length
+  let kept = mentions.flatMap((m) => {
+    if (m.start + m.name.length + 1 <= head) return [m]
+    if (m.start >= prevEnd) return [{ ...m, start: m.start + delta }]
+    return []
+  })
+  if (!chosen?.name || !chosen.inserted) return { text: next, mentions: kept }
+
+  const token = `@${chosen.inserted}`
+  const found: number[] = []
+  for (let i = next.indexOf(token, Math.max(0, head - token.length)); i >= 0 && i <= next.length - tail; i = next.indexOf(token, i + 1)) {
+    if (i + token.length >= head && !kept.some((m) => m.start === i)) found.push(i)
+  }
+  // Prefer the occurrence overlapping the edit to the one only ending where the edit starts.
+  const start = found.find((i) => i + token.length > head) ?? found[0]
+  if (start === undefined) return { text: next, mentions: kept }
+  const name = `@${chosen.name}`
+  kept = kept.map((m) => (m.start > start ? { ...m, start: m.start + name.length - token.length } : m))
+  kept.push({ id: chosen.id, name: chosen.name, start })
+  return {
+    text: next.slice(0, start) + name + next.slice(start + token.length),
+    mentions: kept.sort((a, b) => a.start - b.start),
+  }
+}
+
+/** Converts the `@name` of the chosen members in the editor text to `<@id>`, a mention whose text has changed stays as text. */
 export function toBody(text: string, mentions: EditorMention[]): string {
   let body = text
-  for (const m of [...mentions].sort((a, b) => b.name.length - a.name.length)) {
-    if (m.name) body = body.split(`@${m.name}`).join(`<@${m.id}>`)
+  for (const m of [...mentions].sort((a, b) => b.start - a.start)) {
+    const token = `@${m.name}`
+    if (m.name && body.startsWith(token, m.start)) body = body.slice(0, m.start) + `<@${m.id}>` + body.slice(m.start + token.length)
   }
   return body
 }

@@ -19,6 +19,9 @@ export const commentsApi = {
   remove: async (projectUID: string, tableUID: string, recordUID: string, commentID: number) => {
     await client.projects.deleteRecordComment(projectUID, tableUID, recordUID, commentID)
   },
+  /** Reads the comment counts of the records with comments keyed by record UID. */
+  counts: async (projectUID: string, tableUID: string) =>
+    (await client.projects.listRecordCommentCounts(projectUID, tableUID)).data.counts,
 }
 
 export const historyApi = {

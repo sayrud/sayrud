@@ -7,6 +7,7 @@ import (
 	"github.com/cockroachdb/errors"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 
 	"github.com/wuhan005/sayrud/internal/dbutil"
 )
@@ -32,6 +33,7 @@ type SLRecordCommentsStore interface {
 	// HasReplies reports whether the root comment has live replies.
 	HasReplies(ctx context.Context, rootID int64) (bool, error)
 	// Update replaces the body and the mentions of the live comment and records the edit time.
+	// It returns ErrSLRecordCommentNotFound if the comment has been deleted.
 	Update(ctx context.Context, id int64, body string, mentions []CommentMention) error
 	// Delete clears the content of the live comment and decreases the comment count of the record, it must run in a transaction.
 	Delete(ctx context.Context, comment *SLRecordComment) error
@@ -216,17 +218,27 @@ func (db *slRecordComments) Update(ctx context.Context, id int64, body string, m
 	if mentions == nil {
 		mentions = []CommentMention{}
 	}
-	if err := db.WithContext(ctx).Model(&SLRecordComment{}).Where("id = ? AND deleted_at IS NULL", id).Updates(map[string]interface{}{
+	result := db.WithContext(ctx).Model(&SLRecordComment{}).Where("id = ? AND deleted_at IS NULL", id).Updates(map[string]interface{}{
 		"body":      body,
 		"mentions":  datatypes.JSONSlice[CommentMention](mentions),
 		"edited_at": dbutil.Now(),
-	}).Error; err != nil {
-		return errors.Wrap(err, "update")
+	})
+	if result.Error != nil {
+		return errors.Wrap(result.Error, "update")
+	}
+	if result.RowsAffected == 0 {
+		return ErrSLRecordCommentNotFound
 	}
 	return nil
 }
 
 func (db *slRecordComments) Delete(ctx context.Context, comment *SLRecordComment) error {
+	// Locking the record row before the comment keeps the lock order of deleting the record, which marks the record deleted before deleting the comments.
+	var locked []int64
+	if err := db.WithContext(ctx).Model(&SLRecord{}).Clauses(clause.Locking{Strength: "UPDATE"}).
+		Where("id = ?", comment.SLRecordID).Pluck("id", &locked).Error; err != nil {
+		return errors.Wrap(err, "lock record")
+	}
 	result := db.WithContext(ctx).Model(&SLRecordComment{}).Where("id = ? AND deleted_at IS NULL", comment.ID).Updates(map[string]interface{}{
 		"body":       "",
 		"mentions":   datatypes.JSONSlice[CommentMention]{},

@@ -4,7 +4,7 @@ import { computed, h, reactive, ref, shallowRef, watch } from 'vue'
 
 import { createSyncApi, importsApi, membersApi, projectsApi, syncApi, tablesApi, type ImportState } from '@/api/bitable'
 import { ApiError } from '@/api/client'
-import type { MentionedMessage } from '@/api/comments'
+import { commentsApi, type MentionedMessage } from '@/api/comments'
 import { sharesApi } from '@/api/share'
 import {
   shortcutsApi,
@@ -341,6 +341,18 @@ export const useBaseStore = defineStore('base', () => {
     for (const listener of commentListeners) listener(change)
   }
 
+  /** Reads again the comment counts of the table after resubscribing, as the changes missed while offline are not replayed. */
+  async function reloadCommentCounts(tableUID: string) {
+    const sync = syncs.get(tableUID)
+    if (!sync || !project.value) return
+    const projectUID = pid()
+    try {
+      await sync.reloadCommentCounts(() => commentsApi.counts(projectUID, tableUID))
+    } catch {
+      // The counts are read again after the next reconnection.
+    }
+  }
+
   /** Expands the record, switching to its table first if needed. */
   function openRecord(tableUID: string, recordUID: string) {
     if (tableUID === activeTableUID.value) expandRecord(recordUID, [recordUID])
@@ -583,7 +595,10 @@ export const useBaseStore = defineStore('base', () => {
         ...(token ? {
           readOnly: true,
           onReadError: onSharedReadError,
-        } : {}),
+        } : {
+          // The public shares never show comments.
+          onResubscribed: () => void reloadCommentCounts(tableUID),
+        }),
       }, token ? createSyncApi(token) : undefined)
       syncs.set(tableUID, sync)
       await sync.start()
